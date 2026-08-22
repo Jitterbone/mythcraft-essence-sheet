@@ -8156,16 +8156,22 @@
    ============================================================ */
 .app.active-effect-sheet,
 .window-app.active-effect-sheet,
+.app.active-effect-config,
+.window-app.active-effect-config,
+.window-app[id*="active-effect"],
+.active-effect-sheet,
 .active-effect-config {
   background: #0f2a2b !important;
+  background-image: none !important;
   border: 1px solid #3a7a7f !important;
   border-radius: 8px !important;
   color: #fdfaf3 !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), 0 0 15px rgba(58, 122, 127, 0.4) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.85), 0 0 15px rgba(58, 122, 127, 0.5) !important;
 }
 
-.app.active-effect-sheet .window-header,
-.window-app.active-effect-sheet .window-header {
+.window-app.active-effect-sheet .window-header,
+.window-app.active-effect-config .window-header,
+.window-app[id*="active-effect"] .window-header {
   background: #174345 !important;
   border-bottom: 1px solid #3a7a7f !important;
   color: #FEEBB3 !important;
@@ -8173,40 +8179,66 @@
   font-weight: 700 !important;
 }
 
-.app.active-effect-sheet .window-header .window-title,
-.window-app.active-effect-sheet .window-header .window-title {
+.window-app.active-effect-sheet .window-header .window-title,
+.window-app.active-effect-config .window-header .window-title,
+.window-app[id*="active-effect"] .window-header .window-title {
   color: #FEEBB3 !important;
+  text-shadow: 0 0 6px rgba(254, 235, 179, 0.4) !important;
 }
 
-.app.active-effect-sheet .window-header a,
-.window-app.active-effect-sheet .window-header a {
+.window-app.active-effect-sheet .window-header a,
+.window-app.active-effect-config .window-header a,
+.window-app[id*="active-effect"] .window-header a {
   color: #9bd7e5 !important;
 }
 
-.app.active-effect-sheet .window-content,
 .window-app.active-effect-sheet .window-content,
-.active-effect-sheet form {
+.window-app.active-effect-config .window-content,
+.window-app[id*="active-effect"] .window-content,
+.window-app[id*="active-effect"] form,
+.window-app[id*="active-effect"] section.tab,
+.window-app[id*="active-effect"] div.tab,
+.window-app[id*="active-effect"] [data-tab],
+.active-effect-sheet .window-content,
+.active-effect-config .window-content,
+.active-effect-sheet form,
+.active-effect-config form,
+.active-effect-sheet section.tab,
+.active-effect-config section.tab,
+.active-effect-sheet [data-tab],
+.active-effect-config [data-tab] {
   background: #0f2a2b !important;
+  background-color: #0f2a2b !important;
+  background-image: none !important;
   color: #fdfaf3 !important;
   font-family: "Signika", sans-serif !important;
 }
 
 .active-effect-sheet .sheet-header,
-.active-effect-sheet header.sheet-header {
-  background: rgba(23, 67, 69, 0.5) !important;
+.active-effect-config .sheet-header,
+.active-effect-sheet header.sheet-header,
+.active-effect-config header.sheet-header,
+.window-app[id*="active-effect"] .sheet-header {
+  background: rgba(23, 67, 69, 0.7) !important;
+  background-color: rgba(23, 67, 69, 0.7) !important;
+  background-image: none !important;
   border-bottom: 1px solid #3a7a7f !important;
   padding: 10px !important;
   border-radius: 6px 6px 0 0 !important;
 }
 
-.active-effect-sheet .sheet-header img.profile {
+.active-effect-sheet .sheet-header img.profile,
+.active-effect-config .sheet-header img.profile,
+.window-app[id*="active-effect"] img.profile,
+.window-app[id*="active-effect"] img.effect-icon {
   border: 1px solid #3a7a7f !important;
   border-radius: 6px !important;
   background: #13383a !important;
 }
 
 .active-effect-sheet .sheet-header input[name="name"],
-.active-effect-sheet input[name="name"] {
+.active-effect-config .sheet-header input[name="name"],
+.window-app[id*="active-effect"] input[name="name"] {
   background: #13383a !important;
   border: 1px solid #3a7a7f !important;
   border-radius: 4px !important;
@@ -8217,60 +8249,106 @@
   padding: 6px 10px !important;
 }
 
-.active-effect-sheet .sheet-tabs.tabs {
+.active-effect-sheet .sheet-tabs.tabs,
+.active-effect-config .sheet-tabs.tabs,
+.window-app[id*="active-effect"] .sheet-tabs.tabs,
+.window-app[id*="active-effect"] nav.tabs {
   border-bottom: 1px solid #3a7a7f !important;
   background: #174345 !important;
+  padding: 4px !important;
+  gap: 4px !important;
 }
 
-.active-effect-sheet .sheet-tabs .item {
+.active-effect-sheet .sheet-tabs .item,
+.active-effect-config .sheet-tabs .item,
+.window-app[id*="active-effect"] .sheet-tabs .item,
+.window-app[id*="active-effect"] nav.tabs .item {
   color: #7a9fa4 !important;
   font-weight: 700 !important;
   padding: 6px 12px !important;
+  border-radius: 4px !important;
+  border: 1px solid transparent !important;
+  transition: all 0.2s ease !important;
 }
 
-.active-effect-sheet .sheet-tabs .item.active {
+.active-effect-sheet .sheet-tabs .item:hover,
+.active-effect-config .sheet-tabs .item:hover,
+.window-app[id*="active-effect"] nav.tabs .item:hover {
   color: #FEEBB3 !important;
+  background: rgba(58, 122, 127, 0.3) !important;
+}
+
+.active-effect-sheet .sheet-tabs .item.active,
+.active-effect-config .sheet-tabs .item.active,
+.window-app[id*="active-effect"] .sheet-tabs .item.active,
+.window-app[id*="active-effect"] nav.tabs .item.active {
+  color: #FEEBB3 !important;
+  background: #13383a !important;
+  border: 1px solid #3a7a7f !important;
   border-bottom: 2px solid #FEEBB3 !important;
   text-shadow: 0 0 6px rgba(254, 235, 179, 0.5) !important;
 }
 
 .active-effect-sheet .form-group label,
-.active-effect-sheet label {
+.active-effect-config .form-group label,
+.active-effect-sheet label,
+.active-effect-config label,
+.window-app[id*="active-effect"] label {
   color: #FEEBB3 !important;
   font-size: 12px !important;
-  font-weight: 600 !important;
+  font-weight: 700 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8) !important;
 }
 
 .active-effect-sheet .form-group .form-fields input,
 .active-effect-sheet .form-group .form-fields select,
 .active-effect-sheet .form-group .form-fields textarea,
-.active-effect-sheet input[type="text"],
-.active-effect-sheet input[type="number"],
-.active-effect-sheet select,
-.active-effect-sheet textarea {
+.active-effect-config .form-group .form-fields input,
+.active-effect-config .form-group .form-fields select,
+.active-effect-config .form-group .form-fields textarea,
+.window-app[id*="active-effect"] input[type="text"],
+.window-app[id*="active-effect"] input[type="number"],
+.window-app[id*="active-effect"] input[type="color"],
+.window-app[id*="active-effect"] select,
+.window-app[id*="active-effect"] textarea {
   background: #13383a !important;
   border: 1px solid #3a7a7f !important;
   border-radius: 4px !important;
   color: #fdfaf3 !important;
-  padding: 4px 8px !important;
+  padding: 5px 8px !important;
+  font-family: "Signika", sans-serif !important;
 }
 
 .active-effect-sheet .form-group .form-fields input:focus,
 .active-effect-sheet .form-group .form-fields select:focus,
-.active-effect-sheet input:focus,
-.active-effect-sheet select:focus {
+.active-effect-config .form-group .form-fields input:focus,
+.active-effect-config .form-group .form-fields select:focus,
+.window-app[id*="active-effect"] input:focus,
+.window-app[id*="active-effect"] select:focus,
+.window-app[id*="active-effect"] textarea:focus {
   border-color: #9bd7e5 !important;
-  box-shadow: 0 0 6px rgba(155, 215, 229, 0.4) !important;
+  background: #1a4a4d !important;
+  box-shadow: 0 0 8px rgba(155, 215, 229, 0.4) !important;
 }
 
 .active-effect-sheet .form-group .notes,
-.active-effect-sheet .notes {
-  color: #7a9fa4 !important;
+.active-effect-config .form-group .notes,
+.active-effect-sheet .notes,
+.active-effect-config .notes,
+.window-app[id*="active-effect"] .notes,
+.window-app[id*="active-effect"] .hint,
+.window-app[id*="active-effect"] p.notes {
+  color: #9bd7e5 !important;
   font-style: italic !important;
+  font-size: 11px !important;
 }
 
 .active-effect-sheet button[type="submit"],
-.active-effect-sheet button.submit-button {
+.active-effect-sheet button.submit-button,
+.active-effect-config button[type="submit"],
+.active-effect-config button.submit-button,
+.window-app[id*="active-effect"] button[type="submit"],
+.window-app[id*="active-effect"] footer button {
   background: linear-gradient(135deg, #174345 0%, #0f2a2b 100%) !important;
   border: 1px solid #3a7a7f !important;
   border-radius: 4px !important;
@@ -8283,13 +8361,37 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
   transition: all 0.2s ease !important;
   margin-top: 10px !important;
+  width: 100% !important;
 }
 
 .active-effect-sheet button[type="submit"]:hover,
-.active-effect-sheet button.submit-button:hover {
+.active-effect-sheet button.submit-button:hover,
+.active-effect-config button[type="submit"]:hover,
+.active-effect-config button.submit-button:hover,
+.window-app[id*="active-effect"] button[type="submit"]:hover,
+.window-app[id*="active-effect"] footer button:hover {
   background: #3a7a7f !important;
   color: #ffffff !important;
-  box-shadow: 0 0 10px rgba(155, 215, 229, 0.6) !important;
+  box-shadow: 0 0 12px rgba(155, 215, 229, 0.6) !important;
+}
+
+.window-app[id*="active-effect"] .effect-change,
+.window-app[id*="active-effect"] .changes-list li {
+  background: #13383a !important;
+  border: 1px solid #2a5a5f !important;
+  border-radius: 4px !important;
+  padding: 6px !important;
+  margin-bottom: 4px !important;
+}
+
+.window-app[id*="active-effect"] .effect-change a,
+.window-app[id*="active-effect"] .changes-list a {
+  color: #9bd7e5 !important;
+}
+
+.window-app[id*="active-effect"] .effect-change a:hover,
+.window-app[id*="active-effect"] .changes-list a:hover {
+  color: #FEEBB3 !important;
 }
 
 

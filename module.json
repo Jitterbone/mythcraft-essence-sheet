@@ -3,8 +3,8 @@
   "title": "MythCraft Essence Sheet",
   "version": "0.1.0-alpha",
   "compatibility": {
-    "minimum": "12",
-    "verified": "13"
+    "minimum": "14",
+    "verified": "14"
   },
   "authors": [
     {
@@ -25,9 +25,7 @@
         "id": "mythcraft",
         "type": "system",
         "compatibility": {}
-      }
-    ],
-    "recommends": [
+      },
       {
         "id": "mythcraft-hud",
         "type": "module",

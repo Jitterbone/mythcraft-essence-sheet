@@ -1,8 +1,8 @@
-# Mythcraft Essence Sheet (v0.1.0) 📜✨
+# Mythcraft Essence Sheet (v0.1.0-alpha) 📜✨
 
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Development-FF5E5B?style=flat&logo=kofi&logoColor=white)](https://ko-fi.com/jitterbone)
 
-A complete suite of elegant, high-readability alternate actor and item sheets for the **Mythcraft** system in Foundry VTT. Designed to seamlessly match the **Mythcraft HUD** aesthetic with a dark teal-and-gold palette, streamlined workflows, and built-in damage automation.
+A complete suite of elegant, high-readability alternate actor and item sheets for the **Mythcraft** system in Foundry VTT. Designed to seamlessly match the **Mythcraft HUD** aesthetic with a dark teal-and-gold palette, streamlined workflows, rich embedded editors, and built-in damage automation.
 
 ---
 
@@ -11,7 +11,7 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 - **🎨 Mythcraft HUD Aesthetic & Dark Theme**:
   - Immersive dark teal-and-gold color scheme with glowing accents and Cinzel typography.
   - High-contrast, crystal-clear headers and labels across all sheet tabs and embedded item cards.
-  - Custom HUD modal dialogs for configuring defenses, movement, senses, and conditions.
+  - Custom HUD modal dialogs for configuring defenses, movement, senses, conditions, and active effect sheets.
 
 - **📊 Comprehensive Character Sheet Architecture**:
   - **Stats & Attributes**: Visual breakdown of Physical (STR, DEX, END), Mental (AWR, INT, CHA), and Meta (LUCK, COR) attributes with derived defenses (REF, FORT, ANT, LOG, WILL) and associated rollable skills.
@@ -27,10 +27,26 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
   - **One-Click Actions**: Roll spellcasting checks or click the **Post to Chat** (`💬`) button to share full spell descriptions and parameters directly to chat without rolling.
 
 - **⚔️ Inventory & Equipment**:
+  - **Container & Backpack Hierarchy**: Organize gear into containers with real-time capacity and weight tracking.
   - **Currency Counter**: Compact tracker for Astra, Scillings, Quints, and Denarii.
   - **Item Embeds**: Clickable expand/collapse drawers displaying full rich item descriptions.
   - **Combat Actions**: Direct Attack and Damage rolling buttons on weapon rows.
   - **Outgoing Affinity Bonus**: Automatically calculates and injects the `+3` Outgoing Affinity damage bonus into attack rolls when dealing affinity damage types.
+
+- **🪄 Effects Management**:
+  - **Categorized Sections**: Cleanly grouped into **Temporary Effects** (with duration), **Passive Effects**, and **Inactive Effects**.
+  - **Instant Toggling**: Turn effects on or off with a single click from the status badge or toggle switch.
+  - **Category Add Buttons**: Dedicated `+` buttons on category headers to immediately create and configure temporary, passive, or inactive effects.
+  - **Themed Configuration Sheet**: Full Mythcraft HUD styling on the native Active Effect configuration dialog with dark teal background and gold typography.
+
+- **📜 Biography & Personality**:
+  - **Values, Drive & Quirk**: High-contrast personality fields with readable gold-tinted placeholders.
+  - **Full-Width Physical Description**: Dedicated character description textarea with auto-saving.
+  - **ProseMirror Rich Editors**: Fully functional rich text editing for Biography and GM Notes with glowing gold edit controls (`✏️`).
+
+- **📖 Journal & Contacts**:
+  - **Real-Time Live Auto-Save**: All inputs typed in Additional Info, Contacts, Tracked Resources, and Journal Logs persist immediately to the actor.
+  - **Card-Based UI**: Collapsible entries with gold headers, cyan labels, and delete confirmation protection.
 
 - **🛡️ Integrated Damage Automation Engine**:
   - **Full MythCraft Damage Pipeline**: Intercepts chat damage application and evaluates incoming damage against:
@@ -63,7 +79,7 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
    ```
 
 ### Manual Installation
-1. Download the `module.zip` file from the latest GitHub Release.
+1. Download the `mythcraft-essence-sheet.zip` file from the latest GitHub Release.
 2. Unzip the file into your Foundry VTT `Data/modules` directory (ensure the folder name is `mythcraft-essence-sheet`).
 
 ### Activation
@@ -122,8 +138,8 @@ Click the gear icon (⚙️) on the **Damage Modifications** panel on the Stats 
 ## 🧩 Compatibility
 
 - **System**: Mythcraft v0.6.4+
-- **Foundry VTT**: v13+ / v14
-- **Mythcraft HUD**: Fully compatible and recommended for the ultimate themed experience.
+- **Foundry VTT**: v14
+- **Mythcraft HUD**: Required
 - **Dice So Nice!**: Supported for 3D dice rolls.
 
 ---
@@ -133,4 +149,5 @@ Click the gear icon (⚙️) on the **Damage Modifications** panel on the Stats 
 If you encounter a bug, have a feature request, or would like to support ongoing development:
 - 🐛 **GitHub Issues**: [Open an issue on GitHub](https://github.com/Jitterbone/mythcraft-essence-sheet/issues)
 - ☕ **Ko-fi**: [Support development on Ko-fi](https://ko-fi.com/jitterbone)
+
 

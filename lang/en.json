@@ -1,0 +1,173 @@
+{
+  "MYTHCRAFT": {
+    "Sheet": {
+      "CharacterName": "Character Name",
+      "Level": "Level",
+      "Class": "Class",
+      "Ancestry": "Ancestry",
+      "Lineage": "Lineage",
+      "Background": "Background",
+      "Profession": "Profession",
+      "Initiative": "Initiative",
+      "RollInitiative": "Roll Initiative",
+      "ChangePortrait": "Click to Change Portrait",
+      "Add": "Add",
+      "Delete": "Delete",
+      "Edit": "Edit",
+      "Expand": "Expand / Collapse",
+      "ToggleMode": "Toggle Sheet Mode",
+      "EditAttribute": "Edit Attribute & Skills",
+      "AddSense": "Add Sense",
+      "Tabs": {
+        "stats": "Stats",
+        "spells": "Spells",
+        "equipment": "Equipment",
+        "talents": "Talents",
+        "effects": "Effects",
+        "biography": "Biography",
+        "journal": "Journal"
+      }
+    },
+    "Resource": {
+      "HP": "Hit Points",
+      "Death": "Death Points",
+      "AP": "Action Points",
+      "SP": "Spell Points",
+      "LP": "Luck Points",
+      "SAP": "Special AP",
+      "Shield": "Shield",
+      "Bloodied": "Bloodied"
+    },
+    "Attribute": {
+      "str": { "label": "Strength", "abbr": "STR" },
+      "dex": { "label": "Dexterity", "abbr": "DEX" },
+      "end": { "label": "Endurance", "abbr": "END" },
+      "awr": { "label": "Awareness", "abbr": "AWR" },
+      "int": { "label": "Intellect", "abbr": "INT" },
+      "cha": { "label": "Charisma", "abbr": "CHA" },
+      "luck": { "label": "Luck", "abbr": "LUCK" },
+      "cor": { "label": "Coordination", "abbr": "COR" }
+    },
+    "AttrGroup": {
+      "Physical": "Physical",
+      "Mental": "Mental",
+      "Meta": "Metaphysical"
+    },
+    "Defense": {
+      "ar": { "label": "Armor Rating", "abbr": "AR" },
+      "ref": { "label": "Reflexes", "abbr": "REF" },
+      "fort": { "label": "Fortitude", "abbr": "FORT" },
+      "ant": { "label": "Anticipation", "abbr": "ANT" },
+      "log": { "label": "Logic", "abbr": "LOG" },
+      "will": { "label": "Willpower", "abbr": "WILL" }
+    },
+    "Critical": {
+      "Hit": "Critical Hit",
+      "Fail": "Critical Fail",
+      "EffectiveHit": "Effective Critical Hit Threshold",
+      "EffectiveFail": "Effective Critical Fail Threshold"
+    },
+    "Section": {
+      "Attributes": "Attributes & Defenses",
+      "Skills": "Skills",
+      "Movement": "Movement",
+      "Senses": "Senses",
+      "Conditions": "Active Conditions",
+      "DamageTypes": "Damage Modifications",
+      "Currency": "Currency",
+      "Weapons": "Weapons",
+      "Armor": "Armor",
+      "Gear": "Gear & Equipment",
+      "PowerLevels": "Power Levels",
+      "Spells": "Spells",
+      "Talents": "Talents",
+      "Features": "Features",
+      "Effects": "Active Effects",
+      "Personality": "Personality",
+      "Appearance": "Appearance",
+      "Biography": "Biography",
+      "Journal": "Journal",
+      "Contacts": "Contacts",
+      "Resources": "Resources",
+      "GMNotes": "GM Notes"
+    },
+    "Movement": {
+      "Walk": "Walk",
+      "Climb": "Climb",
+      "Swim": "Swim",
+      "Fly": "Fly",
+      "Burrow": "Burrow"
+    },
+    "Senses": {
+      "None": "No special senses recorded."
+    },
+    "Damage": {
+      "Immune": "Immunity",
+      "Affinity": "Affinity",
+      "Reduction": "Damage Reduction (DR)",
+      "Resist": "Resist",
+      "Vulnerable": "Vulnerable"
+    },
+    "Condition": {
+      "Remove": "Remove Condition",
+      "Add": "Add Condition"
+    },
+    "Currency": {
+      "Astra": "Astra",
+      "Scillings": "Scillings",
+      "Quints": "Quints",
+      "Denarii": "Denarii"
+    },
+    "Item": {
+      "CreateWeapon": "Add Weapon",
+      "CreateArmor": "Add Armor",
+      "CreateGear": "Add Gear",
+      "CreateSpell": "Add Spell",
+      "CreateTalent": "Add Talent",
+      "CreateFeature": "Add Feature",
+      "ToggleFavorite": "Toggle Favorite",
+      "Expand": "Expand / Collapse Details",
+      "Delete": "Delete Item",
+      "NoWeapons": "No weapons equipped.",
+      "NoArmor": "No armor equipped.",
+      "NoGear": "No gear in inventory.",
+      "NoSpells": "No spells known.",
+      "NoTalents": "No talents learned.",
+      "NoFeatures": "No features learned."
+    },
+    "Effect": {
+      "Create": "Add Effect",
+      "Source": "Source",
+      "Duration": "Duration",
+      "Disabled": "Disabled",
+      "Active": "Active",
+      "Enable": "Enable Effect",
+      "Disable": "Disable Effect",
+      "View": "View Details",
+      "Delete": "Delete Effect",
+      "None": "No active effects present."
+    },
+    "Personality": {
+      "Values": "Values",
+      "ValuesPlaceholder": "What principles guide you?",
+      "Drive": "Drive",
+      "DrivePlaceholder": "What is your main goal or ambition?",
+      "Quirk": "Quirk",
+      "QuirkPlaceholder": "Habits, flaws, or unique behaviors..."
+    },
+    "Appearance": {
+      "Height": "Height",
+      "Weight": "Weight",
+      "Age": "Age",
+      "Size": "Size",
+      "Description": "Physical Description",
+      "DescriptionPlaceholder": "Describe your character's physical appearance..."
+    },
+    "GMOnly": "GM Only",
+    "Roll": {
+      "Attribute": "Roll Attribute Check",
+      "Skill": "Roll Skill Check"
+    }
+  }
+}
+

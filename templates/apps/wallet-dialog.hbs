@@ -1,0 +1,169 @@
+{{!-- ============================================================
+     MythCraft Essence — Wallet & Shopping Transaction Manager
+     ============================================================ --}}
+<div class="wallet-dialog-wrapper">
+
+  {{!-- Header Card --}}
+  <div class="wallet-hero-header">
+    <div class="hero-left">
+      <div class="hero-icon-box">
+        <i class="fas fa-wallet"></i>
+      </div>
+      <div class="hero-text">
+        <h2 class="hero-title">{{actor.name}}'s Vault</h2>
+        <span class="hero-subtitle">Manage Coins &amp; Automated Shopping Transactions</span>
+      </div>
+    </div>
+
+    <div class="hero-net-worth">
+      <span class="net-worth-label">Total Net Worth ({{defaultCurrency.label}})</span>
+      <span class="net-worth-val" style="color: {{defaultCurrency.color}};">
+        {{totalInDefault}} <small>{{defaultCurrency.abbr}}</small>
+      </span>
+      <span class="net-worth-approx">1 {{defaultCurrency.abbr}} = 1.0 standard unit</span>
+    </div>
+  </div>
+
+  {{!-- 1. Current Balances Grid --}}
+  <fieldset class="dmg-fieldset balances-fieldset">
+    <legend class="dmg-legend">
+      <i class="fas fa-coins"></i>
+      <span>Current Coin Balances (Lowest to Highest)</span>
+    </legend>
+
+    <div class="wallet-balances-grid">
+      {{#each wallet as |w|}}
+        <div class="wallet-coin-card" style="border-top: 2px solid {{w.color}};">
+          <div class="coin-header">
+            <i class="{{w.icon}}" style="color: {{w.color}};"></i>
+            <span class="coin-label">{{w.label}}</span>
+          </div>
+          <div class="coin-count-wrap">
+            <input type="number" 
+                   name="curr_{{w.key}}" 
+                   data-key="{{w.key}}" 
+                   value="{{w.count}}" 
+                   class="wallet-coin-input" 
+                   min="0" 
+                   title="Type number to update balance instantly" />
+            <span class="coin-unit" style="color: {{w.color}};">{{w.abbr}}</span>
+          </div>
+          <span class="coin-sub-val">{{w.totalInDefaultDisplay}} {{w.defaultAbbr}} ({{w.relDisplay}}x)</span>
+        </div>
+      {{/each}}
+    </div>
+
+    <div class="balances-footer-actions">
+      <button type="button" class="dialog-action-btn consolidate-btn" data-action="consolidateCoins" title="Automatically convert smaller coins into the highest available denominations">
+        <i class="fas fa-arrow-up-wide-short"></i>
+        <span>Consolidate into Highest Coins</span>
+      </button>
+    </div>
+  </fieldset>
+
+  {{!-- 2. Shopping / Spend Mode --}}
+  <fieldset class="dmg-fieldset shopping-fieldset">
+    <legend class="dmg-legend">
+      <i class="fas fa-cart-shopping"></i>
+      <span>Make a Purchase / Search Compendium</span>
+    </legend>
+
+    <div class="shopping-card-layout">
+      <div class="shopping-fields-grid">
+        
+        {{!-- Live Compendium Search Input --}}
+        <div class="shop-field field-desc compendium-search-wrapper">
+          <label class="field-hdr"><i class="fas fa-search"></i> Search Item or Enter Description</label>
+          <div class="search-input-box">
+            <input type="text" 
+                   name="purchase_desc" 
+                   class="dialog-styled-input search-input" 
+                   placeholder="Type to search compendiums (e.g. Dagger, Torch, Potion)..." 
+                   autocomplete="off" />
+            <i class="fas fa-magnifying-glass search-box-icon"></i>
+          </div>
+          {{!-- Floating Search Results Dropdown --}}
+          <div class="compendium-search-dropdown"></div>
+        </div>
+
+        {{!-- Cost Amount --}}
+        <div class="shop-field field-cost">
+          <label class="field-hdr"><i class="fas fa-receipt"></i> Cost Amount</label>
+          <input type="number" name="purchase_cost" class="dialog-styled-input" placeholder="0" min="0" step="any" />
+        </div>
+
+        {{!-- Denomination Dropdown --}}
+        <div class="shop-field field-curr">
+          <label class="field-hdr"><i class="fas fa-coins"></i> Denomination</label>
+          <select name="purchase_currency" class="select-styled">
+            {{#each currencies as |c|}}
+              <option value="{{c.key}}" {{#if c.isDefault}}selected{{/if}}>{{c.label}} ({{c.abbr}})</option>
+            {{/each}}
+          </select>
+        </div>
+      </div>
+
+      <div class="shopping-action-bar">
+        {{!-- Quick Presets --}}
+        {{#if presets.length}}
+          <div class="quick-spend-presets">
+            <span class="presets-label"><i class="fas fa-bolt"></i> Presets:</span>
+            <div class="preset-pills-wrap">
+              {{#each presets as |p|}}
+                <button type="button" 
+                        class="preset-pill" 
+                        data-action="quickSpend" 
+                        data-amount="{{p.amount}}" 
+                        data-curr="{{p.curr}}" 
+                        data-desc="{{p.label}}"
+                        title="Click to fill cost: {{p.amount}} {{p.currAbbr}} for {{p.label}}">
+                  <i class="{{p.icon}}" style="color: {{p.color}};"></i>
+                  <span>{{p.amount}} {{p.currAbbr}}</span>
+                  <small>({{p.label}})</small>
+                </button>
+              {{/each}}
+            </div>
+          </div>
+        {{/if}}
+
+        <button type="button" class="dialog-primary-btn purchase-btn" data-action="processPurchase" title="Pay cost with automatic coin breakdown and exact change">
+          <i class="fas fa-cash-register"></i>
+          <span>Pay &amp; Auto-Calculate Change</span>
+        </button>
+      </div>
+    </div>
+  </fieldset>
+
+  {{!-- 3. Deposit / Receive Funds (Simplified) --}}
+  <fieldset class="dmg-fieldset deposit-fieldset">
+    <legend class="dmg-legend">
+      <i class="fas fa-hand-holding-dollar"></i>
+      <span>Deposit / Receive Funds</span>
+    </legend>
+
+    <div class="deposit-simple-grid">
+      <div class="shop-field field-cost">
+        <label class="field-hdr"><i class="fas fa-plus"></i> Amount</label>
+        <input type="number" name="deposit_amount" class="dialog-styled-input" placeholder="0" min="0" step="any" />
+      </div>
+
+      <div class="shop-field field-curr">
+        <label class="field-hdr"><i class="fas fa-coins"></i> Denomination</label>
+        <select name="deposit_currency" class="select-styled">
+          {{#each currencies as |c|}}
+            <option value="{{c.key}}" {{#if c.isDefault}}selected{{/if}}>{{c.label}} ({{c.abbr}})</option>
+          {{/each}}
+        </select>
+      </div>
+
+      <div class="shop-field field-btn">
+        <label class="field-hdr">&nbsp;</label>
+        <button type="button" class="dialog-action-btn deposit-btn" data-action="processDeposit">
+          <i class="fas fa-plus-circle"></i>
+          <span>Add to Vault</span>
+        </button>
+      </div>
+    </div>
+  </fieldset>
+
+</div>

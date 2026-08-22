@@ -1,0 +1,289 @@
+<div class="dmg-dialog-content">
+
+    {{!-- 1. Affinity --}}
+    <fieldset class="dmg-dialog-fieldset affinity-fieldset">
+      <legend>
+        <i class="fas fa-hand-holding-magic"></i>
+        Affinity
+        <span class="legend-hint">(&frac12; Damage Taken &bull; +3 Damage Dealt)</span>
+      </legend>
+
+      <div class="dmg-dialog-categories">
+        {{#each damageCategories as |cat|}}
+          <div class="dmg-dialog-cat-row">
+            <span class="cat-label">{{cat.name}}:</span>
+            <div class="cat-pills">
+              {{#each cat.types as |t|}}
+                <label class="dmg-checkbox-pill {{#if t.hasAffinity}}checked{{/if}}">
+                  <input type="checkbox" name="affinity_{{t.key}}" value="{{t.key}}" {{#if t.hasAffinity}}checked{{/if}} hidden />
+                  <i class="{{t.icon}}"></i>
+                  <span>{{t.label}}</span>
+                </label>
+              {{/each}}
+            </div>
+          </div>
+        {{/each}}
+      </div>
+    </fieldset>
+
+    {{!-- 2. Immunity --}}
+    <fieldset class="dmg-dialog-fieldset immune-fieldset">
+      <legend>
+        <i class="fas fa-shield-blank"></i>
+        Immunity
+        <span class="legend-hint">(0 Damage Taken)</span>
+      </legend>
+
+      <div class="dmg-dialog-categories">
+        {{#each damageCategories as |cat|}}
+          <div class="dmg-dialog-cat-row">
+            <span class="cat-label">{{cat.name}}:</span>
+            <div class="cat-pills">
+              {{#each cat.types as |t|}}
+                <label class="dmg-checkbox-pill immune-pill {{#if t.hasImmunity}}checked{{/if}}">
+                  <input type="checkbox" name="immune_{{t.key}}" value="{{t.key}}" {{#if t.hasImmunity}}checked{{/if}} hidden />
+                  <i class="{{t.icon}}"></i>
+                  <span>{{t.label}}</span>
+                </label>
+              {{/each}}
+            </div>
+          </div>
+        {{/each}}
+      </div>
+    </fieldset>
+
+    {{!-- 3. Resist & Vulnerable (Dropdown Selection + Values) --}}
+    <div class="dmg-dialog-grid-row">
+      {{!-- Resist --}}
+      <div class="dmg-dialog-field">
+        <div class="field-hdr-wrap">
+          <label class="field-hdr">
+            <i class="fas fa-shield"></i>
+            Resist
+          </label>
+          <span class="field-sub">Subtract value from damage taken</span>
+        </div>
+
+        <div class="dmg-dropdown-wrap">
+          <select class="dmg-type-dropdown select-styled" data-target="resist">
+            <option value="">+ Add Damage Resistance...</option>
+            {{#each availableDamageTypes as |dt|}}
+              <option value="{{dt.key}}">{{dt.label}}</option>
+            {{/each}}
+          </select>
+        </div>
+
+        <div class="dmg-mod-entry-list resist-entry-list">
+          {{#each resistList as |r|}}
+            <div class="dmg-entry-row {{#if r.hasArmorBonus}}has-armor-bonus locked-row{{/if}}" data-type="{{r.type}}" data-label="{{r.label}}" data-armor-val="{{r.armorValue}}">
+              <div class="dmg-entry-label">
+                <i class="{{r.icon}}"></i>
+                <span>{{r.label}}</span>
+                {{#if r.hasArmorBonus}}
+                  <span class="armor-source-pill" title="+{{r.armorValue}} from Donned Armor (Base: {{r.baseValue}})">
+                    <i class="fas fa-shield-halved"></i>
+                    +{{r.armorValue}} Armor
+                  </span>
+                {{/if}}
+              </div>
+              <div class="dmg-entry-val-wrap">
+                <input type="number"
+                       class="dmg-entry-input"
+                       name="resist_val_{{r.type}}"
+                       value="{{r.value}}"
+                       min="{{#if r.hasArmorBonus}}{{r.armorValue}}{{else}}1{{/if}}"
+                       max="99"
+                       {{#if r.isLocked}}readonly{{/if}} />
+                <span class="val-unit">pts</span>
+              </div>
+              {{#if r.hasArmorBonus}}
+                <div class="dmg-entry-lock-btn" title="Locked by Donned Armor (+{{r.armorValue}} pts). Doff armor on character sheet to remove.">
+                  <i class="fas fa-lock"></i>
+                </div>
+              {{else}}
+                <button type="button" class="dmg-entry-remove-btn" title="Remove {{r.label}}">
+                  <i class="fas fa-trash"></i>
+                </button>
+              {{/if}}
+            </div>
+          {{/each}}
+        </div>
+      </div>
+
+      {{!-- Vulnerable --}}
+      <div class="dmg-dialog-field">
+        <div class="field-hdr-wrap">
+          <label class="field-hdr">
+            <i class="fas fa-heart-crack"></i>
+            Vulnerable
+          </label>
+          <span class="field-sub">Add extra damage taken (bypasses DR)</span>
+        </div>
+
+        <div class="dmg-dropdown-wrap">
+          <select class="dmg-type-dropdown select-styled" data-target="vulnerable">
+            <option value="">+ Add Vulnerability...</option>
+            {{#each availableDamageTypes as |dt|}}
+              <option value="{{dt.key}}">{{dt.label}}</option>
+            {{/each}}
+          </select>
+        </div>
+
+        <div class="dmg-mod-entry-list vuln-entry-list">
+          {{#each vulnList as |v|}}
+            <div class="dmg-entry-row" data-type="{{v.type}}" data-label="{{v.label}}">
+              <div class="dmg-entry-label">
+                <i class="{{v.icon}}"></i>
+                <span>{{v.label}}</span>
+              </div>
+              <div class="dmg-entry-val-wrap">
+                <input type="number" class="dmg-entry-input" name="vulnerable_val_{{v.type}}" value="{{v.value}}" min="1" max="99" />
+                <span class="val-unit">pts</span>
+              </div>
+              <button type="button" class="dmg-entry-remove-btn" title="Remove {{v.label}}">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          {{/each}}
+        </div>
+      </div>
+    </div>
+
+    {{!-- 4. DR & DT --}}
+    <div class="dmg-dialog-grid-row dr-dt-row">
+      <div class="dmg-dialog-field dr-field">
+        <label class="field-hdr">
+          <i class="fas fa-shield-halved"></i>
+          Damage Reduction (DR)
+        </label>
+        <span class="field-sub">Subtracts from all damage unless vulnerable</span>
+        <div class="dr-split-inputs">
+          <div class="dr-val-wrap">
+            <span class="mini-label">Value</span>
+            <input type="number"
+                   name="system.damage.reduction.value"
+                   value="{{system.damage.reduction.value}}"
+                   class="dialog-num-input"
+                   min="0"
+                   placeholder="0" />
+          </div>
+          <div class="dr-bypasses-wrap">
+            <span class="mini-label">Bypasses</span>
+            <input type="text"
+                   name="system.damage.reduction.bypasses"
+                   value="{{system.damage.reduction.bypasses}}"
+                   class="dialog-text-input"
+                   placeholder="e.g. Silver, Fire, Magic" />
+          </div>
+        </div>
+      </div>
+
+      <div class="dmg-dialog-field dt-field">
+        <label class="field-hdr">
+          <i class="fas fa-monument"></i>
+          Damage Threshold (DT)
+        </label>
+        <span class="field-sub">Must deal at once to take any damage</span>
+        <input type="number"
+               name="system.damage.threshold"
+               value="{{system.damage.threshold}}"
+               class="dialog-num-input dt-input"
+               min="0"
+               placeholder="0" />
+      </div>
+    </div>
+
+    {{!-- 5. Critical Hit & Fail Thresholds --}}
+    <fieldset class="dmg-dialog-fieldset crit-fieldset">
+      <legend>
+        <i class="fas fa-crosshairs"></i>
+        Critical Hit &amp; Fail Range
+        <span class="legend-hint">(Natural d20 roll required for critical outcome)</span>
+      </legend>
+
+      <div class="crit-dialog-grid">
+        <div class="crit-control-card">
+          <div class="crit-input-group">
+            <label class="crit-label">Base Crit Hit Threshold</label>
+            <div class="crit-input-wrap">
+              <input type="number"
+                     name="critBaseHit"
+                     value="{{critData.baseHit}}"
+                     min="10"
+                     max="20"
+                     class="crit-dialog-input" />
+              <span class="crit-unit">+</span>
+            </div>
+          </div>
+          <div class="crit-input-group">
+            <label class="crit-label">Talent / Item Crit Bonus</label>
+            <div class="crit-input-wrap">
+              <input type="number"
+                     name="critBonus"
+                     value="{{critData.critBonus}}"
+                     min="0"
+                     max="5"
+                     placeholder="0"
+                     class="crit-dialog-input" />
+              <span class="crit-unit">pts</span>
+            </div>
+          </div>
+          <div class="crit-calc-preview">
+            <span class="preview-label">Effective Crit Hit:</span>
+            <span class="preview-badge {{#if (lt critData.effectiveHit 20)}}crit-boosted{{/if}}">
+              {{critData.effectiveHit}}–20 (Crit {{critData.effectiveHit}}+)
+            </span>
+          </div>
+        </div>
+
+        <div class="crit-control-card">
+          <div class="crit-input-group">
+            <label class="crit-label">Base Crit Fail Threshold</label>
+            <div class="crit-input-wrap">
+              <input type="number"
+                     name="critBaseFail"
+                     value="{{critData.baseFail}}"
+                     min="1"
+                     max="10"
+                     class="crit-dialog-input" />
+              <span class="crit-unit">&minus;</span>
+            </div>
+          </div>
+          <div class="crit-calc-preview">
+            <span class="preview-label">Effective Crit Fail:</span>
+            <span class="preview-badge badge-fail">
+              1–{{critData.effectiveFail}} (Fail {{critData.effectiveFail}}&minus;)
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {{!-- Luck Scaling Note Box --}}
+      <div class="luck-crit-note-box {{#if (gte critData.luck 6)}}luck-active{{/if}}">
+        <div class="luck-note-header">
+          <i class="fas fa-clover"></i>
+          <span>LUCK SCALING &bull; Current Luck: <strong>{{critData.luck}}</strong></span>
+        </div>
+        <div class="luck-note-body">
+          {{#if (gte critData.luck 12)}}
+            <div class="luck-status-badge badge-tier2"><i class="fas fa-sparkles"></i> +2 Crit Range Active (12+ Luck)</div>
+            <p class="luck-desc">Your <strong>{{critData.luck}} Luck</strong> grants an automatic <strong>+2 to your critical hit range</strong> (e.g. 18–20, max 16–20).</p>
+          {{else if (gte critData.luck 6)}}
+            <div class="luck-status-badge badge-tier1"><i class="fas fa-sparkles"></i> +1 Crit Range Active (6+ Luck)</div>
+            <p class="luck-desc">Your <strong>{{critData.luck}} Luck</strong> grants an automatic <strong>+1 to your critical hit range</strong> (e.g. 19–20). Reaching 12 Luck will grant an additional +1.</p>
+          {{else}}
+            <div class="luck-status-badge badge-tier0"><i class="fas fa-info-circle"></i> Standard Crit Range (20)</div>
+            <p class="luck-desc">Once you reach <strong>6 LUCK</strong>, your crit range increases by +1 (from 20 to 19–20, max 16–20), and at <strong>12 LUCK</strong> it increases by an additional +1 (18–20).</p>
+          {{/if}}
+        </div>
+      </div>
+    </fieldset>
+
+  {{!-- Submit Footer --}}
+  <footer class="dialog-footer">
+    <button type="submit" class="submit-btn" name="submit">
+      <i class="fas fa-check"></i>
+      Save Modifications
+    </button>
+  </footer>
+</div>

@@ -1,0 +1,620 @@
+{{!-- ============================================================
+     MythCraft Essence Sheet — Equipment Tab
+     Context: system, systemSource, weapons[], armor[], gear[],
+              essenceData, currencies[], isEditable
+     ============================================================ --}}
+<section class="tab {{tab.cssClass}}" data-group="primary" data-tab="equipment">
+
+  {{!-- ── Essence Resource Bar (Sparkling Purple Cosmic Energy) ──────────────── --}}
+  <div class="equipment-essence-card essence-tier-{{essenceData.tier}} {{#if essenceData.isOverCapacity}}over-capacity{{/if}}">
+    <div class="essence-header">
+      <div class="essence-title">
+        <i class="fas fa-gem essence-gem-icon"></i>
+        <span>ESSENCE CAPACITY</span>
+      </div>
+      <div class="essence-values">
+        <span class="essence-avail-val" title="Available Essence">{{essenceData.remaining}}</span>
+        <span class="essence-divider">/</span>
+        <span class="essence-max-val" title="Maximum Essence">{{essenceData.max}}</span>
+        <span class="essence-unit">EP</span>
+        <span class="essence-avail-badge {{#if essenceData.isOverCapacity}}badge-danger{{else}}badge-success{{/if}}">
+          {{#if essenceData.isOverCapacity}}
+            <i class="fas fa-triangle-exclamation"></i> OVER CAPACITY (+{{essenceData.overAmount}} Bound)
+          {{else}}
+            {{essenceData.used}} EP Bound
+          {{/if}}
+        </span>
+      </div>
+    </div>
+    <div class="essence-bar-track">
+      <div class="essence-bar-fill essence-sparkle-fill" data-meter-key="essence" style="width: {{essenceData.percent}}%;">
+        <div class="essence-sparkle-overlay essence-layer-1"></div>
+        <div class="essence-sparkle-overlay essence-layer-2"></div>
+        <div class="essence-glass-highlight"></div>
+      </div>
+    </div>
+  </div>
+
+  {{!-- ── Currency Row ─────────────────────────────────────── --}}
+  <div class="currency-section">
+    <div class="currency-header-wrap">
+      <h3 class="section-header">
+        <i class="fas fa-coins"></i>
+        <span>Currency</span>
+      </h3>
+      <button type="button"
+              class="currency-wallet-btn"
+              data-action="openWalletDialog"
+              title="Open Shopping &amp; Wallet Manager (Auto-calculate change and conversions)">
+        <i class="fas fa-wallet"></i>
+        <span>Wallet &amp; Shopping</span>
+      </button>
+    </div>
+
+    <div class="currency-row">
+      {{#each configuredCurrencies as |c|}}
+        <div class="currency-field" title="{{c.label}} ({{c.abbr}}): {{c.rate}} base units">
+          <label class="currency-label">
+            <i class="{{c.icon}} currency-icon" style="color: {{c.color}};"></i>
+            {{c.label}}
+            <span class="curr-abbr-tag">({{c.abbr}})</span>
+          </label>
+          <input type="number"
+                 name="system.currency.{{c.key}}"
+                 data-key="{{c.key}}"
+                 value="{{c.value}}"
+                 class="currency-input"
+                 min="0" />
+        </div>
+      {{/each}}
+    </div>
+  </div>
+
+  {{!-- ── Weapons ──────────────────────────────────────────── --}}
+  <div class="inventory-section weapons-section">
+    <div class="inventory-header">
+      <h3 class="section-header">
+        <i class="fas fa-sword"></i>
+        <span>Weapons</span>
+      </h3>
+      <button type="button"
+              class="create-item-btn"
+              data-action="createDoc"
+              data-document-class="Item"
+              data-type="weapon"
+              title="Add Weapon">
+        <i class="fas fa-plus"></i>
+        <span>Add Weapon</span>
+      </button>
+    </div>
+
+    {{#if weapons.length}}
+      <ul class="item-list weapon-list">
+        {{#each weapons as |w|}}
+          <li class="item draggable item-row weapon-row {{#if w.isEquipped}}is-equipped{{else}}is-stowed{{/if}} {{#if w.expanded}}expanded{{/if}}" data-item-id="{{w.item.id}}" data-document-class="Item">
+
+            {{!-- Item Image --}}
+            <img class="item-img"
+                 src="{{w.item.img}}"
+                 alt="{{w.item.name}}"
+                 data-action="viewDoc"
+                 data-document-class="Item"
+                 data-item-id="{{w.item.id}}" />
+
+            {{!-- Item Name & Inline Tags --}}
+            <div class="item-name-group">
+              <span class="item-name"
+                    data-action="viewDoc"
+                    data-document-class="Item"
+                    data-item-id="{{w.item.id}}"
+                    title="View Item Details">
+                {{w.item.name}}
+              </span>
+
+              {{!-- Hand Slot Tag (Only if weapon has hand tag) --}}
+              {{#if w.requiresEquip}}
+                <span class="weapon-hand-pill {{w.handType}}" title="{{w.handType}} weapon">
+                  {{w.handLabel}}
+                </span>
+
+                {{#if w.isUnwieldy}}
+                  <span class="unwieldy-pill" title="Unwieldy (Costs 1 AP to equip/stow in combat)">
+                    <i class="fas fa-hand-fist"></i> Unwieldy
+                  </span>
+                {{/if}}
+              {{/if}}
+
+              {{#if w.essenceCost}}
+                <div class="item-inline-tags">
+                  <button type="button"
+                          class="item-essence-tag essence-toggle-btn {{#if w.isAttuned}}attuned{{else}}unattuned{{/if}}"
+                          data-action="toggleAttunement"
+                          data-item-id="{{w.item.id}}"
+                          title="{{#if w.isAttuned}}Attuned ({{w.essenceCost}} EP Bound). Click to Unattune.{{else}}Unattuned ({{w.essenceCost}} EP Inactive). Click to Attune.{{/if}}">
+                    <i class="fas {{#if w.isAttuned}}fa-gem{{else}}fa-circle-dot{{/if}}"></i>
+                    <span>{{w.essenceCost}} EP</span>
+                    <span class="attune-state-lbl">({{#if w.isAttuned}}Bound{{else}}Unbound{{/if}})</span>
+                  </button>
+                </div>
+              {{/if}}
+            </div>
+
+            {{!-- Weapon Badges & Clickable Roll Buttons --}}
+            <div class="weapon-stats-strip">
+              {{!-- APC Badge (Always shown) --}}
+              {{#if w.apc}}
+                <span class="weapon-apc-badge" title="Action Points Cost">
+                  <i class="fas fa-bolt"></i> {{w.apc}} AP
+                </span>
+              {{/if}}
+
+              {{!-- When EQUIPPED or DOES NOT REQUIRE EQUIPPING: Show Attack & Damage Rolls --}}
+              {{#if w.isEquipped}}
+                {{!-- Attack Roll Button (Only if weapon has attack attribute or defense target) --}}
+                {{#if w.hasAttackRoll}}
+                  <button type="button"
+                          class="weapon-stat-btn atk-btn"
+                          data-action="rollAttack"
+                          data-item-id="{{w.item.id}}"
+                          title="Roll Attack ({{w.atkBonusDisplay}})">
+                    <i class="fas fa-crosshairs"></i>
+                    <span class="stat-val">{{w.atkBonusDisplay}}</span>
+                  </button>
+                {{/if}}
+
+                {{!-- Damage Roll Button --}}
+                <button type="button"
+                        class="weapon-stat-btn dmg-btn"
+                        data-action="rollDamage"
+                        data-item-id="{{w.item.id}}"
+                        title="Roll Damage ({{w.damageDisplay}})">
+                  <i class="fas fa-burst"></i>
+                  <span class="stat-val">{{w.damageDisplay}}</span>
+                </button>
+
+                {{!-- Range Badge --}}
+                {{#if w.rangeDisplay}}
+                  <span class="weapon-range-badge" title="Weapon Range">
+                    <i class="fas fa-ruler-horizontal"></i> {{w.rangeDisplay}}
+                  </span>
+                {{/if}}
+
+                {{!-- Stow Button (Only if weapon requires equipping) --}}
+                {{#if w.requiresEquip}}
+                  <button type="button" 
+                          class="weapon-stat-btn stow-btn" 
+                          data-action="toggleEquipWeapon" 
+                          data-item-id="{{w.item.id}}" 
+                          title="Stow Weapon">
+                    <i class="fas fa-hand-holding-box"></i>
+                    <span>Stow</span>
+                  </button>
+                {{/if}}
+
+              {{!-- When UNEQUIPPED: Hide stats and show Type Badge + Equip Button --}}
+              {{else}}
+                {{#if w.rangeDisplay}}
+                  <span class="weapon-type-badge" title="Weapon Type / Range">
+                    <i class="fas fa-shield"></i> {{w.rangeDisplay}}
+                  </span>
+                {{/if}}
+
+                {{!-- Equip Button --}}
+                <button type="button" 
+                        class="weapon-stat-btn equip-btn" 
+                        data-action="toggleEquipWeapon" 
+                        data-item-id="{{w.item.id}}" 
+                        title="Equip Weapon">
+                  <i class="fas fa-hand"></i>
+                  <span>Equip</span>
+                </button>
+              {{/if}}
+            </div>
+
+            {{!-- Action Buttons --}}
+            <div class="item-actions">
+              <button type="button"
+                      class="item-action-btn expand-btn"
+                      data-action="toggleItemEmbed"
+                      data-item-id="{{w.item.id}}"
+                      title="Expand / Collapse Details">
+                <i class="fas fa-chevron-{{#if w.expanded}}up{{else}}down{{/if}}"></i>
+              </button>
+              <button type="button"
+                      class="item-action-btn delete-btn"
+                      data-action="deleteDoc"
+                      data-document-class="Item"
+                      data-item-id="{{w.item.id}}"
+                      title="Delete Weapon">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+
+            {{!-- Expanded Embed --}}
+            {{#if w.expanded}}
+              <div class="item-embed-card weapon-embed">
+                {{!-- Weapon Tags Strip with hover tooltips --}}
+                {{#if w.tags.length}}
+                  <div class="expanded-tags-strip">
+                    {{#each w.tags as |tag|}}
+                      <span class="tag-badge-pill {{tag.category}}" 
+                            style="--cat-color: {{tag.categoryMeta.color}}; --cat-bg: {{tag.categoryMeta.bg}}; --cat-border: {{tag.categoryMeta.border}};"
+                            data-tooltip="{{tag.tooltipHTML}}"
+                            data-tooltip-direction="UP">
+                        <i class="{{tag.categoryMeta.icon}}"></i>
+                        <span class="tag-badge-name">{{tag.name}}</span>
+                      </span>
+                    {{/each}}
+                  </div>
+                {{/if}}
+
+                {{#if w.descriptionHTML}}
+                  {{{w.descriptionHTML}}}
+                {{else if w.item.system.description.value}}
+                  {{{w.item.system.description.value}}}
+                {{else}}
+                  <p class="empty-desc-hint">No description available.</p>
+                {{/if}}
+              </div>
+            {{/if}}
+
+          </li>
+        {{/each}}
+      </ul>
+    {{else}}
+      <p class="empty-list-msg">No weapons equipped.</p>
+    {{/if}}
+  </div>
+
+  {{!-- ── Armor ────────────────────────────────────────────── --}}
+  <div class="inventory-section armor-section">
+    <div class="inventory-header">
+      <h3 class="section-header">
+        <i class="fas fa-shield-alt"></i>
+        <span>Armor</span>
+      </h3>
+      <button type="button"
+              class="create-item-btn"
+              data-action="createDoc"
+              data-document-class="Item"
+              data-type="armor"
+              title="Add Armor">
+        <i class="fas fa-plus"></i>
+        <span>Add Armor</span>
+      </button>
+    </div>
+
+    {{#if armor.length}}
+      <ul class="item-list armor-list">
+        {{#each armor as |a|}}
+          <li class="item draggable item-row armor-row {{#if a.expanded}}expanded{{/if}}" data-item-id="{{a.item.id}}" data-document-class="Item">
+
+            <img class="item-img"
+                 src="{{a.item.img}}"
+                 alt="{{a.item.name}}"
+                 data-action="viewDoc"
+                 data-document-class="Item"
+                 data-item-id="{{a.item.id}}" />
+
+            <div class="item-name-group">
+              <span class="item-name"
+                    data-action="viewDoc"
+                    data-document-class="Item"
+                    data-item-id="{{a.item.id}}">
+                {{a.item.name}}
+              </span>
+              
+              {{!-- Don / Doff Toggle Button --}}
+              <button type="button"
+                      class="armor-don-btn {{#if a.isDonned}}donned{{else}}doffed{{/if}}"
+                      data-action="toggleDonArmor"
+                      data-item-id="{{a.item.id}}"
+                      title="{{#if a.isDonned}}Donned (Active). Click to Doff armor.{{else}}Doffed (Inactive). Click to Don armor.{{/if}}">
+                <i class="fas {{#if a.isDonned}}fa-shield-halved{{else}}fa-shield{{/if}}"></i>
+                <span>{{a.donStatusLabel}}</span>
+              </button>
+
+              {{#if a.essenceCost}}
+                <div class="item-inline-tags">
+                  <button type="button"
+                          class="item-essence-tag essence-toggle-btn {{#if a.isAttuned}}attuned{{else}}unattuned{{/if}}"
+                          data-action="toggleAttunement"
+                          data-item-id="{{a.item.id}}"
+                          title="{{#if a.isAttuned}}Attuned ({{a.essenceCost}} EP Bound). Click to Unattune.{{else}}Unattuned ({{a.essenceCost}} EP Inactive). Click to Attune.{{/if}}">
+                    <i class="fas {{#if a.isAttuned}}fa-gem{{else}}fa-circle-dot{{/if}}"></i>
+                    <span>{{a.essenceCost}} EP</span>
+                    <span class="attune-state-lbl">({{#if a.isAttuned}}Bound{{else}}Unbound{{/if}})</span>
+                  </button>
+                </div>
+              {{/if}}
+            </div>
+
+            <div class="weapon-stats-strip armor-stats-strip">
+              {{#if a.ar}}
+                <span class="ar-badge {{#if a.isDonned}}active-stat{{/if}}" title="Armor Rating: {{a.ar}}">
+                  <i class="fas fa-shield-alt"></i>
+                  AR {{a.ar}}
+                </span>
+              {{/if}}
+            </div>
+
+            <div class="item-actions">
+              <button type="button"
+                      class="item-action-btn expand-btn"
+                      data-action="toggleItemEmbed"
+                      data-item-id="{{a.item.id}}"
+                      title="Expand / Collapse Details">
+                <i class="fas fa-chevron-{{#if a.expanded}}up{{else}}down{{/if}}"></i>
+              </button>
+              <button type="button"
+                      class="item-action-btn delete-btn"
+                      data-action="deleteDoc"
+                      data-document-class="Item"
+                      data-item-id="{{a.item.id}}"
+                      title="Delete Armor">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+
+            {{#if a.expanded}}
+              <div class="item-embed-card armor-embed">
+                {{!-- Detailed Armor Properties (Visible only when expanded) --}}
+                <div class="expanded-armor-properties" style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.08);">
+                  {{#each a.defBonuses as |def|}}
+                    <span class="armor-def-badge {{#if ../a.isDonned}}active-stat{{/if}}" title="{{def.label}} Bonus: {{def.display}}">
+                      {{def.label}} {{def.display}}
+                    </span>
+                  {{/each}}
+
+                  {{#if a.resist}}
+                    <span class="armor-resist-badge {{#if a.isDonned}}active-stat{{/if}}" title="Resistance Specialization: {{a.resist}}">
+                      <i class="fas fa-shield-virus"></i>
+                      {{a.resist}}
+                    </span>
+                  {{/if}}
+
+                  {{#if a.isStrFailed}}
+                    <span class="armor-penalty-badge str-penalty" title="STR Minimum {{a.strMin}} NOT met! Speed is 0 and Dazed condition is applied.">
+                      <i class="fas fa-triangle-exclamation"></i>
+                      STR {{a.strMin}} Min
+                    </span>
+                  {{else if a.strMin}}
+                    <span class="armor-req-badge" title="Strength Minimum: {{a.strMin}}">
+                      STR {{a.strMin}} Min
+                    </span>
+                  {{/if}}
+
+                  {{#if a.isDexClamped}}
+                    <span class="armor-penalty-badge dex-clamp" title="Dexterity is clamped to Max {{a.dexMax}} for Reflexes defense.">
+                      <i class="fas fa-lock"></i>
+                      DEX Max {{a.dexMax}}
+                    </span>
+                  {{else if a.dexMax}}
+                    <span class="armor-req-badge" title="Dexterity Maximum: {{a.dexMax}}">
+                      DEX Max {{a.dexMax}}
+                    </span>
+                  {{/if}}
+
+                  {{#if a.speedPenalty}}
+                    <span class="armor-penalty-badge speed-penalty" title="Speed Penalty: -{{a.speedPenalty}} ft">
+                      <i class="fas fa-person-running"></i>
+                      -{{a.speedPenalty}} ft
+                    </span>
+                  {{/if}}
+                </div>
+
+                {{#if a.descriptionHTML}}
+                  {{{a.descriptionHTML}}}
+                {{else if a.item.system.description.value}}
+                  {{{a.item.system.description.value}}}
+                {{else}}
+                  <p class="empty-desc-hint">No description available.</p>
+                {{/if}}
+              </div>
+            {{/if}}
+
+          </li>
+        {{/each}}
+      </ul>
+    {{else}}
+      <p class="empty-list-msg">No armor equipped.</p>
+    {{/if}}
+  </div>
+
+  {{!-- ── Gear ─────────────────────────────────────────────── --}}
+  <div class="inventory-section gear-section">
+    <div class="inventory-header">
+      <h3 class="section-header">
+        <i class="fas fa-backpack"></i>
+        <span>Gear &amp; Inventory</span>
+      </h3>
+      <button type="button"
+              class="create-item-btn"
+              data-action="createDoc"
+              data-document-class="Item"
+              data-type="gear"
+              title="Add Gear">
+        <i class="fas fa-plus"></i>
+        <span>Add Gear</span>
+      </button>
+    </div>
+
+    {{#if gear.length}}
+      <ul class="item-list gear-list">
+        {{#each gear as |g|}}
+          <li class="item draggable item-row gear-row {{#if g.expanded}}expanded{{/if}} {{#if g.isContainer}}container-row{{/if}}" 
+              data-item-id="{{g.item.id}}" 
+              data-document-class="Item"
+              {{#if g.isContainer}}data-container-id="{{g.item.id}}"{{/if}}>
+
+            <img class="item-img"
+                 src="{{g.item.img}}"
+                 alt="{{g.item.name}}"
+                 data-action="viewDoc"
+                 data-document-class="Item"
+                 data-item-id="{{g.item.id}}" />
+
+            <div class="item-name-group">
+              <span class="item-name"
+                    data-action="viewDoc"
+                    data-document-class="Item"
+                    data-item-id="{{g.item.id}}">
+                {{g.item.name}}
+              </span>
+
+              {{#if g.isContainer}}
+                <div class="item-inline-tags">
+                  <button type="button"
+                          class="item-container-tag {{#if g.containerExpanded}}open{{/if}}"
+                          data-action="toggleContainer"
+                          data-container-id="{{g.item.id}}"
+                          title="Click to {{#if g.containerExpanded}}Close{{else}}Open{{/if}} Container ({{g.contentsCount}} items stored)">
+                    <i class="fas {{#if g.containerExpanded}}fa-box-open{{else}}fa-box{{/if}}"></i>
+                    <span>{{g.contentsCount}} {{#if (eq g.contentsCount 1)}}Item{{else}}Items{{/if}}</span>
+                  </button>
+                </div>
+              {{/if}}
+
+              {{#if g.isClothes}}
+                <div class="item-inline-tags">
+                  <button type="button"
+                          class="item-clothes-tag {{#if g.isWorn}}worn{{/if}}"
+                          data-action="toggleWearClothes"
+                          data-item-id="{{g.item.id}}"
+                          title="{{#if g.isWorn}}Worn Clothing (Click to Take Off){{else}}Unworn Clothing (Click to Wear){{/if}}">
+                    <i class="fas {{#if g.isWorn}}fa-shirt{{else}}fa-vest{{/if}}"></i>
+                    <span>{{#if g.isWorn}}Worn{{else}}Wear{{/if}}</span>
+                  </button>
+                </div>
+              {{/if}}
+
+              {{#if g.essenceCost}}
+                <div class="item-inline-tags">
+                  <button type="button"
+                          class="item-essence-tag essence-toggle-btn {{#if g.isAttuned}}attuned{{else}}unattuned{{/if}}"
+                          data-action="toggleAttunement"
+                          data-item-id="{{g.item.id}}"
+                          title="{{#if g.isAttuned}}Attuned ({{g.essenceCost}} EP Bound). Click to Unattune.{{else}}Unattuned ({{g.essenceCost}} EP Inactive). Click to Attune.{{/if}}">
+                    <i class="fas {{#if g.isAttuned}}fa-gem{{else}}fa-circle-dot{{/if}}"></i>
+                    <span>{{g.essenceCost}} EP</span>
+                    <span class="attune-state-lbl">({{#if g.isAttuned}}Bound{{else}}Unbound{{/if}})</span>
+                  </button>
+                </div>
+              {{/if}}
+            </div>
+
+            <div class="weapon-stats-strip">
+              {{#if g.quantity}}
+                <span class="item-quantity" title="Quantity">
+                  ×{{g.quantity}}
+                </span>
+              {{/if}}
+            </div>
+
+            <div class="item-actions">
+              <button type="button"
+                      class="item-action-btn expand-btn {{#if g.isContainer}}{{#if g.containerExpanded}}active{{/if}}{{else}}{{#if g.expanded}}active{{/if}}{{/if}}"
+                      data-action="{{#if g.isContainer}}toggleContainer{{else}}toggleItemEmbed{{/if}}"
+                      data-item-id="{{g.item.id}}"
+                      data-container-id="{{g.item.id}}"
+                      title="{{#if g.isContainer}}{{#if g.containerExpanded}}Close Container Contents{{else}}Open Container Contents{{/if}}{{else}}Expand / Collapse Details{{/if}}">
+                <i class="fas fa-chevron-{{#if g.isContainer}}{{#if g.containerExpanded}}up{{else}}down{{/if}}{{else}}{{#if g.expanded}}up{{else}}down{{/if}}{{/if}}"></i>
+              </button>
+              <button type="button"
+                      class="item-action-btn delete-btn"
+                      data-action="deleteDoc"
+                      data-document-class="Item"
+                      data-item-id="{{g.item.id}}"
+                      title="Delete Gear">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+
+            {{!-- Standard Non-Container Expanded Embed --}}
+            {{#unless g.isContainer}}
+              {{#if g.expanded}}
+                <div class="item-embed-card gear-embed">
+                  {{!-- Gear Tags Strip with hover tooltips --}}
+                  {{#if g.tags.length}}
+                    <div class="expanded-tags-strip">
+                      {{#each g.tags as |tag|}}
+                        <span class="tag-badge-pill {{tag.category}}" 
+                              style="--cat-color: {{tag.categoryMeta.color}}; --cat-bg: {{tag.categoryMeta.bg}}; --cat-border: {{tag.categoryMeta.border}};"
+                              data-tooltip="{{tag.tooltipHTML}}"
+                              data-tooltip-direction="UP">
+                          <i class="{{tag.categoryMeta.icon}}"></i>
+                          <span class="tag-badge-name">{{tag.name}}</span>
+                        </span>
+                      {{/each}}
+                    </div>
+                  {{/if}}
+
+                  {{#if g.descriptionHTML}}
+                    {{{g.descriptionHTML}}}
+                  {{else if g.item.system.description.value}}
+                    {{{g.item.system.description.value}}}
+                  {{else}}
+                    <p class="empty-desc-hint">No description available.</p>
+                  {{/if}}
+                </div>
+              {{/if}}
+            {{/unless}}
+
+            {{!-- Nested Storage Container View --}}
+            {{#if g.isContainer}}
+              {{#if g.containerExpanded}}
+                <div class="container-contents-panel container-drop-zone" data-container-id="{{g.item.id}}">
+                  <div class="container-panel-title">
+                    <i class="fas fa-box-open"></i>
+                    <span>{{g.item.name}} Contents ({{g.contentsCount}})</span>
+                  </div>
+                  {{#if g.contents.length}}
+                    <ul class="nested-item-list">
+                      {{#each g.contents as |ci|}}
+                        <li class="nested-item-row item draggable" data-item-id="{{ci.id}}" data-document-class="Item">
+                          <img class="nested-item-img" src="{{ci.img}}" alt="{{ci.name}}" data-action="viewDoc" data-item-id="{{ci.id}}" />
+                          <div class="nested-item-name-group">
+                            <span class="nested-item-name" data-action="viewDoc" data-item-id="{{ci.id}}">{{ci.name}}</span>
+                            {{#if ci.quantity}}
+                              <span class="nested-item-qty">×{{ci.quantity}}</span>
+                            {{/if}}
+                          </div>
+                          <div class="nested-item-actions">
+                            <button type="button" 
+                                    class="nested-item-btn unpack-btn" 
+                                    data-action="removeFromContainer" 
+                                    data-item-id="{{ci.id}}" 
+                                    title="Unpack / Remove from Container">
+                              <i class="fas fa-arrow-up-from-bracket"></i>
+                            </button>
+                            <button type="button" 
+                                    class="nested-item-btn delete-btn" 
+                                    data-action="deleteDoc" 
+                                    data-document-class="Item" 
+                                    data-item-id="{{ci.id}}" 
+                                    title="Delete Item">
+                              <i class="fas fa-trash"></i>
+                            </button>
+                          </div>
+                        </li>
+                      {{/each}}
+                    </ul>
+                  {{else}}
+                    <div class="empty-container-drop-hint">
+                      <i class="fas fa-arrow-down"></i>
+                      <span>Drag and drop items here to store them</span>
+                    </div>
+                  {{/if}}
+                </div>
+              {{/if}}
+            {{/if}}
+
+          </li>
+        {{/each}}
+      </ul>
+    {{else}}
+      <p class="empty-list-msg">No gear in inventory.</p>
+    {{/if}}
+  </div>
+
+</section>

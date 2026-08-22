@@ -1,0 +1,71 @@
+<div class="movement-dialog-content standard-form">
+  {{!-- Section: Movement Speeds --}}
+  <div class="dialog-section-title">
+    <i class="fas fa-person-running"></i>
+    <span>Movement Speeds</span>
+  </div>
+
+  <div class="movement-dialog-grid">
+    <div class="move-dialog-field">
+      <label><i class="fas fa-person-walking"></i> Walk</label>
+      <div class="input-unit-wrap">
+        <input type="number" name="system.movement.walk" value="{{system.movement.walk}}" min="0" placeholder="20" />
+        <span class="unit-text">ft</span>
+      </div>
+    </div>
+
+    <div class="move-dialog-field">
+      <label><i class="fas fa-mountain"></i> Climb</label>
+      <div class="input-unit-wrap">
+        <input type="number" name="system.movement.climb" value="{{system.movement.climb}}" min="0" placeholder="—" />
+        <span class="unit-text">ft</span>
+      </div>
+    </div>
+
+    <div class="move-dialog-field">
+      <label><i class="fas fa-water"></i> Swim</label>
+      <div class="input-unit-wrap">
+        <input type="number" name="system.movement.swim" value="{{system.movement.swim}}" min="0" placeholder="—" />
+        <span class="unit-text">ft</span>
+      </div>
+    </div>
+
+    <div class="move-dialog-field">
+      <label><i class="fas fa-feather-pointed"></i> Fly</label>
+      <div class="input-unit-wrap">
+        <input type="number" name="system.movement.fly" value="{{system.movement.fly}}" min="0" placeholder="—" />
+        <span class="unit-text">ft</span>
+      </div>
+    </div>
+
+    <div class="move-dialog-field">
+      <label><i class="fas fa-shovel"></i> Burrow</label>
+      <div class="input-unit-wrap">
+        <input type="number" name="system.movement.burrow" value="{{system.movement.burrow}}" min="0" placeholder="—" />
+        <span class="unit-text">ft</span>
+      </div>
+    </div>
+  </div>
+
+  {{!-- Section: Initiative & Combat Quick Stats --}}
+  <div class="dialog-section-title" style="margin-top: 12px;">
+    <i class="fas fa-dice-d20"></i>
+    <span>Initiative Modifiers</span>
+  </div>
+
+  <div class="initiative-dialog-panel">
+    <div class="move-dialog-field full-width">
+      <label><i class="fas fa-plus-circle"></i> Initiative Bonus</label>
+      <div class="input-unit-wrap">
+        <input type="number" name="system.initiative.bonus" value="{{system.initiative.bonus}}" placeholder="0" />
+        <span class="unit-text">mod</span>
+      </div>
+    </div>
+  </div>
+
+  <footer class="dialog-footer">
+    <button type="submit" class="submit-btn" name="submit">
+      <i class="fas fa-check"></i> Save Settings
+    </button>
+  </footer>
+</div>

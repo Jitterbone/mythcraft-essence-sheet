@@ -1,0 +1,208 @@
+{{!-- ============================================================
+     MythCraft Essence — Custom Currency & Exchange Configuration
+     ============================================================ --}}
+<div class="currency-config-wrapper">
+
+  {{!-- Header Banner --}}
+  <div class="dialog-header-banner">
+    <div class="banner-title">
+      <i class="fas fa-coins"></i>
+      <h2>Currency &amp; Exchange Configuration</h2>
+    </div>
+    <p class="banner-desc">
+      Customize currency names, abbreviations, icons, theme styles, custom colors, and base exchange values. 
+      The system uses these values to calculate change, conversions, and shopping transactions.
+    </p>
+  </div>
+
+  {{!-- Theme Selector Quick Bar --}}
+  <div class="theme-presets-bar">
+    <span class="theme-presets-label"><i class="fas fa-palette"></i> Icon Themes:</span>
+    <button type="button" class="theme-preset-btn" data-action="applyTheme" data-theme="coins" title="Apply Coins icon theme (Simple coins, Minted coins, Coin stack, Diamond coin)">
+      <i class="fas fa-coins"></i>
+      <span>Coins Theme</span>
+    </button>
+    <button type="button" class="theme-preset-btn" data-action="applyTheme" data-theme="gems" title="Apply Gems &amp; Jewels theme (Raw Gem, Cut Crystal, Ring, Crown)">
+      <i class="fas fa-gem"></i>
+      <span>Gems Theme</span>
+    </button>
+    <button type="button" class="theme-preset-btn" data-action="applyTheme" data-theme="dollars" title="Apply Paper Currency / Modern theme (Cent, Dollar Bill, Bank Notes, Vault)">
+      <i class="fas fa-money-bill-wave"></i>
+      <span>Dollars Theme</span>
+    </button>
+  </div>
+
+  {{!-- 1. Currencies Configuration Table --}}
+  <fieldset class="dmg-fieldset currency-fieldset">
+    <legend class="dmg-legend">
+      <i class="fas fa-arrow-up-right-dots"></i>
+      <span>Active Currencies (Ordered Lowest to Highest Value)</span>
+    </legend>
+
+    <div class="currency-table">
+      <div class="currency-table-header">
+        <span class="col-default" title="Star the Default/Base Currency (Used for Net Worth Calculations)">Default</span>
+        <span class="col-icon">Icon &amp; Color</span>
+        <span class="col-name">Currency Name</span>
+        <span class="col-abbr">Abbr</span>
+        <span class="col-rate">Base Value Multiplier</span>
+        <span class="col-actions">Actions</span>
+      </div>
+
+      <div class="currency-table-body">
+        {{#each currencies as |c|}}
+          <div class="currency-table-row" data-key="{{c.key}}" data-index="{{c.index}}">
+            
+            {{!-- Star Default Button --}}
+            <div class="col-default-wrap">
+              <button type="button" 
+                      class="curr-default-btn {{#if c.isDefault}}active{{/if}}" 
+                      data-action="setDefaultCurrency" 
+                      data-index="{{c.index}}" 
+                      title="{{#if c.isDefault}}Default Base Currency (Used for Net Worth){{else}}Click to Set as Default Base Currency{{/if}}">
+                <i class="fas fa-star"></i>
+              </button>
+            </div>
+
+            {{!-- Icon Dropdown & Color Picker --}}
+            <div class="col-icon-wrap">
+              <i class="{{c.icon}} curr-icon-preview" style="color: {{c.color}};"></i>
+              <input type="color" name="curr_color" value="{{c.color}}" class="curr-color-picker" title="Pick Custom Color" />
+              <select name="curr_icon" class="curr-icon-select" title="Choose Icon">
+                {{#each ../availableIcons as |ic|}}
+                  <option value="{{ic.icon}}" {{#if (eq ic.icon c.icon)}}selected{{/if}}>{{ic.label}}</option>
+                {{/each}}
+              </select>
+            </div>
+
+            {{!-- Name Input --}}
+            <div class="col-name-wrap">
+              <input type="text" name="curr_label" value="{{c.label}}" class="curr-text-input" placeholder="Name" required />
+            </div>
+
+            {{!-- Abbreviation Input --}}
+            <div class="col-abbr-wrap">
+              <input type="text" name="curr_abbr" value="{{c.abbr}}" class="curr-abbr-input" placeholder="abbr" maxlength="5" required />
+            </div>
+
+            {{!-- Rate / Multiplier Input --}}
+            <div class="col-rate-wrap">
+              <input type="number" name="curr_rate" value="{{c.rate}}" class="curr-num-input" min="1" required />
+              <span class="rate-unit">({{c.relDisplay}} {{c.defaultAbbr}})</span>
+            </div>
+
+            {{!-- Remove Button --}}
+            <div class="col-actions-wrap">
+              <button type="button" class="curr-remove-btn" data-action="removeCurrency" data-index="{{c.index}}" title="Remove Currency">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        {{/each}}
+      </div>
+    </div>
+
+    <div class="currency-table-footer">
+      <button type="button" class="dialog-action-btn add-btn" data-action="addCurrency">
+        <i class="fas fa-plus"></i>
+        <span>Add Custom Currency</span>
+      </button>
+
+      <button type="button" class="dialog-action-btn reset-btn" data-action="resetDefaults" title="Restore default MythCraft currencies and presets">
+        <i class="fas fa-rotate-left"></i>
+        <span>Reset to MythCraft Defaults</span>
+      </button>
+    </div>
+  </fieldset>
+
+  {{!-- 2. Shopping Quick Presets Editor --}}
+  <fieldset class="dmg-fieldset presets-fieldset">
+    <legend class="dmg-legend">
+      <i class="fas fa-bolt"></i>
+      <span>Shopping Quick Presets (Available on Actor Sheet Wallet)</span>
+    </legend>
+
+    <div class="presets-table">
+      <div class="presets-table-header">
+        <span class="pcol-name">Preset Description / Item</span>
+        <span class="pcol-amt">Cost Amount</span>
+        <span class="pcol-curr">Currency</span>
+        <span class="pcol-act">Actions</span>
+      </div>
+
+      <div class="presets-table-body">
+        {{#each presets as |p|}}
+          <div class="preset-table-row" data-index="{{p.index}}">
+            <div class="pcol-name-wrap">
+              <input type="text" name="preset_label" value="{{p.label}}" class="curr-text-input" placeholder="e.g. Inn Room, Ale, Healing Potion" required />
+            </div>
+            <div class="pcol-amt-wrap">
+              <input type="number" name="preset_amount" value="{{p.amount}}" class="curr-num-input" min="0.01" step="any" required />
+            </div>
+            <div class="pcol-curr-wrap">
+              <select name="preset_curr" class="select-styled preset-curr-select">
+                {{#each ../currencies as |c|}}
+                  <option value="{{c.key}}" {{#if (eq c.key p.curr)}}selected{{else if (eq c.abbr p.curr)}}selected{{/if}}>
+                    {{c.label}} ({{c.abbr}})
+                  </option>
+                {{/each}}
+              </select>
+            </div>
+            <div class="pcol-act-wrap">
+              <button type="button" class="curr-remove-btn" data-action="removePreset" data-index="{{p.index}}" title="Remove Preset">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        {{/each}}
+      </div>
+    </div>
+
+    <div class="presets-table-footer">
+      <button type="button" class="dialog-action-btn add-btn" data-action="addPreset">
+        <i class="fas fa-plus"></i>
+        <span>Add Quick Preset</span>
+      </button>
+    </div>
+  </fieldset>
+
+  {{!-- 3. Live Conversion Matrix (Preview) --}}
+  <fieldset class="dmg-fieldset matrix-fieldset">
+    <legend class="dmg-legend">
+      <i class="fas fa-table-columns"></i>
+      <span>Live Currency Conversion Matrix</span>
+    </legend>
+
+    <div class="matrix-table-wrap">
+      <table class="conversion-matrix-table">
+        <thead>
+          <tr>
+            <th>1 unit of:</th>
+            {{#each conversionMatrix.headers as |h|}}
+              <th>{{h.abbr}} ({{h.label}})</th>
+            {{/each}}
+          </tr>
+        </thead>
+        <tbody>
+          {{#each conversionMatrix.rows as |row|}}
+            <tr>
+              <th class="row-header">1 {{row.sourceAbbr}} ({{row.sourceLabel}})</th>
+              {{#each row.cells as |cell|}}
+                <td class="matrix-cell">{{cell}}</td>
+              {{/each}}
+            </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    </div>
+  </fieldset>
+
+  {{!-- Dialog Form Footer --}}
+  <footer class="dialog-form-footer">
+    <button type="submit" class="dialog-save-btn">
+      <i class="fas fa-check"></i>
+      <span>Save Currency Configurations &amp; Presets</span>
+    </button>
+  </footer>
+
+</div>

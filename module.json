@@ -1,0 +1,48 @@
+{
+  "id": "mythcraft-essence-sheet",
+  "title": "MythCraft Essence Sheet",
+  "version": "0.1.0-alpha",
+  "compatibility": {
+    "minimum": "12",
+    "verified": "13"
+  },
+  "authors": [
+    {
+      "name": "Jitterbone",
+      "discord": "wendiwoe",
+      "flags": {}
+    }
+  ],
+  "flags": {
+    "canUpload": true
+  },
+  "url": "https://github.com/Jitterbone/mythcraft-essence-sheet",
+  "manifest": "https://github.com/Jitterbone/mythcraft-essence-sheet/releases/latest/download/module.json",
+  "download": "https://github.com/Jitterbone/mythcraft-essence-sheet/releases/download/v0.1.0-alpha/mythcraft-essence-sheet.zip",
+  "relationships": {
+    "requires": [
+      {
+        "id": "mythcraft",
+        "type": "system",
+        "compatibility": {}
+      }
+    ],
+    "recommends": [
+      {
+        "id": "mythcraft-hud",
+        "type": "module",
+        "compatibility": {}
+      }
+    ]
+  },
+  "description": "Alternate actor and item sheets for the MythCraft system, styled to match the MythCraft HUD aesthetic with a dark teal-and-gold palette.",
+  "esmodules": ["src/module.mjs"],
+  "styles": ["styles/essence-sheet-theme.css"],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    }
+  ]
+}

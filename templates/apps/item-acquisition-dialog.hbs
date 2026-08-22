@@ -1,0 +1,73 @@
+{{!-- ============================================================
+     MythCraft Essence — Item Acquisition & Purchase Prompt Modal
+     ============================================================ --}}
+<div class="item-acq-wrapper">
+
+  {{!-- Item Hero Card --}}
+  <div class="item-acq-hero">
+    <img src="{{item.img}}" class="item-acq-img" alt="{{item.name}}" />
+    <div class="item-acq-info">
+      <h3 class="item-acq-name">{{item.name}}</h3>
+      <div class="item-acq-cost-badge" style="border-color: {{costData.currency.color}};">
+        <i class="{{costData.currency.icon}}" style="color: {{costData.currency.color}};"></i>
+        <span class="cost-lbl">Price / Cost:</span>
+        <span class="cost-amt" style="color: {{costData.currency.color}};">{{costData.rawDisplay}}</span>
+      </div>
+    </div>
+  </div>
+
+  {{!-- Balance Info Banner --}}
+  <div class="acq-wallet-banner">
+    <div class="wallet-balance-row">
+      <span class="lbl"><i class="fas fa-wallet"></i> {{actor.name}}'s Total Wealth:</span>
+      <span class="val">{{wealthInDefault}} {{defaultCurr.abbr}} ({{defaultCurr.label}})</span>
+    </div>
+    {{#unless canAfford}}
+      <div class="insufficient-alert">
+        <i class="fas fa-triangle-exclamation"></i>
+        <span>Insufficient funds to purchase this item! You can still add it for free as loot/gift.</span>
+      </div>
+    {{/unless}}
+  </div>
+
+  <p class="acq-question-text">
+    How did {{actor.name}} acquire this item?
+  </p>
+
+  {{!-- Action Choices --}}
+  <div class="acq-actions-grid">
+    {{#if canAfford}}
+      <button type="button" class="acq-btn purchase-btn" data-action="choosePurchase">
+        <i class="fas fa-cart-shopping"></i>
+        <div class="btn-text">
+          <span class="primary-text">Purchase Item</span>
+          <span class="sub-text">Pay -{{costData.rawDisplay}} (Auto-Change)</span>
+        </div>
+      </button>
+    {{else}}
+      <button type="button" class="acq-btn purchase-btn disabled" disabled title="Insufficient funds">
+        <i class="fas fa-lock"></i>
+        <div class="btn-text">
+          <span class="primary-text">Cannot Afford</span>
+          <span class="sub-text">Needs -{{costData.rawDisplay}}</span>
+        </div>
+      </button>
+    {{/if}}
+
+    <button type="button" class="acq-btn free-btn" data-action="chooseFree">
+      <i class="fas fa-gift"></i>
+      <div class="btn-text">
+        <span class="primary-text">Given / Loot</span>
+        <span class="sub-text">Add for Free (0 Cost)</span>
+      </div>
+    </button>
+  </div>
+
+  <div class="acq-cancel-wrap">
+    <button type="button" class="acq-cancel-btn" data-action="chooseCancel">
+      <i class="fas fa-times"></i> Cancel Drop
+    </button>
+  </div>
+
+</div>
+

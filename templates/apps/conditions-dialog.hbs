@@ -1,0 +1,25 @@
+<div class="conditions-dialog-content standard-form">
+  <div class="conditions-dialog-grid">
+    {{#each conditions as |c|}}
+      <label class="condition-toggle-card {{#if c.active}}active{{/if}}" title="{{c.description}}">
+        <input type="checkbox"
+               name="condition_{{c.id}}"
+               value="{{c.id}}"
+               {{#if c.active}}checked{{/if}}
+               hidden />
+        <img src="{{c.img}}" alt="{{c.label}}" class="cond-icon" />
+        <div class="cond-info">
+          <span class="cond-name">{{c.label}}</span>
+          <span class="cond-desc">{{c.description}}</span>
+        </div>
+      </label>
+    {{/each}}
+  </div>
+
+  <footer class="dialog-footer">
+    <button type="submit" class="submit-btn" name="submit">
+      <i class="fas fa-check"></i>
+      Save Conditions
+    </button>
+  </footer>
+</div>

@@ -1,0 +1,152 @@
+{{!-- ============================================================
+     MythCraft Essence Sheet — Effects Tab
+     Context: effects (categories: temporary, passive, inactive), isEditable
+     ============================================================ --}}
+<section class="tab {{tab.cssClass}}" data-group="primary" data-tab="effects">
+
+  <div class="effects-section">
+    <div class="effects-main-header">
+      <h3 class="section-header">
+        <i class="fas fa-magic"></i>
+        <span>Active Effects</span>
+      </h3>
+      <div class="header-actions">
+        <button type="button"
+                class="create-item-btn add-effect-btn"
+                data-action="createEffect"
+                data-effect-type="passive"
+                title="Add Effect">
+          <i class="fas fa-plus"></i>
+          <span>Add Effect</span>
+        </button>
+      </div>
+    </div>
+
+    {{#if (or effects.temporary.effects.length effects.passive.effects.length effects.inactive.effects.length)}}
+      {{#each effects as |category categoryKey|}}
+        <div class="effect-category-block {{categoryKey}}-block">
+          <div class="effect-category-header-bar">
+            <h4 class="effect-category-title">
+              {{#if (eq categoryKey "temporary")}}
+                <i class="fas fa-hourglass-half"></i>
+              {{else if (eq categoryKey "passive")}}
+                <i class="fas fa-shield-alt"></i>
+              {{else}}
+                <i class="fas fa-power-off"></i>
+              {{/if}}
+              <span>{{category.label}}</span>
+              <span class="category-count-badge">{{category.effects.length}}</span>
+            </h4>
+            <button type="button"
+                    class="category-add-btn"
+                    data-action="createEffect"
+                    data-effect-type="{{categoryKey}}"
+                    title="Add {{category.label}}">
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
+
+          {{#if category.effects.length}}
+            <ul class="item-list effects-list">
+              {{#each category.effects as |e|}}
+                <li class="item effect item-row effect-row {{#if e.effect.disabled}}effect-disabled is-disabled{{/if}} {{#if e.expanded}}expanded{{/if}}"
+                    data-document-class="ActiveEffect"
+                    data-effect-id="{{e.effect.id}}">
+                  
+                  {{!-- Effect Icon --}}
+                  <img class="item-img effect-icon"
+                       src="{{e.effect.img}}"
+                       alt="{{e.effect.name}}"
+                       data-action="viewDoc"
+                       data-document-class="ActiveEffect"
+                       data-effect-id="{{e.effect.id}}" />
+
+                  {{!-- Effect Name --}}
+                  <span class="item-name effect-name"
+                        data-action="toggleEffectEmbed"
+                        data-document-class="ActiveEffect"
+                        data-effect-id="{{e.effect.id}}">
+                    {{e.effect.name}}
+                  </span>
+
+                  {{!-- Duration or Status Details if available --}}
+                  {{#if e.durationLabel}}
+                    <span class="effect-duration-label"><i class="fas fa-clock"></i> {{e.durationLabel}}</span>
+                  {{/if}}
+
+                  {{!-- Status Badge --}}
+                  <span class="effect-status-badge {{#if e.effect.disabled}}status-disabled{{else}}status-enabled{{/if}}"
+                        data-action="toggleEffect"
+                        data-document-class="ActiveEffect"
+                        data-effect-id="{{e.effect.id}}"
+                        title="Click to toggle status">
+                    {{#if e.effect.disabled}}INACTIVE{{else}}ACTIVE{{/if}}
+                  </span>
+
+                  {{!-- Action Buttons --}}
+                  <div class="item-actions">
+                    <button type="button"
+                            class="item-action-btn toggle-btn {{#if e.effect.disabled}}is-disabled{{else}}is-active{{/if}}"
+                            data-action="toggleEffect"
+                            data-document-class="ActiveEffect"
+                            data-effect-id="{{e.effect.id}}"
+                            title="{{#if e.effect.disabled}}Enable Effect{{else}}Disable Effect{{/if}}">
+                      <i class="fas fa-{{#if e.effect.disabled}}toggle-off{{else}}toggle-on{{/if}}"></i>
+                    </button>
+                    <button type="button"
+                            class="item-action-btn expand-btn"
+                            data-action="toggleEffectEmbed"
+                            data-document-class="ActiveEffect"
+                            data-effect-id="{{e.effect.id}}"
+                            title="Expand / Collapse Details">
+                      <i class="fas fa-chevron-{{#if e.expanded}}up{{else}}down{{/if}}"></i>
+                    </button>
+                    <button type="button"
+                            class="item-action-btn delete-btn"
+                            data-action="deleteDoc"
+                            data-document-class="ActiveEffect"
+                            data-effect-id="{{e.effect.id}}"
+                            title="Delete Effect">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </div>
+
+                  {{!-- Expanded Embed --}}
+                  {{#if e.expanded}}
+                    <div class="item-embed-card effect-embed">
+                      {{#if e.descriptionHTML}}
+                        {{{e.descriptionHTML}}}
+                      {{else if e.effect.description}}
+                        {{{e.effect.description}}}
+                      {{else}}
+                        <p class="empty-desc-hint">No effect details available.</p>
+                      {{/if}}
+                    </div>
+                  {{/if}}
+
+                </li>
+              {{/each}}
+            </ul>
+          {{else}}
+            <p class="empty-category-msg">No {{category.label}}</p>
+          {{/if}}
+        </div>
+      {{/each}}
+    {{else}}
+      <div class="empty-list-card">
+        <p class="empty-list-msg">
+          <i class="fas fa-wind"></i>
+          No active effects on this character.
+        </p>
+        <button type="button"
+                class="create-first-btn"
+                data-action="createEffect"
+                data-effect-type="passive">
+          <i class="fas fa-plus"></i> Add First Effect
+        </button>
+      </div>
+    {{/if}}
+
+  </div>
+
+</section>

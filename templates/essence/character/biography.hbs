@@ -1,0 +1,112 @@
+{{!-- ============================================================
+     MythCraft Essence Sheet — Biography Tab
+     Context: system, systemSource, isEditable, user, enrichedBiography, enrichedGMNotes
+     ============================================================ --}}
+<section class="tab biography-tab {{tab.cssClass}} standard-form" data-group="primary" data-tab="biography">
+
+  {{!-- ── Personality Block ──────────────────────────────── --}}
+  <div class="bio-section personality-section">
+    <h3 class="section-header">
+      <i class="fas fa-user-circle"></i>
+      <span>Personality</span>
+    </h3>
+
+    <div class="personality-grid">
+
+      <div class="personality-field">
+        <label class="field-label">
+          <i class="fas fa-heart"></i>
+          <span>Values</span>
+        </label>
+        <input type="text"
+               name="system.personality.values"
+               value="{{system.personality.values}}"
+               class="personality-input"
+               placeholder="What principles guide you?" />
+      </div>
+
+      <div class="personality-field">
+        <label class="field-label">
+          <i class="fas fa-bullseye"></i>
+          <span>Drive</span>
+        </label>
+        <input type="text"
+               name="system.personality.drive"
+               value="{{system.personality.drive}}"
+               class="personality-input"
+               placeholder="What is your main goal or ambition?" />
+      </div>
+
+      <div class="personality-field">
+        <label class="field-label">
+          <i class="fas fa-masks-theater"></i>
+          <span>Quirk</span>
+        </label>
+        <input type="text"
+               name="system.personality.quirk"
+               value="{{system.personality.quirk}}"
+               class="personality-input"
+               placeholder="Habits, flaws, or unique behaviors..." />
+      </div>
+
+    </div>
+  </div>
+
+  {{!-- ── Appearance Block ────────────────────────────────── --}}
+  <div class="bio-section appearance-section">
+    <h3 class="section-header">
+      <i class="fas fa-id-card"></i>
+      <span>Physical Description</span>
+    </h3>
+
+    <div class="appearance-grid">
+      <div class="appearance-field full-width">
+        <textarea name="system.appearance.description"
+                  class="appearance-textarea"
+                  rows="3"
+                  placeholder="Describe your character's physical features, attire, scars, demeanor...">{{system.appearance.description}}</textarea>
+      </div>
+    </div>
+  </div>
+
+  {{!-- ── Biography HTML ──────────────────────────────────── --}}
+  <div class="bio-section biography-section">
+    <h3 class="section-header">
+      <i class="fas fa-book"></i>
+      <span>Biography</span>
+    </h3>
+
+    <div class="biography-body">
+      {{#if systemFields.biography.fields.value}}
+        {{formInput systemFields.biography.fields.value
+                    enriched=enrichedBiography
+                    value=system.biography.value
+                    toggled="true"}}
+      {{else}}
+        <prose-mirror name="system.biography.value" value="{{system.biography.value}}" toggled="true">{{{enrichedBiography}}}</prose-mirror>
+      {{/if}}
+    </div>
+  </div>
+
+  {{!-- ── GM Notes (GM-only) ──────────────────────────────── --}}
+  {{#if @root.user.isGM}}
+    <div class="bio-section gm-notes-section gm-only">
+      <h3 class="section-header gm-header">
+        <i class="fas fa-eye-slash"></i>
+        <span>GM Notes</span>
+        <span class="gm-badge">GM Only</span>
+      </h3>
+      <div class="gm-notes-body">
+        {{#if systemFields.biography.fields.gm}}
+          {{formInput systemFields.biography.fields.gm
+                      enriched=enrichedGMNotes
+                      value=system.biography.gm
+                      toggled="true"}}
+        {{else}}
+          <prose-mirror name="system.biography.gm" value="{{system.biography.gm}}" toggled="true">{{{enrichedGMNotes}}}</prose-mirror>
+        {{/if}}
+      </div>
+    </div>
+  {{/if}}
+
+</section>

@@ -1,0 +1,227 @@
+{{!-- ============================================================
+     MythCraft Essence Sheet — Talents Tab
+     Context: talents[], features[], isEditable
+     ============================================================ --}}
+<section class="tab {{tab.cssClass}}" data-group="primary" data-tab="talents">
+
+  {{!-- ── Talents Section ──────────────────────────────────── --}}
+  <div class="talents-section">
+    <div class="inventory-header">
+      <h3 class="section-header">
+        <i class="fas fa-award"></i>
+        <span>Talents</span>
+      </h3>
+      <button type="button"
+              class="create-item-btn"
+              data-action="createDoc"
+              data-document-class="Item"
+              data-type="talent"
+              title="Add Talent">
+        <i class="fas fa-plus"></i>
+        <span>Add Talent</span>
+      </button>
+    </div>
+
+    {{#if talents.length}}
+      <ul class="item-list talent-list">
+        {{#each talents as |t|}}
+          <li class="item draggable item-row talent-row {{#if t.expanded}}expanded{{/if}}" data-item-id="{{t.item.id}}" data-document-class="Item">
+
+            {{!-- Favorite Star --}}
+            <button type="button"
+                    class="favorite-btn {{#if t.isFavorite}}favorited{{/if}}"
+                    data-action="toggleFavorite"
+                    data-item-id="{{t.item.id}}"
+                    title="{{#if t.isFavorite}}Favorited (Expanded by default). Click to Unfavorite.{{else}}Click to Favorite & Expand.{{/if}}">
+              <i class="{{#if t.isFavorite}}fas{{else}}far{{/if}} fa-star"></i>
+            </button>
+
+            {{!-- Talent Image --}}
+            <img class="item-img talent-img"
+                 src="{{t.item.img}}"
+                 alt="{{t.item.name}}"
+                 data-action="viewDoc"
+                 data-document-class="Item"
+                 data-item-id="{{t.item.id}}" />
+
+            {{!-- Talent Name --}}
+            <div class="item-name-group">
+              <span class="item-name talent-name"
+                    data-action="viewDoc"
+                    data-document-class="Item"
+                    data-item-id="{{t.item.id}}">
+                {{t.item.name}}
+              </span>
+              {{#if t.essenceCost}}
+                <div class="item-inline-tags">
+                  <button type="button"
+                          class="item-essence-tag essence-toggle-btn {{#if t.isAttuned}}attuned{{else}}unattuned{{/if}}"
+                          data-action="toggleAttunement"
+                          data-item-id="{{t.item.id}}"
+                          title="{{#if t.isAttuned}}Attuned ({{t.essenceCost}} EP Bound). Click to Unattune.{{else}}Unattuned ({{t.essenceCost}} EP Inactive). Click to Attune.{{/if}}">
+                    <i class="fas {{#if t.isAttuned}}fa-gem{{else}}fa-circle-dot{{/if}}"></i>
+                    <span>{{t.essenceCost}} EP</span>
+                    <span class="attune-state-lbl">({{#if t.isAttuned}}Bound{{else}}Unbound{{/if}})</span>
+                  </button>
+                </div>
+              {{/if}}
+            </div>
+
+            {{!-- Action Buttons --}}
+            <div class="item-actions">
+              <button type="button"
+                      class="item-action-btn chat-btn"
+                      data-action="postItemToChat"
+                      data-item-id="{{t.item.id}}"
+                      title="Post {{t.item.name}} to Chat">
+                <i class="fas fa-message"></i>
+              </button>
+              <button type="button"
+                      class="item-action-btn expand-btn"
+                      data-action="toggleItemEmbed"
+                      data-item-id="{{t.item.id}}"
+                      title="Expand / Collapse Details">
+                <i class="fas fa-chevron-{{#if t.expanded}}up{{else}}down{{/if}}"></i>
+              </button>
+              <button type="button"
+                      class="item-action-btn delete-btn"
+                      data-action="deleteDoc"
+                      data-document-class="Item"
+                      data-item-id="{{t.item.id}}"
+                      title="Delete Talent">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+
+            {{!-- Expanded Description --}}
+            {{#if t.expanded}}
+              <div class="item-embed-card talent-embed">
+                {{#if t.descriptionHTML}}
+                  {{{t.descriptionHTML}}}
+                {{else if t.item.system.description.value}}
+                  {{{t.item.system.description.value}}}
+                {{else}}
+                  <p class="empty-desc-hint">No description available.</p>
+                {{/if}}
+              </div>
+            {{/if}}
+
+          </li>
+        {{/each}}
+      </ul>
+    {{else}}
+      <p class="empty-list-msg">No talents learned.</p>
+    {{/if}}
+  </div>
+
+  {{!-- ── Features Section ────────────────────────────────── --}}
+  <div class="features-section">
+    <div class="inventory-header">
+      <h3 class="section-header">
+        <i class="fas fa-scroll"></i>
+        <span>Features</span>
+      </h3>
+      <button type="button"
+              class="create-item-btn"
+              data-action="createDoc"
+              data-document-class="Item"
+              data-type="feature"
+              title="Add Feature">
+        <i class="fas fa-plus"></i>
+        <span>Add Feature</span>
+      </button>
+    </div>
+
+    {{#if features.length}}
+      <ul class="item-list feature-list">
+        {{#each features as |f|}}
+          <li class="item draggable item-row feature-row {{#if f.expanded}}expanded{{/if}}" data-item-id="{{f.item.id}}" data-document-class="Item">
+
+            {{!-- Favorite Star --}}
+            <button type="button"
+                    class="favorite-btn {{#if f.isFavorite}}favorited{{/if}}"
+                    data-action="toggleFavorite"
+                    data-item-id="{{f.item.id}}"
+                    title="{{#if f.isFavorite}}Favorited (Expanded by default). Click to Unfavorite.{{else}}Click to Favorite & Expand.{{/if}}">
+              <i class="{{#if f.isFavorite}}fas{{else}}far{{/if}} fa-star"></i>
+            </button>
+
+            {{!-- Feature Image --}}
+            <img class="item-img feature-img"
+                 src="{{f.item.img}}"
+                 alt="{{f.item.name}}"
+                 data-action="viewDoc"
+                 data-document-class="Item"
+                 data-item-id="{{f.item.id}}" />
+
+            {{!-- Feature Name --}}
+            <div class="item-name-group">
+              <span class="item-name feature-name"
+                    data-action="viewDoc"
+                    data-document-class="Item"
+                    data-item-id="{{f.item.id}}">
+                {{f.item.name}}
+              </span>
+              {{#if f.essenceCost}}
+                <div class="item-inline-tags">
+                  <button type="button"
+                          class="item-essence-tag essence-toggle-btn {{#if f.isAttuned}}attuned{{else}}unattuned{{/if}}"
+                          data-action="toggleAttunement"
+                          data-item-id="{{f.item.id}}"
+                          title="{{#if f.isAttuned}}Attuned ({{f.essenceCost}} EP Bound). Click to Unattune.{{else}}Unattuned ({{f.essenceCost}} EP Inactive). Click to Attune.{{/if}}">
+                    <i class="fas {{#if f.isAttuned}}fa-gem{{else}}fa-circle-dot{{/if}}"></i>
+                    <span>{{f.essenceCost}} EP</span>
+                    <span class="attune-state-lbl">({{#if f.isAttuned}}Bound{{else}}Unbound{{/if}})</span>
+                  </button>
+                </div>
+              {{/if}}
+            </div>
+
+            {{!-- Action Buttons --}}
+            <div class="item-actions">
+              <button type="button"
+                      class="item-action-btn chat-btn"
+                      data-action="postItemToChat"
+                      data-item-id="{{f.item.id}}"
+                      title="Post {{f.item.name}} to Chat">
+                <i class="fas fa-message"></i>
+              </button>
+              <button type="button"
+                      class="item-action-btn expand-btn"
+                      data-action="toggleItemEmbed"
+                      data-item-id="{{f.item.id}}"
+                      title="Expand / Collapse Details">
+                <i class="fas fa-chevron-{{#if f.expanded}}up{{else}}down{{/if}}"></i>
+              </button>
+              <button type="button"
+                      class="item-action-btn delete-btn"
+                      data-action="deleteDoc"
+                      data-document-class="Item"
+                      data-item-id="{{f.item.id}}"
+                      title="Delete Feature">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+
+            {{!-- Expanded Description --}}
+            {{#if f.expanded}}
+              <div class="item-embed-card feature-embed">
+                {{#if f.descriptionHTML}}
+                  {{{f.descriptionHTML}}}
+                {{else if f.item.system.description.value}}
+                  {{{f.item.system.description.value}}}
+                {{else}}
+                  <p class="empty-desc-hint">No description available.</p>
+                {{/if}}
+              </div>
+            {{/if}}
+
+          </li>
+        {{/each}}
+      </ul>
+    {{else}}
+      <p class="empty-list-msg">No features learned.</p>
+    {{/if}}
+  </div>
+
+</section>

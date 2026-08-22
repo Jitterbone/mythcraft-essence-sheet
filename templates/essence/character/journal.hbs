@@ -1,0 +1,147 @@
+{{!-- ============================================================
+     MythCraft Essence Sheet — Journal Tab
+     Context: additionalInfo, contacts, resources, journal,
+              tab, isEditable, editable
+     ============================================================ --}}
+<section class="tab journal-tab {{tab.cssClass}} standard-form" data-group="primary" data-tab="journal">
+
+  {{!-- ── Additional Info (full width) ─────────────────────── --}}
+  <section class="journal-section additional-info-list">
+    <div class="section-header">
+      <h3>
+        <i class="fas fa-info-circle"></i>
+        Additional Info
+      </h3>
+      <button type="button" class="add-btn" data-action="addAdditionalInfo" title="Add Entry">
+        <i class="fas fa-plus"></i>
+      </button>
+    </div>
+    {{#each additionalInfo.entries}}
+    <div class="journal-card {{#if this.expanded}}expanded{{else}}collapsed{{/if}}" data-entry-id="{{@key}}">
+      {{#if this.expanded}}
+      <div class="card-row">
+        <button type="button" class="toggle-btn" data-action="toggleJournalCard"><i class="fas fa-chevron-down"></i></button>
+        <label>Name</label>
+        <input type="text" name="system.additionalInfo.{{@key}}.name" value="{{this.name}}">
+        <label>Category</label>
+        <input type="text" name="system.additionalInfo.{{@key}}.category" value="{{this.category}}">
+        <button type="button" class="remove-btn" data-action="removeAdditionalInfo" data-entry-id="{{@key}}" title="Delete"><i class="fas fa-trash"></i></button>
+      </div>
+      <div class="card-description">
+        {{formInput @root.additionalInfo.field value=this.description enriched=this.enrichedHTML name=(concat "system.additionalInfo." @key ".description")}}
+      </div>
+      {{else}}
+      <div class="card-row collapsed-row" data-action="toggleJournalCard">
+        <button type="button" class="toggle-btn"><i class="fas fa-chevron-right"></i></button>
+        <span class="collapsed-name">{{this.name}}</span>
+        {{#if this.category}}<span class="collapsed-detail">{{this.category}}</span>{{/if}}
+      </div>
+      {{/if}}
+    </div>
+    {{/each}}
+  </section>
+
+  {{!-- ── Middle grid: Contacts (left) + Resources (right) ─── --}}
+  <div class="journal-middle-grid">
+
+    {{!-- Contacts --}}
+    <section class="journal-section contacts-list">
+      <div class="section-header">
+        <h3>
+          <i class="fas fa-address-book"></i>
+          Contacts
+        </h3>
+        <button type="button" class="add-btn" data-action="addContact" title="Add Contact">
+          <i class="fas fa-plus"></i>
+        </button>
+      </div>
+      {{#each contacts.entries}}
+      <div class="journal-card {{#if this.expanded}}expanded{{else}}collapsed{{/if}}" data-entry-id="{{@key}}">
+        {{#if this.expanded}}
+        <div class="card-row">
+          <button type="button" class="toggle-btn" data-action="toggleJournalCard"><i class="fas fa-chevron-down"></i></button>
+          <label>Name</label>
+          <input type="text" name="system.contacts.{{@key}}.name" value="{{this.name}}">
+          <label>Location</label>
+          <input type="text" name="system.contacts.{{@key}}.location" value="{{this.location}}">
+          <button type="button" class="remove-btn" data-action="removeContact" data-entry-id="{{@key}}" title="Delete"><i class="fas fa-trash"></i></button>
+        </div>
+        <div class="card-description">
+          {{formInput @root.contacts.field value=this.description enriched=this.enrichedHTML name=(concat "system.contacts." @key ".description")}}
+        </div>
+        {{else}}
+        <div class="card-row collapsed-row" data-action="toggleJournalCard">
+          <button type="button" class="toggle-btn"><i class="fas fa-chevron-right"></i></button>
+          <span class="collapsed-name">{{this.name}}</span>
+          {{#if this.location}}<span class="collapsed-detail">{{this.location}}</span>{{/if}}
+        </div>
+        {{/if}}
+      </div>
+      {{/each}}
+    </section>
+
+    {{!-- Resources --}}
+    <section class="journal-section resources-list">
+      <div class="section-header">
+        <h3>
+          <i class="fas fa-cubes"></i>
+          Tracked Resources
+        </h3>
+        <button type="button" class="add-btn" data-action="addResource" title="Add Resource">
+          <i class="fas fa-plus"></i>
+        </button>
+      </div>
+      {{#each resources}}
+      <div class="journal-card resource-card" data-entry-id="{{@key}}">
+        <div class="card-row">
+          <label>Resource</label>
+          <input type="text" name="system.resources.{{@key}}.name" value="{{this.name}}">
+          <label>Current</label>
+          <input type="number" name="system.resources.{{@key}}.value" value="{{this.value}}" class="resource-num">
+          <label>Max</label>
+          <input type="number" name="system.resources.{{@key}}.max" value="{{this.max}}" class="resource-num">
+          <button type="button" class="remove-btn" data-action="removeResource" data-entry-id="{{@key}}" title="Delete"><i class="fas fa-trash"></i></button>
+        </div>
+      </div>
+      {{/each}}
+    </section>
+
+  </div>
+
+  {{!-- ── Journal Entries (full width) ─────────────────────── --}}
+  <section class="journal-section journal-entries-list">
+    <div class="section-header">
+      <h3>
+        <i class="fas fa-book-open"></i>
+        Journal Entries
+      </h3>
+      <button type="button" class="add-btn" data-action="addJournalEntry" title="Add Journal Entry">
+        <i class="fas fa-plus"></i>
+      </button>
+    </div>
+    {{#each journal.entries}}
+    <div class="journal-card {{#if this.expanded}}expanded{{else}}collapsed{{/if}}" data-entry-id="{{@key}}">
+      {{#if this.expanded}}
+      <div class="card-row">
+        <button type="button" class="toggle-btn" data-action="toggleJournalCard"><i class="fas fa-chevron-down"></i></button>
+        <label>Entry</label>
+        <input type="text" name="system.journal.{{@key}}.name" value="{{this.name}}">
+        <label>Date</label>
+        <input type="text" name="system.journal.{{@key}}.date" value="{{this.date}}">
+        <button type="button" class="remove-btn" data-action="removeJournalEntry" data-entry-id="{{@key}}" title="Delete"><i class="fas fa-trash"></i></button>
+      </div>
+      <div class="card-description">
+        {{formInput @root.journal.field value=this.content enriched=this.enrichedHTML name=(concat "system.journal." @key ".content")}}
+      </div>
+      {{else}}
+      <div class="card-row collapsed-row" data-action="toggleJournalCard">
+        <button type="button" class="toggle-btn"><i class="fas fa-chevron-right"></i></button>
+        <span class="collapsed-name">{{this.name}}</span>
+        {{#if this.date}}<span class="collapsed-detail">{{this.date}}</span>{{/if}}
+      </div>
+      {{/if}}
+    </div>
+    {{/each}}
+  </section>
+
+</section>

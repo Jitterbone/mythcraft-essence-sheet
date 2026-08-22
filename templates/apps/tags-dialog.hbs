@@ -1,0 +1,108 @@
+<div class="tags-dialog-content standard-form">
+
+  {{!-- Hero Header --}}
+  <div class="dialog-hero-card">
+    <div class="hero-icon-wrap">
+      <i class="fas fa-tags"></i>
+    </div>
+    <div class="hero-text-wrap">
+      <h2 class="hero-title">MythCraft Tag &amp; Keyword Library</h2>
+      <p class="hero-subtitle">Manage official rules descriptions and create custom tags for weapons, spells, and creatures.</p>
+    </div>
+    <div class="hero-actions">
+      <button type="button" class="dialog-danger-btn" data-action="resetDefaults" title="Restore all default MythCraft system tags">
+        <i class="fas fa-rotate-left"></i>
+        <span>Reset Defaults</span>
+      </button>
+    </div>
+  </div>
+
+  {{!-- Search & Filter Toolbar --}}
+  <div class="tags-toolbar">
+    <div class="tag-search-box">
+      <i class="fas fa-search"></i>
+      <input type="text" class="tag-search-input" placeholder="Search tags by name or rule description..." value="{{searchTerm}}" />
+    </div>
+
+    <div class="tag-category-pills">
+      <button type="button" class="cat-pill {{#if (eq activeCategory 'all')}}active{{/if}}" data-action="filterCategory" data-category="all">
+        <i class="fas fa-layer-group"></i> All ({{totalCount}})
+      </button>
+      {{#each categories as |cat|}}
+        <button type="button" 
+                class="cat-pill {{#if (eq ../activeCategory cat.key)}}active{{/if}}" 
+                data-action="filterCategory" 
+                data-category="{{cat.key}}"
+                style="--cat-color: {{cat.color}}; --cat-bg: {{cat.bg}}; --cat-border: {{cat.border}};">
+          <i class="{{cat.icon}}"></i> {{cat.label}} ({{cat.count}})
+        </button>
+      {{/each}}
+    </div>
+  </div>
+
+  {{!-- Add Custom Tag Section --}}
+  <div class="add-tag-panel">
+    <div class="panel-heading">
+      <i class="fas fa-plus-circle"></i>
+      <span>Add New Custom Tag</span>
+    </div>
+    <div class="add-tag-form-grid">
+      <div class="add-field field-name">
+        <label>Tag Name</label>
+        <input type="text" class="new-tag-name" placeholder="e.g. Cleaving, Piercing, Channeled..." />
+      </div>
+      <div class="add-field field-cat">
+        <label>Category</label>
+        <select class="new-tag-category">
+          {{#each categories as |cat|}}
+            <option value="{{cat.key}}">{{cat.label}}</option>
+          {{/each}}
+        </select>
+      </div>
+      <div class="add-field field-desc">
+        <label>Rule Description</label>
+        <input type="text" class="new-tag-desc" placeholder="Explain how this tag functions in combat or spellcasting..." />
+      </div>
+      <div class="add-field field-btn">
+        <button type="button" class="dialog-primary-btn add-tag-btn" data-action="addTag">
+          <i class="fas fa-plus"></i>
+          <span>Add Tag</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {{!-- Tags List --}}
+  <div class="tags-list-wrapper">
+    <div class="tags-grid">
+      {{#each filteredTags as |t|}}
+        <div class="tag-card" data-tag-id="{{t.id}}">
+          <div class="tag-card-header">
+            <span class="tag-badge-pill" style="--cat-color: {{t.categoryMeta.color}}; --cat-bg: {{t.categoryMeta.bg}}; --cat-border: {{t.categoryMeta.border}};">
+              <i class="{{t.categoryMeta.icon}}"></i>
+              <span class="tag-title">{{t.name}}</span>
+            </span>
+            <span class="tag-cat-name">{{t.categoryLabel}}</span>
+            <button type="button" class="tag-delete-btn" data-action="deleteTag" data-tag-id="{{t.id}}" title="Delete tag">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+          <div class="tag-card-body">
+            <textarea class="tag-desc-editor" data-tag-id="{{t.id}}" rows="2">{{t.description}}</textarea>
+          </div>
+        </div>
+      {{/each}}
+    </div>
+  </div>
+
+  {{!-- Footer Actions --}}
+  <div class="dialog-footer-actions">
+    <span class="tags-count-info">Showing {{filteredTags.length}} of {{totalCount}} Tags</span>
+    <button type="button" class="dialog-primary-btn save-tags-btn" data-action="saveTags">
+      <i class="fas fa-check"></i>
+      <span>Save Tag Library</span>
+    </button>
+  </div>
+
+</div>
+

@@ -1,0 +1,35 @@
+<div class="senses-dialog-content standard-form">
+  <div class="senses-dialog-list">
+    {{#each senses as |s|}}
+      <div class="sense-dialog-row {{#if s.enabled}}active-row{{/if}}">
+        <label class="sense-toggle-label">
+          <input type="checkbox"
+                 name="sense_{{s.key}}_enabled"
+                 class="sense-enable-checkbox"
+                 {{#if s.enabled}}checked{{/if}} />
+          <i class="{{s.icon}}"></i>
+          <span class="sense-name">{{s.label}}</span>
+        </label>
+
+        <div class="sense-dist-wrap {{#unless s.enabled}}disabled{{/unless}}">
+          <input type="number"
+                 name="sense_{{s.key}}_value"
+                 value="{{s.value}}"
+                 class="sense-dist-input"
+                 min="0"
+                 step="5"
+                 placeholder="0"
+                 {{#unless s.enabled}}disabled{{/unless}} />
+          <span class="dist-unit">ft</span>
+        </div>
+      </div>
+    {{/each}}
+  </div>
+
+  <footer class="dialog-footer">
+    <button type="submit" class="submit-btn" name="submit">
+      <i class="fas fa-check"></i>
+      Save Senses
+    </button>
+  </footer>
+</div>

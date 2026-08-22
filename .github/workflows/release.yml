@@ -1,0 +1,60 @@
+name: Release Module
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get Module Version
+        id: module-version
+        run: |
+          echo "version_number=$(jq -r .version module.json)" >> $GITHUB_OUTPUT
+
+      - name: Check for Pre-release
+        id: prerelease-check
+        run: |
+          if [[ "${{ steps.module-version.outputs.version_number }}" == *-* ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update Manifest and Download URLs
+        shell: bash
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [[ -z "$TAG" || "$TAG" == "main" || "$TAG" == "master" ]]; then
+            TAG="v${{ steps.module-version.outputs.version_number }}"
+          fi
+          jq --arg manifest "https://github.com/${{ github.repository }}/releases/latest/download/module.json" \
+             --arg download "https://github.com/${{ github.repository }}/releases/download/${TAG}/mythcraft-essence-sheet.zip" \
+             '.manifest = $manifest | .download = $download' module.json > module.json.tmp && mv module.json.tmp module.json
+
+      - name: Create ZIP package
+        run: |
+          zip -r ./mythcraft-essence-sheet.zip . -x ".git/*" ".github/*" "dist/*" ".gitignore"
+          cp ./mythcraft-essence-sheet.zip ./module.zip
+
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Version ${{ steps.module-version.outputs.version_number }}
+          prerelease: ${{ steps.prerelease-check.outputs.is_prerelease }}
+          files: |
+            ./mythcraft-essence-sheet.zip
+            ./module.zip
+            ./module.json
+

@@ -1,0 +1,212 @@
+﻿{{!-- ============================================================
+     MythCraft Essence Sheet — NPC Header
+     Context: document, actor, system, systemSource, sizeOptions,
+              hpPct, shieldPct, isBloodied, deathVal, deathMax,
+              headerDefenses, movementInfo, senseInfo, tagsList, isPlay, editable
+     ============================================================ --}}
+<header class="sheet-header npc-sheet-header">
+
+  <div class="header-outer-layout">
+
+    {{!-- 1. Portrait on the Left --}}
+    <div class="portrait-box npc-portrait-box"
+         data-action="editImage"
+         data-edit="img"
+         title="Click to change NPC portrait">
+      <img class="portrait-img"
+           src="{{document.img}}"
+           alt="{{document.name}}"
+           data-action="editImage"
+           data-edit="img" />
+      <div class="portrait-overlay">
+        <i class="fas fa-camera"></i>
+      </div>
+    </div>
+
+    {{!-- 2. Right Side Content --}}
+    <div class="header-right-content npc-header-right">
+
+      {{!-- Row 1: NPC Name + Initiative Badge --}}
+      <div class="header-top-bar">
+        <div class="name-container">
+          <input class="character-name-input npc-name-input"
+                 type="text"
+                 name="name"
+                 value="{{document.name}}"
+                 placeholder="NPC / Monster Name" />
+        </div>
+        <div class="combat-badges-strip">
+          <button type="button"
+                  class="initiative-badge roll-btn"
+                  data-action="rollInitiative"
+                  title="Roll Initiative (1d20 + AWR)">
+            <i class="fas fa-dice-d20 init-d20"></i>
+            <div class="init-text-col">
+              <span class="init-title">Initiative</span>
+              <span class="init-score">{{#if (gte system.initiative.total 0)}}+{{/if}}{{system.initiative.total}}</span>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {{!-- Row 2: Monster Level, Size, and Creature Tags --}}
+      <div class="npc-meta-bar">
+        <div class="npc-meta-item">
+          <label class="meta-label">Monster Level</label>
+          <input type="number"
+                 class="meta-input level-input"
+                 name="system.level"
+                 value="{{system.level}}"
+                 min="0" />
+        </div>
+
+        <div class="npc-meta-item">
+          <label class="meta-label">Size</label>
+          <select name="system.size" class="meta-select size-select" {{#if isPlay}}disabled{{/if}}>
+            {{#each sizeOptions}}
+              <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+            {{/each}}
+          </select>
+        </div>
+
+        {{!-- Tags Display with Tooltips & Plus Button --}}
+        <div class="npc-tags-container">
+          <label class="meta-label">Tags</label>
+          <div class="npc-tags-wrapper">
+            {{#each tagsList as |tag|}}
+              <span class="npc-tag-pill"
+                    data-tooltip="{{tag.tooltip}}"
+                    data-tooltip-direction="UP">
+                <span class="tag-text">{{tag.label}}</span>
+                <button type="button"
+                        class="tag-remove-btn"
+                        data-action="removeTag"
+                        data-tag-id="{{tag.id}}"
+                        title="Remove {{tag.label}} tag">
+                  <i class="fas fa-times"></i>
+                </button>
+              </span>
+            {{/each}}
+            <button type="button"
+                    class="npc-add-tag-btn"
+                    data-action="editTags"
+                    title="Add Tags from System Library">
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {{!-- Row 3: HP Meter + AR + Movement Speeds + Senses --}}
+      <div class="npc-header-meters-row">
+
+        {{!-- HP Meter Card --}}
+        <div class="meter-card hp-meter npc-header-hp-card">
+          <div class="meter-header">
+            <div class="meter-label-group">
+              <i class="fas fa-heart meter-icon hp-icon"></i>
+              <span class="meter-title">Health Points</span>
+              {{#if isBloodied}}
+                <span class="bloodied-tag">Bloodied</span>
+              {{/if}}
+            </div>
+            <div class="meter-inputs-group">
+              <input type="number" name="system.hp.value" value="{{system.hp.value}}" class="meter-val-input" min="0" title="Current HP" />
+              <span class="meter-divider">/</span>
+              <input type="number" name="system.hp.max" value="{{system.hp.max}}" class="meter-max-input" min="0" title="Max HP" />
+              <div class="shield-mini-box" title="Shield Points (Temporary HP)">
+                <i class="fas fa-shield-alt"></i>
+                <input type="number" name="system.hp.shield" value="{{system.hp.shield}}" class="shield-input" min="0" placeholder="0" />
+              </div>
+            </div>
+          </div>
+
+          <div class="meter-track hp-meter-track">
+            <div class="meter-fill hp-bar-fill" data-meter-key="hp" style="width: {{hpPct}}%;"></div>
+            <div class="meter-fill shield-bar-fill" data-meter-key="shield" style="width: {{shieldPct}}%;" title="Shield Points: {{system.hp.shield}}"></div>
+          </div>
+
+          <div class="meter-sub-row death-saves-bar">
+            <span class="death-saves-label">
+              <i class="fas fa-skull"></i>
+              Death Points
+            </span>
+            <div class="death-inputs-wrap">
+              <input type="number" name="system.death.value" value="{{deathVal}}" class="death-val-input" min="0" data-tooltip="<strong>Current Death Points</strong>" data-tooltip-direction="UP" />
+              <span class="meter-divider">/</span>
+              <input type="number" name="system.death.max" value="{{deathMax}}" class="death-max-input" min="0" data-tooltip="<strong>Max Death Points</strong>" data-tooltip-direction="UP" />
+            </div>
+          </div>
+        </div>
+
+        {{!-- AR Chip --}}
+        <div class="npc-header-ar-chip" title="Armor Rating (AR)">
+          <span class="ar-chip-label">AR</span>
+          <input type="number"
+                 name="system.defenses.ar"
+                 value="{{system.defenses.ar}}"
+                 class="ar-chip-input"
+                 min="0" />
+        </div>
+
+        {{!-- Movement Speeds --}}
+        <div class="npc-header-info-block">
+          <div class="npc-info-block-header">
+            <i class="fas fa-running"></i>
+            <span>Movement</span>
+            <button type="button" class="npc-info-edit-btn" data-action="editMovement" title="Configure Movement Speeds">
+              <i class="fas fa-cog"></i>
+            </button>
+          </div>
+          <div class="npc-info-pills">
+            {{#if movementInfo.activeSpeeds.length}}
+              {{#each movementInfo.activeSpeeds as |spd|}}
+                <span class="npc-info-pill speed-pill">
+                  <i class="{{spd.icon}}"></i>
+                  {{spd.display}}
+                </span>
+              {{/each}}
+            {{else}}
+              <span class="npc-info-empty" data-action="editMovement">+ Add Speed</span>
+            {{/if}}
+          </div>
+        </div>
+
+        {{!-- Senses --}}
+        <div class="npc-header-info-block">
+          <div class="npc-info-block-header">
+            <i class="fas fa-eye"></i>
+            <span>Senses</span>
+            <button type="button" class="npc-info-edit-btn" data-action="editSenses" title="Configure Senses">
+              <i class="fas fa-cog"></i>
+            </button>
+          </div>
+          <div class="npc-info-pills">
+            {{#if senseInfo.activeSenses.length}}
+              {{#each senseInfo.activeSenses as |s|}}
+                <span class="npc-info-pill sense-pill" data-tooltip="{{s.description}}" data-tooltip-direction="DOWN">
+                  <i class="{{s.icon}}"></i>
+                  {{s.display}}
+                </span>
+              {{/each}}
+            {{else}}
+              <span class="npc-info-empty" data-action="editSenses">+ Add Sense</span>
+            {{/if}}
+          </div>
+        </div>
+
+      </div>
+
+      {{!-- Row 4: Defense Strip (REF, FORT, ANT, LOG, WILL) --}}
+      <div class="npc-defenses-strip">
+        {{#each headerDefenses as |def|}}
+          <div class="npc-defense-badge" title="{{def.name}}: {{def.value}}">
+            <span class="npc-def-label">{{def.label}}</span>
+            <span class="npc-def-value">{{def.value}}</span>
+          </div>
+        {{/each}}
+      </div>
+
+    </div>
+  </div>
+</header>

@@ -66,7 +66,11 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  /* Right gutter keeps scrollable item rows clear of the corner resize handle */
+  padding-right: 0;
+  box-sizing: border-box;
 }
+
 
 /* ── Scrollbars ────────────────────────────────────────────── */
 .essence-sheet ::-webkit-scrollbar {
@@ -8151,6 +8155,76 @@
   transform: translateY(-1px) !important;
 }
 
+/* ── Defense Target Chat Badge (Character & NPC Attack Cards) ── */
+.chat-defense-target-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  background: var(--def-bg, rgba(2, 132, 199, 0.22)) !important;
+  border: 1px solid var(--def-border, rgba(56, 189, 248, 0.45)) !important;
+  color: var(--def-color, #38bdf8) !important;
+  border-radius: 4px !important;
+  padding: 2px 7px !important;
+  font-family: var(--mc-font-heading, "Cinzel", serif) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.6) !important;
+  flex-shrink: 0 !important;
+  margin-left: auto !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35) !important;
+  transition: all 0.2s ease !important;
+  vertical-align: middle !important;
+  line-height: 1.2 !important;
+}
+
+.chat-defense-target-badge .vs-prefix {
+  font-family: var(--mc-font, "Signika", sans-serif) !important;
+  font-size: 9.5px !important;
+  font-weight: 700 !important;
+  text-transform: lowercase !important;
+  opacity: 0.8 !important;
+  margin-right: 1px !important;
+}
+
+.chat-defense-target-badge .def-icon {
+  font-size: 11px !important;
+  color: var(--def-color, #38bdf8) !important;
+}
+
+.chat-defense-target-badge.def-ar .def-icon { color: #38bdf8 !important; }
+.chat-defense-target-badge.def-ref .def-icon { color: #4ade80 !important; }
+.chat-defense-target-badge.def-fort .def-icon { color: #fb923c !important; }
+.chat-defense-target-badge.def-ant .def-icon { color: #c084fc !important; }
+.chat-defense-target-badge.def-log .def-icon { color: #22d3ee !important; }
+.chat-defense-target-badge.def-will .def-icon { color: #facc15 !important; }
+
+.chat-defense-target-badge .def-abbr {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #fdfaf3 !important;
+}
+
+.essence-chat-card-header {
+  background: linear-gradient(90deg, #174345 0%, #0f2a2b 100%) !important;
+  border: 1px solid #3a7a7f !important;
+  border-radius: 4px !important;
+  padding: 6px 10px !important;
+  margin-bottom: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.essence-chat-card-header .card-roll-title {
+  font-family: var(--mc-font-heading, "Cinzel", serif) !important;
+  color: var(--mc-gold, #FEEBB3) !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  margin: 0 !important;
+}
+
+
 /* ============================================================
    ACTIVE EFFECT CONFIG DIALOG THEME
    ============================================================ */
@@ -8392,6 +8466,1768 @@
 .window-app[id*="active-effect"] .effect-change a:hover,
 .window-app[id*="active-effect"] .changes-list a:hover {
   color: #FEEBB3 !important;
+}
+
+/* ============================================================
+   ESSENCE NPC SHEET THEME
+   ============================================================ */
+.essence-npc-sheet {
+  min-width: 680px;
+  min-height: 600px;
+}
+
+.essence-npc-sheet .npc-sheet-header {
+  padding: 10px 14px;
+}
+
+/* Header layout matches character sheet: 130px portrait column + flex content */
+.essence-npc-sheet .header-outer-layout {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.essence-npc-sheet .npc-portrait-box {
+  position: relative;
+  width: 130px;
+  height: 100%;
+  min-height: 130px;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-radius: var(--mc-radius, 6px);
+  overflow: hidden;
+}
+
+.essence-npc-sheet .npc-portrait-box .portrait-img {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 130px !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  border-radius: var(--mc-radius, 6px) !important;
+  border: 2px solid var(--mc-teal, #3a7a7f) !important;
+  box-shadow: 0 0 12px rgba(58, 122, 127, 0.6) !important;
+  display: block !important;
+}
+
+.essence-npc-sheet .npc-portrait-box .portrait-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--mc-radius, 6px);
+  opacity: 0;
+  transition: opacity var(--mc-transition, 0.2s ease);
+  color: var(--mc-gold, #FEEBB3);
+  font-size: 20px;
+  pointer-events: none;
+}
+
+.essence-npc-sheet .npc-portrait-box:hover .portrait-overlay {
+  opacity: 1;
+}
+
+.essence-npc-sheet .npc-meta-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.essence-npc-sheet .npc-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.essence-npc-sheet .meta-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9bd7e5;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.essence-npc-sheet .meta-input,
+.essence-npc-sheet .meta-select {
+  background: #13383a !important;
+  border: 1px solid #3a7a7f !important;
+  border-radius: 4px !important;
+  color: #FEEBB3 !important;
+  font-family: var(--mc-font, "Signika", sans-serif) !important;
+  font-size: 12px !important;
+  padding: 3px 6px !important;
+  outline: none !important;
+}
+
+.essence-npc-sheet .level-input {
+  width: 45px !important;
+  text-align: center;
+  font-weight: 700;
+}
+
+.essence-npc-sheet .size-select {
+  min-width: 90px !important;
+}
+
+
+.essence-npc-sheet .npc-tags-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.essence-npc-sheet .npc-tags-wrapper {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.essence-npc-sheet .npc-tags-wrapper:hover {
+  background: rgba(58, 122, 127, 0.25);
+}
+
+.essence-npc-sheet .npc-tag-pill {
+  background: rgba(58, 122, 127, 0.35);
+  border: 1px solid rgba(155, 215, 229, 0.4);
+  color: #9bd7e5;
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.essence-npc-sheet .npc-no-tags {
+  color: #7a9fa4;
+  font-size: 11px;
+  font-style: italic;
+}
+
+/* ── NPC Tag Pills ── */
+.essence-npc-sheet .npc-tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.essence-npc-sheet .tag-remove-btn {
+  background: transparent;
+  border: none;
+  color: rgba(155, 215, 229, 0.6);
+  cursor: pointer;
+  padding: 0 1px;
+  font-size: 9px;
+  line-height: 1;
+  transition: color 0.15s ease;
+}
+
+.essence-npc-sheet .tag-remove-btn:hover {
+  color: #ef4444;
+}
+
+.essence-npc-sheet .npc-add-tag-btn {
+  background: rgba(58, 122, 127, 0.25);
+  border: 1px dashed rgba(155, 215, 229, 0.4);
+  color: #9bd7e5;
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.essence-npc-sheet .npc-add-tag-btn:hover {
+  background: rgba(58, 122, 127, 0.5);
+  border-color: rgba(155, 215, 229, 0.8);
+}
+
+/* ── NPC Header Meters Row (HP + AR + Movement + Senses) ── */
+.essence-npc-sheet .npc-header-right {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.essence-npc-sheet .npc-header-meters-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* HP Card in header — same styling as character sheet meter card */
+.essence-npc-sheet .npc-header-hp-card {
+  flex: 1.4;
+  min-width: 200px;
+}
+
+/* AR Chip in header */
+.essence-npc-sheet .npc-header-ar-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--mc-bg-light, #181818);
+  border: 1px solid var(--mc-border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: var(--mc-radius, 6px);
+  padding: 6px 10px;
+  min-width: 52px;
+  gap: 2px;
+  align-self: stretch;
+}
+
+.essence-npc-sheet .npc-header-ar-chip .ar-chip-label {
+  font-family: var(--mc-font-heading, "Cinzel", serif);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--mc-gold, #FEEBB3);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.essence-npc-sheet .npc-header-ar-chip .ar-chip-input {
+  background: transparent !important;
+  border: none !important;
+  color: var(--mc-gold, #FEEBB3) !important;
+  font-family: var(--mc-font-heading, "Cinzel", serif) !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  text-align: center !important;
+  width: 44px !important;
+  padding: 0 !important;
+  outline: none !important;
+}
+
+/* Movement / Senses info blocks */
+.essence-npc-sheet .npc-header-info-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--mc-bg-light, #181818);
+  border: 1px solid var(--mc-border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: var(--mc-radius, 6px);
+  padding: 6px 8px;
+  min-width: 110px;
+  flex: 1;
+}
+
+.essence-npc-sheet .npc-info-block-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--mc-gold, #FEEBB3);
+  font-family: var(--mc-font-heading, "Cinzel", serif);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(58, 122, 127, 0.3);
+  padding-bottom: 3px;
+}
+
+.essence-npc-sheet .npc-info-block-header span {
+  flex: 1;
+}
+
+.essence-npc-sheet .npc-info-edit-btn {
+  background: transparent;
+  border: none;
+  color: rgba(155, 215, 229, 0.5);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 10px;
+  transition: color 0.15s ease;
+}
+
+.essence-npc-sheet .npc-info-edit-btn:hover {
+  color: #9bd7e5;
+}
+
+.essence-npc-sheet .npc-info-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.essence-npc-sheet .npc-info-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(58, 122, 127, 0.25);
+  border: 1px solid rgba(155, 215, 229, 0.3);
+  border-radius: 8px;
+  padding: 2px 7px;
+  font-size: 10px;
+  color: #9bd7e5;
+}
+
+.essence-npc-sheet .npc-info-empty {
+  color: rgba(155, 215, 229, 0.4);
+  font-size: 10px;
+  font-style: italic;
+  cursor: pointer;
+}
+
+.essence-npc-sheet .npc-info-empty:hover {
+  color: #9bd7e5;
+}
+
+/* ── NPC Defense Strip (REF FORT ANT LOG WILL) ── */
+.essence-npc-sheet .npc-defenses-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  background: var(--mc-bg-light, #181818);
+  border: 1px solid var(--mc-border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: var(--mc-radius, 6px);
+  padding: 5px 10px;
+}
+
+.essence-npc-sheet .npc-defense-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  flex: 1;
+  padding: 2px 6px;
+  border-right: 1px solid rgba(58, 122, 127, 0.25);
+}
+
+.essence-npc-sheet .npc-defense-badge:last-child {
+  border-right: none;
+}
+
+.essence-npc-sheet .npc-def-label {
+  font-family: var(--mc-font-heading, "Cinzel", serif);
+  font-size: 9px;
+  font-weight: 700;
+  color: #9bd7e5;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.essence-npc-sheet .npc-def-value {
+  font-family: var(--mc-font-heading, "Cinzel", serif);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--mc-gold, #FEEBB3);
+  line-height: 1;
+}
+
+/* ── NPC Stats Tab ────────────────────────────────────────── */
+.essence-npc-sheet .npc-stats-tab {
+  overflow-y: auto;
+  max-height: 100%;
+  box-sizing: border-box;
+  padding-right: 4px;
+}
+
+/* Stats grid: 2-column default for NPC (no meta column) */
+.essence-npc-sheet .stats-columns-grid.two-col {
+  grid-template-columns: 1fr 1fr !important;
+}
+
+.essence-npc-sheet .stats-columns-grid.three-col {
+  grid-template-columns: 1fr 1fr 1fr !important;
+}
+
+/* ── NPC Stats Bottom Row (aligned 1:1 with attribute columns above) ── */
+.essence-npc-sheet .npc-stats-bottom-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+
+.essence-npc-sheet .npc-bottom-panel {
+  background: var(--mc-bg-mid, #0f2a2b);
+  border: 1px solid var(--mc-border, #3a7a7f);
+  border-radius: var(--mc-radius, 8px);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.essence-npc-sheet .npc-bottom-panel .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(58, 122, 127, 0.35);
+  padding-bottom: 4px;
+}
+
+.essence-npc-sheet .npc-bottom-panel .panel-header .header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--mc-gold, #FEEBB3);
+  font-family: var(--mc-font-heading, "Cinzel", serif);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.essence-npc-sheet .npc-bottom-panel .panel-edit-btn {
+  background: transparent;
+  border: none;
+  color: rgba(155, 215, 229, 0.5);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 11px;
+  transition: color 0.15s ease;
+}
+
+.essence-npc-sheet .npc-bottom-panel .panel-edit-btn:hover {
+  color: #9bd7e5;
+}
+
+.essence-npc-sheet .npc-bottom-panel .panel-body {
+  flex: 1;
+}
+
+/* Damage mods rows */
+.essence-npc-sheet .dmg-mods-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.essence-npc-sheet .dmg-mod-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.essence-npc-sheet .empty-dmg-mod-btn {
+  width: 100%;
+}
+
+
+
+.essence-npc-sheet .npc-core-vitals-card {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  background: var(--mc-bg-mid, #0f2a2b);
+  border: 1px solid var(--mc-border, #3a7a7f);
+  border-radius: var(--mc-radius, 8px);
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.essence-npc-sheet .npc-hp-meter-card {
+  flex: 1.2;
+  background: var(--mc-bg-light, #181818) !important;
+  border: 1px solid var(--mc-border-subtle, rgba(255, 255, 255, 0.08)) !important;
+  border-radius: var(--mc-radius, 6px) !important;
+  padding: 6px 10px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  gap: 4px !important;
+}
+
+.essence-npc-sheet .npc-hp-meter-card .meter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+}
+
+.essence-npc-sheet .npc-hp-meter-card .meter-track {
+  height: 6px !important;
+  background: var(--mc-bg, #0d0d0d) !important;
+  border: 1px solid var(--mc-border, #333333) !important;
+  border-radius: 3px !important;
+  overflow: hidden !important;
+  display: flex !important;
+  position: relative !important;
+  margin: 2px 0 !important;
+}
+
+.essence-npc-sheet .npc-hp-meter-card .hp-bar-fill {
+  height: 100% !important;
+  background: linear-gradient(90deg, #c0392b, #e74c3c) !important;
+  border-radius: 2px !important;
+  min-width: 0 !important;
+  transition: width 0.8s cubic-bezier(0.25, 1, 0.5, 1) !important;
+  flex-shrink: 0 !important;
+}
+
+.essence-npc-sheet .npc-hp-meter-card .shield-bar-fill {
+  height: 100% !important;
+  background: linear-gradient(90deg, #1e90ff, #00d2d3) !important;
+  border-left: 1px solid #ffffff !important;
+  box-shadow: 0 0 6px rgba(0, 210, 211, 0.8) !important;
+  border-radius: 2px !important;
+  min-width: 0 !important;
+  transition: width 0.8s cubic-bezier(0.25, 1, 0.5, 1) !important;
+  flex-shrink: 0 !important;
+}
+
+.essence-npc-sheet .npc-hp-meter-card .meter-val-input,
+.essence-npc-sheet .npc-hp-meter-card .meter-max-input {
+  width: 26px !important;
+  height: 20px !important;
+  text-align: center !important;
+  background: var(--mc-bg, #111111) !important;
+  border: 1px solid var(--mc-border, #3a3a3a) !important;
+  border-radius: 3px !important;
+  color: var(--mc-gold, #FEEBB3) !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  padding: 0 !important;
+  outline: none !important;
+}
+
+.essence-npc-sheet .npc-hp-meter-card .meter-sub-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  height: 20px !important;
+  margin-top: auto !important;
+}
+
+.essence-npc-sheet .npc-hp-meter-card .death-saves-label {
+  color: #ef4444 !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+
+.essence-npc-sheet .npc-hp-meter-card .death-inputs-wrap {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+  margin-left: auto !important;
+}
+
+.essence-npc-sheet .npc-hp-meter-card .death-val-input,
+.essence-npc-sheet .npc-hp-meter-card .death-max-input {
+  width: 24px !important;
+  height: 20px !important;
+  text-align: center !important;
+  background: var(--mc-bg, #111111) !important;
+  border: 1px solid var(--mc-border, #3a3a3a) !important;
+  border-radius: 3px !important;
+  color: #fdfaf3 !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  padding: 0 !important;
+}
+
+.essence-npc-sheet .npc-ar-shield-box {
+  width: 70px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.essence-npc-sheet .ar-shield-inner {
+  width: 100%;
+  height: 100%;
+  background: rgba(23, 67, 69, 0.4);
+  border: 1px solid #3a7a7f;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+
+.essence-npc-sheet .ar-label {
+  font-family: var(--mc-font-heading, "Cinzel", serif);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--mc-gold, #FEEBB3);
+}
+
+.essence-npc-sheet .ar-num-input {
+  background: transparent !important;
+  border: none !important;
+  color: var(--mc-gold, #FEEBB3) !important;
+  font-family: var(--mc-font-heading, "Cinzel", serif) !important;
+  font-size: 17px !important;
+  font-weight: 700 !important;
+  text-align: center !important;
+  width: 45px !important;
+  padding: 0 !important;
+}
+
+.essence-npc-sheet .npc-conditions-box {
+  flex: 1.3;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.essence-npc-sheet .conditions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.essence-npc-sheet .conditions-header .header-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--mc-gold, #FEEBB3);
+  font-family: var(--mc-font-heading, "Cinzel", serif);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.essence-npc-sheet .edit-conditions-btn {
+  background: transparent;
+  border: none;
+  color: #9bd7e5;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.essence-npc-sheet .active-conditions-strip {
+  background: #13383a;
+  border: 1px solid #2a5a5f;
+  border-radius: 4px;
+  padding: 4px 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 36px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.essence-npc-sheet .no-conditions-text {
+  color: #7a9fa4;
+  font-size: 11px;
+  font-style: italic;
+}
+
+
+
+/* ── NPC Tactical Panels ── */
+.essence-npc-sheet .npc-tactical-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  gap: 10px;
+}
+
+.essence-npc-sheet .tactical-panel {
+  background: var(--mc-bg-mid, #0f2a2b);
+  border: 1px solid var(--mc-border, #3a7a7f);
+  border-radius: var(--mc-radius, 8px);
+  padding: 10px;
+}
+
+.essence-npc-sheet .tactical-panel .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(58, 122, 127, 0.4);
+  padding-bottom: 3px;
+}
+
+.essence-npc-sheet .tactical-panel .panel-header .header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--mc-gold, #FEEBB3);
+  font-family: var(--mc-font-heading, "Cinzel", serif);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.essence-npc-sheet .panel-action-btn {
+  background: transparent;
+  border: none;
+  color: #9bd7e5;
+  cursor: pointer;
+  padding: 1px;
+}
+
+.essence-npc-sheet .tactical-pill {
+  background: rgba(58, 122, 127, 0.3);
+  border: 1px solid #3a7a7f;
+  color: #9bd7e5;
+  border-radius: 10px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px;
+}
+
+.essence-npc-sheet .empty-hint {
+  color: #7a9fa4;
+  font-size: 11px;
+  font-style: italic;
+  cursor: pointer;
+}
+
+/* ── NPC Actions & Combat Tab ────────────────────────────── */
+/* ── Window Resizable Handle & Tab Bottom Clearance (All Essence Sheets) ── */
+.essence-sheet .window-resizable-handle,
+.window-app.essence-sheet .window-resizable-handle,
+.app.essence-sheet .window-resizable-handle {
+  position: absolute !important;
+  bottom: 1px !important;
+  right: 1px !important;
+  width: 14px !important;
+  height: 14px !important;
+  z-index: 1000 !important;
+  pointer-events: auto !important;
+  opacity: 0.65 !important;
+  transition: opacity 0.2s ease !important;
+}
+
+.essence-sheet .window-resizable-handle:hover,
+.window-app.essence-sheet .window-resizable-handle:hover {
+  opacity: 1 !important;
+}
+
+/* Generous bottom and right clearance for all tabs so scrollable cards never collide with the corner resizer */
+.essence-sheet .tab,
+.essence-sheet .tab.active,
+.essence-sheet .sheet-body,
+.essence-npc-sheet .tab,
+.essence-npc-sheet .npc-actions-tab,
+.essence-npc-sheet .npc-stats-tab,
+.essence-npc-sheet .npc-features-tab,
+.essence-npc-sheet .npc-spells-tab,
+.essence-sheet .biography-tab,
+.essence-sheet .journal-tab {
+  padding-bottom: 48px !important;
+  padding-right: 16px !important;
+  box-sizing: border-box !important;
+}
+
+/* Item Lists & Row Padding */
+.essence-sheet .item-list,
+.essence-sheet .weapon-list,
+.essence-sheet .armor-list,
+.essence-sheet .gear-list,
+.essence-sheet .talent-list,
+.essence-sheet .spell-list,
+.essence-npc-sheet .npc-actions-list,
+.essence-npc-sheet .npc-reactions-list,
+.essence-npc-sheet .npc-features-list,
+.essence-npc-sheet .npc-spells-list {
+  padding-bottom: 20px !important;
+  padding-right: 6px !important;
+}
+
+.essence-sheet .item-actions,
+.essence-sheet .item-controls,
+.essence-npc-sheet .item-controls,
+.essence-npc-sheet .action-controls-strip,
+.essence-npc-sheet .reaction-controls-strip {
+  padding-right: 4px !important;
+}
+
+
+/* ── NPC Actions & Combat Tab (Polished Dark Charcoal Theme) ── */
+.essence-npc-sheet .npc-actions-tab {
+  overflow-y: auto;
+  max-height: 100%;
+  box-sizing: border-box;
+}
+
+/* Turn Action Economy Main Outer Enclosure (Dark Charcoal Slate) */
+/* Turn Action Economy Main Outer Enclosure (Gold Accent Highlighted Charcoal Slate) */
+.essence-npc-sheet .npc-turn-economy-wrapper {
+  background: #13161a !important;
+  border: 1px solid var(--mc-gold, #FEEBB3) !important;
+  border-radius: var(--mc-radius, 6px);
+  padding: 10px;
+  margin-bottom: 14px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 12px rgba(254, 235, 179, 0.22), inset 0 1px 0 rgba(254, 235, 179, 0.2) !important;
+}
+
+/* Turn Action Economy Rules Card */
+.essence-npc-sheet .npc-action-rules-card {
+  background: #181b1f !important;
+  border: 1px solid rgba(254, 235, 179, 0.25) !important;
+  border-radius: var(--mc-radius, 6px);
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+
+.essence-npc-sheet .rules-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 4px;
+}
+
+.essence-npc-sheet .rules-title {
+  font-family: var(--mc-font-heading, "Cinzel", serif);
+  color: var(--mc-gold, #FEEBB3);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.essence-npc-sheet .rules-icon {
+  color: #9bd7e5;
+  margin-right: 6px;
+}
+
+.essence-npc-sheet .rules-edit-hint {
+  font-size: 10px;
+  color: var(--mc-gold, #FEEBB3);
+  opacity: 0.75;
+  font-style: italic;
+}
+
+.essence-npc-sheet .rules-card-body {
+  position: relative !important;
+}
+
+/* Prominent High-Contrast Edit Button for Turn Action Economy */
+.essence-npc-sheet .npc-action-rules-card .editor-edit,
+.essence-npc-sheet .rules-card-body .editor-edit,
+.essence-npc-sheet .npc-action-rules-card a.editor-edit,
+.essence-npc-sheet .npc-action-rules-card button.editor-edit,
+.essence-npc-sheet .npc-action-rules-card [data-action="edit"],
+.essence-npc-sheet .npc-action-rules-card prose-mirror .editor-edit {
+  background: rgba(254, 235, 179, 0.22) !important;
+  border: 1px solid var(--mc-gold, #FEEBB3) !important;
+  color: var(--mc-gold, #FEEBB3) !important;
+  border-radius: 4px !important;
+  padding: 3px 7px !important;
+  font-size: 11.5px !important;
+  opacity: 0.9 !important;
+  box-shadow: 0 0 10px rgba(254, 235, 179, 0.35) !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: absolute !important;
+  top: 6px !important;
+  right: 6px !important;
+  z-index: 10 !important;
+}
+
+.essence-npc-sheet .npc-action-rules-card .editor-edit:hover,
+.essence-npc-sheet .rules-card-body .editor-edit:hover,
+.essence-npc-sheet .npc-action-rules-card a.editor-edit:hover,
+.essence-npc-sheet .npc-action-rules-card button.editor-edit:hover,
+.essence-npc-sheet .npc-action-rules-card [data-action="edit"]:hover,
+.essence-npc-sheet .npc-action-rules-card prose-mirror .editor-edit:hover {
+  background: rgba(254, 235, 179, 0.45) !important;
+  color: #ffffff !important;
+  opacity: 1 !important;
+  box-shadow: 0 0 14px rgba(254, 235, 179, 0.8) !important;
+  transform: scale(1.1) !important;
+}
+
+.essence-npc-sheet .npc-action-rules-card .editor-edit i,
+.essence-npc-sheet .rules-card-body .editor-edit i {
+  color: var(--mc-gold, #FEEBB3) !important;
+  font-size: 11.5px !important;
+}
+
+.essence-npc-sheet .enriched-rules-content {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.4;
+}
+
+.essence-npc-sheet .enriched-rules-content p {
+  margin: 0 0 4px 0;
+}
+
+.essence-npc-sheet .enriched-rules-content ul {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.essence-npc-sheet .enriched-rules-content li {
+  margin-bottom: 2px;
+}
+
+
+.essence-npc-sheet .default-action-rules p {
+  margin: 0 0 4px 0;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.essence-npc-sheet .default-action-rules ul {
+  margin: 0;
+  padding-left: 12px;
+  list-style: none;
+}
+
+.essence-npc-sheet .default-action-rules li {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.essence-npc-sheet .default-action-rules li i {
+  color: #9bd7e5;
+  font-size: 8px;
+}
+
+/* 2-Column Side-by-Side Tier 1 & Tier 2 Grid (No overflow, equal flex) */
+.essence-npc-sheet .npc-actions-tiers-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  margin-bottom: 10px;
+  align-items: stretch;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.essence-npc-sheet .npc-tier-block {
+  background: #181b1f !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: var(--mc-radius, 6px);
+  padding: 8px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  margin-bottom: 0;
+}
+
+.essence-npc-sheet .tier-allowance-badge {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fcd34d;
+  border-radius: 10px;
+  font-size: 9.5px;
+  padding: 1px 6px;
+  font-family: var(--mc-font, "Signika", sans-serif);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.essence-npc-sheet .empty-tier-box,
+.essence-npc-sheet .empty-features-box {
+  padding: 12px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11.5px;
+  font-style: italic;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.essence-npc-sheet .action-name-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+/* Combat Turn States: Grayed out and Reaction Highlighted */
+.essence-npc-sheet .item-row.turn-disabled {
+  opacity: 0.45 !important;
+  filter: grayscale(70%) !important;
+  transition: opacity 0.25s ease, filter 0.25s ease !important;
+  pointer-events: auto !important;
+}
+
+.essence-npc-sheet .item-row.turn-disabled:hover {
+  opacity: 0.85 !important;
+  filter: grayscale(20%) !important;
+}
+
+.essence-npc-sheet .item-row.turn-disabled button,
+.essence-npc-sheet .item-row.turn-disabled .stat-btn,
+.essence-npc-sheet .item-row.turn-disabled .item-control,
+.essence-npc-sheet .item-row.turn-disabled .item-action-btn {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+
+@keyframes mcGoldShimmerSweep {
+  0% {
+    transform: translateX(-120%) rotate(25deg);
+  }
+  72% {
+    transform: translateX(130%) rotate(25deg);
+  }
+  100% {
+    transform: translateX(130%) rotate(25deg);
+  }
+}
+
+.essence-npc-sheet .item-row.reaction-highlighted {
+  position: relative !important;
+  overflow: hidden !important;
+  border: 1px solid var(--mc-gold, #FEEBB3) !important;
+  background: #20242a !important;
+  box-shadow: 0 0 10px rgba(254, 235, 179, 0.3), inset 0 0 6px rgba(254, 235, 179, 0.1) !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+.essence-npc-sheet .item-row.reaction-highlighted::after {
+  content: "" !important;
+  position: absolute !important;
+  top: -60% !important;
+  left: -60% !important;
+  width: 220% !important;
+  height: 220% !important;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 35%,
+    rgba(254, 235, 179, 0.04) 43%,
+    rgba(254, 235, 179, 0.32) 50%,
+    rgba(254, 235, 179, 0.04) 57%,
+    transparent 65%,
+    transparent 100%
+  ) !important;
+  animation: mcGoldShimmerSweep 4.5s infinite ease-in-out !important;
+  pointer-events: none !important;
+  z-index: 5 !important;
+}
+
+.essence-npc-sheet .reaction-call-badge {
+  background: rgba(254, 235, 179, 0.18) !important;
+  border: 1px solid var(--mc-gold, #FEEBB3) !important;
+  color: var(--mc-gold, #FEEBB3) !important;
+  text-shadow: 0 0 6px rgba(254, 235, 179, 0.5) !important;
+  border-radius: 4px;
+  font-size: 8.5px;
+  font-weight: 700;
+  padding: 1px 5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+
+
+/* Tiered Actions, Reactions & Features Containers */
+.essence-npc-sheet .npc-reactions-block {
+  background: #181b1f !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: var(--mc-radius, 6px);
+  padding: 8px;
+  box-sizing: border-box;
+  margin-bottom: 0;
+}
+
+.essence-npc-sheet .npc-features-container,
+.essence-npc-sheet .spell-source-group-block {
+  margin-bottom: 12px;
+  background: transparent;
+  border: none;
+}
+
+.essence-npc-sheet .tier-header-bar,
+.essence-npc-sheet .reactions-header-bar,
+.essence-npc-sheet .features-header-bar,
+.essence-npc-sheet .source-group-header {
+  background: linear-gradient(90deg, rgba(38, 43, 50, 0.85) 0%, rgba(26, 29, 34, 0.75) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--mc-radius, 6px);
+  padding: 5px 8px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.essence-npc-sheet .tier-title,
+.essence-npc-sheet .reactions-title,
+.essence-npc-sheet .features-title,
+.essence-npc-sheet .source-group-header span {
+  font-family: var(--mc-font-heading, "Cinzel", serif);
+  color: var(--mc-gold, #FEEBB3);
+  font-size: 11.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  letter-spacing: 0.03em;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.essence-npc-sheet .tier-count-badge,
+.essence-npc-sheet .reactions-count-badge,
+.essence-npc-sheet .features-count-badge,
+.essence-npc-sheet .spell-count-badge {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #cbd5e1;
+  border-radius: 10px;
+  font-size: 9.5px;
+  padding: 0 5px;
+  font-family: var(--mc-font, "Signika", sans-serif);
+}
+
+.essence-npc-sheet .tier-add-btn,
+.essence-npc-sheet .reaction-add-btn,
+.essence-npc-sheet .feature-add-btn,
+.essence-npc-sheet .spell-add-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+  color: #e2e8f0;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.essence-npc-sheet .tier-add-btn:hover,
+.essence-npc-sheet .reaction-add-btn:hover,
+.essence-npc-sheet .feature-add-btn:hover,
+.essence-npc-sheet .spell-add-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #FEEBB3;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.essence-npc-sheet .npc-actions-list,
+.essence-npc-sheet .npc-reactions-list,
+.essence-npc-sheet .npc-features-list,
+.essence-npc-sheet .npc-spells-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* Action & Reaction Cards (Charcoal Gray, Right-aligned Buttons) */
+.essence-npc-sheet .npc-action-card,
+.essence-npc-sheet .npc-reaction-card,
+.essence-npc-sheet .npc-feature-card,
+.essence-npc-sheet .npc-spell-card {
+  background: #20242a !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  border-radius: var(--mc-radius-sm, 4px) !important;
+  padding: 5px 8px !important;
+  transition: all 0.15s ease !important;
+  min-height: 40px;
+  box-sizing: border-box;
+}
+
+.essence-npc-sheet .npc-action-card:hover,
+.essence-npc-sheet .npc-reaction-card:hover,
+.essence-npc-sheet .npc-feature-card:hover,
+.essence-npc-sheet .npc-spell-card:hover {
+  border-color: var(--mc-gold, #FEEBB3) !important;
+  background: #272c33 !important;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+.essence-npc-sheet .action-card-main,
+.essence-npc-sheet .reaction-card-main,
+.essence-npc-sheet .feature-card-main,
+.essence-npc-sheet .spell-card-main {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.essence-npc-sheet .action-img,
+.essence-npc-sheet .reaction-img,
+.essence-npc-sheet .feature-img,
+.essence-npc-sheet .spell-img {
+  width: 26px !important;
+  height: 26px !important;
+  border-radius: 4px !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  flex-shrink: 0 !important;
+  object-fit: cover !important;
+  cursor: pointer !important;
+  transition: transform 0.15s ease !important;
+}
+
+.essence-npc-sheet .action-img:hover,
+.essence-npc-sheet .reaction-img:hover {
+  transform: scale(1.08) !important;
+  border-color: var(--mc-gold, #FEEBB3) !important;
+}
+
+.essence-npc-sheet .action-info-col,
+.essence-npc-sheet .reaction-info-col,
+.essence-npc-sheet .feature-info-col,
+.essence-npc-sheet .spell-info-col {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  gap: 2px !important;
+  cursor: pointer !important;
+  min-width: 40px !important;
+  margin-right: 0 !important;
+  overflow: hidden !important;
+}
+
+.essence-npc-sheet .action-name-row,
+.essence-npc-sheet .reaction-name-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+.essence-npc-sheet .action-name,
+.essence-npc-sheet .reaction-name,
+.essence-npc-sheet .feature-name,
+.essence-npc-sheet .spell-name {
+  font-family: var(--mc-font-heading, "Cinzel", serif) !important;
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  color: var(--mc-gold, #FEEBB3) !important;
+  letter-spacing: 0.02em !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+/* Action Buttons Strip: Unified right-aligned strip for Attack, Damage, Edit, Trash, Expand */
+.essence-npc-sheet .action-buttons-strip {
+  margin-left: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+  flex-shrink: 0 !important;
+}
+
+/* Compact Icon-Only Attack & Damage Roll Buttons */
+.essence-npc-sheet .stat-btn.atk-btn.icon-only,
+.essence-npc-sheet .stat-btn.dmg-btn.icon-only {
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 11px !important;
+  border-radius: 4px !important;
+}
+
+.essence-npc-sheet .stat-btn.atk-btn.icon-only {
+  background: rgba(58, 122, 127, 0.25) !important;
+  border: 1px solid rgba(155, 215, 229, 0.4) !important;
+  color: #9bd7e5 !important;
+}
+
+.essence-npc-sheet .stat-btn.atk-btn.icon-only:hover {
+  background: #3a7a7f !important;
+  color: #FEEBB3 !important;
+  border-color: #FEEBB3 !important;
+}
+
+.essence-npc-sheet .stat-btn.dmg-btn.icon-only {
+  background: rgba(220, 38, 38, 0.2) !important;
+  border: 1px solid rgba(248, 113, 113, 0.4) !important;
+  color: #fca5a5 !important;
+}
+
+.essence-npc-sheet .stat-btn.dmg-btn.icon-only:hover {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border-color: #fca5a5 !important;
+}
+
+/* Expanded State with Modifier & Formula Text */
+.essence-npc-sheet .stat-btn.atk-btn:not(.icon-only),
+.essence-npc-sheet .stat-btn.dmg-btn:not(.icon-only) {
+  width: auto !important;
+  min-width: 26px !important;
+  height: 22px !important;
+  padding: 1px 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  border-radius: 4px !important;
+}
+
+.essence-npc-sheet .stat-btn.atk-btn:not(.icon-only) {
+  background: rgba(58, 122, 127, 0.25) !important;
+  border: 1px solid rgba(155, 215, 229, 0.4) !important;
+  color: #9bd7e5 !important;
+}
+
+.essence-npc-sheet .stat-btn.atk-btn:not(.icon-only):hover {
+  background: #3a7a7f !important;
+  color: #FEEBB3 !important;
+  border-color: #FEEBB3 !important;
+}
+
+.essence-npc-sheet .stat-btn.dmg-btn:not(.icon-only) {
+  background: rgba(220, 38, 38, 0.2) !important;
+  border: 1px solid rgba(248, 113, 113, 0.4) !important;
+  color: #fca5a5 !important;
+}
+
+.essence-npc-sheet .stat-btn.dmg-btn:not(.icon-only):hover {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border-color: #fca5a5 !important;
+}
+
+
+
+.essence-npc-sheet .action-sub-tags,
+.essence-npc-sheet .spell-sub-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+
+.essence-npc-sheet .action-sub-tag,
+.essence-npc-sheet .reaction-trigger-tag,
+.essence-npc-sheet .spell-sub-tag {
+  font-size: 10px;
+  background: rgba(58, 122, 127, 0.2);
+  border: 1px solid rgba(155, 215, 229, 0.25);
+  color: #9bd7e5;
+  border-radius: 4px;
+  padding: 1px 5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.essence-npc-sheet .action-sub-tag.def-tag {
+  background: rgba(2, 132, 199, 0.18);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #7dd3fc;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.essence-npc-sheet .action-sub-tag.def-tag.def-ar {
+  background: rgba(2, 132, 199, 0.2);
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #38bdf8;
+}
+
+.essence-npc-sheet .action-sub-tag.def-tag.def-ref {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(74, 222, 128, 0.5);
+  color: #4ade80;
+}
+
+.essence-npc-sheet .action-sub-tag.def-tag.def-fort {
+  background: rgba(249, 115, 22, 0.2);
+  border-color: rgba(251, 146, 60, 0.5);
+  color: #fb923c;
+}
+
+.essence-npc-sheet .action-sub-tag.def-tag.def-ant {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: rgba(192, 132, 252, 0.5);
+  color: #c084fc;
+}
+
+.essence-npc-sheet .action-sub-tag.def-tag.def-log {
+  background: rgba(6, 182, 212, 0.2);
+  border-color: rgba(34, 211, 238, 0.5);
+  color: #22d3ee;
+}
+
+.essence-npc-sheet .action-sub-tag.def-tag.def-will {
+  background: rgba(234, 179, 8, 0.2);
+  border-color: rgba(250, 204, 21, 0.5);
+  color: #facc15;
+}
+
+.essence-npc-sheet .reaction-trigger-tag {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fcd34d;
+}
+
+
+/* Roll Buttons Strip (Matching Character Sheet Stat Buttons) */
+.essence-npc-sheet .action-rolls-strip,
+.essence-npc-sheet .reaction-rolls-strip,
+.essence-npc-sheet .spell-rolls-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.essence-npc-sheet .stat-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.essence-npc-sheet .stat-btn.atk-btn {
+  background: rgba(88, 178, 192, 0.15);
+  border: 1px solid rgba(88, 178, 192, 0.45);
+  color: #58b2c0;
+}
+
+.essence-npc-sheet .stat-btn.atk-btn:hover {
+  background: rgba(88, 178, 192, 0.3);
+  border-color: #58b2c0;
+  box-shadow: 0 0 10px rgba(88, 178, 192, 0.5);
+  transform: translateY(-1px);
+}
+
+.essence-npc-sheet .stat-btn.dmg-btn {
+  background: rgba(231, 76, 60, 0.15);
+  border: 1px solid rgba(231, 76, 60, 0.45);
+  color: #ff6b6b;
+}
+
+.essence-npc-sheet .stat-btn.dmg-btn:hover {
+  background: rgba(231, 76, 60, 0.3);
+  border-color: #e74c3c;
+  box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+  transform: translateY(-1px);
+}
+
+/* Control Buttons (Matching Character Sheet Item Controls) */
+.essence-npc-sheet .action-controls-strip,
+.essence-npc-sheet .reaction-controls-strip,
+.essence-npc-sheet .feature-controls-strip,
+.essence-npc-sheet .spell-controls-strip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.essence-npc-sheet .item-control {
+  background: transparent;
+  border: none;
+  color: rgba(155, 215, 229, 0.5);
+  border-radius: 4px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 11px;
+}
+
+.essence-npc-sheet .item-control:hover {
+  color: #FEEBB3;
+  background: rgba(58, 122, 127, 0.25);
+}
+
+.essence-npc-sheet .item-control.delete-btn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* Drawer Prose Description */
+.essence-npc-sheet .item-drawer-content,
+.essence-npc-sheet .action-drawer-content,
+.essence-npc-sheet .reaction-drawer-content {
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px 12px;
+  background: rgba(12, 26, 27, 0.7);
+  border: 1px solid rgba(58, 122, 127, 0.35);
+  border-radius: 4px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.5;
+}
+
+/* ── NPC Spells Tab ── */
+.essence-npc-sheet .npc-spells-tab {
+  overflow-y: auto;
+  max-height: 100%;
+  box-sizing: border-box;
+}
+
+
+.essence-npc-sheet .npc-spells-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 8px;
+}
+
+.essence-npc-sheet .spells-filter-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.essence-npc-sheet .school-filter-pill {
+  background: rgba(58, 122, 127, 0.3);
+  border: 1px solid #3a7a7f;
+  color: #7a9fa4;
+  border-radius: 4px;
+  font-family: var(--mc-font, "Signika", sans-serif);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.essence-npc-sheet .school-filter-pill.active {
+  background: #174345;
+  color: #FEEBB3;
+  border-color: #FEEBB3;
+  text-shadow: 0 0 6px rgba(254, 235, 179, 0.5);
+}
+
+.essence-npc-sheet .empty-actions-box,
+.essence-npc-sheet .empty-features-box,
+.essence-npc-sheet .empty-spells-box {
+  text-align: center;
+  padding: 24px;
+  background: rgba(15, 42, 43, 0.5);
+  border: 1px dashed #3a7a7f;
+  border-radius: 6px;
+}
+
+.essence-npc-sheet .empty-msg {
+  color: #7a9fa4;
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
+.essence-npc-sheet .create-tier-btn,
+.essence-npc-sheet .create-feature-btn,
+.essence-npc-sheet .create-spell-btn {
+  background: rgba(58, 122, 127, 0.3);
+  border: 1px solid #3a7a7f;
+  border-radius: 4px;
+  color: #FEEBB3;
+  font-weight: 700;
+  padding: 4px 10px;
+  cursor: pointer;
+  margin: 0 4px;
+}
+
+.essence-npc-sheet .create-tier-btn:hover,
+.essence-npc-sheet .create-feature-btn:hover,
+.essence-npc-sheet .create-spell-btn:hover {
+  background: #3a7a7f;
+  color: #ffffff;
+}
+
+/* ── NPC Tag Plus Button & Remove Badges ─────────────────── */
+.essence-npc-sheet .npc-add-tag-btn {
+  background: rgba(58, 122, 127, 0.35);
+  border: 1px solid #3a7a7f;
+  color: #FEEBB3;
+  border-radius: 10px;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 10px;
+  padding: 0;
+  transition: all 0.15s ease;
+  margin-left: 2px;
+}
+
+.essence-npc-sheet .npc-add-tag-btn:hover {
+  background: #3a7a7f;
+  color: #ffffff;
+  border-color: #9bd7e5;
+  box-shadow: 0 0 6px rgba(155, 215, 229, 0.4);
+}
+
+.essence-npc-sheet .npc-tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.essence-npc-sheet .tag-remove-btn {
+  background: transparent;
+  border: none;
+  color: #7a9fa4;
+  cursor: pointer;
+  padding: 0 1px;
+  font-size: 9px;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  transition: color 0.15s ease;
+}
+
+.essence-npc-sheet .tag-remove-btn:hover {
+  color: #ef4444;
+}
+
+/* ── Actor Tags Assignment Dialog ────────────────────────── */
+.actor-tags-dialog .actor-tags-dialog-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.actor-tags-dialog .actor-tags-list-wrapper {
+  max-height: 360px;
+  overflow-y: auto;
+  margin: 10px 0;
+  padding-right: 4px;
+}
+
+.actor-tags-dialog .actor-tags-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.actor-tags-dialog .actor-tag-card {
+  background: #13383a;
+  border: 1px solid #2a5a5f;
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.actor-tags-dialog .actor-tag-card.assigned {
+  border-color: #9bd7e5;
+  background: rgba(23, 67, 69, 0.6);
+  box-shadow: inset 0 0 8px rgba(155, 215, 229, 0.15);
+}
+
+.actor-tags-dialog .actor-tag-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.actor-tags-dialog .actor-tag-toggle-btn {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.actor-tags-dialog .actor-tag-toggle-btn.not-added {
+  background: rgba(58, 122, 127, 0.3);
+  border: 1px solid #3a7a7f;
+  color: #FEEBB3;
+}
+
+.actor-tags-dialog .actor-tag-toggle-btn.not-added:hover {
+  background: #3a7a7f;
+  color: #ffffff;
+}
+
+.actor-tags-dialog .actor-tag-toggle-btn.is-added {
+  background: rgba(16, 185, 129, 0.25);
+  border: 1px solid #10b981;
+  color: #6ee7b7;
+}
+
+.actor-tags-dialog .actor-tag-toggle-btn.is-added:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: #ef4444;
+  color: #fca5a5;
+}
+
+.actor-tags-dialog .actor-tag-desc {
+  font-size: 11px;
+  color: #cbd5e1;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.actor-tags-dialog .quick-add-tag-panel {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.actor-tags-dialog .quick-tag-input {
+  flex: 1;
+  background: #13383a !important;
+  border: 1px solid #3a7a7f !important;
+  color: #fdfaf3 !important;
+  border-radius: 4px !important;
+  padding: 4px 8px !important;
+  font-size: 12px !important;
 }
 
 

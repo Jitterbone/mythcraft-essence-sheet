@@ -419,4 +419,56 @@ export function initDamageAutomation() {
       }
     }
   }, true);
+
+  patchFeatureUsesMaxFormula();
 }
+
+/**
+ * Patches FeatureModel.prototype.prepareDerivedData to prevent unhandled evaluation
+ * errors when non-formula strings (such as "Rest") are entered in uses.maxFormula.
+ */
+export function patchFeatureUsesMaxFormula() {
+  const FeatureModelClass = CONFIG.Item?.dataModels?.feature;
+  if (!FeatureModelClass?.prototype?.prepareDerivedData) return;
+
+  if (FeatureModelClass.prototype._essenceUsesPatched) return;
+  FeatureModelClass.prototype._essenceUsesPatched = true;
+
+  const originalPrepareDerivedData = FeatureModelClass.prototype.prepareDerivedData;
+
+  FeatureModelClass.prototype.prepareDerivedData = function() {
+    try {
+      const formula = this.uses?.maxFormula;
+      if (!formula || formula === "0") {
+        this.uses.max = 0;
+        this.uses.value = 0 - (this.uses.spent || 0);
+        return;
+      }
+
+      // If formula is purely numeric
+      const numericVal = Number(formula);
+      if (!isNaN(numericVal)) {
+        this.uses.max = numericVal;
+        this.uses.value = this.uses.max - (this.uses.spent || 0);
+        return;
+      }
+
+      // Try safe synchronous evaluation
+      try {
+        const roll = Roll.create(formula, this.parent?.getRollData?.() || {});
+        this.uses.max = Number(roll.evaluateSync().total) || 0;
+      } catch (err) {
+        // Fallback if formula contains non-mathematical words (e.g. "Rest", "Encounter")
+        const numMatch = typeof formula === "string" ? formula.match(/\d+/) : null;
+        this.uses.max = numMatch ? Number(numMatch[0]) : 0;
+      }
+      this.uses.value = (this.uses.max || 0) - (this.uses.spent || 0);
+    } catch (err) {
+      if (this.uses) {
+        this.uses.max = Number(this.uses.max) || 0;
+        this.uses.value = this.uses.max - (this.uses.spent || 0);
+      }
+    }
+  };
+}
+

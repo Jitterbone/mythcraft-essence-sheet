@@ -1,0 +1,358 @@
+{{!-- ============================================================
+     MythCraft Essence Sheet — NPC Stats Tab
+     Context: physicalAttrs, mentalAttrs, metaAttrs, showMetaAttrs,
+              damageSummary, activeConditions, isEditable
+     ============================================================ --}}
+<section class="tab {{tab.cssClass}} npc-stats-tab" data-group="primary" data-tab="stats">
+
+  {{!-- Attributes Grid --}}
+  <div class="stats-columns-grid {{#if showMetaAttrs}}three-col{{else}}two-col{{/if}}">
+
+    {{!-- COLUMN 1: PHYSICAL ATTRIBUTES --}}
+    <div class="attr-group-card physical-group-card">
+      <div class="group-header">
+        <div class="header-left">
+          <i class="fas fa-dumbbell group-icon"></i>
+          <span class="group-title">Physical Attributes</span>
+        </div>
+      </div>
+
+      <div class="attr-cards-list">
+        {{#each physicalAttrs as |attr|}}
+          <div class="single-attr-card" data-attribute="{{attr.key}}">
+            <div class="attr-main-row">
+              <button type="button"
+                      class="attr-roll-pill roll-btn"
+                      data-action="rollAttribute"
+                      data-attribute="{{attr.key}}"
+                      title="Roll {{attr.name}} Check">
+                <i class="fas fa-dice-d20"></i>
+                <span class="attr-tag">{{attr.label}}</span>
+                <span class="attr-val">{{attr.bonusDisplay}}</span>
+              </button>
+
+              <input type="number"
+                     name="system.attributes.{{attr.key}}"
+                     value="{{attr.value}}"
+                     class="attr-num-input"
+                     min="-10" max="30"
+                     title="{{attr.name}} Score" />
+
+              {{#if attr.defense}}
+                <div class="defense-badge" title="{{attr.defense.name}}: {{attr.defense.value}}">
+                  <span class="def-tag">{{attr.defense.label}}</span>
+                  <span class="def-num">{{attr.defense.value}}</span>
+                </div>
+              {{/if}}
+
+              <button type="button"
+                      class="attr-config-btn"
+                      data-action="editAttribute"
+                      data-attribute="{{attr.key}}"
+                      title="Configure {{attr.name}} &amp; Skills">
+                <i class="fas fa-cog"></i>
+              </button>
+            </div>
+
+            {{#if attr.skills.length}}
+              <ul class="attr-skills-list">
+                {{#each attr.skills as |sk|}}
+                  <li class="attr-skill-item">
+                    <button type="button"
+                            class="skill-action-btn roll-btn"
+                            data-action="rollSkill"
+                            data-skill="{{sk.id}}"
+                            title="Roll {{sk.label}} Check">
+                      <span class="skill-name-text">{{sk.label}}</span>
+                      <span class="skill-bonus-text">{{sk.bonusDisplay}}</span>
+                    </button>
+                  </li>
+                {{/each}}
+              </ul>
+            {{/if}}
+          </div>
+        {{/each}}
+      </div>
+    </div>
+
+    {{!-- COLUMN 2: MENTAL ATTRIBUTES --}}
+    <div class="attr-group-card mental-group-card">
+      <div class="group-header">
+        <div class="header-left">
+          <i class="fas fa-brain group-icon"></i>
+          <span class="group-title">Mental Attributes</span>
+        </div>
+      </div>
+
+      <div class="attr-cards-list">
+        {{#each mentalAttrs as |attr|}}
+          <div class="single-attr-card" data-attribute="{{attr.key}}">
+            <div class="attr-main-row">
+              <button type="button"
+                      class="attr-roll-pill roll-btn"
+                      data-action="rollAttribute"
+                      data-attribute="{{attr.key}}"
+                      title="Roll {{attr.name}} Check">
+                <i class="fas fa-dice-d20"></i>
+                <span class="attr-tag">{{attr.label}}</span>
+                <span class="attr-val">{{attr.bonusDisplay}}</span>
+              </button>
+
+              <input type="number"
+                     name="system.attributes.{{attr.key}}"
+                     value="{{attr.value}}"
+                     class="attr-num-input"
+                     min="-10" max="30"
+                     title="{{attr.name}} Score" />
+
+              {{#if attr.defense}}
+                <div class="defense-badge" title="{{attr.defense.name}}: {{attr.defense.value}}">
+                  <span class="def-tag">{{attr.defense.label}}</span>
+                  <span class="def-num">{{attr.defense.value}}</span>
+                </div>
+              {{/if}}
+
+              <button type="button"
+                      class="attr-config-btn"
+                      data-action="editAttribute"
+                      data-attribute="{{attr.key}}"
+                      title="Configure {{attr.name}} &amp; Skills">
+                <i class="fas fa-cog"></i>
+              </button>
+            </div>
+
+            {{#if attr.skills.length}}
+              <ul class="attr-skills-list">
+                {{#each attr.skills as |sk|}}
+                  <li class="attr-skill-item">
+                    <button type="button"
+                            class="skill-action-btn roll-btn"
+                            data-action="rollSkill"
+                            data-skill="{{sk.id}}"
+                            title="Roll {{sk.label}} Check">
+                      <span class="skill-name-text">{{sk.label}}</span>
+                      <span class="skill-bonus-text">{{sk.bonusDisplay}}</span>
+                    </button>
+                  </li>
+                {{/each}}
+              </ul>
+            {{/if}}
+          </div>
+        {{/each}}
+      </div>
+    </div>
+
+    {{!-- COLUMN 3 (optional): METAPHYSICAL ATTRIBUTES --}}
+    {{#if showMetaAttrs}}
+      <div class="attr-group-card meta-group-card">
+        <div class="group-header">
+          <div class="header-left">
+            <i class="fas fa-sparkles group-icon"></i>
+            <span class="group-title">Metaphysical</span>
+          </div>
+        </div>
+
+        <div class="attr-cards-list">
+          {{#each metaAttrs as |attr|}}
+            <div class="single-attr-card" data-attribute="{{attr.key}}">
+              <div class="attr-main-row">
+                <button type="button"
+                        class="attr-roll-pill roll-btn"
+                        data-action="rollAttribute"
+                        data-attribute="{{attr.key}}"
+                        title="Roll {{attr.name}} Check">
+                  <i class="fas fa-dice-d20"></i>
+                  <span class="attr-tag">{{attr.label}}</span>
+                  <span class="attr-val">{{attr.bonusDisplay}}</span>
+                </button>
+
+                <input type="number"
+                       name="system.attributes.{{attr.key}}"
+                       value="{{attr.value}}"
+                       class="attr-num-input"
+                       min="-10" max="30"
+                       title="{{attr.name}} Score" />
+
+                <button type="button"
+                        class="attr-config-btn"
+                        data-action="editAttribute"
+                        data-attribute="{{attr.key}}"
+                        title="Configure {{attr.name}} &amp; Skills">
+                  <i class="fas fa-cog"></i>
+                </button>
+              </div>
+
+              {{#if attr.skills.length}}
+                <ul class="attr-skills-list">
+                  {{#each attr.skills as |sk|}}
+                    <li class="attr-skill-item">
+                      <button type="button"
+                              class="skill-action-btn roll-btn"
+                              data-action="rollSkill"
+                              data-skill="{{sk.id}}"
+                              title="Roll {{sk.label}} Check">
+                        <span class="skill-name-text">{{sk.label}}</span>
+                        <span class="skill-bonus-text">{{sk.bonusDisplay}}</span>
+                      </button>
+                    </li>
+                  {{/each}}
+                </ul>
+              {{/if}}
+            </div>
+          {{/each}}
+        </div>
+      </div>
+    {{/if}}
+
+  </div>
+
+  {{!-- Bottom Row: Active Conditions + Damage Modifications --}}
+  <div class="npc-stats-bottom-row">
+
+    {{!-- Active Conditions --}}
+    <div class="npc-bottom-panel conditions-panel">
+      <div class="panel-header">
+        <div class="header-left">
+          <i class="fas fa-biohazard"></i>
+          <span>Active Conditions</span>
+        </div>
+        <button type="button"
+                class="panel-edit-btn"
+                data-action="editConditions"
+                title="Manage Conditions">
+          <i class="fas fa-cog"></i>
+        </button>
+      </div>
+      <div class="active-conditions-strip" data-action="editConditions" title="Click to manage conditions">
+        {{#if activeConditions.length}}
+          {{#each activeConditions as |c|}}
+            <span class="condition-badge-pill"
+                  data-condition="{{c.id}}"
+                  data-tooltip="<strong>{{c.label}}</strong><br>{{c.description}}"
+                  data-tooltip-direction="UP">
+              <img src="{{c.icon}}" alt="{{c.label}}" class="condition-badge-icon" />
+              <span class="condition-badge-label">{{c.label}}</span>
+            </span>
+          {{/each}}
+        {{else}}
+          <span class="no-conditions-text"><i class="fas fa-plus"></i> Add Condition</span>
+        {{/if}}
+      </div>
+    </div>
+
+    {{!-- Damage Modifications --}}
+    <div class="npc-bottom-panel damage-panel">
+      <div class="panel-header">
+        <div class="header-left">
+          <i class="fas fa-shield-virus"></i>
+          <span>Damage Modifications</span>
+        </div>
+        <button type="button"
+                class="panel-edit-btn"
+                data-action="editDamageMod"
+                title="Configure Damage Modifications">
+          <i class="fas fa-cog"></i>
+        </button>
+      </div>
+      <div class="panel-body">
+        {{#if damageSummary.hasAny}}
+          <div class="dmg-mod-summary-content">
+            {{!-- Affinities --}}
+            {{#if damageSummary.affinities.length}}
+              <div class="dmg-mod-summary-row">
+                <span class="dmg-tag-badge affinity-tag">Affinity:</span>
+                <span class="dmg-tag-values">
+                  {{#each damageSummary.affinities as |aff|}}
+                    <span class="summary-pill affinity-pill" title="Affinity with {{aff.label}} (½ Damage Taken • +3 Damage Dealt)">
+                      <i class="{{aff.icon}}"></i>
+                      <span>{{aff.label}}</span>
+                    </span>
+                  {{/each}}
+                </span>
+              </div>
+            {{/if}}
+
+            {{!-- Immunities --}}
+            {{#if damageSummary.immunities.length}}
+              <div class="dmg-mod-summary-row">
+                <span class="dmg-tag-badge immune-tag">Immune:</span>
+                <span class="dmg-tag-values">
+                  {{#each damageSummary.immunities as |imm|}}
+                    <span class="summary-pill immune-pill" title="Immunity to {{imm.label}} (0 Damage Taken)">
+                      <i class="{{imm.icon}}"></i>
+                      <span>{{imm.label}}</span>
+                    </span>
+                  {{/each}}
+                </span>
+              </div>
+            {{/if}}
+
+            {{!-- Resist --}}
+            {{#if damageSummary.resistList.length}}
+              <div class="dmg-mod-summary-row">
+                <span class="dmg-tag-badge resist-tag">Resist:</span>
+                <span class="dmg-tag-values">
+                  {{#each damageSummary.resistList as |r|}}
+                    <span class="summary-pill resist-pill" title="Resist {{r.value}} {{r.label}} Damage">
+                      <i class="{{r.icon}}"></i>
+                      <span>{{r.label}} {{r.value}}</span>
+                    </span>
+                  {{/each}}
+                </span>
+              </div>
+            {{else if damageSummary.resist}}
+              <div class="dmg-mod-summary-row">
+                <span class="dmg-tag-badge resist-tag">Resist:</span>
+                <span class="dmg-tag-text">{{damageSummary.resist}}</span>
+              </div>
+            {{/if}}
+
+            {{!-- Vulnerable --}}
+            {{#if damageSummary.vulnList.length}}
+              <div class="dmg-mod-summary-row">
+                <span class="dmg-tag-badge vuln-tag">Vulnerable:</span>
+                <span class="dmg-tag-values">
+                  {{#each damageSummary.vulnList as |v|}}
+                    <span class="summary-pill vuln-pill" title="Vulnerable to {{v.label}} (+{{v.value}} Damage Taken)">
+                      <i class="{{v.icon}}"></i>
+                      <span>{{v.label}} +{{v.value}}</span>
+                    </span>
+                  {{/each}}
+                </span>
+              </div>
+            {{else if damageSummary.vulnerable}}
+              <div class="dmg-mod-summary-row">
+                <span class="dmg-tag-badge vuln-tag">Vulnerable:</span>
+                <span class="dmg-tag-text">{{damageSummary.vulnerable}}</span>
+              </div>
+            {{/if}}
+
+            {{!-- DR --}}
+            {{#if damageSummary.drValue}}
+              <div class="dmg-mod-summary-row">
+                <span class="dmg-tag-badge dr-tag">DR {{damageSummary.drValue}}:</span>
+                <span class="dmg-tag-text">{{#if damageSummary.drBypasses}}Bypasses: {{damageSummary.drBypasses}}{{else}}All types{{/if}}</span>
+              </div>
+            {{/if}}
+
+            {{!-- DT --}}
+            {{#if damageSummary.threshold}}
+              <div class="dmg-mod-summary-row">
+                <span class="dmg-tag-badge dt-tag">DT:</span>
+                <span class="dmg-tag-text">{{damageSummary.threshold}}</span>
+              </div>
+            {{/if}}
+
+          </div>
+        {{else}}
+          <button type="button" class="empty-dmg-mod-btn" data-action="editDamageMod" title="Configure Damage Modifications">
+            <i class="fas fa-plus"></i>
+            <span>Configure Modifiers</span>
+          </button>
+        {{/if}}
+      </div>
+    </div>
+
+  </div>
+
+</section>

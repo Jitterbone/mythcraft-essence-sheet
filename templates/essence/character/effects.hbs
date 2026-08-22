@@ -94,6 +94,14 @@
                       <i class="fas fa-{{#if e.effect.disabled}}toggle-off{{else}}toggle-on{{/if}}"></i>
                     </button>
                     <button type="button"
+                            class="item-action-btn edit-btn"
+                            data-action="viewDoc"
+                            data-document-class="ActiveEffect"
+                            data-effect-id="{{e.effect.id}}"
+                            title="Edit Effect">
+                      <i class="fas fa-edit"></i>
+                    </button>
+                    <button type="button"
                             class="item-action-btn expand-btn"
                             data-action="toggleEffectEmbed"
                             data-document-class="ActiveEffect"

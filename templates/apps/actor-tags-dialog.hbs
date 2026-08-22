@@ -1,0 +1,84 @@
+<div class="actor-tags-dialog-content standard-form">
+
+  {{!-- Hero Header --}}
+  <div class="dialog-hero-card">
+    <div class="hero-icon-wrap">
+      <i class="fas fa-tags"></i>
+    </div>
+    <div class="hero-text-wrap">
+      <h2 class="hero-title">Manage Tags: {{actor.name}}</h2>
+      <p class="hero-subtitle">Select creature types, planar origins, and keywords from the library to assign to this creature.</p>
+    </div>
+  </div>
+
+  {{!-- Search & Filter Toolbar --}}
+  <div class="tags-toolbar">
+    <div class="tag-search-box">
+      <i class="fas fa-search"></i>
+      <input type="text" class="tag-search-input" placeholder="Search tags by name or rule description..." value="{{searchTerm}}" />
+    </div>
+
+    <div class="tag-category-pills">
+      <button type="button" class="cat-pill {{#if (eq activeCategory 'all')}}active{{/if}}" data-action="filterCategory" data-category="all">
+        <i class="fas fa-layer-group"></i> All ({{totalCount}})
+      </button>
+      {{#each categories as |cat|}}
+        <button type="button" 
+                class="cat-pill {{#if (eq ../activeCategory cat.key)}}active{{/if}}" 
+                data-action="filterCategory" 
+                data-category="{{cat.key}}"
+                style="--cat-color: {{cat.color}}; --cat-bg: {{cat.bg}}; --cat-border: {{cat.border}};">
+          <i class="{{cat.icon}}"></i> {{cat.label}} ({{cat.count}})
+        </button>
+      {{/each}}
+    </div>
+  </div>
+
+  {{!-- Quick Add Custom Tag Row --}}
+  <div class="quick-add-tag-panel">
+    <input type="text" class="quick-tag-input" placeholder="Type a new tag name to add directly..." />
+    <button type="button" class="dialog-primary-btn quick-add-btn" data-action="addCustomActorTag">
+      <i class="fas fa-plus"></i> Add Custom Tag
+    </button>
+  </div>
+
+  {{!-- Tags Grid --}}
+  <div class="actor-tags-list-wrapper">
+    <div class="actor-tags-grid">
+      {{#each filteredTags as |t|}}
+        <div class="actor-tag-card {{#if t.isAssigned}}assigned{{/if}}" data-tag-id="{{t.id}}">
+          <div class="actor-tag-card-header">
+            <span class="tag-badge-pill" style="--cat-color: {{t.categoryMeta.color}}; --cat-bg: {{t.categoryMeta.bg}}; --cat-border: {{t.categoryMeta.border}};">
+              <i class="{{t.categoryMeta.icon}}"></i>
+              <span class="tag-title">{{t.name}}</span>
+            </span>
+            
+            <button type="button" 
+                    class="actor-tag-toggle-btn {{#if t.isAssigned}}is-added{{else}}not-added{{/if}}"
+                    data-action="toggleActorTag" 
+                    data-tag-id="{{t.id}}"
+                    data-tag-name="{{t.name}}">
+              {{#if t.isAssigned}}
+                <i class="fas fa-check"></i> Added
+              {{else}}
+                <i class="fas fa-plus"></i> Add
+              {{/if}}
+            </button>
+          </div>
+          
+          <p class="actor-tag-desc">{{t.description}}</p>
+        </div>
+      {{/each}}
+    </div>
+  </div>
+
+  {{!-- Footer Actions --}}
+  <div class="dialog-footer-actions">
+    <span class="tags-count-info">Currently assigned: {{actorTagsCount}} tag(s)</span>
+    <button type="button" class="dialog-primary-btn close-btn" data-action="closeDialog">
+      <i class="fas fa-check"></i> Done
+    </button>
+  </div>
+
+</div>
+

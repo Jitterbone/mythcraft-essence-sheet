@@ -36,11 +36,13 @@ import {
 } from "../features/equipment-automation.mjs";
 import { getSetting } from "../settings.mjs";
 import { findTagDefinition } from "../data/tags-library.mjs";
+import { renderDefenseTargetBadgeHTML, getDefenseTargetConfig } from "../data/defense-config.mjs";
 import {
   isItemContainer,
   moveItemToContainer,
   removeItemFromContainer,
 } from "../features/container-utils.mjs";
+
 
 const MODULE_PATH = (p) => `modules/mythcraft-essence-sheet/templates/essence/character/${p}`;
 
@@ -237,8 +239,8 @@ export async function rollItemDamage(actor, item, { isCrit = false } = {}) {
     let finalFormula = baseFormula;
 
     if (isCrit) {
-      if (isWeapon) {
-        // Weapon Crit Rule:
+      if (!isSpell) {
+        // Weapon, Action & Feature Attack Crit Rule:
         // 1. Maximize normal damage (dice max + modifiers)
         // 2. Roll damage dice a second time
         // 3. Add LUCK score
@@ -266,7 +268,7 @@ export async function rollItemDamage(actor, item, { isCrit = false } = {}) {
         const luckBonus = (index === 0) ? luckScore : 0;
 
         finalFormula = `${maxNormalDamage} + ${extraDiceFormula}${luckBonus ? ` + ${luckBonus}` : ""}`;
-      } else if (isSpell) {
+      } else {
         // Spell Crit Rule: Add LUCK to damage
         const luckBonus = (index === 0) ? luckScore : 0;
         finalFormula = `${baseFormula}${luckBonus ? ` + ${luckBonus}` : ""}`;
@@ -590,28 +592,58 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     const d20Term = roll.terms?.find(t => t.faces === 20);
     const d20Result = d20Term?.results?.find(r => r.active !== false)?.result ?? d20Term?.results?.[0]?.result ?? roll.dice?.[0]?.total;
     const isCrit = typeof d20Result === "number" && d20Result >= critHit;
+    const isFumble = typeof d20Result === "number" && d20Result <= critFail;
+
+    const defenseTarget = item.system?.defenseTarget || item.system?.defense || "ar";
+    const defBadgeHTML = renderDefenseTargetBadgeHTML(defenseTarget);
+    const resultClass = isCrit ? "crit-success" : (isFumble ? "crit-fail" : "");
+    const resultLabel = isCrit ? "CRITICAL HIT" : (isFumble ? "CRITICAL FAILURE" : "ATTACK ROLL");
+
+    // Standardized MythCraft Statblock Attack Card Layout (Matches MythCraft HUD & Sheet Design)
+    const content = `
+      <div class="mythcraft-statblock attack-card">
+        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+            <img src="${item.img}" style="border: 1px solid #a8d5e2; border-radius: 4px; height: 32px; width: 32px; object-fit: cover; margin-right: 8px; flex-shrink: 0;" />
+            <span class="card-title" style="font-family: 'Cinzel', serif; font-size: 14px; color: #FEEBB3; font-weight: 700;">${item.name}</span>
+          </div>
+          ${defBadgeHTML}
+        </div>
+        <div class="roll-result ${resultClass}">
+          <div class="roll-label">${resultLabel}</div>
+          <div class="roll-value">${roll.total}</div>
+          <div class="roll-formula">${roll.formula}</div>
+        </div>
+      </div>
+    `;
 
     const msgData = {
+      user: game.user.id,
       speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-      flavor: `${item.name} - Attack Roll`,
+      flavor: item.name,
+      content: content,
+      rolls: [roll],
       flags: {
         "mythcraft-essence-sheet": {
           itemId: item.id,
           itemUuid: item.uuid,
           itemName: item.name,
+          defenseTarget,
           isAttack: true,
           critHit,
           isCrit,
+          isFumble,
         },
       },
     };
 
-    if (typeof roll.toMessage === "function") {
-      await roll.toMessage(msgData);
-    } else {
-      await roll.toMessage(msgData);
+    if (CONST.CHAT_MESSAGE_STYLES) {
+      msgData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
     }
+
+    return await ChatMessage.create(msgData);
   }
+
 
   static async #rollSpell(event, target) {
     event.stopPropagation();
@@ -628,7 +660,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     const isPrimary = item.system?.magicSource === primarySource;
     if (!isPrimary) abilityMod = Math.ceil(abilityMod / 2);
 
-    const critHit = getActorCritHit(this.actor);
+    const critFail = Number(this.actor.system?.critical?.effectiveFail ?? this.actor.system?.critical?.fail ?? 1);
     const luck = Number(this.actor.system?.attributes?.luck?.value ?? this.actor.system?.attributes?.luck ?? 0);
 
     // MythCraft Rule: If LUCK < 0, subtract LUCK from every d20 roll
@@ -638,6 +670,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     }
 
     const SpellRollClass = mythcraft.rolls?.SpellRoll || Roll;
+    const defenseTarget = item.system?.defenseTarget || item.system?.defense || "";
     const roll = new SpellRollClass(formula, this.actor.getRollData(), {
       spellName: item.name,
       source: item.system?.magicSource,
@@ -656,28 +689,56 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     const d20Term = roll.terms?.find(t => t.faces === 20);
     const d20Result = d20Term?.results?.find(r => r.active !== false)?.result ?? d20Term?.results?.[0]?.result ?? roll.dice?.[0]?.total;
     const isCrit = typeof d20Result === "number" && d20Result >= critHit;
+    const isFumble = typeof d20Result === "number" && d20Result <= critFail;
+
+    const defBadgeHTML = defenseTarget ? renderDefenseTargetBadgeHTML(defenseTarget) : "";
+    const resultClass = isCrit ? "crit-success" : (isFumble ? "crit-fail" : "");
+    const resultLabel = isCrit ? "CRITICAL SUCCESS" : (isFumble ? "CRITICAL FAILURE" : "SPELL ROLL");
+
+    const content = `
+      <div class="mythcraft-statblock spell-card">
+        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+            <img src="${item.img}" style="border: 1px solid #a8d5e2; border-radius: 4px; height: 32px; width: 32px; object-fit: cover; margin-right: 8px; flex-shrink: 0;" />
+            <span class="card-title" style="font-family: 'Cinzel', serif; font-size: 14px; color: #FEEBB3; font-weight: 700;">${item.name}</span>
+          </div>
+          ${defBadgeHTML}
+        </div>
+        <div class="roll-result ${resultClass}">
+          <div class="roll-label">${resultLabel}</div>
+          <div class="roll-value">${roll.total}</div>
+          <div class="roll-formula">${roll.formula}</div>
+        </div>
+      </div>
+    `;
 
     const msgData = {
+      user: game.user.id,
       speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-      flavor: `${item.name} - Spell Roll`,
+      flavor: item.name,
+      content: content,
+      rolls: [roll],
       flags: {
         "mythcraft-essence-sheet": {
           itemId: item.id,
           itemUuid: item.uuid,
           itemName: item.name,
+          defenseTarget,
           isSpell: true,
           critHit,
           isCrit,
+          isFumble,
         },
       },
     };
 
-    if (typeof roll.toMessage === "function") {
-      await roll.toMessage(msgData);
-    } else {
-      await roll.toMessage(msgData);
+    if (CONST.CHAT_MESSAGE_STYLES) {
+      msgData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
     }
+
+    return await ChatMessage.create(msgData);
   }
+
 
   static async #editImage(event, target) {
     event.stopPropagation();
@@ -700,8 +761,10 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     event.stopPropagation();
     const attr = target.dataset.edit || "img";
     const current = foundry.utils.getProperty(this.document, attr);
-    const ip = new ImagePopout(current, {
-      title: this.document.name,
+    const ImagePopoutApp = foundry.applications.apps.ImagePopout || globalThis.ImagePopout;
+    const ip = new ImagePopoutApp({
+      src: current,
+      window: { title: this.document.name },
       shareable: true,
       uuid: this.document.uuid,
     });
@@ -1342,6 +1405,44 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       }
       this.#meterValues.set(key, targetWidth);
     }
+
+    // Right-click Image Popout for Actor Portrait & all Item Images on Sheet
+    const ImagePopoutApp = foundry.applications.apps.ImagePopout || globalThis.ImagePopout;
+    const portraitEl = this.element.querySelector(".portrait-box, .portrait-img, img[data-edit='img']");
+    if (portraitEl) {
+      portraitEl.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const img = this.document.img;
+        if (img) {
+          new ImagePopoutApp({
+            src: img,
+            window: { title: this.document.name },
+            shareable: true,
+            uuid: this.document.uuid,
+          }).render(true);
+        }
+      });
+    }
+
+    const itemImages = this.element.querySelectorAll(".item-img, .nested-item-img, .talent-img, .feature-img, .spell-img, .drawer-item-img, [data-item-id] img");
+    itemImages.forEach(imgEl => {
+      imgEl.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const itemId = imgEl.dataset.itemId || imgEl.closest("[data-item-id]")?.dataset.itemId;
+        const item = itemId ? this.actor.items.get(itemId) : null;
+        if (item?.img) {
+          new ImagePopoutApp({
+            src: item.img,
+            window: { title: item.name },
+            shareable: true,
+            uuid: item.uuid,
+          }).render(true);
+        }
+      });
+    });
+
 
     // Live Auto-Update for Currency Inputs on the Character Sheet
     const sheetCurrencyInputs = this.element.querySelectorAll(".currency-input");
@@ -2378,8 +2479,9 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         const handType = getWeaponHandType(item);
         const requiresEquip = Boolean(handType);
         const handLabel = handType === "two-handed" ? "2H" : (handType === "hand-and-a-half" ? "1.5H" : (handType === "one-handed" ? "1H" : ""));
-        const isEquipped = requiresEquip ? isWeaponEquipped(item) : true;
+        const isEquipped = requiresEquip ? isWeaponEquipped(item) : Boolean(item.system?.equipped);
         const isUnwieldy = isWeaponUnwieldy(item);
+        const defenseTarget = (item.system?.defenseTarget || item.system?.defense || "").toUpperCase();
 
         return {
           item,
@@ -2387,6 +2489,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
           requiresEquip,
           isEquipped,
           hasAttackRoll,
+          defenseTarget,
           handType,
           handLabel,
           isUnwieldy,

@@ -1,0 +1,133 @@
+{{!-- ============================================================
+     MythCraft Essence Sheet — NPC Effects Tab
+     Context: effects (temporary, passive, inactive), isEditable
+     ============================================================ --}}
+<section class="tab {{tab.cssClass}} npc-effects-tab" data-group="primary" data-tab="effects">
+
+  <div class="effects-section">
+    <div class="effects-main-header">
+      <h3 class="section-header">
+        <i class="fas fa-sparkles"></i>
+        <span>Active Effects &amp; Conditions</span>
+      </h3>
+      <button type="button"
+              class="add-effect-btn"
+              data-action="createEffect"
+              data-effect-type="passive"
+              title="Create New Active Effect">
+        <i class="fas fa-plus"></i> Add Effect
+      </button>
+    </div>
+
+    {{#each effects as |category categoryKey|}}
+      <div class="effect-category-block {{categoryKey}}-block">
+        <div class="effect-category-header-bar">
+          <h4 class="effect-category-title">
+            {{#if (eq categoryKey "temporary")}}
+              <i class="fas fa-hourglass-half"></i>
+            {{else if (eq categoryKey "passive")}}
+              <i class="fas fa-infinity"></i>
+            {{else}}
+              <i class="fas fa-power-off"></i>
+            {{/if}}
+            <span>{{category.label}}</span>
+            <span class="category-count-badge">{{category.effects.length}}</span>
+          </h4>
+          <button type="button"
+                  class="category-add-btn"
+                  data-action="createEffect"
+                  data-effect-type="{{categoryKey}}"
+                  title="Add {{category.label}}">
+            <i class="fas fa-plus"></i>
+          </button>
+        </div>
+
+        {{#if category.effects.length}}
+          <ul class="item-list effects-list">
+            {{#each category.effects as |e|}}
+              <li class="item effect item-row effect-row {{#if e.effect.disabled}}effect-disabled is-disabled{{/if}} {{#if e.expanded}}expanded{{/if}}"
+                  data-document-class="ActiveEffect"
+                  data-effect-id="{{e.effect.id}}">
+                
+                {{!-- Effect Icon --}}
+                <img class="item-img effect-icon"
+                     src="{{e.effect.img}}"
+                     alt="{{e.effect.name}}"
+                     data-action="viewDoc"
+                     data-document-class="ActiveEffect"
+                     data-effect-id="{{e.effect.id}}" />
+
+                {{!-- Effect Name --}}
+                <span class="item-name effect-name"
+                      data-action="toggleEffectEmbed"
+                      data-document-class="ActiveEffect"
+                      data-effect-id="{{e.effect.id}}">
+                  {{e.effect.name}}
+                </span>
+
+                {{!-- Duration Label --}}
+                {{#if e.durationLabel}}
+                  <span class="effect-duration-label"><i class="fas fa-clock"></i> {{e.durationLabel}}</span>
+                {{/if}}
+
+                {{!-- Status Badge --}}
+                <span class="effect-status-badge {{#if e.effect.disabled}}status-disabled{{else}}status-enabled{{/if}}"
+                      data-action="toggleEffect"
+                      data-document-class="ActiveEffect"
+                      data-effect-id="{{e.effect.id}}"
+                      title="Click to toggle status">
+                  {{#if e.effect.disabled}}INACTIVE{{else}}ACTIVE{{/if}}
+                </span>
+
+                {{!-- Action Buttons --}}
+                <div class="item-actions">
+                  <button type="button"
+                          class="item-action-btn toggle-btn {{#if e.effect.disabled}}is-disabled{{else}}is-active{{/if}}"
+                          data-action="toggleEffect"
+                          data-document-class="ActiveEffect"
+                          data-effect-id="{{e.effect.id}}"
+                          title="{{#if e.effect.disabled}}Enable Effect{{else}}Disable Effect{{/if}}">
+                    <i class="fas fa-{{#if e.effect.disabled}}toggle-off{{else}}toggle-on{{/if}}"></i>
+                  </button>
+                  <button type="button"
+                          class="item-action-btn edit-btn"
+                          data-action="editEffect"
+                          data-document-class="ActiveEffect"
+                          data-effect-id="{{e.effect.id}}"
+                          title="Edit Effect">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button type="button"
+                          class="item-action-btn delete-btn"
+                          data-action="deleteDoc"
+                          data-document-class="ActiveEffect"
+                          data-effect-id="{{e.effect.id}}"
+                          title="Delete Effect">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+
+              </li>
+
+              {{!-- Expanded Description --}}
+              {{#if e.expanded}}
+                <div class="effect-drawer-content" data-effect-id="{{e.effect.id}}">
+                  {{#if e.descriptionHTML}}
+                    <div class="effect-description-prose">{{{e.descriptionHTML}}}</div>
+                  {{else}}
+                    <p class="empty-desc-hint">No description provided for this effect.</p>
+                  {{/if}}
+                </div>
+              {{/if}}
+
+            {{/each}}
+          </ul>
+        {{else}}
+          <p class="empty-category-msg">No {{category.label}} active on this creature.</p>
+        {{/if}}
+      </div>
+    {{/each}}
+  </div>
+
+</section>
+

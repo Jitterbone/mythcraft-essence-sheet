@@ -82,6 +82,25 @@ export function registerSettings() {
     default: true,
   });
 
+  game.settings.register(MODULE_ID, "npcShowMetaphysicalAttrs", {
+    name: "Show Metaphysical Attributes on NPC Sheets",
+    hint: "Display LUCK and COR (Corruption) attributes on NPC stat sheets. Disabled by default as most NPCs and creatures do not use these attributes.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+  });
+
+  game.settings.register(MODULE_ID, "npcTurnActionAvailability", {
+    name: "NPC Combat Turn-Based Action States",
+    hint: "In active combat encounters, gray out reactions on the creature's turn, and gray out Tier 1/2 actions when off-turn (unless called by a reaction, which highlights the action).",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+  });
+
+
   game.settings.register(MODULE_ID, "autoAttunementEP", {
     name: "Essence Capacity & Attunement Tracking",
     hint: "Automatically calculate bound EP and display over-capacity warnings when attuning to items.",

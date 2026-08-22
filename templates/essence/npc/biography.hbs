@@ -1,0 +1,39 @@
+{{!-- ============================================================
+     MythCraft Essence Sheet — NPC Biography & Lore Tab
+     Context: systemFields, system, enrichedBiography, enrichedGMNotes, isGM, isEditable
+     ============================================================ --}}
+<section class="tab {{tab.cssClass}} npc-biography-tab" data-group="primary" data-tab="biography">
+
+  {{!-- ── 1. Lore & Ecology ────────────────────────────────────── --}}
+  <div class="bio-section lore-section">
+    <div class="section-header">
+      <i class="fas fa-book-open"></i>
+      <span>Lore, Ecology &amp; Behavior</span>
+    </div>
+    <div class="biography-body">
+      {{formInput systemFields.biography.fields.value
+                  enriched=enrichedBiography
+                  value=system.biography.value
+                  toggled="true"}}
+    </div>
+  </div>
+
+  {{!-- ── 2. GM Notes (GM Only) ────────────────────────────────── --}}
+  {{#if isGM}}
+    <div class="bio-section gm-notes-section gm-only">
+      <div class="section-header gm-header">
+        <i class="fas fa-eye-slash"></i>
+        <span>GM Notes &amp; Tactics</span>
+        <span class="gm-badge">GM Only</span>
+      </div>
+      <div class="gm-notes-body">
+        {{formInput systemFields.biography.fields.gm
+                    enriched=enrichedGMNotes
+                    value=system.biography.gm
+                    toggled="true"}}
+      </div>
+    </div>
+  {{/if}}
+
+</section>
+

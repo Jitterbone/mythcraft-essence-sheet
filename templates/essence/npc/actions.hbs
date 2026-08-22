@@ -1,0 +1,545 @@
+{{!-- ============================================================
+     MythCraft Essence Sheet — Unified NPC Actions & Features Tab
+     Context: tier1Actions, tier2Actions, reactions, passives, enrichedActions, isPlay
+     ============================================================ --}}
+<section class="tab {{tab.cssClass}} npc-actions-tab" data-group="primary" data-tab="actions">
+
+  {{!-- ── Turn Action Economy Main Enclosure ────────────────────── --}}
+  <div class="npc-turn-economy-wrapper">
+
+    {{!-- ── 1. Action Economy Rules Box ───────────────────────────── --}}
+    <div class="npc-action-rules-card">
+      <div class="rules-card-header">
+        <div class="header-left">
+          <i class="fas fa-hourglass-half rules-icon"></i>
+          <span class="rules-title">Turn Action Economy</span>
+        </div>
+        {{#unless isPlay}}
+          <div class="rules-edit-hint">
+            <i class="fas fa-pencil-alt"></i> Click text to edit rules
+          </div>
+        {{/unless}}
+      </div>
+
+      <div class="rules-card-body">
+        {{#if isPlay}}
+          {{#if enrichedActions}}
+            <div class="enriched-rules-content">{{{enrichedActions}}}</div>
+          {{else}}
+            <div class="default-action-rules">
+              <p>On each of this creature's turns, it may take one of the following sets of actions:</p>
+              <ul>
+                <li><i class="fas fa-chevron-right"></i> <strong>Move</strong> and take <strong>1</strong> Tier 1 action.</li>
+                <li><i class="fas fa-chevron-right"></i> Take <strong>1</strong> Tier 2 action.</li>
+              </ul>
+            </div>
+          {{/if}}
+        {{else}}
+          {{formInput systemFields.actions enriched=enrichedActions value=system.actions toggled="true"}}
+        {{/if}}
+      </div>
+    </div>
+
+    {{!-- ── 2. Tier 1 & Tier 2 Actions (Side-by-Side 2-Column Grid) ────── --}}
+    <div class="npc-actions-tiers-grid">
+      
+      {{!-- Tier 1 Column --}}
+      <div class="npc-tier-block tier-1-block">
+        <div class="tier-header-bar">
+          <div class="tier-title">
+            <i class="fas fa-fist-raised"></i>
+            <span>Tier 1 Actions</span>
+            <span class="tier-allowance-badge" title="Actions allowed per turn">1 Action / Turn</span>
+          </div>
+          <button type="button"
+                  class="tier-add-btn"
+                  data-action="createTierAction"
+                  data-tier="1"
+                  title="Add Tier 1 Action">
+            <i class="fas fa-plus"></i> Add Tier 1
+          </button>
+        </div>
+
+        {{#if tier1Actions.length}}
+          <ul class="item-list npc-actions-list">
+            {{#each tier1Actions as |action|}}
+              <li class="item draggable item-row npc-action-card {{#if action.expanded}}expanded{{/if}} {{#if action.isGrayedOut}}turn-disabled{{/if}} {{#if action.isHighlighted}}reaction-highlighted{{/if}}"
+                  data-document-class="Item"
+                  data-item-id="{{action.item.id}}"
+                  {{#if action.isGrayedOut}}title="Not currently usable on this turn"{{/if}}
+                  {{#if action.isHighlighted}}title="⚡ Usable on this turn via Reaction call"{{/if}}>
+                
+                <div class="action-card-main">
+                  <img class="item-img action-img"
+                       src="{{action.item.img}}"
+                       alt="{{action.item.name}}"
+                       data-action="viewDoc"
+                       data-document-class="Item"
+                       data-item-id="{{action.item.id}}" />
+
+                  <div class="action-info-col"
+                       data-action="toggleItemEmbed"
+                       data-document-class="Item"
+                       data-item-id="{{action.item.id}}">
+                    <div class="action-name-row">
+                      <span class="item-name action-name" title="{{action.item.name}}">{{action.item.name}}</span>
+                      {{#if action.isHighlighted}}
+                        <span class="reaction-call-badge" title="Called by Reaction"><i class="fas fa-bolt"></i> Reaction Option</span>
+                      {{/if}}
+                    </div>
+
+                    {{#if (or action.item.system.range action.item.system.uses.max)}}
+                      <div class="action-sub-tags">
+                        {{#if action.item.system.range}}
+                          <span class="action-sub-tag range-tag" title="Range">
+                            <i class="fas fa-bullseye"></i> {{action.item.system.range}}
+                          </span>
+                        {{/if}}
+                        {{#if action.item.system.uses.max}}
+                          <span class="action-sub-tag uses-tag" title="Uses">
+                            <i class="fas fa-sync-alt"></i> {{action.item.system.uses.value}}/{{action.item.system.uses.max}}
+                          </span>
+                        {{/if}}
+                      </div>
+                    {{/if}}
+                  </div>
+
+                  {{!-- Action Buttons Strip: Far Right --}}
+                  <div class="action-buttons-strip">
+                    {{#if action.hasAttack}}
+                      <button type="button"
+                              class="stat-btn atk-btn {{#unless action.expanded}}icon-only{{/unless}} roll-btn"
+                              data-action="rollAttack"
+                              data-item-id="{{action.item.id}}"
+                              title="Roll Attack Check ({{action.attackBonusDisplay}} vs {{action.defenseTarget}})">
+                        <i class="fas fa-dice-d20"></i>
+                        {{#if action.expanded}}<span>{{action.attackBonusDisplay}}</span>{{/if}}
+                      </button>
+                    {{/if}}
+
+                    {{#if action.hasDamage}}
+                      <button type="button"
+                              class="stat-btn dmg-btn {{#unless action.expanded}}icon-only{{/unless}} roll-btn"
+                              data-action="rollDamage"
+                              data-item-id="{{action.item.id}}"
+                              title="Roll Damage ({{action.damageFormula}})">
+                        <i class="fas fa-burst"></i>
+                        {{#if action.expanded}}<span>{{action.damageFormula}}</span>{{/if}}
+                      </button>
+                    {{/if}}
+
+                    <button type="button"
+                            class="item-control edit-btn"
+                            data-action="viewDoc"
+                            data-document-class="Item"
+                            data-item-id="{{action.item.id}}"
+                            title="Edit Action">
+                      <i class="fas fa-edit"></i>
+                    </button>
+                    <button type="button"
+                            class="item-control delete-btn"
+                            data-action="deleteDoc"
+                            data-document-class="Item"
+                            data-item-id="{{action.item.id}}"
+                            title="Delete Action">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                    <button type="button"
+                            class="item-control expand-btn"
+                            data-action="toggleItemEmbed"
+                            data-document-class="Item"
+                            data-item-id="{{action.item.id}}"
+                            title="Toggle Action Description">
+                      <i class="fas fa-chevron-{{#if action.expanded}}up{{else}}down{{/if}}"></i>
+                    </button>
+                  </div>
+                </div>
+
+                {{!-- Expanded Drawer Details --}}
+                <div class="item-drawer-content action-drawer-content" style="{{#unless action.expanded}}display: none;{{/unless}}">
+                  {{#if action.defenseTarget}}
+                    <div class="action-drawer-defense-target" style="margin-bottom: 6px;">
+                      <span class="action-sub-tag def-tag def-{{action.defenseTarget}}" title="Target Defense: {{action.defenseTarget}}">
+                        <i class="fas fa-shield-halved"></i> Target Defense: vs {{action.defenseTarget}}
+                      </span>
+                    </div>
+                  {{/if}}
+                  {{#if action.descriptionHTML}}
+                    <div class="action-description-prose">{{{action.descriptionHTML}}}</div>
+                  {{else}}
+                    <p class="empty-desc-hint">No description provided for this action.</p>
+                  {{/if}}
+                </div>
+
+              </li>
+            {{/each}}
+          </ul>
+        {{else}}
+          <div class="empty-tier-box">
+            <p class="empty-msg"><i class="fas fa-info-circle"></i> No Tier 1 actions configured.</p>
+          </div>
+        {{/if}}
+      </div>
+
+      {{!-- Tier 2 Column --}}
+      <div class="npc-tier-block tier-2-block">
+        <div class="tier-header-bar">
+          <div class="tier-title">
+            <i class="fas fa-fist-raised"></i>
+            <span>Tier 2 Actions</span>
+            <span class="tier-allowance-badge" title="Actions allowed per turn">1 Action / Turn</span>
+          </div>
+          <button type="button"
+                  class="tier-add-btn"
+                  data-action="createTierAction"
+                  data-tier="2"
+                  title="Add Tier 2 Action">
+            <i class="fas fa-plus"></i> Add Tier 2
+          </button>
+        </div>
+
+        {{#if tier2Actions.length}}
+          <ul class="item-list npc-actions-list">
+            {{#each tier2Actions as |action|}}
+              <li class="item draggable item-row npc-action-card {{#if action.expanded}}expanded{{/if}} {{#if action.isGrayedOut}}turn-disabled{{/if}} {{#if action.isHighlighted}}reaction-highlighted{{/if}}"
+                  data-document-class="Item"
+                  data-item-id="{{action.item.id}}"
+                  {{#if action.isGrayedOut}}title="Not currently usable on this turn"{{/if}}
+                  {{#if action.isHighlighted}}title="⚡ Usable on this turn via Reaction call"{{/if}}>
+                
+                <div class="action-card-main">
+                  <img class="item-img action-img"
+                       src="{{action.item.img}}"
+                       alt="{{action.item.name}}"
+                       data-action="viewDoc"
+                       data-document-class="Item"
+                       data-item-id="{{action.item.id}}" />
+
+                  <div class="action-info-col"
+                       data-action="toggleItemEmbed"
+                       data-document-class="Item"
+                       data-item-id="{{action.item.id}}">
+                    <div class="action-name-row">
+                      <span class="item-name action-name" title="{{action.item.name}}">{{action.item.name}}</span>
+                      {{#if action.isHighlighted}}
+                        <span class="reaction-call-badge" title="Called by Reaction"><i class="fas fa-bolt"></i> Reaction Option</span>
+                      {{/if}}
+                    </div>
+                    {{#if (or action.item.system.range action.item.system.uses.max)}}
+                      <div class="action-sub-tags">
+                        {{#if action.item.system.range}}
+                          <span class="action-sub-tag range-tag" title="Range">
+                            <i class="fas fa-bullseye"></i> {{action.item.system.range}}
+                          </span>
+                        {{/if}}
+                        {{#if action.item.system.uses.max}}
+                          <span class="action-sub-tag uses-tag" title="Uses">
+                            <i class="fas fa-sync-alt"></i> {{action.item.system.uses.value}}/{{action.item.system.uses.max}}
+                          </span>
+                        {{/if}}
+                      </div>
+                    {{/if}}
+                  </div>
+
+                  {{!-- Action Buttons Strip: Far Right --}}
+                  <div class="action-buttons-strip">
+                    {{#if action.hasAttack}}
+                      <button type="button"
+                              class="stat-btn atk-btn {{#unless action.expanded}}icon-only{{/unless}} roll-btn"
+                              data-action="rollAttack"
+                              data-item-id="{{action.item.id}}"
+                              title="Roll Attack Check ({{action.attackBonusDisplay}} vs {{action.defenseTarget}})">
+                        <i class="fas fa-dice-d20"></i>
+                        {{#if action.expanded}}<span>{{action.attackBonusDisplay}}</span>{{/if}}
+                      </button>
+                    {{/if}}
+
+                    {{#if action.hasDamage}}
+                      <button type="button"
+                              class="stat-btn dmg-btn {{#unless action.expanded}}icon-only{{/unless}} roll-btn"
+                              data-action="rollDamage"
+                              data-item-id="{{action.item.id}}"
+                              title="Roll Damage ({{action.damageFormula}})">
+                        <i class="fas fa-burst"></i>
+                        {{#if action.expanded}}<span>{{action.damageFormula}}</span>{{/if}}
+                      </button>
+                    {{/if}}
+
+                    <button type="button"
+                            class="item-control edit-btn"
+                            data-action="viewDoc"
+                            data-document-class="Item"
+                            data-item-id="{{action.item.id}}"
+                            title="Edit Action">
+                      <i class="fas fa-edit"></i>
+                    </button>
+                    <button type="button"
+                            class="item-control delete-btn"
+                            data-action="deleteDoc"
+                            data-document-class="Item"
+                            data-item-id="{{action.item.id}}"
+                            title="Delete Action">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                    <button type="button"
+                            class="item-control expand-btn"
+                            data-action="toggleItemEmbed"
+                            data-document-class="Item"
+                            data-item-id="{{action.item.id}}"
+                            title="Toggle Action Description">
+                      <i class="fas fa-chevron-{{#if action.expanded}}up{{else}}down{{/if}}"></i>
+                    </button>
+                  </div>
+                </div>
+
+                {{!-- Expanded Drawer Details --}}
+                <div class="item-drawer-content action-drawer-content" style="{{#unless action.expanded}}display: none;{{/unless}}">
+                  {{#if action.defenseTarget}}
+                    <div class="action-drawer-defense-target" style="margin-bottom: 6px;">
+                      <span class="action-sub-tag def-tag def-{{action.defenseTarget}}" title="Target Defense: {{action.defenseTarget}}">
+                        <i class="fas fa-shield-halved"></i> Target Defense: vs {{action.defenseTarget}}
+                      </span>
+                    </div>
+                  {{/if}}
+                  {{#if action.descriptionHTML}}
+                    <div class="action-description-prose">{{{action.descriptionHTML}}}</div>
+                  {{else}}
+                    <p class="empty-desc-hint">No description provided for this action.</p>
+                  {{/if}}
+                </div>
+
+
+              </li>
+            {{/each}}
+          </ul>
+        {{else}}
+          <div class="empty-tier-box">
+            <p class="empty-msg"><i class="fas fa-info-circle"></i> No Tier 2 actions configured.</p>
+          </div>
+        {{/if}}
+      </div>
+
+    </div>
+
+
+  {{!-- ── 3. Reactions Section ─────────────────────────────────── --}}
+  <div class="npc-reactions-block">
+    <div class="reactions-header-bar">
+      <div class="reactions-title">
+        <i class="fas fa-bolt"></i>
+        <span>Reactions</span>
+        <span class="reactions-count-badge">{{reactions.length}}</span>
+      </div>
+      <button type="button"
+              class="reaction-add-btn"
+              data-action="createReaction"
+              title="Add Reaction">
+        <i class="fas fa-plus"></i> Add Reaction
+      </button>
+    </div>
+
+    <div class="reactions-body">
+      {{#if reactions.length}}
+        <ul class="item-list npc-reactions-list">
+          {{#each reactions as |react|}}
+            <li class="item draggable item-row npc-reaction-card {{#if react.expanded}}expanded{{/if}} {{#if react.isGrayedOut}}turn-disabled{{/if}}"
+                data-document-class="Item"
+                data-item-id="{{react.item.id}}"
+                {{#if react.isGrayedOut}}title="Reactions are taken when it is not this creature's turn"{{/if}}>
+              
+              <div class="action-card-main">
+                <img class="item-img reaction-img"
+                     src="{{react.item.img}}"
+                     alt="{{react.item.name}}"
+                     data-action="viewDoc"
+                     data-document-class="Item"
+                     data-item-id="{{react.item.id}}" />
+
+                <div class="reaction-info-col"
+                     data-action="toggleItemEmbed"
+                     data-document-class="Item"
+                     data-item-id="{{react.item.id}}">
+                  <span class="item-name reaction-name">{{react.item.name}}</span>
+
+                  {{#if react.item.system.trigger}}
+                    <span class="reaction-trigger-tag" title="Reaction Trigger">
+                      <i class="fas fa-bolt"></i> <strong>Trigger:</strong> {{react.item.system.trigger}}
+                    </span>
+                  {{/if}}
+                </div>
+
+                {{!-- Reaction Buttons Strip: Far Right --}}
+                <div class="action-buttons-strip">
+                  {{#if react.hasAttack}}
+                    <button type="button"
+                            class="stat-btn atk-btn {{#unless react.expanded}}icon-only{{/unless}} roll-btn"
+                            data-action="rollAttack"
+                            data-item-id="{{react.item.id}}"
+                            title="Roll Attack Check ({{react.attackBonusDisplay}} vs {{react.defenseTarget}})">
+                      <i class="fas fa-dice-d20"></i>
+                      {{#if react.expanded}}<span>{{react.attackBonusDisplay}}</span>{{/if}}
+                    </button>
+                  {{/if}}
+                  {{#if react.hasDamage}}
+                    <button type="button"
+                            class="stat-btn dmg-btn {{#unless react.expanded}}icon-only{{/unless}} roll-btn"
+                            data-action="rollDamage"
+                            data-item-id="{{react.item.id}}"
+                            title="Roll Damage ({{react.damageFormula}})">
+                      <i class="fas fa-burst"></i>
+                      {{#if react.expanded}}<span>{{react.damageFormula}}</span>{{/if}}
+                    </button>
+                  {{/if}}
+
+                  <button type="button"
+                          class="item-control edit-btn"
+                          data-action="viewDoc"
+                          data-document-class="Item"
+                          data-item-id="{{react.item.id}}"
+                          title="Edit Reaction">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button type="button"
+                          class="item-control delete-btn"
+                          data-action="deleteDoc"
+                          data-document-class="Item"
+                          data-item-id="{{react.item.id}}"
+                          title="Delete Reaction">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                  <button type="button"
+                          class="item-control expand-btn"
+                          data-action="toggleItemEmbed"
+                          data-document-class="Item"
+                          data-item-id="{{react.item.id}}"
+                          title="Toggle Reaction Description">
+                    <i class="fas fa-chevron-{{#if react.expanded}}up{{else}}down{{/if}}"></i>
+                  </button>
+                </div>
+              </div>
+
+              {{!-- Drawer Details --}}
+              <div class="item-drawer-content reaction-drawer-content" style="{{#unless react.expanded}}display: none;{{/unless}}">
+                {{#if react.defenseTarget}}
+                  <div class="action-drawer-defense-target" style="margin-bottom: 6px;">
+                    <span class="action-sub-tag def-tag def-{{react.defenseTarget}}" title="Target Defense: {{react.defenseTarget}}">
+                      <i class="fas fa-shield-halved"></i> Target Defense: vs {{react.defenseTarget}}
+                    </span>
+                  </div>
+                {{/if}}
+                {{#if react.descriptionHTML}}
+                  <div class="action-description-prose">{{{react.descriptionHTML}}}</div>
+                {{else}}
+                  <p class="empty-desc-hint">No description provided for this reaction.</p>
+                {{/if}}
+              </div>
+
+            </li>
+          {{/each}}
+        </ul>
+      {{else}}
+        <p class="empty-reactions-hint">No special reactions configured for this creature.</p>
+      {{/if}}
+    </div>
+  </div>
+
+  </div>
+
+  {{!-- ── 4. Monster Traits & Passive Features Section ──────────── --}}
+
+  <div class="npc-features-container">
+    <div class="features-header-bar">
+      <div class="features-title">
+        <i class="fas fa-sparkles"></i>
+        <span>Monster Traits &amp; Passive Features</span>
+        <span class="features-count-badge">{{passives.length}}</span>
+      </div>
+      <button type="button"
+              class="feature-add-btn"
+              data-action="createPassiveFeature"
+              title="Add Feature">
+        <i class="fas fa-plus"></i> Add Feature
+      </button>
+    </div>
+
+    {{#if passives.length}}
+      <ul class="item-list npc-features-list">
+        {{#each passives as |feat|}}
+          <li class="item draggable item-row npc-feature-card {{#if feat.expanded}}expanded{{/if}}"
+              data-document-class="Item"
+              data-item-id="{{feat.item.id}}">
+            
+            <div class="feature-card-main">
+              <img class="item-img feature-img"
+                   src="{{feat.item.img}}"
+                   alt="{{feat.item.name}}"
+                   data-action="viewDoc"
+                   data-document-class="Item"
+                   data-item-id="{{feat.item.id}}" />
+
+              <div class="feature-info-col"
+                   data-action="toggleItemEmbed"
+                   data-document-class="Item"
+                   data-item-id="{{feat.item.id}}">
+                <span class="item-name feature-name">{{feat.item.name}}</span>
+
+                {{#if feat.item.system.uses.max}}
+                  <span class="feature-uses-badge"><i class="fas fa-sync-alt"></i> {{feat.item.system.uses.value}}/{{feat.item.system.uses.max}}</span>
+                {{/if}}
+              </div>
+
+              <div class="action-buttons-strip">
+                <button type="button"
+                        class="item-control chat-btn"
+                        data-action="postItemToChat"
+                        data-item-id="{{feat.item.id}}"
+                        title="Share Feature to Chat">
+                  <i class="fas fa-comment-dots"></i>
+                </button>
+                <button type="button"
+                        class="item-control edit-btn"
+                        data-action="viewDoc"
+                        data-document-class="Item"
+                        data-item-id="{{feat.item.id}}"
+                        title="Edit Feature">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button type="button"
+                        class="item-control delete-btn"
+                        data-action="deleteDoc"
+                        data-document-class="Item"
+                        data-item-id="{{feat.item.id}}"
+                        title="Delete Feature">
+                  <i class="fas fa-trash"></i>
+                </button>
+                <button type="button"
+                        class="item-control expand-btn"
+                        data-action="toggleItemEmbed"
+                        data-document-class="Item"
+                        data-item-id="{{feat.item.id}}"
+                        title="Toggle Feature Description">
+                  <i class="fas fa-chevron-{{#if feat.expanded}}up{{else}}down{{/if}}"></i>
+                </button>
+              </div>
+            </div>
+
+            {{!-- Drawer Details --}}
+            <div class="item-drawer-content feature-drawer-content" style="{{#unless feat.expanded}}display: none;{{/unless}}">
+              {{#if feat.descriptionHTML}}
+                <div class="feature-description-prose">{{{feat.descriptionHTML}}}</div>
+              {{else}}
+                <p class="empty-desc-hint">No description provided for this feature.</p>
+              {{/if}}
+            </div>
+
+          </li>
+        {{/each}}
+      </ul>
+    {{else}}
+      <div class="empty-features-box">
+        <p class="empty-msg"><i class="fas fa-info-circle"></i> No passive traits or features configured for this creature.</p>
+      </div>
+    {{/if}}
+  </div>
+
+</section>

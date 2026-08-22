@@ -102,12 +102,12 @@
                  data-item-id="{{w.item.id}}" />
 
             {{!-- Item Name & Inline Tags --}}
-            <div class="item-name-group">
+            <div class="item-name-group"
+                 data-action="toggleItemEmbed"
+                 data-document-class="Item"
+                 data-item-id="{{w.item.id}}">
               <span class="item-name"
-                    data-action="viewDoc"
-                    data-document-class="Item"
-                    data-item-id="{{w.item.id}}"
-                    title="View Item Details">
+                    title="Click to Toggle Details">
                 {{w.item.name}}
               </span>
 
@@ -124,7 +124,7 @@
                 {{/if}}
               {{/if}}
 
-              {{#if w.essenceCost}}
+              {{#if (and w.essenceCost (or w.isAttuned w.expanded))}}
                 <div class="item-inline-tags">
                   <button type="button"
                           class="item-essence-tag essence-toggle-btn {{#if w.isAttuned}}attuned{{else}}unattuned{{/if}}"
@@ -141,17 +141,23 @@
 
             {{!-- Weapon Badges & Clickable Roll Buttons --}}
             <div class="weapon-stats-strip">
-              {{!-- APC Badge (Always shown) --}}
+              {{!-- APC Badge (Always shown if present) --}}
               {{#if w.apc}}
                 <span class="weapon-apc-badge" title="Action Points Cost">
                   <i class="fas fa-bolt"></i> {{w.apc}} AP
                 </span>
               {{/if}}
 
-              {{!-- When EQUIPPED or DOES NOT REQUIRE EQUIPPING: Show Attack & Damage Rolls --}}
-              {{#if w.isEquipped}}
-                {{!-- Attack Roll Button (Only if weapon has attack attribute or defense target) --}}
-                {{#if w.hasAttackRoll}}
+              {{!-- Range Badge (Always shown if present) --}}
+              {{#if w.rangeDisplay}}
+                <span class="weapon-range-badge" title="Weapon Range">
+                  <i class="fas fa-ruler-horizontal"></i> {{w.rangeDisplay}}
+                </span>
+              {{/if}}
+
+              {{!-- Attack Roll Button: ONLY shown when w.hasAttackRoll AND (EQUIPPED or EXPANDED) --}}
+              {{#if w.hasAttackRoll}}
+                {{#if (or w.isEquipped w.expanded)}}
                   <button type="button"
                           class="weapon-stat-btn atk-btn"
                           data-action="rollAttack"
@@ -161,26 +167,25 @@
                     <span class="stat-val">{{w.atkBonusDisplay}}</span>
                   </button>
                 {{/if}}
+              {{/if}}
 
-                {{!-- Damage Roll Button --}}
-                <button type="button"
-                        class="weapon-stat-btn dmg-btn"
-                        data-action="rollDamage"
-                        data-item-id="{{w.item.id}}"
-                        title="Roll Damage ({{w.damageDisplay}})">
-                  <i class="fas fa-burst"></i>
-                  <span class="stat-val">{{w.damageDisplay}}</span>
-                </button>
-
-                {{!-- Range Badge --}}
-                {{#if w.rangeDisplay}}
-                  <span class="weapon-range-badge" title="Weapon Range">
-                    <i class="fas fa-ruler-horizontal"></i> {{w.rangeDisplay}}
-                  </span>
+              {{!-- Damage Roll Button: ONLY shown when (hasAttackRoll AND isEquipped) OR EXPANDED --}}
+              {{#if (or (and w.hasAttackRoll w.isEquipped) w.expanded)}}
+                {{#if w.damageDisplay}}
+                  <button type="button"
+                          class="weapon-stat-btn dmg-btn"
+                          data-action="rollDamage"
+                          data-item-id="{{w.item.id}}"
+                          title="Roll Damage ({{w.damageDisplay}})">
+                    <i class="fas fa-burst"></i>
+                    <span class="stat-val">{{w.damageDisplay}}</span>
+                  </button>
                 {{/if}}
+              {{/if}}
 
-                {{!-- Stow Button (Only if weapon requires equipping) --}}
-                {{#if w.requiresEquip}}
+              {{!-- Equip / Stow Toggle Button (If weapon requires equipping) --}}
+              {{#if w.requiresEquip}}
+                {{#if w.isEquipped}}
                   <button type="button" 
                           class="weapon-stat-btn stow-btn" 
                           data-action="toggleEquipWeapon" 
@@ -189,30 +194,30 @@
                     <i class="fas fa-hand-holding-box"></i>
                     <span>Stow</span>
                   </button>
+                {{else}}
+                  <button type="button" 
+                          class="weapon-stat-btn equip-btn" 
+                          data-action="toggleEquipWeapon" 
+                          data-item-id="{{w.item.id}}" 
+                          title="Equip Weapon">
+                    <i class="fas fa-hand"></i>
+                    <span>Equip</span>
+                  </button>
                 {{/if}}
-
-              {{!-- When UNEQUIPPED: Hide stats and show Type Badge + Equip Button --}}
-              {{else}}
-                {{#if w.rangeDisplay}}
-                  <span class="weapon-type-badge" title="Weapon Type / Range">
-                    <i class="fas fa-shield"></i> {{w.rangeDisplay}}
-                  </span>
-                {{/if}}
-
-                {{!-- Equip Button --}}
-                <button type="button" 
-                        class="weapon-stat-btn equip-btn" 
-                        data-action="toggleEquipWeapon" 
-                        data-item-id="{{w.item.id}}" 
-                        title="Equip Weapon">
-                  <i class="fas fa-hand"></i>
-                  <span>Equip</span>
-                </button>
               {{/if}}
             </div>
 
+
             {{!-- Action Buttons --}}
             <div class="item-actions">
+              <button type="button"
+                      class="item-action-btn edit-btn"
+                      data-action="viewDoc"
+                      data-document-class="Item"
+                      data-item-id="{{w.item.id}}"
+                      title="Edit Weapon">
+                <i class="fas fa-edit"></i>
+              </button>
               <button type="button"
                       class="item-action-btn expand-btn"
                       data-action="toggleItemEmbed"
@@ -235,7 +240,7 @@
               <div class="item-embed-card weapon-embed">
                 {{!-- Weapon Tags Strip with hover tooltips --}}
                 {{#if w.tags.length}}
-                  <div class="expanded-tags-strip">
+                  <div class="expanded-tags-strip" style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">
                     {{#each w.tags as |tag|}}
                       <span class="tag-badge-pill {{tag.category}}" 
                             style="--cat-color: {{tag.categoryMeta.color}}; --cat-bg: {{tag.categoryMeta.bg}}; --cat-border: {{tag.categoryMeta.border}};"
@@ -248,15 +253,26 @@
                   </div>
                 {{/if}}
 
+                {{!-- Weapon Defense Target (Shown when expanded) --}}
+                {{#if w.defenseTarget}}
+                  <div class="expanded-defense-target" style="margin-bottom:6px;">
+                    <span class="weapon-def-target-badge" style="background:rgba(2,132,199,0.18); border:1px solid rgba(56,189,248,0.4); color:#7dd3fc; border-radius:4px; font-size:10.5px; font-weight:700; padding:2px 7px; display:inline-flex; align-items:center; gap:4px;">
+                      <i class="fas fa-shield-halved"></i> Target Defense: vs {{w.defenseTarget}}
+                    </span>
+                  </div>
+                {{/if}}
+
+
                 {{#if w.descriptionHTML}}
-                  {{{w.descriptionHTML}}}
+                  <div class="weapon-desc-rendered">{{{w.descriptionHTML}}}</div>
                 {{else if w.item.system.description.value}}
-                  {{{w.item.system.description.value}}}
+                  <div class="weapon-desc-rendered">{{{w.item.system.description.value}}}</div>
                 {{else}}
                   <p class="empty-desc-hint">No description available.</p>
                 {{/if}}
               </div>
             {{/if}}
+
 
           </li>
         {{/each}}
@@ -296,11 +312,12 @@
                  data-document-class="Item"
                  data-item-id="{{a.item.id}}" />
 
-            <div class="item-name-group">
+            <div class="item-name-group"
+                 data-action="toggleItemEmbed"
+                 data-document-class="Item"
+                 data-item-id="{{a.item.id}}">
               <span class="item-name"
-                    data-action="viewDoc"
-                    data-document-class="Item"
-                    data-item-id="{{a.item.id}}">
+                    title="Click to Toggle Details">
                 {{a.item.name}}
               </span>
               
@@ -339,6 +356,14 @@
             </div>
 
             <div class="item-actions">
+              <button type="button"
+                      class="item-action-btn edit-btn"
+                      data-action="viewDoc"
+                      data-document-class="Item"
+                      data-item-id="{{a.item.id}}"
+                      title="Edit Armor">
+                <i class="fas fa-edit"></i>
+              </button>
               <button type="button"
                       class="item-action-btn expand-btn"
                       data-action="toggleItemEmbed"
@@ -454,11 +479,13 @@
                  data-document-class="Item"
                  data-item-id="{{g.item.id}}" />
 
-            <div class="item-name-group">
+            <div class="item-name-group"
+                 data-action="{{#if g.isContainer}}toggleContainer{{else}}toggleItemEmbed{{/if}}"
+                 data-document-class="Item"
+                 data-item-id="{{g.item.id}}"
+                 {{#if g.isContainer}}data-container-id="{{g.item.id}}"{{/if}}>
               <span class="item-name"
-                    data-action="viewDoc"
-                    data-document-class="Item"
-                    data-item-id="{{g.item.id}}">
+                    title="Click to Toggle Details">
                 {{g.item.name}}
               </span>
 
@@ -513,6 +540,14 @@
 
             <div class="item-actions">
               <button type="button"
+                      class="item-action-btn edit-btn"
+                      data-action="viewDoc"
+                      data-document-class="Item"
+                      data-item-id="{{g.item.id}}"
+                      title="Edit Item">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button type="button"
                       class="item-action-btn expand-btn {{#if g.isContainer}}{{#if g.containerExpanded}}active{{/if}}{{else}}{{#if g.expanded}}active{{/if}}{{/if}}"
                       data-action="{{#if g.isContainer}}toggleContainer{{else}}toggleItemEmbed{{/if}}"
                       data-item-id="{{g.item.id}}"
@@ -525,7 +560,7 @@
                       data-action="deleteDoc"
                       data-document-class="Item"
                       data-item-id="{{g.item.id}}"
-                      title="Delete Gear">
+                      title="Delete Item">
                 <i class="fas fa-trash"></i>
               </button>
             </div>

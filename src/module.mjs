@@ -13,13 +13,18 @@ import {
   EssenceItemSheet,
   EssenceSiegeWeaponSheet,
 } from "./sheets/_module.mjs";
-import { initDamageAutomation } from "./features/damage-automation.mjs";
+import { initDamageAutomation, patchFeatureUsesMaxFormula } from "./features/damage-automation.mjs";
 import { initEquipmentAutomation, patchWeaponApcGetter } from "./features/equipment-automation.mjs";
 import { registerSettings } from "./settings.mjs";
+
 import { findTagDefinition, getActiveTagsLibrary } from "./data/tags-library.mjs";
 import { getEnrichedItemTags, getActorCritHit, getActorCritFail, rollItemDamage } from "./sheets/essence-character-sheet.mjs";
+import { getDefenseTargetConfig, renderDefenseTargetBadgeHTML, DEFENSE_TARGET_CONFIG } from "./data/defense-config.mjs";
 
 const MODULE_ID  = "mythcraft-essence-sheet";
+
+
+
 const SYSTEM_ID  = "mythcraft";
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -140,21 +145,55 @@ Hooks.once("init", () => {
   // Initialize Damage Automation Engine
   initDamageAutomation();
 
-  // Register modern renderChatMessageHTML in Foundry V13+ or renderChatMessage in V11/V12
-  const chatHook = (game.release?.generation >= 13 || Number(game.version?.split(".")[0]) >= 13 || "renderChatMessageHTML" in Hooks.events)
-    ? "renderChatMessageHTML"
-    : "renderChatMessage";
+  // Expose Global & Module API early for other scripts and macros
+  globalThis.mythcraftEssenceSheet = {
+    getDefenseTargetConfig,
+    renderDefenseTargetBadgeHTML,
+    DEFENSE_TARGET_CONFIG,
+    findTagDefinition,
+    getEnrichedItemTags,
+    getActiveTagsLibrary,
+    getActorCritHit,
+    getActorCritFail,
+    rollItemDamage,
+  };
 
-  Hooks.on(chatHook, async (message, html) => {
-    // Support both jQuery wrapper and native HTMLElement
+  const handleChatMessageRender = async (arg1, arg2, arg3) => {
+    let message = null;
+    let html = null;
+
+    if (arg1 instanceof HTMLElement || (arg1 && typeof arg1 === "object" && "jquery" in arg1)) {
+      html = arg1;
+      message = arg2;
+    } else if (arg2 instanceof HTMLElement || (arg2 && typeof arg2 === "object" && "jquery" in arg2)) {
+      message = arg1;
+      html = arg2;
+    } else if (arg1 && typeof arg1 === "object") {
+      message = arg1;
+      html = arg2;
+    }
+
     const root = html instanceof HTMLElement ? html : (html?.[0] || html);
     if (!root || !(root instanceof HTMLElement)) return;
 
+    if (!message && root.dataset?.messageId) {
+      message = game.messages?.get(root.dataset.messageId);
+    }
+    if (!message) return;
+
+    if (root.dataset.essenceEnriched === "true" && root.querySelector(".chat-defense-target-badge")) {
+      return;
+    }
+    root.dataset.essenceEnriched = "true";
+
+
     // Check if this message is a Damage Roll or Healing Roll
-    const isDamageMessage = message.rolls?.some(r => r.constructor?.name === "DamageRoll" || r.class === "DamageRoll" || r.options?.isDamage || r.options?.type) ||
-                            message.flags?.["mythcraft-essence-sheet"]?.isDamage ||
-                            /damage|healing/i.test(message.flavor || "") ||
-                            root.querySelector(".apply-damage-btn, .apply-healing-btn");
+
+    const isDamageMessage = message.flags?.["mythcraft-essence-sheet"]?.isDamage ||
+                            message.flags?.mythcraft?.isDamage ||
+                            message.rolls?.some(r => r.constructor?.name === "DamageRoll" || r.class === "DamageRoll" || r.options?.isDamage || r.options?.type === "damage" || r.options?.type === "healing") ||
+                            root.querySelector(".apply-damage-btn, .apply-healing-btn") ||
+                            (/^\s*damage\s*roll/i.test(message.flavor || "") || /^\s*critical\s*damage/i.test(message.flavor || ""));
 
     if (isDamageMessage) {
       // Prevent duplicate or redundant "Roll Damage" buttons inside a Damage Roll card
@@ -189,10 +228,10 @@ Hooks.once("init", () => {
         item = actor.items.get(itemId);
       }
 
-      // Check roll options for spellName or weaponName
+      // Check roll options for spellName, weaponName, or itemName
       if (!item && message.rolls?.length) {
         for (const r of message.rolls) {
-          const rollItemName = r.options?.spellName || r.options?.weaponName;
+          const rollItemName = r.options?.spellName || r.options?.weaponName || r.options?.itemName;
           if (rollItemName) {
             item = actor.items.find(i => i.name.toLowerCase() === rollItemName.toLowerCase());
             if (item) break;
@@ -200,21 +239,21 @@ Hooks.once("init", () => {
         }
       }
 
-      // Match by item name from flavor string (e.g. "Longsword - Attack Roll" or "Lesser Telekinesis")
+      // Match by item name from flavor string (e.g. "Knife (x3) - Attack Roll" or "Knife (x3)")
       if (!item && message.flavor) {
         const flavorClean = message.flavor.split(/[-–—:]/)[0].trim().toLowerCase();
         if (flavorClean) {
-          item = actor.items.find(i => i.name.toLowerCase() === flavorClean);
+          item = actor.items.find(i => i.name.toLowerCase() === flavorClean || i.name.toLowerCase().includes(flavorClean) || flavorClean.includes(i.name.toLowerCase()));
         }
       }
 
       // Match from card header / title in HTML
       if (!item) {
-        const cardTitleEl = root.querySelector(".card-header h3, .card-header h2, .card-header h4, h3, h4, .item-name, .card-title, .title");
+        const cardTitleEl = root.querySelector(".card-header, .card-title, .title, .item-name");
         if (cardTitleEl) {
-          const titleText = cardTitleEl.textContent.split(/[(–—:]/)[0].trim().toLowerCase();
+          const titleText = cardTitleEl.textContent.replace(/vs\s+[a-z]+/i, '').split(/[(–—:]/)[0].trim().toLowerCase();
           if (titleText) {
-            item = actor.items.find(i => i.name.toLowerCase() === titleText || titleText.includes(i.name.toLowerCase()));
+            item = actor.items.find(i => i.name.toLowerCase() === titleText || i.name.toLowerCase().includes(titleText) || titleText.includes(i.name.toLowerCase()));
           }
         }
       }
@@ -343,22 +382,97 @@ Hooks.once("init", () => {
         </span>
       `).join("");
 
-      const targetHeader = root.querySelector(".card-header") || 
-                           root.querySelector(".message-header") || 
-                           root.querySelector(".flavor-text") ||
-                           root.querySelector(".dice-roll");
-
-      if (targetHeader && targetHeader.parentNode) {
-        targetHeader.parentNode.insertBefore(tagsContainer, targetHeader.nextSibling);
+      const cardHeader = root.querySelector(".card-header, .mythcraft-statblock .card-header");
+      if (cardHeader && cardHeader.parentNode) {
+        cardHeader.parentNode.insertBefore(tagsContainer, cardHeader.nextSibling);
       } else {
-        const content = root.querySelector(".message-content") || root;
-        content.prepend(tagsContainer);
+        const targetHeader = root.querySelector(".message-header") || 
+                             root.querySelector(".flavor-text") ||
+                             root.querySelector(".dice-roll");
+        if (targetHeader && targetHeader.parentNode) {
+          targetHeader.parentNode.insertBefore(tagsContainer, targetHeader.nextSibling);
+        } else {
+          const content = root.querySelector(".message-content") || root;
+          content.prepend(tagsContainer);
+        }
       }
     }
   }
 
-  // 3. Damage Button Enhancement / Injection for Weapon & Spell Cards
-  if (item && actor) {
+  // 3. Defense Target Badge Injection for Weapon Attacks, Spell Attacks & Attack Roll Cards
+  const isWeaponAttack = item?.type === "weapon";
+  const hasDefenseTarget = Boolean(item?.system?.defenseTarget || item?.system?.defense || item?.system?.targetDefense);
+  const isAttackMessage = isWeaponAttack ||
+                          hasDefenseTarget ||
+                          Boolean(message.flags?.["mythcraft-essence-sheet"]?.isAttack) ||
+                          Boolean(message.flags?.["mythcraft-essence-sheet"]?.defenseTarget) ||
+                          Boolean(message.flags?.["mythcraft-hud"]?.defenseTarget) ||
+                          message.rolls?.some(r => r.options?.defenseTarget || r.constructor?.name === "AttackRoll" || r.class === "AttackRoll") ||
+                          root.querySelector(".attack-card, .attack-defense") !== null ||
+                          /attack\s*roll/i.test(message.flavor || "") ||
+                          /attack\s*check/i.test(message.flavor || "");
+
+  if (isAttackMessage && !root.querySelector(".chat-defense-target-badge")) {
+    const rawDefense = message.flags?.["mythcraft-essence-sheet"]?.defenseTarget ||
+                       message.flags?.["mythcraft-hud"]?.defenseTarget ||
+                       message.rolls?.find(r => r.options?.defenseTarget)?.options?.defenseTarget ||
+                       item?.system?.defenseTarget ||
+                       item?.system?.defense ||
+                       item?.system?.targetDefense ||
+                       "ar";
+
+    const defConfig = getDefenseTargetConfig(rawDefense);
+    const badgeEl = document.createElement("span");
+    badgeEl.className = `chat-defense-target-badge def-${defConfig.key}`;
+    badgeEl.style.cssText = `--def-color: ${defConfig.color}; --def-bg: ${defConfig.bg}; --def-border: ${defConfig.border};`;
+    badgeEl.setAttribute("title", `Target Defense: ${defConfig.label} (${defConfig.abbr})`);
+    badgeEl.setAttribute("data-tooltip", `Target Defense: <strong>${defConfig.label} (${defConfig.abbr})</strong>`);
+    badgeEl.innerHTML = `
+      <span class="vs-prefix">vs</span>
+      <i class="${defConfig.icon} def-icon"></i>
+      <span class="def-abbr">${defConfig.abbr}</span>
+    `;
+
+    // Remove plain text attack-defense if present
+    root.querySelectorAll(".attack-defense").forEach(el => el.remove());
+
+    // 1. Check for card-header (e.g. custom or system roll card header)
+    const cardHeader = root.querySelector(".card-header, .mythcraft-statblock .card-header, .attack-card .card-header");
+    if (cardHeader) {
+      cardHeader.style.display = "flex";
+      cardHeader.style.alignItems = "center";
+      cardHeader.style.justifyContent = "space-between";
+      cardHeader.style.gap = "8px";
+      badgeEl.style.marginLeft = "auto";
+      cardHeader.appendChild(badgeEl);
+    } else {
+      // 2. Check for dice-roll wrapper or flavor header
+      const diceRollEl = root.querySelector(".dice-roll");
+      const flavorEl = root.querySelector(".flavor-text, .message-header .flavor");
+      if (diceRollEl) {
+        let rollHeader = diceRollEl.querySelector(".essence-chat-card-header");
+        if (!rollHeader) {
+          rollHeader = document.createElement("div");
+          rollHeader.className = "essence-chat-card-header";
+          const titleText = message.flavor || (item ? `${item.name}` : "Attack Roll");
+          rollHeader.innerHTML = `<h4 class="card-roll-title">${titleText}</h4>`;
+          diceRollEl.prepend(rollHeader);
+        }
+        badgeEl.style.marginLeft = "auto";
+        rollHeader.appendChild(badgeEl);
+      } else if (flavorEl) {
+        flavorEl.style.display = "flex";
+        flavorEl.style.alignItems = "center";
+        flavorEl.style.justifyContent = "space-between";
+        badgeEl.style.marginLeft = "auto";
+        flavorEl.appendChild(badgeEl);
+      }
+    }
+  }
+
+
+  // 4. Damage Button Enhancement / Injection for Weapon & Spell Cards
+  if (item && actor && !isDamageMessage) {
     const hasDamage = (Array.isArray(item.system?.damage) && item.system.damage.some(d => d && d.formula)) || Boolean(item.system?.damageFormula);
     if (hasDamage) {
       let btnWrap = root.querySelector(".chat-damage-action-wrap");
@@ -366,7 +480,7 @@ Hooks.once("init", () => {
 
       if (!btnWrap) {
         btnWrap = document.createElement("div");
-        btnWrap.className = "chat-damage-action-wrap";
+        btnWrap.className = "chat-damage-action-wrap revealed";
         btnWrap.innerHTML = `
           <button type="button" class="essence-chat-damage-btn ${isCrit ? 'crit-damage-btn' : ''}" 
                   data-action="rollEssenceDamage" 
@@ -381,10 +495,11 @@ Hooks.once("init", () => {
         if (existingBtn && existingBtn.parentNode) {
           existingBtn.replaceWith(btnWrap);
         } else {
-          const body = root.querySelector(".card-body") || root.querySelector(".mythcraft-statblock") || root.querySelector(".message-content") || root;
+          const body = root.querySelector(".mythcraft-statblock") || root.querySelector(".card-body") || root.querySelector(".message-content") || root;
           body.appendChild(btnWrap);
         }
       } else {
+        btnWrap.classList.add("revealed");
         const btn = btnWrap.querySelector("button");
         if (btn) {
           btn.dataset.action = "rollEssenceDamage";
@@ -400,38 +515,44 @@ Hooks.once("init", () => {
           }
         }
       }
-
-      // Suspenseful drop-down animation once full roll and modifier addition finishes
-      if (isRecent) {
-        const totalDuration = (game.modules.get('mythcraft-hud')?.active ? (game.settings.get('mythcraft-hud', 'rollAnimationDuration') || 1300) : 600);
-        const fullAnimDuration = totalDuration + 1400; // spin + decel + bonus hold + countup
-        setTimeout(() => {
-          btnWrap?.classList.add("revealed");
-        }, fullAnimDuration);
-      } else {
-        btnWrap.classList.add("revealed");
-      }
     }
   }
+  };
+
+  Hooks.on("renderChatMessageHTML", handleChatMessageRender);
+  Hooks.on("renderChatMessage", handleChatMessageRender);
+
+  patchFeatureUsesMaxFormula();
 });
-});
+
+
+
+
+
 
 Hooks.once("ready", () => {
   console.log(`${MODULE_ID} | Ready.`);
   patchWeaponApcGetter();
   initDamageAutomation();
+  patchFeatureUsesMaxFormula();
 
-  // Expose Tag & Damage API globally for external modules (e.g. MythCraft HUD) or macros
+
+  // Expose Tag, Defense & Damage API globally for external modules (e.g. MythCraft HUD) or macros
   const moduleObj = game.modules.get(MODULE_ID);
   if (moduleObj) {
-    moduleObj.api = {
+    moduleObj.api = globalThis.mythcraftEssenceSheet = {
+      getDefenseTargetConfig,
+      renderDefenseTargetBadgeHTML,
+      DEFENSE_TARGET_CONFIG,
       findTagDefinition,
       getEnrichedItemTags,
       getActiveTagsLibrary,
       getActorCritHit,
+      getActorCritFail,
       rollItemDamage,
     };
   }
+
 });
 
 /* ─────────────────────────────────────────────────────────────────────────────

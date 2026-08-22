@@ -45,11 +45,12 @@
                  data-item-id="{{t.item.id}}" />
 
             {{!-- Talent Name --}}
-            <div class="item-name-group">
+            <div class="item-name-group"
+                 data-action="toggleItemEmbed"
+                 data-document-class="Item"
+                 data-item-id="{{t.item.id}}">
               <span class="item-name talent-name"
-                    data-action="viewDoc"
-                    data-document-class="Item"
-                    data-item-id="{{t.item.id}}">
+                    title="Click to Toggle Details">
                 {{t.item.name}}
               </span>
               {{#if t.essenceCost}}
@@ -75,6 +76,14 @@
                       data-item-id="{{t.item.id}}"
                       title="Post {{t.item.name}} to Chat">
                 <i class="fas fa-message"></i>
+              </button>
+              <button type="button"
+                      class="item-action-btn edit-btn"
+                      data-action="viewDoc"
+                      data-document-class="Item"
+                      data-item-id="{{t.item.id}}"
+                      title="Edit Talent">
+                <i class="fas fa-edit"></i>
               </button>
               <button type="button"
                       class="item-action-btn expand-btn"
@@ -155,11 +164,12 @@
                  data-item-id="{{f.item.id}}" />
 
             {{!-- Feature Name --}}
-            <div class="item-name-group">
+            <div class="item-name-group"
+                 data-action="toggleItemEmbed"
+                 data-document-class="Item"
+                 data-item-id="{{f.item.id}}">
               <span class="item-name feature-name"
-                    data-action="viewDoc"
-                    data-document-class="Item"
-                    data-item-id="{{f.item.id}}">
+                    title="Click to Toggle Details">
                 {{f.item.name}}
               </span>
               {{#if f.essenceCost}}
@@ -187,6 +197,14 @@
                 <i class="fas fa-message"></i>
               </button>
               <button type="button"
+                      class="item-action-btn edit-btn"
+                      data-action="viewDoc"
+                      data-document-class="Item"
+                      data-item-id="{{f.item.id}}"
+                      title="Edit Feature">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button type="button"
                       class="item-action-btn expand-btn"
                       data-action="toggleItemEmbed"
                       data-item-id="{{f.item.id}}"
@@ -202,6 +220,7 @@
                 <i class="fas fa-trash"></i>
               </button>
             </div>
+
 
             {{!-- Expanded Description --}}
             {{#if f.expanded}}

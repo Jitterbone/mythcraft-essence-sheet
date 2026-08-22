@@ -1,39 +1,8 @@
 {{!-- ============================================================
-     MythCraft Essence Sheet — Spells Tab
-     Context: system, systemSource, magicLevels[], spells[],
-              isEditable, editable
+     MythCraft Essence Sheet — NPC Spells Tab
+     Context: spells[], isEditable
      ============================================================ --}}
-<section class="tab {{tab.cssClass}}" data-group="primary" data-tab="spells">
-
-  {{!-- ── Power Levels ─────────────────────────────────────── --}}
-  <div class="magic-levels-section">
-    <h3 class="section-header">
-      <i class="fas fa-hat-wizard"></i>
-      <span>Power Levels</span>
-    </h3>
-
-    <div class="magic-levels-grid">
-      {{#each magicLevels as |ml|}}
-        <div class="magic-level-card magic-source-{{ml.colorKey}} {{#if ml.hasSpells}}has-spells{{else}}no-spells{{/if}} {{#if ml.isActive}}filter-active{{/if}}"
-             data-action="toggleMagicFilter"
-             data-source-key="{{ml.colorKey}}"
-             title="{{#if ml.hasSpells}}Click to filter {{ml.label}} spells ({{ml.spellCount}} known){{else}}No {{ml.label}} spells known{{/if}}">
-          <div class="magic-level-top">
-            <span class="magic-level-label">{{ml.label}}</span>
-            {{#if ml.spellCount}}
-              <span class="magic-spell-count" title="{{ml.spellCount}} known spell(s)">{{ml.spellCount}}</span>
-            {{/if}}
-          </div>
-          <input type="number"
-                 name="{{ml.name}}"
-                 value="{{ml.value}}"
-                 class="magic-level-input"
-                 min="0" max="20"
-                 onclick="event.stopPropagation();" />
-        </div>
-      {{/each}}
-    </div>
-  </div>
+<section class="tab {{tab.cssClass}} npc-spells-tab" data-group="primary" data-tab="spells">
 
   {{!-- ── Spell List ───────────────────────────────────────── --}}
   <div class="spells-section">
@@ -44,7 +13,7 @@
       </h3>
       <button type="button"
               class="create-item-btn"
-              data-action="createDoc"
+              data-action="createSpell"
               data-document-class="Item"
               data-type="spell"
               title="Add Spell">
@@ -147,7 +116,6 @@
               </div>
             </div>
 
-
             {{!-- Expanded Embed / Description --}}
             {{#if spell.expanded}}
               <div class="item-embed-card spell-embed">
@@ -180,9 +148,14 @@
         {{/each}}
       </ul>
     {{else}}
-      <p class="empty-list-msg">No spells match the selected filter(s).</p>
+      <div class="empty-spells-box">
+        <p class="empty-msg"><i class="fas fa-info-circle"></i> No spells configured for this creature.</p>
+        <button type="button" class="create-spell-btn" data-action="createSpell">
+          <i class="fas fa-plus"></i> Add Spell
+        </button>
+      </div>
     {{/if}}
-
   </div>
 
 </section>
+

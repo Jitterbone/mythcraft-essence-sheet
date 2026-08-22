@@ -52,7 +52,26 @@ export default class EssenceItemSheet extends MythCraftItemSheet {
   _onRender(context, options) {
     super._onRender(context, options);
 
+    // Right-click Image Popout for Item Sheet Portrait
+    const ImagePopoutApp = foundry.applications.apps.ImagePopout || globalThis.ImagePopout;
+    const itemPortrait = this.element.querySelector(".profile, .portrait, .item-img, img[data-edit='img'], img.profile-img, img");
+    if (itemPortrait) {
+      itemPortrait.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (this.item?.img) {
+          new ImagePopoutApp({
+            src: this.item.img,
+            window: { title: this.item.name },
+            shareable: true,
+            uuid: this.item.uuid,
+          }).render(true);
+        }
+      });
+    }
+
     const detailsTab = this.element.querySelector('.tab[data-tab="details"]') || this.element.querySelector('form.sheet-body') || this.element.querySelector('form');
+
 
     // 1. Inject Essence Cost card in Details tab
     if (detailsTab && !this.element.querySelector('.essence-item-cost-panel')) {

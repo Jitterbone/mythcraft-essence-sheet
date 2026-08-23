@@ -1,4 +1,4 @@
-# Mythcraft Essence Sheet (v0.2.3-alpha) 📜✨
+# Mythcraft Essence Sheet (v0.2.4-alpha) 📜✨
 
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Development-FF5E5B?style=flat&logo=kofi&logoColor=white)](https://ko-fi.com/jitterbone)
 
@@ -163,6 +163,16 @@ Navigate to **Game Settings** -> **Configure Settings** -> **MythCraft Essence S
 
 ## 📝 Changelog
 
+### v0.2.4-alpha
+- **Hand-and-a-Half Two-Handed APC Reduction**:
+  - Automatically parses 2H APC reduction rules from weapon tags and item descriptions (e.g. `"STR Weapon, Hand-and-a-Half (reduce APC by 1, min 2)"`, `"-1 APC, min 2"`, `"2 APC"`).
+  - Dynamically computes and displays the reduced APC on character sheet equipment cards and side drawer slots when toggled to Two-Handed grip.
+  - Automatically enforces the reduced APC cost during combat attack rolls and AP deduction.
+- **Redesigned Themed Insufficient Action Points Modal**:
+  - Complete dark teal & gold redesign (`#0d1217` slate frame, gold Cinzel header, glowing amber lightning icon, teal borders).
+  - Structured high-contrast breakdown of Required Cost (cyan), Available AP/SAP (green), and Deficit (red).
+  - Custom styled "Proceed Anyway" and "Cancel" buttons.
+
 ### v0.2.3-alpha
 - **Armor Enhancements System**:
   - Automatically identifies armor items in the `Enhancement` category (`system.category`, `system.armorType`, or tag).
@@ -178,10 +188,6 @@ Navigate to **Game Settings** -> **Configure Settings** -> **MythCraft Essence S
   - Automates full LP restoration upon Taking a Rest.
 - **Player Ownership & GM-Only Permission Fix**:
   - Intercepts and sanitizes GM-only fields (`system.description.gm`, `system.biography.gm`) during player sheet updates and item creation, resolving Foundry `HTMLField._sanitize` permission errors.
-- **Hand-and-a-Half Two-Handed APC Reduction**:
-  - Automatically parses 2H APC reduction rules from weapon tags and item descriptions (e.g. `"STR Weapon, Hand-and-a-Half (reduce APC by 1, min 2)"`, `"-1 APC, min 2"`, `"2 APC"`).
-  - Dynamically computes and displays the reduced APC on character sheet equipment cards and side drawer slots when toggled to Two-Handed grip.
-  - Automatically enforces the reduced APC cost during combat attack rolls and AP deduction.
 - **Dynamic Resource Bar Titles**:
   - Character header resource bars automatically show full names (**Hit Points**, **Action Points**, **Spell Points**) when Fear Threshold is disabled.
 

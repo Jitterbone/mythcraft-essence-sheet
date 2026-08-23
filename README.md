@@ -1,4 +1,4 @@
-# Mythcraft Essence Sheet (v0.2.1-alpha) 📜✨
+# Mythcraft Essence Sheet (v0.2.2-alpha) 📜✨
 
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Development-FF5E5B?style=flat&logo=kofi&logoColor=white)](https://ko-fi.com/jitterbone)
 

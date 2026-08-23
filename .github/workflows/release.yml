@@ -3,10 +3,12 @@ name: Release Module
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+*'
-  release:
-    types: [published]
+      - 'v*'
   workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -24,14 +26,8 @@ jobs:
         run: |
           VERSION="$(jq -r .version module.json)"
           echo "version_number=$VERSION" >> $GITHUB_OUTPUT
-          
-          if [[ "$VERSION" == *-* ]]; then
-            echo "is_prerelease=true" >> $GITHUB_OUTPUT
-          else
-            echo "is_prerelease=false" >> $GITHUB_OUTPUT
-          fi
 
-          TAG="${{ github.event.release.tag_name || github.ref_name }}"
+          TAG="${{ github.ref_name }}"
           if [[ -z "$TAG" || "$TAG" == "main" || "$TAG" == "master" || "$TAG" == "refs/heads/"* ]]; then
             TAG="v${VERSION}"
           fi
@@ -56,7 +52,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ steps.release-meta.outputs.tag_name }}
           name: Version ${{ steps.release-meta.outputs.version_number }}
-          prerelease: ${{ steps.release-meta.outputs.is_prerelease }}
+          prerelease: false
+          make_latest: true
           files: |
             ./mythcraft-essence-sheet.zip
             ./module.zip

@@ -987,6 +987,10 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         foundry.utils.setProperty(itemData, key, val);
       }
 
+      if (type === "spell" && !itemData["system.magicSource"] && !itemData.system?.magicSource) {
+        foundry.utils.setProperty(itemData, "system.magicSource", "arcane");
+      }
+
       const created = await this.actor.createEmbeddedDocuments("Item", [itemData]);
       if (created?.[0]) {
         created[0].sheet?.render(true);
@@ -2797,9 +2801,14 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     }));
 
     const cleanSourceLabel = (raw) => {
-      if (!raw) return "";
-      const loc = game.i18n.localize(raw);
-      if (loc && loc !== raw && !loc.startsWith("MYTHCRAFT.")) return loc;
+      if (!raw || typeof raw !== "string") return "";
+      let loc = raw;
+      try {
+        if (typeof game?.i18n?.localize === "function") {
+          loc = game.i18n.localize(raw);
+        }
+      } catch (e) {}
+      if (loc && loc !== raw && typeof loc === "string" && !loc.startsWith("MYTHCRAFT.")) return loc;
       const stripped = String(raw).replace(/^MYTHCRAFT\.(ITEM|Item)\.spell\.source\./i, "").toLowerCase();
       const map = {
         arcane: "Arcane",
@@ -2808,11 +2817,11 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         primal: "Primal",
         psionic: "Psionic",
       };
-      return map[stripped] || (stripped.charAt(0).toUpperCase() + stripped.slice(1));
+      return map[stripped] || (stripped ? (stripped.charAt(0).toUpperCase() + stripped.slice(1)) : "");
     };
 
     const cleanSourceKey = (raw) => {
-      if (!raw) return "";
+      if (!raw || typeof raw !== "string") return "";
       return String(raw).replace(/^MYTHCRAFT\.(ITEM|Item)\.spell\.source\./i, "").toLowerCase();
     };
 
@@ -2830,7 +2839,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       // Count known spells per magic source
       const sourceCounts = {};
       for (const spell of spellItems) {
-        const raw = spell.system?.magicSource || spell.system?.source || "";
+        const raw = typeof spell.system?.magicSource === "string" ? spell.system.magicSource : "";
         const k = cleanSourceKey(raw);
         if (k) sourceCounts[k] = (sourceCounts[k] || 0) + 1;
       }
@@ -2840,12 +2849,13 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         const count = sourceCounts[k] || 0;
         const levelVal = powerLevels[key] ?? 0;
         const hasSpells = count > 0 || levelVal > 0;
+        const rawLabel = typeof sourceInfo?.label === "string" ? sourceInfo.label : (typeof sourceInfo === "string" ? sourceInfo : key);
         return {
           key: k,
           colorKey: k,
           name: `system.powerLevel.${key}`,
           value: levelVal,
-          label: cleanSourceLabel(sourceInfo.label || key),
+          label: cleanSourceLabel(rawLabel || key),
           hasSpells,
           spellCount: count,
           isActive: this.activeMagicFilters.has(k),
@@ -2862,8 +2872,8 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       };
 
       const sortedSpells = [...spellItems].sort((a, b) => {
-        const srcA = cleanSourceKey(a.system?.magicSource || a.system?.source || "");
-        const srcB = cleanSourceKey(b.system?.magicSource || b.system?.source || "");
+        const srcA = cleanSourceKey(typeof a.system?.magicSource === "string" ? a.system.magicSource : "");
+        const srcB = cleanSourceKey(typeof b.system?.magicSource === "string" ? b.system.magicSource : "");
         const orderA = SOURCE_ORDER[srcA] ?? 99;
         const orderB = SOURCE_ORDER[srcB] ?? 99;
         if (orderA !== orderB) return orderA - orderB;
@@ -2873,7 +2883,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       // Filter spells if any magic source filters are active
       const filteredSpells = (this.activeMagicFilters.size > 0)
         ? sortedSpells.filter(item => {
-            const raw = item.system?.magicSource || item.system?.source || "";
+            const raw = typeof item.system?.magicSource === "string" ? item.system.magicSource : "";
             const k = cleanSourceKey(raw);
             return this.activeMagicFilters.has(k);
           })
@@ -2891,7 +2901,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
 
       context.spells = await Promise.all(filteredSpells.map(async (item) => {
         const expanded = this.expandedItems.has(item.id);
-        const rawSource = item.system?.magicSource || item.system?.source || "";
+        const rawSource = typeof item.system?.magicSource === "string" ? item.system.magicSource : "";
         const sourceKey = cleanSourceKey(rawSource);
         const descVal = item.system?.description?.value ?? item.system?.description ?? "";
 

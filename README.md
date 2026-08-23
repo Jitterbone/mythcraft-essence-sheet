@@ -1,4 +1,4 @@
-# Mythcraft Essence Sheet (v0.2.2-alpha) 📜✨
+# Mythcraft Essence Sheet (v0.2.3-alpha) 📜✨
 
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Development-FF5E5B?style=flat&logo=kofi&logoColor=white)](https://ko-fi.com/jitterbone)
 
@@ -160,6 +160,28 @@ Navigate to **Game Settings** -> **Configure Settings** -> **MythCraft Essence S
 - **Foundry VTT**: v14 (Verified)
 - **Mythcraft HUD**: Required
 - **Dice So Nice!**: Supported for 3D dice rolls.
+
+## 📝 Changelog
+
+### v0.2.3-alpha
+- **Armor Enhancements System**:
+  - Automatically identifies armor items in the `Enhancement` category (`system.category`, `system.armorType`, or tag).
+  - Enforces single-enhancement equip limit and combines enhancement defense bonuses (+AR, REF, FORT, ANT, LOG, WILL) with base armor.
+  - Multi-Armor Resistance Stacking: Resistances across Body Armor, Shields, and Enhancements seamlessly stack (e.g. `Sharp 2` + `Sharp 2` + `Sharp 2` = `Sharp 6`).
+  - Signed STR Minimum & DEX Maximum Modifier calculations:
+    - Base armor and enhancement STR requirements combine with positive/negative modifiers (`+2`, `-1`, etc.). If unmet, walk speed becomes 0 and Dazed is applied.
+    - Accurately reduces DEX max (`armorDexMax - enhDexMax` or `12 - enhDexMax`) and clamps Reflex defense.
+  - Dedicated **Wear / Remove** buttons in the equipment list and a centered enhancement slot rendered in the side drawer armor tab.
+- **Luck Points Automation & Stepper**:
+  - Added `-` and `+` stepper capsule to character header for quick Luck Point adjustments.
+  - Automates maximum Luck Points calculation from LUCK attribute (1 LP per 2 LUCK).
+  - Automates full LP restoration upon Taking a Rest.
+- **Player Ownership & GM-Only Permission Fix**:
+  - Intercepts and sanitizes GM-only fields (`system.description.gm`, `system.biography.gm`) during player sheet updates and item creation, resolving Foundry `HTMLField._sanitize` permission errors.
+- **Spell Creation Bugfix**:
+  - Resolved `cleanSourceLabel` type error crash when adding new spells to character sheets.
+- **Dynamic Resource Bar Titles**:
+  - Character header resource bars automatically show full names (**Hit Points**, **Action Points**, **Spell Points**) when Fear Threshold is disabled.
 
 ---
 

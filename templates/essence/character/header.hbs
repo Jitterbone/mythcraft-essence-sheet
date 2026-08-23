@@ -183,7 +183,7 @@
           <div class="meter-header">
             <div class="meter-label-group">
               <i class="fas fa-heart meter-icon hp-icon"></i>
-              <span class="meter-title">HP</span>
+              <span class="meter-title">{{#if enableFear}}HP{{else}}Hit Points{{/if}}</span>
               {{#if isBloodied}}
                 <span class="bloodied-tag">Bloodied</span>
               {{/if}}
@@ -224,7 +224,7 @@
           <div class="meter-header">
             <div class="meter-label-group">
               <i class="fas fa-bolt meter-icon ap-icon"></i>
-              <span class="meter-title">AP</span>
+              <span class="meter-title">{{#if enableFear}}AP{{else}}Action Points{{/if}}</span>
             </div>
             <div class="meter-inputs-group">
               <div class="ap-stepper-wrap" data-tooltip="<strong>Current Action Points</strong><br/><span style='font-size:11px;'>Use &minus; and + or type directly</span>" data-tooltip-direction="UP">
@@ -288,7 +288,7 @@
           <div class="meter-header">
             <div class="meter-label-group">
               <i class="fas fa-hat-wizard meter-icon sp-icon"></i>
-              <span class="meter-title">SP</span>
+              <span class="meter-title">{{#if enableFear}}SP{{else}}Spell Points{{/if}}</span>
             </div>
             <div class="meter-inputs-group">
               <input type="number" name="system.sp.value" value="{{system.sp.value}}" class="meter-val-input" min="0" data-tooltip="<strong>Current Spell Points</strong>" data-tooltip-direction="UP" />
@@ -525,96 +525,147 @@
             <p class="drawer-empty-msg">No clothing items found in inventory.</p>
           {{/if}}
 
-        {{!-- ARMOR TAB CONTENT --}}
+        {{!-- ARMOR TAB CONTENT (Enhancement on top, Body Armor & Shield below) --}}
         {{else if (eq sideDrawer.activeTab 'armor')}}
-          <div class="drawer-dual-hands-grid">
+          <div class="drawer-armor-container">
 
-            {{!-- BODY ARMOR SLOT --}}
-            <div class="drawer-hand-column hand-column-body-armor">
-              <div class="drawer-hand-header">
-                <i class="fas fa-vest"></i>
-                <span>Body Armor</span>
-              </div>
+            {{!-- ENHANCEMENT SLOT (Smaller, centered above) --}}
+            <div class="drawer-enhancement-wrapper">
+              <div class="drawer-hand-column hand-column-enhancement">
+                <div class="drawer-hand-header">
+                  <i class="fas fa-sparkles"></i>
+                  <span>Armor Enhancement</span>
+                </div>
 
-              {{#if sideDrawer.armor.bodyArmor}}
-                <div class="drawer-hand-card filled-hand-card" data-item-id="{{sideDrawer.armor.bodyArmor.id}}">
-                  <div class="hand-card-main-info">
-                    <img src="{{sideDrawer.armor.bodyArmor.img}}" alt="{{sideDrawer.armor.bodyArmor.name}}" class="drawer-item-img" data-action="viewDoc" data-item-id="{{sideDrawer.armor.bodyArmor.id}}" />
-                    <div class="drawer-item-info">
-                      <span class="drawer-item-name" data-action="viewDoc" data-item-id="{{sideDrawer.armor.bodyArmor.id}}">{{sideDrawer.armor.bodyArmor.name}}</span>
-                      <div class="drawer-weapon-mini-stats">
-                        <span class="mini-hand-tag">Armor</span>
-                        <span class="mini-ar-tag">AR {{sideDrawer.armor.bodyArmor.ar}}</span>
+                {{#if sideDrawer.armor.enhancement}}
+                  <div class="drawer-hand-card filled-hand-card enhancement-card" data-item-id="{{sideDrawer.armor.enhancement.id}}">
+                    <div class="hand-card-main-info">
+                      <img src="{{sideDrawer.armor.enhancement.img}}" alt="{{sideDrawer.armor.enhancement.name}}" class="drawer-item-img" data-action="viewDoc" data-item-id="{{sideDrawer.armor.enhancement.id}}" />
+                      <div class="drawer-item-info">
+                        <span class="drawer-item-name" data-action="viewDoc" data-item-id="{{sideDrawer.armor.enhancement.id}}">{{sideDrawer.armor.enhancement.name}}</span>
+                        <div class="drawer-weapon-mini-stats">
+                          <span class="mini-hand-tag mini-enhancement-tag">Enhancement</span>
+                          {{#if sideDrawer.armor.enhancement.arBonus}}
+                            <span class="mini-ar-tag">+{{sideDrawer.armor.enhancement.arBonus}} AR</span>
+                          {{/if}}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div class="drawer-weapon-actions">
-                    <button type="button" 
-                            class="drawer-action-toggle-btn doff-btn" 
-                            data-action="toggleDonArmor" 
-                            data-item-id="{{sideDrawer.armor.bodyArmor.id}}" 
-                            title="Doff Armor">
-                      <i class="fas fa-shield-xmark"></i>
-                      <span>Doff</span>
-                    </button>
-                  </div>
-                </div>
-              {{else}}
-                {{!-- Empty Body Armor Slot --}}
-                <button type="button" 
-                        class="drawer-empty-hand-slot" 
-                        data-action="openArmorPicker" 
-                        data-armor-type="body" 
-                        title="Click to don body armor">
-                  <i class="fas fa-plus"></i>
-                  <span>Don Body Armor</span>
-                </button>
-              {{/if}}
-            </div>
-
-            {{!-- SHIELD SLOT --}}
-            <div class="drawer-hand-column hand-column-shield">
-              <div class="drawer-hand-header">
-                <i class="fas fa-shield"></i>
-                <span>Shield</span>
-              </div>
-
-              {{#if sideDrawer.armor.shield}}
-                <div class="drawer-hand-card filled-hand-card" data-item-id="{{sideDrawer.armor.shield.id}}">
-                  <div class="hand-card-main-info">
-                    <img src="{{sideDrawer.armor.shield.img}}" alt="{{sideDrawer.armor.shield.name}}" class="drawer-item-img" data-action="viewDoc" data-item-id="{{sideDrawer.armor.shield.id}}" />
-                    <div class="drawer-item-info">
-                      <span class="drawer-item-name" data-action="viewDoc" data-item-id="{{sideDrawer.armor.shield.id}}">{{sideDrawer.armor.shield.name}}</span>
-                      <div class="drawer-weapon-mini-stats">
-                        <span class="mini-hand-tag">Shield</span>
-                        <span class="mini-ar-tag">+{{sideDrawer.armor.shield.shieldArBonus}} AR</span>
-                      </div>
+                    <div class="drawer-weapon-actions">
+                      <button type="button" 
+                              class="drawer-action-toggle-btn remove-btn" 
+                              data-action="toggleWearEnhancement" 
+                              data-item-id="{{sideDrawer.armor.enhancement.id}}" 
+                              title="Remove Enhancement">
+                        <i class="fas fa-xmark"></i>
+                        <span>Remove</span>
+                      </button>
                     </div>
                   </div>
-                  <div class="drawer-weapon-actions">
-                    <button type="button" 
-                            class="drawer-action-toggle-btn stow-btn" 
-                            data-action="toggleEquipShield" 
-                            data-item-id="{{sideDrawer.armor.shield.id}}" 
-                            title="Stow Shield">
-                      <i class="fas fa-hand-holding-box"></i>
-                      <span>Stow</span>
-                    </button>
-                  </div>
-                </div>
-              {{else}}
-                {{!-- Empty Shield Slot --}}
-                <button type="button" 
-                        class="drawer-empty-hand-slot" 
-                        data-action="openArmorPicker" 
-                        data-armor-type="shield" 
-                        title="Click to equip shield">
-                  <i class="fas fa-plus"></i>
-                  <span>Equip Shield</span>
-                </button>
-              {{/if}}
+                {{else}}
+                  {{!-- Empty Enhancement Slot --}}
+                  <button type="button" 
+                          class="drawer-empty-hand-slot drawer-empty-enhancement-slot" 
+                          data-action="openArmorPicker" 
+                          data-armor-type="enhancement" 
+                          title="Click to wear armor enhancement">
+                    <i class="fas fa-plus"></i>
+                    <span>Wear Enhancement</span>
+                  </button>
+                {{/if}}
+              </div>
             </div>
 
+            {{!-- DUAL COLUMNS: BODY ARMOR & SHIELD --}}
+            <div class="drawer-dual-hands-grid">
+
+              {{!-- BODY ARMOR SLOT --}}
+              <div class="drawer-hand-column hand-column-body-armor">
+                <div class="drawer-hand-header">
+                  <i class="fas fa-vest"></i>
+                  <span>Body Armor</span>
+                </div>
+
+                {{#if sideDrawer.armor.bodyArmor}}
+                  <div class="drawer-hand-card filled-hand-card" data-item-id="{{sideDrawer.armor.bodyArmor.id}}">
+                    <div class="hand-card-main-info">
+                      <img src="{{sideDrawer.armor.bodyArmor.img}}" alt="{{sideDrawer.armor.bodyArmor.name}}" class="drawer-item-img" data-action="viewDoc" data-item-id="{{sideDrawer.armor.bodyArmor.id}}" />
+                      <div class="drawer-item-info">
+                        <span class="drawer-item-name" data-action="viewDoc" data-item-id="{{sideDrawer.armor.bodyArmor.id}}">{{sideDrawer.armor.bodyArmor.name}}</span>
+                        <div class="drawer-weapon-mini-stats">
+                          <span class="mini-hand-tag">Armor</span>
+                          <span class="mini-ar-tag">AR {{sideDrawer.armor.bodyArmor.ar}}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="drawer-weapon-actions">
+                      <button type="button" 
+                              class="drawer-action-toggle-btn doff-btn" 
+                              data-action="toggleDonArmor" 
+                              data-item-id="{{sideDrawer.armor.bodyArmor.id}}" 
+                              title="Doff Armor">
+                        <i class="fas fa-shield-xmark"></i>
+                        <span>Doff</span>
+                      </button>
+                    </div>
+                  </div>
+                {{else}}
+                  {{!-- Empty Body Armor Slot --}}
+                  <button type="button" 
+                          class="drawer-empty-hand-slot" 
+                          data-action="openArmorPicker" 
+                          data-armor-type="body" 
+                          title="Click to don body armor">
+                    <i class="fas fa-plus"></i>
+                    <span>Don Body Armor</span>
+                  </button>
+                {{/if}}
+              </div>
+
+              {{!-- SHIELD SLOT --}}
+              <div class="drawer-hand-column hand-column-shield">
+                <div class="drawer-hand-header">
+                  <i class="fas fa-shield"></i>
+                  <span>Shield</span>
+                </div>
+
+                {{#if sideDrawer.armor.shield}}
+                  <div class="drawer-hand-card filled-hand-card" data-item-id="{{sideDrawer.armor.shield.id}}">
+                    <div class="hand-card-main-info">
+                      <img src="{{sideDrawer.armor.shield.img}}" alt="{{sideDrawer.armor.shield.name}}" class="drawer-item-img" data-action="viewDoc" data-item-id="{{sideDrawer.armor.shield.id}}" />
+                      <div class="drawer-item-info">
+                        <span class="drawer-item-name" data-action="viewDoc" data-item-id="{{sideDrawer.armor.shield.id}}">{{sideDrawer.armor.shield.name}}</span>
+                        <div class="drawer-weapon-mini-stats">
+                          <span class="mini-hand-tag">Shield</span>
+                          <span class="mini-ar-tag">+{{sideDrawer.armor.shield.shieldArBonus}} AR</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="drawer-weapon-actions">
+                      <button type="button" 
+                              class="drawer-action-toggle-btn stow-btn" 
+                              data-action="toggleEquipShield" 
+                              data-item-id="{{sideDrawer.armor.shield.id}}" 
+                              title="Stow Shield">
+                        <i class="fas fa-hand-holding-box"></i>
+                        <span>Stow</span>
+                      </button>
+                    </div>
+                  </div>
+                {{else}}
+                  {{!-- Empty Shield Slot --}}
+                  <button type="button" 
+                          class="drawer-empty-hand-slot" 
+                          data-action="openArmorPicker" 
+                          data-armor-type="shield" 
+                          title="Click to equip shield">
+                    <i class="fas fa-plus"></i>
+                    <span>Equip Shield</span>
+                  </button>
+                {{/if}}
+              </div>
+
+            </div>
           </div>
 
         {{!-- WEAPONS TAB CONTENT (Side-by-Side Dual-Hand Layout) --}}

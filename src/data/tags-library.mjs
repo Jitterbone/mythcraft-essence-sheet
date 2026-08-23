@@ -112,6 +112,15 @@ export const DEFAULT_TAGS_LIBRARY = [
     description: "The unwieldy tag interacts with your encumbrance. It takes 1 AP to draw or sheathe an unwieldy weapon.",
   },
 
+  // ── ARMOR TAGS ─────────────────────────────────────────────────────────────
+  {
+    id: "enhancement",
+    name: "Enhancement",
+    category: "armor",
+    categoryLabel: "Armor Enhancement",
+    description: "Armor Enhancements allow you to modify the stats of the armor that you already own. You may only have one enhancement equipped at a time. Add your enhancement’s defense bonuses, STR mins, and DEX max penalties to your suit of armor. If your armor had no DEX max, then subtract the enhancement’s DEX max from 12.",
+  },
+
   // ── ARCANE MAGIC TYPES & TAGS ──────────────────────────────────────────────
   {
     id: "cantrip",
@@ -580,6 +589,7 @@ export const DEFAULT_TAGS_LIBRARY = [
  */
 export const TAG_CATEGORIES = {
   weapon:  { label: "Weapon", icon: "fas fa-shield-halved", color: "#38bdf8", bg: "rgba(56, 189, 248, 0.15)", border: "rgba(56, 189, 248, 0.45)" },
+  armor:   { label: "Armor", icon: "fas fa-shield-alt", color: "#f59e0b", bg: "rgba(245, 158, 11, 0.18)", border: "rgba(245, 158, 11, 0.5)" },
   arcane:  { label: "Arcane", icon: "fas fa-wand-magic-sparkles", color: "#aed6f1", bg: "rgba(93, 173, 226, 0.2)", border: "#5dade2" },
   divine:  { label: "Divine", icon: "fas fa-sun", color: "#f9e79f", bg: "rgba(223, 177, 91, 0.2)", border: "#dfb15b" },
   occult:  { label: "Occult", icon: "fas fa-skull", color: "#f5b7b1", bg: "rgba(201, 104, 104, 0.2)", border: "#c96868" },

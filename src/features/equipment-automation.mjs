@@ -15,18 +15,88 @@
 import { getSetting } from "../settings.mjs";
 
 /**
- * Parse a resistance string into structured objects
- * Handles formats like: "Sharp 2", "Necrotic 3, Corrosive 3, Toxic 3", "Sharp, Fire 2"
- * @param {string} resistString
+ * Safely parse a signed or unsigned number from string or number inputs.
+ * (e.g. "+2" -> 2, "-1" -> -1, "2" -> 2, 2 -> 2)
+ * @param {any} val
+ * @param {number} [defaultVal=0]
+ * @returns {number}
+ */
+export function parseSignedNumber(val, defaultVal = 0) {
+  if (val === undefined || val === null || val === "") return defaultVal;
+  if (typeof val === "number") return isNaN(val) ? defaultVal : val;
+  const str = String(val).trim();
+  const match = str.match(/^[+\-]?\d+(\.\d+)?/);
+  if (match) {
+    const n = parseFloat(match[0]);
+    return isNaN(n) ? defaultVal : n;
+  }
+  const clean = str.replace(/[^0-9\-+.]/g, "");
+  const n = parseFloat(clean);
+  return isNaN(n) ? defaultVal : n;
+}
+
+/**
+ * Parse a resistance input (string, array, or object) into structured objects.
+ * Handles formats like: "Sharp 2", "Necrotic 3, Corrosive 3, Toxic 3", "Sharp, Fire 2", "Sharp: 2", "2 Sharp"
+ * @param {any} resistInput
  * @returns {Array<{ type: string, label: string, value: number }>}
  */
-export function parseResistanceString(resistString) {
-  if (!resistString || typeof resistString !== "string") return [];
+export function parseResistanceString(resistInput) {
+  if (!resistInput) return [];
   const list = [];
-  const parts = resistString.split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
+
+  if (Array.isArray(resistInput)) {
+    for (const item of resistInput) {
+      if (!item) continue;
+      if (typeof item === "string") {
+        list.push(...parseResistanceString(item));
+      } else if (typeof item === "object") {
+        const type = String(item.type || item.key || item.name || item.id || "").trim().toLowerCase();
+        const val = parseSignedNumber(item.value ?? item.val ?? item.amount, 1);
+        if (type) {
+          list.push({
+            type,
+            label: item.label || (type.charAt(0).toUpperCase() + type.slice(1)),
+            value: val,
+          });
+        }
+      }
+    }
+    return list;
+  }
+
+  if (typeof resistInput === "object") {
+    for (const [key, val] of Object.entries(resistInput)) {
+      const type = key.trim().toLowerCase();
+      if (type) {
+        list.push({
+          type,
+          label: type.charAt(0).toUpperCase() + type.slice(1),
+          value: parseSignedNumber(val, 1),
+        });
+      }
+    }
+    return list;
+  }
+
+  if (typeof resistInput !== "string") return [];
+
+  const parts = resistInput.split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
 
   for (const part of parts) {
-    const match = part.match(/^([a-zA-Z\s]+?)(?:[:\s\+\-]+(\d+))?$/);
+    // Check "2 Sharp" or "+2 Sharp"
+    const prefixMatch = part.match(/^[+\-]?(\d+)\s*(?:x|:)?\s*([a-zA-Z\s]+)$/);
+    if (prefixMatch) {
+      const val = parseInt(prefixMatch[1], 10);
+      const rawType = prefixMatch[2].trim();
+      const lower = rawType.toLowerCase();
+      const label = rawType.charAt(0).toUpperCase() + rawType.slice(1);
+      list.push({ type: lower, label, value: val });
+      continue;
+    }
+
+    // Check "Sharp 2", "Sharp: 2", "Sharp +2", "Sharp (2)"
+    const match = part.match(/^([a-zA-Z\s]+?)(?:[:\s\+\-\(]+(\d+)\)?)?$/);
     if (match) {
       const rawType = match[1].trim();
       const lower = rawType.toLowerCase();
@@ -58,12 +128,69 @@ export function formatResistanceString(list) {
 }
 
 /**
+ * Checks whether an item is an armor enhancement.
+ * An enhancement is an armor item with category "enhancement" or the "Enhancement" tag.
+ * @param {Item} item
+ * @returns {boolean}
+ */
+export function isArmorEnhancement(item) {
+  if (!item || item.type !== "armor") return false;
+
+  // 1. Primary check: Armor category / armorType / type
+  const cat = String(item.system?.category || item.system?.armorType || item.system?.type || item.system?.subType || "").toLowerCase().trim();
+  if (cat === "enhancement" || cat.includes("enhancement") || cat === "armorenhancement") {
+    return true;
+  }
+
+  // 2. Tag check (fallback)
+  const rawTags = item.system?.tags || [];
+  const tagList = Array.isArray(rawTags)
+    ? rawTags
+    : (rawTags instanceof Set ? Array.from(rawTags) : (typeof rawTags === "object" && rawTags !== null ? Object.keys(rawTags).concat(Object.values(rawTags)) : String(rawTags).split(",")));
+  for (const t of tagList) {
+    const str = typeof t === "string" ? t : (t?.name || t?.label || t?.value || t?.id || "");
+    const clean = str.trim().replace(/^MYTHCRAFT\.Item\.[a-zA-Z0-9_]+\.tags\./i, "").toLowerCase();
+    if (clean === "enhancement" || clean.includes("enhancement")) return true;
+  }
+
+  // 3. Flags check
+  const flag = item.flags?.["mythcraft-essence-sheet"]?.isEnhancement;
+  if (typeof flag === "boolean") return flag;
+
+  return false;
+}
+
+/**
+ * Checks whether an enhancement is currently equipped/worn.
+ * @param {Item} item
+ * @returns {boolean}
+ */
+export function isEnhancementEquipped(item) {
+  if (!isArmorEnhancement(item)) return false;
+  const flag = item.flags?.["mythcraft-essence-sheet"]?.isWorn ?? item.flags?.["mythcraft-essence-sheet"]?.isDonned;
+  if (typeof flag === "boolean") return flag;
+  return item.system?.equipped === true;
+}
+
+/**
+ * Gets the single equipped enhancement for an actor.
+ * @param {Actor} actor
+ * @returns {Item|null}
+ */
+export function getEquippedEnhancement(actor) {
+  if (!actor) return null;
+  const armors = actor.itemTypes?.armor || (actor.items ? actor.items.filter(i => i.type === "armor") : []);
+  return armors.find(item => isArmorEnhancement(item) && isEnhancementEquipped(item)) || null;
+}
+
+/**
  * Checks whether an item is a shield.
  * @param {Item} item
  * @returns {boolean}
  */
 export function isShield(item) {
   if (!item || item.type !== "armor") return false;
+  if (isArmorEnhancement(item)) return false;
   const cat = String(item.system?.category || item.system?.armorType || item.system?.type || "").toLowerCase().trim();
   if (cat === "shield" || cat.includes("shield")) return true;
   const nameLower = (item.name || "").toLowerCase();
@@ -113,7 +240,7 @@ export function getEquippedShields(actor) {
 }
 
 /**
- * Get the currently donned (equipped) body armor for an actor (excluding shields)
+ * Get the currently donned (equipped) body armor for an actor (excluding shields and enhancements)
  * @param {Actor} actor
  * @returns {Item|null}
  */
@@ -121,14 +248,14 @@ export function getDonnedArmor(actor) {
   if (!actor) return null;
   const armors = actor.itemTypes?.armor || (actor.items ? actor.items.filter(i => i.type === "armor") : []);
   return armors.find(item => {
-    if (isShield(item)) return false;
+    if (isShield(item) || isArmorEnhancement(item)) return false;
     return item.system?.equipped === true || item.flags?.["mythcraft-essence-sheet"]?.isDonned === true;
   }) || null;
 }
 
 /**
- * Calculate effective resistances for an actor by combining base resistances with donned armor resistance specializations
- * Stacks matching resistance types (e.g. Sharp 1 + Sharp 2 = Sharp 3)
+ * Calculate effective resistances for an actor by combining base resistances with donned armor, shield, and enhancement resistance specializations
+ * Stacks matching resistance types across all equipped armor pieces (e.g. Armor Sharp 2 + Shield Sharp 2 + Enhancement Sharp 2 = Sharp 6)
  * @param {Actor} actor
  * @returns {{ list: Array<object>, combinedString: string, map: Record<string, number>, armorResists: Array<object>, baseResists: Array<object> }}
  */
@@ -139,14 +266,46 @@ export function calculateEffectiveResistances(actor) {
 
   const armorResistAuto = getSetting("armorResistanceAutomation", true);
   if (armorResistAuto) {
+    // 1. Donned Body Armor
     const donnedArmor = getDonnedArmor(actor);
-    if (donnedArmor?.system?.resist) {
-      const parsedArmor = parseResistanceString(donnedArmor.system.resist);
+    const armorRes = donnedArmor?.system?.resist || donnedArmor?.system?.resistances || donnedArmor?.system?.resistance || donnedArmor?.system?.damage?.resist || "";
+    if (armorRes) {
+      const parsedArmor = parseResistanceString(armorRes);
       for (const r of parsedArmor) {
         armorResists.push({
           ...r,
           sourceName: donnedArmor.name,
           sourceId: donnedArmor.id,
+        });
+      }
+    }
+
+    // 2. Equipped Shields (all active shields)
+    const equippedShields = getEquippedShields(actor);
+    for (const shield of equippedShields) {
+      const shieldRes = shield?.system?.resist || shield?.system?.resistances || shield?.system?.resistance || shield?.system?.damage?.resist || "";
+      if (shieldRes) {
+        const parsedShield = parseResistanceString(shieldRes);
+        for (const r of parsedShield) {
+          armorResists.push({
+            ...r,
+            sourceName: shield.name,
+            sourceId: shield.id,
+          });
+        }
+      }
+    }
+
+    // 3. Equipped Enhancement
+    const equippedEnhancement = getEquippedEnhancement(actor);
+    const enhRes = equippedEnhancement?.system?.resist || equippedEnhancement?.system?.resistances || equippedEnhancement?.system?.resistance || equippedEnhancement?.system?.damage?.resist || "";
+    if (enhRes) {
+      const parsedEnh = parseResistanceString(enhRes);
+      for (const r of parsedEnh) {
+        armorResists.push({
+          ...r,
+          sourceName: equippedEnhancement.name,
+          sourceId: equippedEnhancement.id,
         });
       }
     }
@@ -294,6 +453,7 @@ export function applyEffectiveArmorAndDefenses(actor) {
   if (!actor || !actor.system) return;
 
   const donnedArmor = getDonnedArmor(actor);
+  const equippedEnhancement = getEquippedEnhancement(actor);
   const armorAuto = getSetting("armorAutomation", true);
 
   if (armorAuto) {
@@ -324,63 +484,97 @@ export function applyEffectiveArmorAndDefenses(actor) {
     for (const shield of equippedShields) {
       shieldArBonus += getShieldArBonus(shield);
       const sDefs = shield.system?.defenses || {};
-      if (sDefs.ref) shieldRefBonus += Number(sDefs.ref) || 0;
-      if (sDefs.fort) shieldFortBonus += Number(sDefs.fort) || 0;
-      if (sDefs.ant) shieldAntBonus += Number(sDefs.ant) || 0;
-      if (sDefs.log) shieldLogBonus += Number(sDefs.log) || 0;
-      if (sDefs.will) shieldWillBonus += Number(sDefs.will) || 0;
+      if (sDefs.ref) shieldRefBonus += parseSignedNumber(sDefs.ref);
+      if (sDefs.fort) shieldFortBonus += parseSignedNumber(sDefs.fort);
+      if (sDefs.ant) shieldAntBonus += parseSignedNumber(sDefs.ant);
+      if (sDefs.log) shieldLogBonus += parseSignedNumber(sDefs.log);
+      if (sDefs.will) shieldWillBonus += parseSignedNumber(sDefs.will);
+    }
+
+    // Calculate equipped enhancement defense bonuses and penalties
+    let enhArBonus = 0;
+    let enhRefBonus = 0;
+    let enhFortBonus = 0;
+    let enhAntBonus = 0;
+    let enhLogBonus = 0;
+    let enhWillBonus = 0;
+    let enhDexMaxPenalty = 0;
+
+    if (equippedEnhancement) {
+      const eSys = equippedEnhancement.system || {};
+      enhArBonus = parseSignedNumber(eSys.ar ?? eSys.arBonus, 0);
+      const eDefs = eSys.defenses || {};
+      if (eDefs.ref) enhRefBonus += parseSignedNumber(eDefs.ref);
+      if (eDefs.fort) enhFortBonus += parseSignedNumber(eDefs.fort);
+      if (eDefs.ant) enhAntBonus += parseSignedNumber(eDefs.ant);
+      if (eDefs.log) enhLogBonus += parseSignedNumber(eDefs.log);
+      if (eDefs.will) enhWillBonus += parseSignedNumber(eDefs.will);
+      enhDexMaxPenalty = parseSignedNumber(eSys.dexMax ?? eSys.dexMaxPenalty ?? eSys.dexMaxMod, 0);
+    }
+
+    // DEX Max calculation:
+    // "Add your enhancement’s defense bonuses, STR mins, and DEX max penalties to your suit of armor. If your armor had no DEX max, then subtract the enhancement’s DEX max from 12."
+    let effectiveDexMax = null;
+    if (donnedArmor && donnedArmor.system?.dexMax !== undefined && donnedArmor.system?.dexMax !== null && String(donnedArmor.system.dexMax).trim() !== "") {
+      const baseArmorDexMax = parseSignedNumber(donnedArmor.system.dexMax, 0);
+      effectiveDexMax = Math.max(0, baseArmorDexMax - enhDexMaxPenalty);
+    } else if (enhDexMaxPenalty > 0) {
+      effectiveDexMax = Math.max(0, 12 - enhDexMaxPenalty);
+    }
+
+    const dexMaxAuto = getSetting("armorDexMaxAutomation", true);
+    let effectiveDex = baseDex;
+    if (dexMaxAuto && effectiveDexMax !== null && effectiveDex > effectiveDexMax) {
+      effectiveDex = effectiveDexMax;
     }
 
     if (donnedArmor) {
       const armorSys = donnedArmor.system || {};
 
       // 1. Armor Rating (AR)
-      const armorAR = Number.isNumeric(armorSys.ar) ? Number(armorSys.ar) : 10;
-      actor.system.defenses.ar = armorAR + bonusAr + shieldArBonus;
+      const armorAR = armorSys.ar !== undefined && armorSys.ar !== null ? parseSignedNumber(armorSys.ar, 10) : 10;
+      actor.system.defenses.ar = armorAR + bonusAr + shieldArBonus + enhArBonus;
 
-      // 2. DEX Maximum Clamp on REF
-      const dexMaxAuto = getSetting("armorDexMaxAutomation", true);
-      const dexMax = Number(armorSys.dexMax);
-      let effectiveDex = baseDex;
-      if (dexMaxAuto && Number.isNumeric(dexMax) && effectiveDex > dexMax) {
-        effectiveDex = dexMax;
-      }
-
-      // 3. Defense Modifiers (REF, FORT, ANT, LOG, WILL)
+      // 2. Defense Modifiers (REF, FORT, ANT, LOG, WILL)
       const armorDefs = armorSys.defenses || {};
-      const refMod = Number(armorDefs.ref) || 0;
-      const fortMod = Number(armorDefs.fort) || 0;
-      const antMod = Number(armorDefs.ant) || 0;
-      const logMod = Number(armorDefs.log) || 0;
-      const willMod = Number(armorDefs.will) || 0;
+      const refMod = parseSignedNumber(armorDefs.ref, 0);
+      const fortMod = parseSignedNumber(armorDefs.fort, 0);
+      const antMod = parseSignedNumber(armorDefs.ant, 0);
+      const logMod = parseSignedNumber(armorDefs.log, 0);
+      const willMod = parseSignedNumber(armorDefs.will, 0);
 
-      actor.system.defenses.ref = 10 + effectiveDex + bonusRef + refMod + shieldRefBonus;
-      actor.system.defenses.fort = 10 + baseEnd + bonusFort + fortMod + shieldFortBonus;
-      actor.system.defenses.ant = 10 + baseAwr + bonusAnt + antMod + shieldAntBonus;
-      actor.system.defenses.log = 10 + baseInt + bonusLog + logMod + shieldLogBonus;
-      actor.system.defenses.will = 10 + baseCha + bonusWill + willMod + shieldWillBonus;
+      actor.system.defenses.ref = 10 + effectiveDex + bonusRef + refMod + shieldRefBonus + enhRefBonus;
+      actor.system.defenses.fort = 10 + baseEnd + bonusFort + fortMod + shieldFortBonus + enhFortBonus;
+      actor.system.defenses.ant = 10 + baseAwr + bonusAnt + antMod + shieldAntBonus + enhAntBonus;
+      actor.system.defenses.log = 10 + baseInt + bonusLog + logMod + shieldLogBonus + enhLogBonus;
+      actor.system.defenses.will = 10 + baseCha + bonusWill + willMod + shieldWillBonus + enhWillBonus;
     } else {
-      // Unarmored: Recalculate baseline 10 + attributes + bonuses + shield additional armor
-      actor.system.defenses.ar = 10 + bonusAr + shieldArBonus;
-      actor.system.defenses.ref = 10 + baseDex + bonusRef + shieldRefBonus;
-      actor.system.defenses.fort = 10 + baseEnd + bonusFort + shieldFortBonus;
-      actor.system.defenses.ant = 10 + baseAwr + bonusAnt + shieldAntBonus;
-      actor.system.defenses.log = 10 + baseInt + bonusLog + shieldLogBonus;
-      actor.system.defenses.will = 10 + baseCha + bonusWill + shieldWillBonus;
+      // Unarmored: Recalculate baseline 10 + attributes + bonuses + shield & enhancement additional armor
+      actor.system.defenses.ar = 10 + bonusAr + shieldArBonus + enhArBonus;
+      actor.system.defenses.ref = 10 + effectiveDex + bonusRef + shieldRefBonus + enhRefBonus;
+      actor.system.defenses.fort = 10 + baseEnd + bonusFort + shieldFortBonus + enhFortBonus;
+      actor.system.defenses.ant = 10 + baseAwr + bonusAnt + shieldAntBonus + enhAntBonus;
+      actor.system.defenses.log = 10 + baseInt + bonusLog + shieldLogBonus + enhLogBonus;
+      actor.system.defenses.will = 10 + baseCha + bonusWill + shieldWillBonus + enhWillBonus;
     }
   }
 
-  // 4. Speed & STR Minimum
-  if (donnedArmor) {
+  // 4. Speed & STR Minimum (Combine donned armor and enhancement STR min)
+  const enhStrMin = parseSignedNumber(equippedEnhancement?.system?.strMin ?? equippedEnhancement?.system?.strMinMod, 0);
+  const armorStrMin = donnedArmor ? parseSignedNumber(donnedArmor.system?.strMin, 0) : 0;
+  const totalStrMin = Math.max(0, armorStrMin + enhStrMin);
+
+  if (donnedArmor || equippedEnhancement) {
     const strMinAuto = getSetting("armorStrMinAutomation", true);
-    const strMin = Number(donnedArmor.system?.strMin);
     const actorStr = Number(actor.system?.attributes?.str ?? 0);
 
-    if (strMinAuto && Number.isNumeric(strMin) && strMin > 0 && actorStr < strMin) {
+    if (strMinAuto && totalStrMin > 0 && actorStr < totalStrMin) {
       if (actor.system.movement) actor.system.movement.walk = 0;
     } else {
       const speedPenaltyAuto = getSetting("armorSpeedPenaltyAutomation", true);
-      const penalty = Number(donnedArmor.system?.speedPenalty) || 0;
+      const armorSpeedPenalty = donnedArmor ? parseSignedNumber(donnedArmor.system?.speedPenalty, 0) : 0;
+      const enhSpeedPenalty = equippedEnhancement ? parseSignedNumber(equippedEnhancement.system?.speedPenalty ?? equippedEnhancement.system?.speedPenaltyMod, 0) : 0;
+      const penalty = Math.max(0, armorSpeedPenalty + enhSpeedPenalty);
       if (speedPenaltyAuto && penalty > 0 && actor.system.movement) {
         const baseWalk = Number(actor.system.movement.walk) || 20;
         actor.system.movement.walk = Math.max(0, baseWalk - penalty);
@@ -392,14 +586,21 @@ export function applyEffectiveArmorAndDefenses(actor) {
 /**
  * Check and enforce armor strength requirements
  * @param {Actor} actor
- * @param {Item|null} donnedArmor
+ * @param {Item|null} [donnedArmor]
+ * @param {Item|null} [equippedEnhancement]
  */
-export async function syncArmorStrConditions(actor, donnedArmor) {
+export async function syncArmorStrConditions(actor, donnedArmor, equippedEnhancement) {
   if (!actor || !getSetting("armorStrMinAutomation", true)) return;
 
-  const strMin = Number(donnedArmor?.system?.strMin);
+  const armor = donnedArmor !== undefined ? donnedArmor : getDonnedArmor(actor);
+  const enh = equippedEnhancement !== undefined ? equippedEnhancement : getEquippedEnhancement(actor);
+
+  const armorStrMin = armor ? parseSignedNumber(armor.system?.strMin, 0) : 0;
+  const enhStrMin = enh ? parseSignedNumber(enh.system?.strMin ?? enh.system?.strMinMod, 0) : 0;
+  const totalStrMin = Math.max(0, armorStrMin + enhStrMin);
+
   const actorStr = Number(actor.system?.attributes?.str ?? 0);
-  const isStrFailed = !!(donnedArmor && Number.isNumeric(strMin) && strMin > 0 && actorStr < strMin);
+  const isStrFailed = !!((armor || enh) && totalStrMin > 0 && actorStr < totalStrMin);
 
   const hasDazed = actor.statuses?.has?.("dazed") || actor.effects?.some?.(e => e.statuses?.has("dazed"));
   if (isStrFailed && !hasDazed) {

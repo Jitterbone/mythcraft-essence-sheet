@@ -105,7 +105,7 @@
           <div class="meter-header">
             <div class="meter-label-group">
               <i class="fas fa-heart meter-icon hp-icon"></i>
-              <span class="meter-title">Health Points</span>
+              <span class="meter-title">{{#if enableFear}}HP{{else}}Hit Points{{/if}}</span>
               {{#if isBloodied}}
                 <span class="bloodied-tag">Bloodied</span>
               {{/if}}

@@ -28,6 +28,9 @@ import {
   isShieldEquipped,
   getShieldArBonus,
   getEquippedShields,
+  isArmorEnhancement,
+  isEnhancementEquipped,
+  getEquippedEnhancement,
   calculateEffectiveResistances,
   getWeaponDamageData,
   getTwoHandedBaseFormula,
@@ -554,6 +557,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       showImage: this.#showImage,
       toggleAttunement: this.#toggleAttunement,
       toggleDonArmor: this.#toggleDonArmor,
+      toggleWearEnhancement: this.#toggleWearEnhancement,
       toggleEquipShield: this.#toggleEquipShield,
       openArmorPicker: this.#openArmorPicker,
       adjustAp: this.#adjustAp,
@@ -876,6 +880,10 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     const item = this.actor.items.get(itemId);
     if (!item || item.type !== "armor") return;
 
+    if (isArmorEnhancement(item)) {
+      return EssenceCharacterSheet.#toggleWearEnhancement.call(this, event, target);
+    }
+
     if (isShield(item)) {
       return EssenceCharacterSheet.#toggleEquipShield.call(this, event, target);
     }
@@ -883,9 +891,9 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     const isCurrentlyDonned = item.system?.equipped === true || item.flags?.["mythcraft-essence-sheet"]?.isDonned === true;
     const newDonState = !isCurrentlyDonned;
 
-    // If donning this armor, un-don all other body armor items on the actor (excluding shields)
+    // If donning this armor, un-don all other body armor items on the actor (excluding shields and enhancements)
     if (newDonState) {
-      const otherArmors = this.actor.itemTypes.armor.filter(a => a.id !== item.id && !isShield(a) && (a.system?.equipped || a.flags?.["mythcraft-essence-sheet"]?.isDonned));
+      const otherArmors = this.actor.itemTypes.armor.filter(a => a.id !== item.id && !isShield(a) && !isArmorEnhancement(a) && (a.system?.equipped || a.flags?.["mythcraft-essence-sheet"]?.isDonned));
       for (const other of otherArmors) {
         await other.update({
           "system.equipped": false,
@@ -900,7 +908,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     });
 
     // Check STR requirements and update Dazed condition
-    await syncArmorStrConditions(this.actor, newDonState ? item : null);
+    await syncArmorStrConditions(this.actor);
 
     // Recalculate and persist effective defenses to the actor document
     applyEffectiveArmorAndDefenses(this.actor);
@@ -915,6 +923,52 @@ export default class EssenceCharacterSheet extends CharacterSheet {
 
     const stateLabel = newDonState ? "Donned" : "Doffed";
     ui.notifications.info(`${item.name} is now ${stateLabel}. (AR: ${this.actor.system.defenses.ar})`);
+  }
+
+  static async #toggleWearEnhancement(event, target) {
+    event.stopPropagation();
+    const itemId = target.dataset?.itemId || target.closest("[data-item-id]")?.dataset.itemId;
+    const item = this.actor.items.get(itemId);
+    if (!item || item.type !== "armor") return;
+
+    const isCurrentlyWorn = isEnhancementEquipped(item);
+    const newWearState = !isCurrentlyWorn;
+
+    // Only one enhancement may be equipped at a time
+    if (newWearState) {
+      const otherEnhancements = this.actor.itemTypes.armor.filter(a => a.id !== item.id && isArmorEnhancement(a) && isEnhancementEquipped(a));
+      for (const other of otherEnhancements) {
+        await other.update({
+          "system.equipped": false,
+          "flags.mythcraft-essence-sheet.isWorn": false,
+          "flags.mythcraft-essence-sheet.isDonned": false,
+        });
+      }
+    }
+
+    await item.update({
+      "system.equipped": newWearState,
+      "flags.mythcraft-essence-sheet.isWorn": newWearState,
+      "flags.mythcraft-essence-sheet.isDonned": newWearState,
+    });
+
+    // Check STR requirements and update Dazed condition
+    await syncArmorStrConditions(this.actor);
+
+    // Recalculate and persist effective defenses to the actor document
+    applyEffectiveArmorAndDefenses(this.actor);
+    await this.actor.update({
+      "system.defenses.ar": this.actor.system.defenses.ar,
+      "system.defenses.ref": this.actor.system.defenses.ref,
+      "system.defenses.fort": this.actor.system.defenses.fort,
+      "system.defenses.ant": this.actor.system.defenses.ant,
+      "system.defenses.log": this.actor.system.defenses.log,
+      "system.defenses.will": this.actor.system.defenses.will,
+    });
+
+    const stateLabel = newWearState ? "Worn" : "Removed";
+    ui.notifications.info(`${item.name} enhancement is now ${stateLabel}. (AR: ${this.actor.system.defenses.ar})`);
+    this.render(false);
   }
 
   static async #toggleEquipShield(event, target) {
@@ -1044,9 +1098,48 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         },
       });
       d.render(true);
+    } else if (armorType === "enhancement") {
+      const availableEnhancements = (this.actor.itemTypes?.armor || []).filter(a => isArmorEnhancement(a) && !isEnhancementEquipped(a));
+      if (!availableEnhancements.length) {
+        ui.notifications.info("No un-worn armor enhancements in inventory.");
+        return;
+      }
+
+      const optionsHtml = availableEnhancements.map(a => {
+        const ar = a.system?.ar || a.system?.arBonus || 0;
+        return `<button type="button" class="equip-picker-option" data-item-id="${a.id}" style="display:flex; align-items:center; gap:8px; width:100%; margin-bottom:6px; padding:6px 10px; background:#14171a; border:1px solid #d97706; border-radius:4px; color:#FEEBB3; cursor:pointer; text-align:left;">
+          <img src="${a.img}" style="width:24px; height:24px; object-fit:cover; border-radius:3px;" />
+          <span style="flex:1; font-weight:600; font-size:12px;">${a.name}</span>
+          <span style="font-size:10px; padding:2px 5px; background:rgba(217,119,6,0.3); border-radius:3px; color:#fde68a;">Enhancement</span>
+          ${ar ? `<span style="font-size:10px; padding:2px 5px; background:rgba(254,235,179,0.15); border-radius:3px; color:#FEEBB3;">+${ar} AR</span>` : ""}
+        </button>`;
+      }).join("");
+
+      const dialogContent = `<div class="hand-equip-picker-dialog" style="max-height:280px; overflow-y:auto; padding:4px;">
+        <p style="margin:0 0 8px; font-size:12px; color:#fde68a;">Select armor enhancement to wear:</p>
+        <div class="equip-options-container">${optionsHtml}</div>
+      </div>`;
+
+      const d = new Dialog({
+        title: "Wear Armor Enhancement",
+        content: dialogContent,
+        buttons: { cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancel" } },
+        render: (html) => {
+          html.find(".equip-picker-option").on("click", async (e) => {
+            const pickedId = e.currentTarget.dataset.itemId;
+            const pickedItem = this.actor.items.get(pickedId);
+            if (pickedItem) {
+              await EssenceCharacterSheet.#toggleWearEnhancement.call(this, e, e.currentTarget);
+              this.render(false);
+            }
+            d.close();
+          });
+        },
+      });
+      d.render(true);
     } else {
       // Body armor
-      const availableArmors = (this.actor.itemTypes?.armor || []).filter(a => !isShield(a) && !a.system?.equipped && !a.flags?.["mythcraft-essence-sheet"]?.isDonned);
+      const availableArmors = (this.actor.itemTypes?.armor || []).filter(a => !isShield(a) && !isArmorEnhancement(a) && !a.system?.equipped && !a.flags?.["mythcraft-essence-sheet"]?.isDonned);
       if (!availableArmors.length) {
         ui.notifications.info("No un-donned body armor in inventory.");
         return;
@@ -2639,9 +2732,10 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     }));
     const wornClothesList = clothesList.filter(c => c.isWorn);
 
-    // Donned Body Armor (excluding shields)
-    const donnedBodyArmorItem = (this.actor.itemTypes?.armor || []).find(item => !isShield(item) && (item.system?.equipped === true || item.flags?.["mythcraft-essence-sheet"]?.isDonned === true));
+    // Donned Body Armor (excluding shields and enhancements)
+    const donnedBodyArmorItem = getDonnedArmor(this.actor);
     const equippedShieldItem = (this.actor.itemTypes?.armor || []).find(item => isShield(item) && isShieldEquipped(item));
+    const equippedEnhancementItem = getEquippedEnhancement(this.actor);
 
     const bodyArmorCard = donnedBodyArmorItem ? {
       id: donnedBodyArmorItem.id,
@@ -2659,8 +2753,16 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       handSlot: equippedShieldItem.flags?.["mythcraft-essence-sheet"]?.equippedHand || "off",
     } : null;
 
+    const enhancementCard = equippedEnhancementItem ? {
+      id: equippedEnhancementItem.id,
+      name: equippedEnhancementItem.name,
+      img: equippedEnhancementItem.img,
+      arBonus: Number(equippedEnhancementItem.system?.ar || equippedEnhancementItem.system?.arBonus || 0),
+      resist: equippedEnhancementItem.system?.resist || "",
+    } : null;
+
     const donnedArmors = (this.actor.itemTypes?.armor || []).filter(item => {
-      if (isShield(item)) return false;
+      if (isShield(item) || isArmorEnhancement(item)) return false;
       return item.system?.equipped === true || item.flags?.["mythcraft-essence-sheet"]?.isDonned === true;
     }).map(item => ({
       id: item.id,
@@ -2753,8 +2855,9 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       armor: {
         bodyArmor: bodyArmorCard,
         shield: shieldCard,
+        enhancement: enhancementCard,
         items: donnedArmors,
-        count: (bodyArmorCard ? 1 : 0) + (shieldCard ? 1 : 0),
+        count: (bodyArmorCard ? 1 : 0) + (shieldCard ? 1 : 0) + (enhancementCard ? 1 : 0),
         ar: this.actor.system?.defenses?.ar || 10,
       },
       weapons: {
@@ -3140,14 +3243,17 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         const isAttuned = item.flags?.["mythcraft-essence-sheet"]?.isAttuned ?? true;
 
         const isShieldItem = isShield(item);
-        const isEquipped = isShieldItem ? isShieldEquipped(item) : false;
-        const isDonned = !isShieldItem && (item.system?.equipped === true || item.flags?.["mythcraft-essence-sheet"]?.isDonned === true);
+        const isEnhancementItem = isArmorEnhancement(item);
+        const isEquipped = isShieldItem ? isShieldEquipped(item) : (isEnhancementItem ? isEnhancementEquipped(item) : false);
+        const isDonned = !isShieldItem && !isEnhancementItem && (item.system?.equipped === true || item.flags?.["mythcraft-essence-sheet"]?.isDonned === true);
+        const isWorn = isEnhancementItem && isEnhancementEquipped(item);
         const shieldArBonus = isShieldItem ? getShieldArBonus(item) : 0;
+        const enhArBonus = isEnhancementItem ? Number(item.system?.ar || item.system?.arBonus || 0) : 0;
         const ar = Number.isNumeric(item.system?.ar) ? Number(item.system.ar) : 10;
         const resist = item.system?.resist || "";
         const strMin = item.system?.strMin;
         const actorStr = this.actor.system?.attributes?.str ?? 0;
-        const isStrFailed = (isDonned || isEquipped) && Number.isNumeric(strMin) && strMin > 0 && actorStr < strMin;
+        const isStrFailed = (isDonned || isEquipped || isWorn) && Number.isNumeric(strMin) && strMin > 0 && actorStr < strMin;
 
         const dexMax = item.system?.dexMax;
         const actorDex = this.actor.system?.attributes?.dex ?? 0;
@@ -3175,16 +3281,28 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         const contents = isContainer ? await enrichContainerContents(item.id) : [];
         const containerExpanded = this.expandedItems.has(`container-${item.id}`);
 
+        let donStatusLabel = "Doffed";
+        if (isEnhancementItem) {
+          donStatusLabel = isWorn ? "Worn" : "Wear";
+        } else if (isShieldItem) {
+          donStatusLabel = isEquipped ? "Equipped" : "Stowed";
+        } else {
+          donStatusLabel = isDonned ? "Donned" : "Doffed";
+        }
+
         return {
           item,
           expanded,
           essenceCost,
           isAttuned,
           isShield: isShieldItem,
+          isEnhancement: isEnhancementItem,
           isEquipped,
           isDonned,
+          isWorn,
           shieldArBonus,
-          donStatusLabel: isDonned ? "Donned" : "Doffed",
+          enhArBonus,
+          donStatusLabel,
           ar,
           resist,
           strMin,

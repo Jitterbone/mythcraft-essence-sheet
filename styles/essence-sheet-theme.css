@@ -3663,6 +3663,84 @@
   font-size: 1rem;
 }
 
+/* ── Armor Enhancement Drawer & Button Styling ───────────── */
+.drawer-armor-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.drawer-enhancement-wrapper {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.hand-column-enhancement {
+  width: 220px;
+  max-width: 85%;
+  border-color: rgba(217, 119, 6, 0.4);
+  background: rgba(217, 119, 6, 0.05);
+}
+
+.hand-column-enhancement .drawer-hand-header {
+  color: #fde68a;
+  border-bottom-color: rgba(217, 119, 6, 0.3);
+  justify-content: center;
+}
+
+.hand-column-enhancement .drawer-hand-header i {
+  color: #fbbf24;
+}
+
+.enhancement-card {
+  border-color: rgba(217, 119, 6, 0.45);
+}
+
+.mini-enhancement-tag {
+  background: rgba(217, 119, 6, 0.25) !important;
+  color: #fde68a !important;
+  border: 1px solid rgba(217, 119, 6, 0.4) !important;
+}
+
+.drawer-empty-enhancement-slot {
+  min-height: 48px;
+  padding: 6px;
+  border-color: rgba(217, 119, 6, 0.4);
+  color: #d97706;
+}
+
+.drawer-empty-enhancement-slot:hover {
+  background: rgba(217, 119, 6, 0.15);
+  border-color: #fbbf24;
+  color: #fef3c7;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
+}
+
+.armor-don-btn.enhancement-wear-btn.donned {
+  background: rgba(217, 119, 6, 0.25);
+  border-color: #f59e0b;
+  color: #fde68a;
+}
+
+.armor-don-btn.enhancement-wear-btn.donned:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  color: #fca5a5;
+}
+
+.armor-don-btn.enhancement-wear-btn.doffed {
+  background: rgba(217, 119, 6, 0.08);
+  border-color: rgba(217, 119, 6, 0.4);
+  color: #d97706;
+}
+
+.armor-don-btn.enhancement-wear-btn.doffed:hover {
+  background: rgba(217, 119, 6, 0.2);
+  border-color: #fbbf24;
+  color: #fef3c7;
+}
+
 /* ── 1.5H Hand Mode Toggle Button in Equipment Tab ──── */
 .weapon-hand-pill.hand-and-a-half-toggle {
   background: rgba(223, 177, 91, 0.15);

@@ -343,8 +343,17 @@
                 {{a.item.name}}
               </span>
               
-              {{!-- Don / Doff (Body Armor) or Equip / Stow (Shield) Button --}}
-              {{#if a.isShield}}
+              {{!-- Don / Doff (Body Armor) or Equip / Stow (Shield) or Wear / Remove (Enhancement) Button --}}
+              {{#if a.isEnhancement}}
+                <button type="button"
+                        class="armor-don-btn enhancement-wear-btn {{#if a.isWorn}}donned{{else}}doffed{{/if}}"
+                        data-action="toggleWearEnhancement"
+                        data-item-id="{{a.item.id}}"
+                        title="{{#if a.isWorn}}Worn (Active Enhancement). Click to Remove.{{else}}Inactive. Click to Wear Enhancement.{{/if}}">
+                  <i class="fas {{#if a.isWorn}}fa-sparkles{{else}}fa-gem{{/if}}"></i>
+                  <span>{{#if a.isWorn}}Remove{{else}}Wear{{/if}}</span>
+                </button>
+              {{else if a.isShield}}
                 <button type="button"
                         class="armor-don-btn shield-equip-btn {{#if a.isEquipped}}donned{{else}}doffed{{/if}}"
                         data-action="toggleEquipShield"
@@ -380,7 +389,14 @@
             </div>
 
             <div class="weapon-stats-strip armor-stats-strip">
-              {{#if a.isShield}}
+              {{#if a.isEnhancement}}
+                {{#if a.enhArBonus}}
+                  <span class="ar-badge {{#if a.isWorn}}active-stat{{/if}}" title="Enhancement Additional Armor: +{{a.enhArBonus}} AR">
+                    <i class="fas fa-sparkles"></i>
+                    +{{a.enhArBonus}} AR
+                  </span>
+                {{/if}}
+              {{else if a.isShield}}
                 <span class="ar-badge {{#if a.isEquipped}}active-stat{{/if}}" title="Shield Additional Armor: +{{a.shieldArBonus}} AR">
                   <i class="fas fa-shield"></i>
                   +{{a.shieldArBonus}} AR

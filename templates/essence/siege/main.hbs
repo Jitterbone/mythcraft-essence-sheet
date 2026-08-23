@@ -1,0 +1,366 @@
+{{!-- ============================================================
+     MythCraft Essence Sheet — Siege Weapon Operations & Combat
+     Context: document, actor, system, actions, damageSummary,
+              enrichedDescription, enrichedGMNotes, isPlay, editable
+     ============================================================ --}}
+<section class="tab siege-main-tab {{tab.cssClass}}" data-group="primary" data-tab="stats">
+
+  {{!-- 1. Tactical Properties Grid (Range, AoE, Reload, Speed, Heft) --}}
+  <div class="siege-properties-strip">
+
+    {{!-- Range & AoE --}}
+    <div class="siege-prop-card">
+      <div class="prop-card-header">
+        <i class="fas fa-arrows-left-right-to-line"></i>
+        <span>Range &amp; Area of Effect</span>
+      </div>
+      <div class="prop-card-body split-row">
+        <div class="prop-field">
+          <label class="mini-prop-label">Range</label>
+          <div class="prop-input-wrap">
+            <input type="number"
+                   class="prop-num-input"
+                   name="system.range.value"
+                   value="{{system.range.value}}"
+                   min="0" />
+            <input type="text"
+                   class="prop-unit-input"
+                   name="system.range.unit"
+                   value="{{system.range.unit}}"
+                   placeholder="ft" />
+          </div>
+        </div>
+        <div class="prop-field">
+          <label class="mini-prop-label">Area of Effect</label>
+          <input type="text"
+                 class="prop-text-input"
+                 name="system.aoe"
+                 value="{{system.aoe}}"
+                 placeholder="e.g. 20 ft radius" />
+        </div>
+      </div>
+    </div>
+
+    {{!-- Reload Cost & Crew Operations --}}
+    <div class="siege-prop-card">
+      <div class="prop-card-header">
+        <i class="fas fa-rotate-right"></i>
+        <span>Reload Cost</span>
+      </div>
+      <div class="prop-card-body">
+        <div class="prop-field full-field">
+          <div class="prop-input-wrap">
+            <input type="number"
+                   class="prop-num-input"
+                   name="system.reload"
+                   value="{{system.reload}}"
+                   min="0" />
+            <span class="prop-unit-tag">AP / Actions</span>
+          </div>
+          <span class="prop-hint-text">Action cost required to reload and prepare the engine</span>
+        </div>
+      </div>
+    </div>
+
+    {{!-- Mobility Speed & Heft --}}
+    <div class="siege-prop-card">
+      <div class="prop-card-header">
+        <i class="fas fa-gauge-high"></i>
+        <span>Mobility &amp; Heft</span>
+      </div>
+      <div class="prop-card-body split-row">
+        <div class="prop-field">
+          <label class="mini-prop-label">Speed</label>
+          <div class="prop-input-wrap">
+            <input type="number"
+                   class="prop-num-input"
+                   name="system.speed"
+                   value="{{system.speed}}"
+                   min="0" />
+            <span class="prop-unit-tag">ft</span>
+          </div>
+        </div>
+        <div class="prop-field" title="Abstract force needed to move the engine (GM-adjudicated; not automated)">
+          <label class="mini-prop-label">Heft <i class="fas fa-circle-info help-icon"></i></label>
+          <input type="number"
+                 class="prop-num-input"
+                 name="system.heft"
+                 value="{{system.heft}}"
+                 min="0" />
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  {{!-- 2. Damage Modifications Panel (Unified with NPC/PC sheet) --}}
+  <div class="npc-bottom-panel damage-panel siege-damage-mod-panel">
+    <div class="panel-header">
+      <div class="header-left">
+        <i class="fas fa-shield-virus"></i>
+        <span>Damage Modifications &amp; Defenses</span>
+      </div>
+      <button type="button"
+              class="panel-edit-btn"
+              data-action="editDamageMod"
+              title="Configure Damage Modifications (Resistances, Immunities, Vulnerabilities, DR, DT)">
+        <i class="fas fa-cog"></i>
+        <span>Configure</span>
+      </button>
+    </div>
+    <div class="panel-body" data-action="editDamageMod" title="Click to configure damage modifications">
+      {{#if damageSummary.hasAny}}
+        <div class="dmg-mod-summary-content">
+          {{!-- Immunities --}}
+          {{#if damageSummary.immunities.length}}
+            <div class="dmg-mod-summary-row">
+              <span class="dmg-tag-badge immune-tag">Immune:</span>
+              <span class="dmg-tag-values">
+                {{#each damageSummary.immunities as |imm|}}
+                  <span class="summary-pill immune-pill">
+                    <i class="{{imm.icon}}"></i>
+                    <span>{{imm.label}}</span>
+                  </span>
+                {{/each}}
+              </span>
+            </div>
+          {{/if}}
+
+          {{!-- Resistances --}}
+          {{#if damageSummary.resistList.length}}
+            <div class="dmg-mod-summary-row">
+              <span class="dmg-tag-badge resist-tag">Resist:</span>
+              <span class="dmg-tag-values">
+                {{#each damageSummary.resistList as |res|}}
+                  <span class="summary-pill resist-pill">
+                    <i class="{{res.icon}}"></i>
+                    <span>{{res.label}} {{#if (gt res.value 1)}}({{res.value}}){{/if}}</span>
+                  </span>
+                {{/each}}
+              </span>
+            </div>
+          {{/if}}
+
+          {{!-- Vulnerabilities --}}
+          {{#if damageSummary.vulnList.length}}
+            <div class="dmg-mod-summary-row">
+              <span class="dmg-tag-badge vuln-tag">Vulnerable:</span>
+              <span class="dmg-tag-values">
+                {{#each damageSummary.vulnList as |vuln|}}
+                  <span class="summary-pill vuln-pill">
+                    <i class="{{vuln.icon}}"></i>
+                    <span>{{vuln.label}} {{#if (gt vuln.value 1)}}({{vuln.value}}){{/if}}</span>
+                  </span>
+                {{/each}}
+              </span>
+            </div>
+          {{/if}}
+
+          {{!-- DR & DT summary pills --}}
+          {{#if (or (gt damageSummary.drValue 0) (gt damageSummary.threshold 0))}}
+            <div class="dmg-mod-summary-row">
+              <span class="dmg-tag-badge dr-tag">Reduction:</span>
+              <span class="dmg-tag-values">
+                {{#if (gt damageSummary.drValue 0)}}
+                  <span class="summary-pill dr-pill">
+                    <i class="fas fa-shield-virus"></i>
+                    <span>DR {{damageSummary.drValue}}{{#if damageSummary.drBypasses}} (bypassed by {{damageSummary.drBypasses}}){{/if}}</span>
+                  </span>
+                {{/if}}
+                {{#if (gt damageSummary.threshold 0)}}
+                  <span class="summary-pill dt-pill">
+                    <i class="fas fa-cubes-stacked"></i>
+                    <span>DT {{damageSummary.threshold}}</span>
+                  </span>
+                {{/if}}
+              </span>
+            </div>
+          {{/if}}
+        </div>
+      {{else}}
+        <div class="empty-dmg-mod-hint">
+          <i class="fas fa-shield-alt"></i>
+          <span>No special damage modifications configured. Click <strong>Configure</strong> to add resistances, immunities, or vulnerabilities.</span>
+        </div>
+      {{/if}}
+    </div>
+  </div>
+
+  {{!-- 3. Siege Attacks & Actions Section --}}
+  <div class="spells-section siege-actions-container">
+    <div class="inventory-header">
+      <h3 class="section-header">
+        <i class="fas fa-crosshairs"></i>
+        <span>Siege Attacks &amp; Actions</span>
+      </h3>
+      <button type="button"
+              class="create-item-btn"
+              data-action="createDoc"
+              data-document-class="Item"
+              data-type="feature"
+              data-system-category="action"
+              title="Add Siege Attack / Action">
+        <i class="fas fa-plus"></i>
+        <span>Add Action</span>
+      </button>
+    </div>
+
+    {{#if actions.length}}
+      <ul class="item-list spell-list siege-action-list">
+        {{#each actions as |act|}}
+          <li class="item draggable item-row spell-row siege-action-row {{#if act.expanded}}expanded{{/if}}"
+              data-item-id="{{act.item.id}}"
+              data-document-class="Item">
+
+            <div class="spell-left-group">
+              <img class="item-img spell-img"
+                   src="{{act.item.img}}"
+                   alt="{{act.item.name}}"
+                   data-action="viewDoc"
+                   data-document-class="Item"
+                   data-item-id="{{act.item.id}}" />
+
+              <span class="item-name spell-name"
+                    data-action="toggleItemEmbed"
+                    data-item-id="{{act.item.id}}"
+                    title="Click to Toggle Details">
+                {{act.item.name}}
+              </span>
+
+              {{#if act.defenseTargetBadge}}
+                {{{act.defenseTargetBadge}}}
+              {{/if}}
+            </div>
+
+            <div class="spell-right-group">
+              <div class="item-actions">
+                {{#if act.hasAtk}}
+                  <button type="button"
+                          class="item-action-btn roll-btn cast-btn"
+                          data-action="rollFeature"
+                          data-item-id="{{act.item.id}}"
+                          title="Roll Siege Attack">
+                    <i class="fas fa-dice-d20"></i>
+                    <span>Atk {{act.atkDisplay}}</span>
+                  </button>
+                {{else if act.isRollable}}
+                  <button type="button"
+                          class="item-action-btn roll-btn cast-btn"
+                          data-action="rollFeature"
+                          data-item-id="{{act.item.id}}"
+                          title="Roll Action">
+                    <i class="fas fa-dice-d20"></i>
+                    <span>Roll</span>
+                  </button>
+                {{/if}}
+
+                {{#if act.damageFirst}}
+                  <button type="button"
+                          class="item-action-btn roll-btn dmg-btn"
+                          data-action="rollDamage"
+                          data-item-id="{{act.item.id}}"
+                          title="Roll Damage">
+                    <i class="fas fa-bolt"></i>
+                    <span>{{act.damageFirst}}</span>
+                  </button>
+                {{/if}}
+
+                <button type="button"
+                        class="item-action-btn expand-btn"
+                        data-action="toggleItemEmbed"
+                        data-item-id="{{act.item.id}}"
+                        title="Expand / Collapse Details">
+                  <i class="fas fa-chevron-{{#if act.expanded}}up{{else}}down{{/if}}"></i>
+                </button>
+                <button type="button"
+                        class="item-action-btn edit-btn"
+                        data-action="viewDoc"
+                        data-document-class="Item"
+                        data-item-id="{{act.item.id}}"
+                        title="Edit Action">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button type="button"
+                        class="item-action-btn delete-btn"
+                        data-action="deleteDoc"
+                        data-document-class="Item"
+                        data-item-id="{{act.item.id}}"
+                        title="Delete Action">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </div>
+
+            {{!-- Expanded Embed --}}
+            {{#if act.expanded}}
+              <div class="item-embed-card spell-embed siege-embed-drawer">
+                <div class="spell-embed-body">
+                  {{#if act.embed}}
+                    {{{act.embed}}}
+                  {{else if act.item.system.description.value}}
+                    {{{act.item.system.description.value}}}
+                  {{else}}
+                    <p class="empty-desc-hint">No action description provided.</p>
+                  {{/if}}
+                </div>
+              </div>
+            {{/if}}
+
+          </li>
+        {{/each}}
+      </ul>
+    {{else}}
+      <div class="empty-spells-box empty-siege-actions-box">
+        <p class="empty-msg"><i class="fas fa-info-circle"></i> No siege attacks or actions configured.</p>
+        <button type="button"
+                class="create-spell-btn"
+                data-action="createDoc"
+                data-document-class="Item"
+                data-type="feature"
+                data-system-category="action">
+          <i class="fas fa-plus"></i> Add Siege Attack
+        </button>
+      </div>
+    {{/if}}
+  </div>
+
+  {{!-- 4. Description & GM Notes Section --}}
+  <div class="inventory-section siege-desc-section">
+    <h3 class="section-header">
+      <i class="fas fa-scroll"></i>
+      <span>Specifications &amp; Notes</span>
+    </h3>
+    <div class="siege-desc-editor-wrap">
+      {{#if editable}}
+        {{formInput systemFields.description.fields.value
+                    enriched=enrichedDescription
+                    value=system.description.value
+                    toggled="true"}}
+        {{#if user.isGM}}
+          <div class="gm-notes-divider">
+            <i class="fas fa-user-secret"></i> <span>GM Operational Notes</span>
+          </div>
+          {{formGroup systemFields.description.fields.gm
+                      enriched=enrichedGMNotes
+                      value=system.description.gm
+                      toggled="true"}}
+        {{/if}}
+      {{else}}
+        <div class="enriched-desc-box">
+          {{{enrichedDescription}}}
+        </div>
+        {{#if user.isGM}}
+          {{#if enrichedGMNotes}}
+            <div class="gm-notes-divider">
+              <i class="fas fa-user-secret"></i> <span>GM Operational Notes</span>
+            </div>
+            <div class="enriched-desc-box gm-box">
+              {{{enrichedGMNotes}}}
+            </div>
+          {{/if}}
+        {{/if}}
+      {{/if}}
+    </div>
+  </div>
+
+</section>

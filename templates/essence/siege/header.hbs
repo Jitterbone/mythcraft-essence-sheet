@@ -1,0 +1,176 @@
+{{!-- ============================================================
+     MythCraft Essence Sheet — Siege Weapon Header
+     Context: document, actor, system, hpPct, ammoPct, isBloodied, editable
+     ============================================================ --}}
+<header class="sheet-header npc-sheet-header siege-sheet-header">
+  <div class="header-outer-layout">
+
+    {{!-- 1. Portrait on the Left --}}
+    <div class="portrait-box npc-portrait-box siege-portrait-box"
+         data-action="editImage"
+         title="Click to change siege engine image">
+      <img class="portrait-img"
+           src="{{document.img}}"
+           alt="{{document.name}}" />
+      <div class="portrait-overlay">
+        <i class="fas fa-camera"></i>
+      </div>
+    </div>
+
+    {{!-- 2. Right Side Content --}}
+    <div class="header-right-content npc-header-right siege-header-right">
+
+      {{!-- Row 1: Name + Type Badge --}}
+      <div class="header-top-bar">
+        <div class="name-container">
+          <input class="character-name-input npc-name-input siege-name-input"
+                 type="text"
+                 name="name"
+                 value="{{document.name}}"
+                 placeholder="Siege Weapon Name" />
+        </div>
+        <div class="siege-type-badge">
+          <i class="fas fa-shield-halved"></i>
+          <span>SIEGE ENGINE</span>
+        </div>
+      </div>
+
+      {{!-- Row 2: Dual Resource Meters (HP Integrity + Ammunition) --}}
+      <div class="meters-row siege-meters-row">
+
+        {{!-- Health Meter Card --}}
+        <div class="meter-card hp-meter {{#if isBloodied}}bloodied{{/if}}">
+          <div class="meter-header">
+            <div class="meter-label">
+              <i class="fas fa-heart-pulse meter-icon hp-icon"></i>
+              <span>HP Integrity</span>
+            </div>
+            <div class="meter-inputs">
+              <input type="number"
+                     class="meter-input current-hp"
+                     name="system.hp.value"
+                     value="{{system.hp.value}}"
+                     min="0"
+                     title="Current HP" />
+              <span class="meter-slash">/</span>
+              <input type="number"
+                     class="meter-input max-hp"
+                     name="system.hp.max"
+                     value="{{system.hp.max}}"
+                     min="0"
+                     title="Maximum HP" />
+            </div>
+          </div>
+          <div class="meter-bar-track">
+            <div class="meter-bar-fill hp-bar-fill {{#if isBloodied}}bloodied{{/if}}"
+                 style="width: {{hpPct}}%;"></div>
+            {{#if isBloodied}}
+              <span class="meter-alert-tag bloodied-tag"><i class="fas fa-triangle-exclamation"></i> BROKEN</span>
+            {{/if}}
+          </div>
+        </div>
+
+        {{!-- Ammunition Meter Card --}}
+        <div class="meter-card ammo-meter">
+          <div class="meter-header">
+            <div class="meter-label">
+              <i class="fas fa-crosshairs meter-icon ammo-icon"></i>
+              <span>Ammo</span>
+            </div>
+            <div class="meter-controls-box">
+              <div class="ammo-mini-btns">
+                <button type="button"
+                        class="ammo-step-btn minus"
+                        data-action="adjustAmmo"
+                        data-delta="-1"
+                        title="Fire 1 Shot (-1 Ammo)">
+                  <i class="fas fa-minus"></i>
+                </button>
+                <button type="button"
+                        class="ammo-step-btn plus"
+                        data-action="adjustAmmo"
+                        data-delta="1"
+                        title="Load 1 Shot (+1 Ammo)">
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
+              <div class="meter-inputs">
+                <input type="number"
+                       class="meter-input ammo-input"
+                       name="system.ammunition.value"
+                       value="{{system.ammunition.value}}"
+                       min="0"
+                       title="Current Ammo" />
+                <span class="meter-slash">/</span>
+                <input type="number"
+                       class="meter-input ammo-input"
+                       name="system.ammunition.max"
+                       value="{{system.ammunition.max}}"
+                       min="0"
+                       title="Max Ammo" />
+              </div>
+            </div>
+          </div>
+          <div class="meter-bar-track">
+            <div class="meter-bar-fill ammo-bar-fill" style="width: {{ammoPct}}%;"></div>
+          </div>
+        </div>
+
+      </div>
+
+      {{!-- Row 3: Defenses Ribbon --}}
+      <div class="header-defenses-strip siege-defenses-strip">
+        <div class="defense-badge-item ar-badge" title="Armor Rating">
+          <i class="fas fa-shield-alt def-icon"></i>
+          <span class="def-label">AR</span>
+          <input type="number"
+                 class="def-num-input"
+                 name="system.ar"
+                 value="{{system.ar}}"
+                 min="0" />
+        </div>
+
+        <div class="defense-badge-item ref-badge" title="Reflex Defense">
+          <i class="fas fa-running def-icon"></i>
+          <span class="def-label">REF</span>
+          <input type="number"
+                 class="def-num-input"
+                 name="system.defenses.ref"
+                 value="{{system.defenses.ref}}"
+                 min="0" />
+        </div>
+
+        <div class="defense-badge-item fort-badge" title="Fortitude Defense">
+          <i class="fas fa-fist-raised def-icon"></i>
+          <span class="def-label">FORT</span>
+          <input type="number"
+                 class="def-num-input"
+                 name="system.defenses.fort"
+                 value="{{system.defenses.fort}}"
+                 min="0" />
+        </div>
+
+        <div class="defense-badge-item dr-badge" title="Damage Reduction (Flat damage subtracted from hits)">
+          <i class="fas fa-shield-virus def-icon"></i>
+          <span class="def-label">DR</span>
+          <input type="number"
+                 class="def-num-input"
+                 name="system.reduction.value"
+                 value="{{system.reduction.value}}"
+                 min="0" />
+        </div>
+
+        <div class="defense-badge-item dt-badge" title="Damage Threshold (Hits below this do 0 damage)">
+          <i class="fas fa-cubes-stacked def-icon"></i>
+          <span class="def-label">DT</span>
+          <input type="number"
+                 class="def-num-input"
+                 name="system.threshold.value"
+                 value="{{system.threshold.value}}"
+                 min="0" />
+        </div>
+      </div>
+
+    </div>
+  </div>
+</header>

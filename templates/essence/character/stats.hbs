@@ -42,6 +42,13 @@
                      min="1" max="30"
                      title="{{attr.name}} Score" />
 
+              {{!-- Optional Footnote Icon for Rules/Homebrew --}}
+              {{#if attr.footnote}}
+                <div class="attr-info-pill" data-tooltip="<strong>{{attr.name}} ({{attr.label}})</strong><br/><span style='font-size:11px;'>{{attr.footnote}}</span>" data-tooltip-direction="UP">
+                  <i class="fas fa-circle-info"></i>
+                </div>
+              {{/if}}
+
               {{!-- Linked Defense Badge (e.g. REF, FORT) --}}
               {{#if attr.defense}}
                 <div class="defense-badge" title="{{attr.defense.name}}: {{attr.defense.value}}">
@@ -117,6 +124,13 @@
                      min="1" max="30"
                      title="{{attr.name}} Score" />
 
+              {{!-- Optional Footnote Icon for Rules/Homebrew --}}
+              {{#if attr.footnote}}
+                <div class="attr-info-pill" data-tooltip="<strong>{{attr.name}} ({{attr.label}})</strong><br/><span style='font-size:11px;'>{{attr.footnote}}</span>" data-tooltip-direction="UP">
+                  <i class="fas fa-circle-info"></i>
+                </div>
+              {{/if}}
+
               {{!-- Linked Defense Badge (e.g. ANT, LOG, WILL) --}}
               {{#if attr.defense}}
                 <div class="defense-badge" title="{{attr.defense.name}}: {{attr.defense.value}}">
@@ -188,6 +202,13 @@
                      class="attr-num-input"
                      min="1" max="30"
                      title="{{attr.name}} Score" />
+
+              {{!-- Optional Footnote Icon for Rules/Homebrew --}}
+              {{#if attr.footnote}}
+                <div class="attr-info-pill" data-tooltip="<strong>{{attr.name}} ({{attr.label}})</strong><br/><span style='font-size:11px;'>{{attr.footnote}}</span>" data-tooltip-direction="UP">
+                  <i class="fas fa-circle-info"></i>
+                </div>
+              {{/if}}
 
               <button type="button"
                       class="attr-config-btn"

@@ -1,0 +1,199 @@
+﻿<div class="level-up-dialog-content">
+
+  {{!-- ── 1. Header & Level Progression ───────────────────────── --}}
+  <div class="level-up-header-card">
+    <img class="actor-portrait" src="{{actor.img}}" alt="{{actor.name}}" />
+    
+    <div class="header-details">
+      <h2 class="actor-title">{{actor.name}}</h2>
+
+      <div class="level-progression-bar">
+        <div class="level-badge current-level-badge">
+          <span class="badge-label">Current</span>
+          <span class="badge-num">Lv {{currentLevel}}</span>
+        </div>
+
+        <i class="fas fa-arrow-right level-arrow"></i>
+
+        <div class="level-selector-group">
+          <span class="badge-label">New Level</span>
+          <div class="level-spinner">
+            <button type="button" class="spin-btn dec-btn" data-action="decreaseLevel" title="Decrease Level">
+              <i class="fas fa-minus"></i>
+            </button>
+            <input type="number"
+                   class="target-level-input"
+                   value="{{targetLevel}}"
+                   min="1" max="20"
+                   data-action="selectTargetLevel" />
+            <button type="button" class="spin-btn inc-btn" data-action="increaseLevel" title="Increase Level">
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {{!-- ── 2. Mode Switcher (Level Up vs Full Rebuild) ─────────── --}}
+  {{#unless isInitialBuild}}
+    <div class="level-mode-nav">
+      <button type="button"
+              class="mode-btn {{#if (eq mode 'levelUp')}}active{{/if}}"
+              data-action="setMode"
+              data-mode="levelUp">
+        <i class="fas fa-turn-up"></i> Level Up Progression (+{{levelsGained}} Lv)
+      </button>
+      <button type="button"
+              class="mode-btn {{#if (eq mode 'recalculate')}}active{{/if}}"
+              data-action="setMode"
+              data-mode="recalculate">
+        <i class="fas fa-calculator"></i> Full Recalculate / Threshold Shift
+      </button>
+    </div>
+  {{/unless}}
+
+  {{!-- ── 3. Endurance Threshold Card ────────────────────────── --}}
+  <div class="endurance-threshold-card">
+    <div class="threshold-card-header">
+      <div class="th-header-left">
+        <i class="fas fa-shield-heart"></i>
+        <span class="th-title">Endurance &amp; HP Threshold</span>
+      </div>
+      <div class="end-stat-pill">
+        <span class="end-lbl">Endurance (END):</span>
+        <span class="end-val">{{endValue}}</span>
+      </div>
+    </div>
+
+    <div class="active-threshold-banner">
+      <span class="active-th-name">{{activeThreshold.label}}</span>
+      <span class="active-th-range">({{activeThreshold.rangeLabel}} END)</span>
+      <div class="active-th-perks">
+        <span class="perk-badge set-perk"><i class="fas fa-equals"></i> Set HP: <strong>+{{activeThreshold.setHp}}</strong> / Lv</span>
+        <span class="perk-badge die-perk"><i class="fas fa-dice-d20"></i> HP Die: <strong>{{activeThreshold.dieLabel}}</strong> / Lv</span>
+      </div>
+    </div>
+
+    {{!-- Thresholds Quick Reference Table --}}
+    <details class="thresholds-reference-details">
+      <summary><i class="fas fa-table-list"></i> View Full Endurance Threshold Chart</summary>
+      <table class="thresholds-table">
+        <thead>
+          <tr>
+            <th>Threshold</th>
+            <th>END</th>
+            <th>Set HP</th>
+            <th>HP Die</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each thresholdList as |th|}}
+            <tr class="{{#if th.isActive}}active-row{{/if}}">
+              <td><strong>{{th.label}}</strong></td>
+              <td>{{th.rangeLabel}}</td>
+              <td>+{{th.setHp}} HP</td>
+              <td>{{th.dieLabel}}</td>
+            </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    </details>
+  </div>
+
+  {{!-- ── 4. HP Selection Options (Set HP vs Roll Dice) ───────── --}}
+  <div class="hp-options-grid">
+
+    {{!-- Option A: Take Set HP (Flat / Average) --}}
+    <div class="hp-option-card {{#if (eq chosenHpMethod 'set')}}selected{{/if}}"
+         data-action="selectMethod"
+         data-method="set">
+      <div class="option-header">
+        <div class="opt-radio">
+          <i class="fas {{#if (eq chosenHpMethod 'set')}}fa-circle-dot{{else}}fa-circle{{/if}}"></i>
+        </div>
+        <div class="opt-title-group">
+          <span class="opt-title">Take Set HP (Flat)</span>
+          <span class="opt-subtitle">Guaranteed consistent progression</span>
+        </div>
+      </div>
+
+      <div class="option-body">
+        {{#if (or isRecalculate isInitialBuild)}}
+          <div class="formula-preview">
+            <code>10 + {{targetLevel}} + ({{targetLevel}} × {{activeThreshold.setHp}})</code>
+          </div>
+          <div class="hp-result-badge">
+            Total Max HP: <strong>{{fullSetHpTotal}}</strong>
+          </div>
+        {{else}}
+          <div class="formula-preview">
+            <code>+{{levelsGained}} Lv + ({{levelsGained}} × {{activeThreshold.setHp}} Set HP)</code>
+          </div>
+          <div class="hp-result-badge">
+            HP Gain: <strong>+{{incrementalSetHpGain}}</strong>
+          </div>
+        {{/if}}
+      </div>
+    </div>
+
+    {{!-- Option B: Roll HP Dice --}}
+    <div class="hp-option-card {{#if (eq chosenHpMethod 'rolled')}}selected{{/if}} {{#unless activeThreshold.die}}disabled{{/unless}}"
+         data-action="selectMethod"
+         data-method="rolled">
+      <div class="option-header">
+        <div class="opt-radio">
+          <i class="fas {{#if (eq chosenHpMethod 'rolled')}}fa-circle-dot{{else}}fa-circle{{/if}}"></i>
+        </div>
+        <div class="opt-title-group">
+          <span class="opt-title">Roll HP Dice</span>
+          <span class="opt-subtitle">Rolls Endurance die in chat on apply</span>
+        </div>
+      </div>
+
+      <div class="option-body">
+        {{#if activeThreshold.die}}
+          <div class="formula-preview">
+            <code>Formula: {{diceFormula}} {{#if (or isRecalculate isInitialBuild)}}+ 10 + {{targetLevel}}{{else}}+ {{levelsGained}}{{/if}}</code>
+          </div>
+          <div class="hp-result-badge">
+            <i class="fas fa-dice-d20"></i> Will roll <strong>{{diceFormula}}</strong> in chat upon applying
+          </div>
+        {{else}}
+          <p class="no-die-hint">Threshold 1 (-3 END) does not roll HP dice.</p>
+        {{/if}}
+      </div>
+    </div>
+
+  </div>
+
+  {{!-- ── 5. Preview Summary & Action Buttons ─────────────────── --}}
+  <div class="hp-preview-summary-card">
+    <div class="preview-left">
+      <span class="preview-label">New Maximum HP:</span>
+      <div class="preview-hp-comparison">
+        <span class="prev-old-hp">{{currentHpMax}}</span>
+        <i class="fas fa-arrow-right-long prev-arrow"></i>
+        <span class="prev-new-hp">{{previewMaxHp}}</span>
+      </div>
+    </div>
+    <div class="preview-right">
+      <span class="preview-gain-details">{{previewGainText}}</span>
+    </div>
+  </div>
+
+  {{!-- Dialog Form Buttons --}}
+  <div class="dialog-form-buttons">
+    <button type="button" class="dialog-cancel-btn" data-action="close" onclick="this.closest('.application').querySelector('.close')?.click();">
+      <i class="fas fa-times"></i> Cancel
+    </button>
+    <button type="submit" class="dialog-apply-btn">
+      {{#if (eq chosenHpMethod 'rolled')}}
+        <i class="fas fa-dice-d20"></i> Apply Level {{targetLevel}} &amp; Roll HP in Chat
+      {{else}}
+        <i class="fas fa-check-double"></i> Apply Level {{targetLevel}} &amp; {{previewMaxHp}} Max HP
+      {{/if}}
+    </button>
+  </div>
+
+</div>

@@ -1,0 +1,254 @@
+<div class="homebrew-dialog-content">
+
+  {{!-- ── 1. Header Overview Card ───────────────────────────────── --}}
+  <div class="homebrew-header-card">
+    <div class="header-icon-box">
+      <i class="fas fa-flask-vial"></i>
+    </div>
+    <div class="header-text-box">
+      <h2 class="homebrew-title">Homebrew Rules &amp; Custom Attributes</h2>
+      <p class="homebrew-subtitle">
+        Configure optional alternate MythCraft rules (such as Sanity and Fear Threshold) or define custom Physical, Mental, and Metaphysical attributes.
+      </p>
+    </div>
+  </div>
+
+  {{!-- ── 2. Official Alternate Rules (Sanity & Fear) ─────────── --}}
+  <div class="homebrew-section-card">
+    <div class="section-title-row">
+      <i class="fas fa-brain-circuit"></i>
+      <span class="section-title">Alternate Metaphysical Rules: Sanity &amp; Fear</span>
+    </div>
+
+    {{!-- Sanity Toggle --}}
+    <div class="setting-toggle-row">
+      <label class="toggle-control-label">
+        <input type="checkbox"
+               name="enableSanity"
+               class="homebrew-checkbox"
+               {{#if enableSanity}}checked{{/if}}
+               data-action="toggleSanity" />
+        <div class="toggle-text-block">
+          <span class="toggle-title"><i class="fas fa-eye"></i> Enable Sanity (SAN) Attribute</span>
+          <span class="toggle-desc">
+            Adds Sanity as a 3rd Metaphysical attribute representing resilience to terror. Modifies Sanity checks, grants bonus starting/level Attribute Points, and governs Fear Threshold.
+          </span>
+        </div>
+      </label>
+    </div>
+
+    {{!-- Fear Threshold Toggle --}}
+    <div class="setting-toggle-row sub-toggle {{#unless enableSanity}}disabled{{/unless}}">
+      <label class="toggle-control-label">
+        <input type="checkbox"
+               name="enableFear"
+               class="homebrew-checkbox"
+               {{#if enableFear}}checked{{/if}}
+               {{#unless enableSanity}}disabled{{/unless}}
+               data-action="toggleFear" />
+        <div class="toggle-text-block">
+          <span class="toggle-title"><i class="fas fa-ghost"></i> Enable Fear Threshold &amp; Resource Bar</span>
+          <span class="toggle-desc">
+            Automatically calculates Fear Threshold (<code>1 + ⌊SAN / 2⌋</code>; negative SAN subtracts) and displays an active Fear resource meter on character sheets with threshold alert warnings.
+          </span>
+        </div>
+      </label>
+    </div>
+
+    {{!-- Sanity on NPC Toggle --}}
+    <div class="setting-toggle-row sub-toggle {{#unless enableSanity}}disabled{{/unless}}">
+      <label class="toggle-control-label">
+        <input type="checkbox"
+               name="sanityOnNpc"
+               class="homebrew-checkbox"
+               {{#if sanityOnNpc}}checked{{/if}}
+               {{#unless enableSanity}}disabled{{/unless}} />
+        <div class="toggle-text-block">
+          <span class="toggle-title"><i class="fas fa-user-ninja"></i> Include Sanity on NPC Sheets</span>
+          <span class="toggle-desc">
+            Display the Sanity (SAN) attribute and related skills on NPC actor sheets.
+          </span>
+        </div>
+      </label>
+    </div>
+  </div>
+
+  {{!-- ── 3. Custom Attributes Manager ───────────────────────────── --}}
+  <div class="homebrew-section-card">
+    <div class="section-title-row">
+      <div class="title-left">
+        <i class="fas fa-sliders"></i>
+        <span class="section-title">Custom Attributes Engine</span>
+      </div>
+      <button type="button" class="add-attr-btn" data-action="addCustomAttr">
+        <i class="fas fa-plus"></i> Add Custom Attribute
+      </button>
+    </div>
+
+    <p class="section-desc">
+      Define custom attributes to appear seamlessly in the Physical, Mental, or Metaphysical columns of character and NPC sheets with full roll and bonus display support.
+    </p>
+
+    {{#if hasCustomAttrs}}
+      <div class="custom-attrs-list">
+        {{#each customAttributes as |attr|}}
+          <div class="custom-attr-card">
+            <div class="card-row-top">
+              <div class="field-group name-group">
+                <label class="field-lbl">Attribute Name</label>
+                <input type="text"
+                       name="attrs.{{attr.index}}.name"
+                       value="{{attr.name}}"
+                       class="attr-text-input"
+                       placeholder="e.g. Faith"
+                       required />
+              </div>
+
+              <div class="field-group abbr-group">
+                <label class="field-lbl">Abbr</label>
+                <input type="text"
+                       name="attrs.{{attr.index}}.abbr"
+                       value="{{attr.abbr}}"
+                       class="attr-text-input"
+                       placeholder="FTH"
+                       maxlength="4"
+                       required />
+              </div>
+
+              <div class="field-group key-group">
+                <label class="field-lbl">Data Key</label>
+                <input type="text"
+                       name="attrs.{{attr.index}}.key"
+                       value="{{attr.key}}"
+                       class="attr-text-input"
+                       placeholder="fth"
+                       required />
+              </div>
+
+              <div class="field-group category-group">
+                <label class="field-lbl">Category</label>
+                <select name="attrs.{{attr.index}}.category" class="attr-select">
+                  {{#each attr.categoryOptions as |cat|}}
+                    <option value="{{cat.key}}" {{#if cat.selected}}selected{{/if}}>{{cat.label}}</option>
+                  {{/each}}
+                </select>
+              </div>
+
+              <button type="button"
+                      class="delete-attr-btn"
+                      data-action="deleteCustomAttr"
+                      data-index="{{attr.index}}"
+                      title="Delete Custom Attribute">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+
+            <div class="card-row-middle">
+              <label class="npc-toggle-label">
+                <input type="checkbox"
+                       name="attrs.{{attr.index}}.includeInNpc"
+                       class="homebrew-checkbox-mini"
+                       {{#if attr.includeInNpc}}checked{{/if}} />
+                <span class="npc-toggle-text"><i class="fas fa-user-ninja"></i> Include this attribute in NPC sheets</span>
+              </label>
+            </div>
+
+            <div class="card-row-bottom">
+              <label class="field-lbl">Footnote &amp; Hover Rules Tooltip</label>
+              <input type="text"
+                     name="attrs.{{attr.index}}.footnote"
+                     value="{{attr.footnote}}"
+                     class="attr-footnote-input"
+                     placeholder="Brief rules summary shown when hovering over attribute..." />
+            </div>
+          </div>
+        {{/each}}
+      </div>
+    {{else}}
+      <div class="empty-attrs-placeholder">
+        <i class="fas fa-cubes-stacked"></i>
+        <span>No custom attributes added yet. Click "+ Add Custom Attribute" to create one.</span>
+      </div>
+    {{/if}}
+  </div>
+
+  {{!-- ── 4. Custom Skills Manager ───────────────────────────────── --}}
+  <div class="homebrew-section-card">
+    <div class="section-title-row">
+      <div class="title-left">
+        <i class="fas fa-graduation-cap"></i>
+        <span class="section-title">Custom Skills Engine</span>
+      </div>
+      <button type="button" class="add-attr-btn add-skill-btn" data-action="addCustomSkill">
+        <i class="fas fa-plus"></i> Add Custom Skill
+      </button>
+    </div>
+
+    <p class="section-desc">
+      Define custom skills linked to standard attributes, Sanity (SAN), or custom attributes. These appear in Attribute &amp; Skill configuration windows and can be trained by characters.
+    </p>
+
+    {{#if hasCustomSkills}}
+      <div class="custom-attrs-list">
+        {{#each customSkills as |skill|}}
+          <div class="custom-attr-card custom-skill-card">
+            <div class="card-row-top">
+              <div class="field-group name-group">
+                <label class="field-lbl">Skill Name</label>
+                <input type="text"
+                       name="skills.{{skill.index}}.name"
+                       value="{{skill.name}}"
+                       class="attr-text-input"
+                       placeholder="e.g. Resolve"
+                       required />
+              </div>
+
+              <div class="field-group key-group">
+                <label class="field-lbl">Data Key</label>
+                <input type="text"
+                       name="skills.{{skill.index}}.key"
+                       value="{{skill.key}}"
+                       class="attr-text-input"
+                       placeholder="resolve"
+                       required />
+              </div>
+
+              <div class="field-group category-group">
+                <label class="field-lbl">Associated Attribute</label>
+                <select name="skills.{{skill.index}}.attribute" class="attr-select">
+                  {{#each skill.attrOptions as |opt|}}
+                    <option value="{{opt.key}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+                  {{/each}}
+                </select>
+              </div>
+
+              <button type="button"
+                      class="delete-attr-btn"
+                      data-action="deleteCustomSkill"
+                      data-index="{{skill.index}}"
+                      title="Delete Custom Skill">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        {{/each}}
+      </div>
+    {{else}}
+      <div class="empty-attrs-placeholder">
+        <i class="fas fa-book-bookmark"></i>
+        <span>No custom skills added yet. Click "+ Add Custom Skill" to create one.</span>
+      </div>
+    {{/if}}
+  </div>
+
+  {{!-- ── 5. Form Action Buttons ─────────────────────────────────── --}}
+  <div class="dialog-form-buttons">
+    <button type="button" class="dialog-cancel-btn" data-action="close" onclick="this.closest('.application').querySelector('.close')?.click();">
+      <i class="fas fa-times"></i> Cancel
+    </button>
+    <button type="submit" class="dialog-apply-btn">
+      <i class="fas fa-save"></i> Save Homebrew Settings
+    </button>
+  </div>
+
+</div>

@@ -15,7 +15,7 @@ import TagsManagementDialog from "../apps/tags-dialog.mjs";
 import ActorTagsAssignmentDialog from "../apps/actor-tags-dialog.mjs";
 
 import { findTagDefinition, formatTagTitle } from "../data/tags-library.mjs";
-import { enrichText, getEnrichedItemTags, rollItemDamage, getActorCritHit, getActorCritFail } from "./essence-character-sheet.mjs";
+import { enrichText, getEnrichedItemTags, rollItemDamage, rollSpellItem, getActorCritHit, getActorCritFail } from "./essence-character-sheet.mjs";
 import { getDefenseTargetConfig, renderDefenseTargetBadgeHTML } from "../data/defense-config.mjs";
 
 
@@ -269,15 +269,12 @@ export default class EssenceNPCSheet extends NPCSheet {
 
 
   static async #rollSpell(event, target) {
-    const itemId = target.dataset.itemId || target.closest("[data-item-id]")?.dataset?.itemId;
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const itemId = target.dataset?.itemId || target.closest("[data-item-id]")?.dataset?.itemId;
     const item = this.actor.items.get(itemId);
     if (!item) return;
-    if (typeof item.roll === "function") {
-      return await item.roll();
-    }
-    if (typeof this.actor.rollSpell === "function") {
-      return await this.actor.rollSpell(item);
-    }
+    return await rollSpellItem(this.actor, item);
   }
 
   static async #rollFeature(event, target) {
@@ -503,8 +500,8 @@ export default class EssenceNPCSheet extends NPCSheet {
       itemEl.classList.add("expanded");
     }
 
-    // Direct DOM toggle of drawer and chevron without re-rendering the header
-    const drawer = itemEl.querySelector(".item-drawer-content, .action-drawer-content, .reaction-drawer-content, .feature-drawer-content");
+    // Direct DOM toggle of drawer and chevron without re-rendering the whole window
+    const drawer = itemEl.querySelector(".item-drawer-content, .action-drawer-content, .reaction-drawer-content, .feature-drawer-content, .spell-embed, .item-embed-card");
     const chevron = itemEl.querySelector(".expand-btn i, .item-control.expand-btn i, .feature-ctrl-btn.expand-btn i");
     if (drawer) {
       drawer.style.display = isExpanded ? "none" : "block";
@@ -513,9 +510,9 @@ export default class EssenceNPCSheet extends NPCSheet {
       chevron.className = isExpanded ? "fas fa-chevron-down" : "fas fa-chevron-up";
     }
 
-    // If no pre-rendered drawer was found, render only the active tab part
+    // Re-render sheet to ensure template conditionals (e.g. {{#if spell.expanded}}) render properly
     if (!drawer) {
-      this.render({ parts: ["actions"] });
+      this.render(false);
     }
   }
 
@@ -816,7 +813,26 @@ export default class EssenceNPCSheet extends NPCSheet {
           }
         }
       }
-      context.senseInfo = { activeSenses };
+      // Homebrew: Fear calculation on NPC Header
+      const enableSanity = game.settings.get("mythcraft-essence-sheet", "enableSanity") ?? false;
+      const showMetaSetting = game.settings.get("mythcraft-essence-sheet", "npcShowMetaphysicalAttrs") ?? false;
+      const sanityOnNpcSetting = game.settings.get("mythcraft-essence-sheet", "sanityOnNpc") ?? false;
+      const showSanityOnNpc = enableSanity && (showMetaSetting || sanityOnNpcSetting);
+
+      const enableFearSetting = enableSanity && (game.settings.get("mythcraft-essence-sheet", "enableFear") ?? false);
+      const showFearOnNpc = enableFearSetting && (showMetaSetting || sanityOnNpcSetting);
+
+      context.enableFear = showFearOnNpc;
+      if (showFearOnNpc) {
+        const sanVal = Number(sys.attributes?.san ?? 0);
+        const fearThreshold = sanVal >= 0 ? (1 + Math.floor(sanVal / 2)) : (1 + sanVal);
+        const fearVal = Number(this.actor.system?.fear?.value ?? this.actor.flags?.["mythcraft-essence-sheet"]?.fear ?? 0);
+        context.fearValue = fearVal;
+        context.fearThreshold = fearThreshold;
+        context.displayFearThreshold = Math.max(0, fearThreshold);
+        context.isFearExceeded = fearVal > fearThreshold;
+        context.fearPct = fearThreshold > 0 ? Math.round(Math.min(100, Math.max(0, (fearVal / fearThreshold) * 100))) : (fearVal > 0 ? 100 : 0);
+      }
     }
 
     // ── Stats Tab ──
@@ -1159,12 +1175,43 @@ export default class EssenceNPCSheet extends NPCSheet {
       buildAttr("cor", "Corruption", "COR", null, null, null),
     ];
 
-    // Module setting: show metaphysical attributes (LUCK/COR) on NPC sheets
-    try {
-      context.showMetaAttrs = game.settings.get("mythcraft-essence-sheet", "npcShowMetaphysicalAttrs");
-    } catch (e) {
-      context.showMetaAttrs = false;
+    // Homebrew: Sanity (SAN) Metaphysical Attribute on NPCs
+    const enableSanity = game.settings.get("mythcraft-essence-sheet", "enableSanity") ?? false;
+    const showSetting = game.settings.get("mythcraft-essence-sheet", "npcShowMetaphysicalAttrs") ?? false;
+    const sanityOnNpcSetting = game.settings.get("mythcraft-essence-sheet", "sanityOnNpc") ?? false;
+    const showSanityOnNpc = enableSanity && (showSetting || sanityOnNpcSetting);
+    if (showSanityOnNpc) {
+      context.metaAttrs.push(buildAttr("san", "Sanity", "SAN", null, null, null));
     }
+
+    // Homebrew: Custom Attributes Engine for NPCs
+    const customAttrs = game.settings.get("mythcraft-essence-sheet", "customAttributes") ?? [];
+    let hasMetaCustom = false;
+    for (const cAttr of customAttrs) {
+      if (!cAttr.key || !cAttr.name || !cAttr.includeInNpc) continue;
+      const attrObj = buildAttr(
+        cAttr.key,
+        cAttr.name,
+        cAttr.abbr || cAttr.key.toUpperCase(),
+        null,
+        null,
+        null
+      );
+      attrObj.footnote = cAttr.footnote || null;
+      attrObj.isCustom = true;
+
+      if (cAttr.category === "physical") {
+        context.physicalAttrs.push(attrObj);
+      } else if (cAttr.category === "mental") {
+        context.mentalAttrs.push(attrObj);
+      } else {
+        context.metaAttrs.push(attrObj);
+        hasMetaCustom = true;
+      }
+    }
+
+    // Module setting: show metaphysical attributes (LUCK/COR/SAN/Custom Meta) on NPC sheets
+    context.showMetaAttrs = Boolean(showSetting || showSanityOnNpc || hasMetaCustom);
 
     // Senses parser for NPC (handles StringField "Darkvision 60 ft." or object)
     const rawSenses = sys.senses;

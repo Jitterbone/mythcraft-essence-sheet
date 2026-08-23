@@ -15,6 +15,9 @@ import {
 } from "./sheets/_module.mjs";
 import { initDamageAutomation, patchFeatureUsesMaxFormula } from "./features/damage-automation.mjs";
 import { initEquipmentAutomation, patchWeaponApcGetter } from "./features/equipment-automation.mjs";
+import { patchSystemHpCalculation, getEnduranceThreshold } from "./features/hp-automation.mjs";
+import { syncHomebrewAttributesToSystem, patchAttributeSkillInput } from "./features/homebrew-attributes.mjs";
+import LevelUpDialog from "./apps/level-up-dialog.mjs";
 import { registerSettings } from "./settings.mjs";
 
 import { findTagDefinition, getActiveTagsLibrary } from "./data/tags-library.mjs";
@@ -44,6 +47,9 @@ Hooks.once("init", () => {
   // Initialize Automation Engines
   initDamageAutomation();
   initEquipmentAutomation();
+  patchSystemHpCalculation();
+  syncHomebrewAttributesToSystem();
+  patchAttributeSkillInput();
 
   const { DocumentSheetConfig } = foundry.applications.apps;
 
@@ -131,6 +137,7 @@ Hooks.once("init", () => {
   Handlebars.registerHelper("lt",  (a, b) => Number(a) <  Number(b));
   Handlebars.registerHelper("eq",  (a, b) => a === b);
   Handlebars.registerHelper("ne",  (a, b) => a !== b);
+  Handlebars.registerHelper("subtract", (a, b) => Number(a) - Number(b));
 
   // String concat helper (used as sub-expression in formInput name= param)
   // Only register if Foundry hasn't already provided one.
@@ -186,6 +193,22 @@ Hooks.once("init", () => {
     }
     root.dataset.essenceEnriched = "true";
 
+    // 0. Clean unlocalized attribute/skill keys in flavor and title elements
+    const flavorEls = root.querySelectorAll(".flavor-text, .card-header h3, h3, .card-title, .message-header");
+    flavorEls.forEach(el => {
+      if (el.textContent && el.textContent.includes("MYTHCRAFT.Actor.base.FIELDS.attributes.")) {
+        let text = el.textContent;
+        text = text.replace(/MYTHCRAFT\.Actor\.base\.FIELDS\.attributes\.san\.label/g, "Sanity");
+        const customAttrs = game.settings?.get?.(MODULE_ID, "customAttributes") ?? [];
+        for (const ca of customAttrs) {
+          if (ca.key && ca.name) {
+            const re = new RegExp(`MYTHCRAFT\\.Actor\\.base\\.FIELDS\\.attributes\\.${ca.key}\\.label`, "g");
+            text = text.replace(re, ca.name);
+          }
+        }
+        el.textContent = text;
+      }
+    });
 
     // Check if this message is a Damage Roll or Healing Roll
 
@@ -523,6 +546,48 @@ Hooks.once("init", () => {
   Hooks.on("renderChatMessage", handleChatMessageRender);
 
   patchFeatureUsesMaxFormula();
+
+  // Default newly created Character Actors to Level 0 and 0 HP
+  Hooks.on("createActor", async (actor, options, userId) => {
+    if (game.user.id !== userId) return;
+    if (actor.type === "character") {
+      const currentLevel = actor.system?.level;
+      if ((currentLevel === 1 || currentLevel === 0) && (actor.system?.hp?.max === 15 || actor.system?.hp?.max === 0)) {
+        await actor.update({
+          "system.level": 0,
+          "system.hp.max": 0,
+          "system.hp.value": 0,
+        });
+      }
+    }
+  });
+
+  // Track previous Endurance before update to detect threshold shifts
+  Hooks.on("preUpdateActor", (actor, changed, options, userId) => {
+    if (actor.type === "character" && changed.system?.attributes?.end !== undefined) {
+      options._essenceOldEnd = Number(actor.system.attributes?.end ?? 0);
+    }
+  });
+
+  // Prompt HP recalculation when Endurance threshold changes
+  Hooks.on("updateActor", (actor, changed, options, userId) => {
+    if (game.user.id !== userId) return;
+    if (actor.type !== "character") return;
+    if (changed.system?.attributes?.end !== undefined && options._essenceOldEnd !== undefined) {
+      const oldEnd = options._essenceOldEnd;
+      const newEnd = Number(changed.system.attributes.end);
+      const oldTh = getEnduranceThreshold(oldEnd);
+      const newTh = getEnduranceThreshold(newEnd);
+
+      if (oldTh.threshold !== newTh.threshold && (actor.system.level || 0) > 0) {
+        // Threshold changed! Open LevelUpDialog in recalculate mode
+        new LevelUpDialog(actor, {
+          mode: "recalculate",
+          targetLevel: actor.system.level,
+        }).render(true);
+      }
+    }
+  });
 });
 
 
@@ -535,6 +600,9 @@ Hooks.once("ready", () => {
   patchWeaponApcGetter();
   initDamageAutomation();
   patchFeatureUsesMaxFormula();
+  patchSystemHpCalculation();
+  syncHomebrewAttributesToSystem();
+  patchAttributeSkillInput();
 
 
   // Expose Tag, Defense & Damage API globally for external modules (e.g. MythCraft HUD) or macros
@@ -581,5 +649,11 @@ document.addEventListener("click", async (event) => {
   if (!actor || !item) return;
 
   const isCrit = btn.dataset.isCrit === "true" || event.shiftKey;
-  await rollItemDamage(actor, item, { isCrit });
+  let rollMode = message?.blind ? "blindroll" : (message?.whisper?.length ? "gmroll" : null);
+  if (!rollMode) {
+    rollMode = game.settings.settings.has("core.messageMode") 
+      ? game.settings.get("core", "messageMode") 
+      : game.settings.get("core", "rollMode");
+  }
+  await rollItemDamage(actor, item, { isCrit, rollMode });
 });

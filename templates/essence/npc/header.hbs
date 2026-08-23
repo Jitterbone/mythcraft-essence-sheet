@@ -1,4 +1,4 @@
-﻿{{!-- ============================================================
+{{!-- ============================================================
      MythCraft Essence Sheet — NPC Header
      Context: document, actor, system, systemSource, sizeOptions,
               hpPct, shieldPct, isBloodied, deathVal, deathMax,
@@ -138,6 +138,52 @@
             </div>
           </div>
         </div>
+
+        {{!-- Fear Meter Card (Homebrew / Optional Rules) --}}
+        {{#if enableFear}}
+          <div class="meter-card fear-meter npc-fear-card {{#if isFearExceeded}}fear-exceeded{{/if}}">
+            <div class="meter-header">
+              <div class="meter-label-group">
+                <i class="fas fa-ghost meter-icon fear-icon"></i>
+                <span class="meter-title">Fear</span>
+                {{#if isFearExceeded}}
+                  <span class="fear-exceeded-tag" data-tooltip="<strong>Exceeded Fear Threshold!</strong>" data-tooltip-direction="UP">Exceeded</span>
+                {{/if}}
+              </div>
+              <div class="meter-inputs-group">
+                <input type="number"
+                       name="flags.mythcraft-essence-sheet.fear"
+                       value="{{fearValue}}"
+                       class="meter-val-input fear-val-input"
+                       min="0"
+                       data-tooltip="<strong>Current Fear</strong><br/><span style='font-size:11px;'>+1 on failed SAN checks, horrific events, or resting outside a Haven.</span>"
+                       data-tooltip-direction="UP" />
+                <span class="meter-divider">/</span>
+                <span class="fear-threshold-display"
+                      data-tooltip="<strong>Fear Threshold: {{fearThreshold}}</strong><br/><span style='font-size:11px;'>Calculated from Sanity: 1 + ⌊SAN / 2⌋ (negative SAN subtracts).</span>"
+                      data-tooltip-direction="UP">{{displayFearThreshold}}</span>
+              </div>
+            </div>
+
+            <div class="meter-track fear-meter-track">
+              <div class="meter-fill fear-bar-fill" style="width: {{fearPct}}%;"></div>
+            </div>
+
+            <div class="meter-sub-row fear-sub-row">
+              <span class="meter-sub-label fear-sub-label">
+                <i class="fas fa-heart-crack"></i>
+                Threshold
+              </span>
+              <span class="fear-status-text">
+                {{#if isFearExceeded}}
+                  <strong style="color:#ef4444;">Exceeded! (+{{subtract fearValue fearThreshold}})</strong>
+                {{else}}
+                  <span>Max: {{fearThreshold}}</span>
+                {{/if}}
+              </span>
+            </div>
+          </div>
+        {{/if}}
 
         {{!-- AR Chip --}}
         <div class="npc-header-ar-chip" title="Armor Rating (AR)">

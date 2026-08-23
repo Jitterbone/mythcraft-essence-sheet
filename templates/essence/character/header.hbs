@@ -72,13 +72,19 @@
         {{!-- Row 1: Level, Class & Origins --}}
         <div class="origins-row">
           {{!-- Level Chip --}}
-          <div class="badge-chip level-chip" title="Character Level">
+          <div class="badge-chip level-chip" title="Character Level — Click arrow to Level Up / Manage HP">
             <span class="chip-label">Level</span>
             <input type="number"
                    name="system.level"
                    value="{{system.level}}"
                    class="chip-input level-input"
-                   min="1" max="20" />
+                   min="0" max="20" />
+            <button type="button"
+                    class="level-up-chip-btn"
+                    data-action="openLevelUpDialog"
+                    title="Level Up &amp; HP Calculator">
+              <i class="fas fa-circle-arrow-up"></i>
+            </button>
           </div>
 
           {{!-- Class --}}
@@ -129,26 +135,26 @@
           <div class="quick-field size-field">
             <span class="quick-label">Size:</span>
             <select name="system.size" class="quick-select size-select" title="Character Size">
-              {{#each sizeOptions as |s|}}
-                <option value="{{s.key}}" {{#if s.selected}}selected{{/if}}>{{s.label}}</option>
+              {{#each sizeOptions as |opt|}}
+                <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
               {{/each}}
             </select>
           </div>
 
           {{!-- Height --}}
-          <div class="quick-field">
+          <div class="quick-field appearance-field">
             <span class="quick-label">Height:</span>
             <input type="text" name="system.appearance.height" value="{{system.appearance.height}}" class="quick-input" placeholder="—" />
           </div>
 
           {{!-- Weight --}}
-          <div class="quick-field">
+          <div class="quick-field appearance-field">
             <span class="quick-label">Weight:</span>
             <input type="text" name="system.appearance.weight" value="{{system.appearance.weight}}" class="quick-input" placeholder="—" />
           </div>
 
           {{!-- Age --}}
-          <div class="quick-field">
+          <div class="quick-field appearance-field">
             <span class="quick-label">Age:</span>
             <input type="text" name="system.appearance.age" value="{{system.appearance.age}}" class="quick-input" placeholder="—" />
           </div>
@@ -256,8 +262,8 @@
           </div>
         </div>
 
-        {{!-- 3. SP Card (With Magic Power Levels in sub-row) --}}
-        <div class="meter-card sp-meter">
+        {{!-- 3. SP Card (With Magic Power Levels in sub-row) - Dissolves away for non-spellcasters --}}
+        <div class="meter-card sp-meter {{#if hasSpellcasting}}has-sp{{else}}no-sp{{/if}}">
           <div class="meter-header">
             <div class="meter-label-group">
               <i class="fas fa-hat-wizard meter-icon sp-icon"></i>
@@ -299,6 +305,52 @@
             </div>
           </div>
         </div>
+
+        {{!-- 4. Fear Meter Card (Homebrew / Optional Rules) --}}
+        {{#if enableFear}}
+          <div class="meter-card fear-meter {{#if isFearExceeded}}fear-exceeded{{/if}}">
+            <div class="meter-header">
+              <div class="meter-label-group">
+                <i class="fas fa-ghost meter-icon fear-icon"></i>
+                <span class="meter-title">Fear</span>
+                {{#if isFearExceeded}}
+                  <span class="fear-exceeded-tag" data-tooltip="<strong>Exceeded Fear Threshold!</strong><br/><span style='font-size:11px; color:#fca5a5;'>You must resolve excess fear before you can Take a Rest, or you gain Fatigue.</span>" data-tooltip-direction="UP">Exceeded</span>
+                {{/if}}
+              </div>
+              <div class="meter-inputs-group">
+                <input type="number"
+                       name="flags.mythcraft-essence-sheet.fear"
+                       value="{{fearValue}}"
+                       class="meter-val-input fear-val-input"
+                       min="0"
+                       data-tooltip="<strong>Current Fear</strong><br/><span style='font-size:11px;'>+1 on failed SAN checks, horrific events, or resting outside a Haven.</span>"
+                       data-tooltip-direction="UP" />
+                <span class="meter-divider">/</span>
+                <span class="fear-threshold-display"
+                      data-tooltip="<strong>Fear Threshold: {{fearThreshold}}</strong><br/><span style='font-size:11px;'>Calculated from Sanity: 1 + ⌊SAN / 2⌋ (negative SAN subtracts).</span>"
+                      data-tooltip-direction="UP">{{displayFearThreshold}}</span>
+              </div>
+            </div>
+
+            <div class="meter-track fear-meter-track">
+              <div class="meter-fill fear-bar-fill" style="width: {{fearPct}}%;"></div>
+            </div>
+
+            <div class="meter-sub-row fear-sub-row">
+              <span class="meter-sub-label fear-sub-label">
+                <i class="fas fa-shield-halved"></i>
+                Threshold
+              </span>
+              <span class="fear-status-text">
+                {{#if isFearExceeded}}
+                  <strong style="color: #f87171;">Must resolve before Rest</strong>
+                {{else}}
+                  <span>Max Capacity: {{fearThreshold}}</span>
+                {{/if}}
+              </span>
+            </div>
+          </div>
+        {{/if}}
 
       </div>
 

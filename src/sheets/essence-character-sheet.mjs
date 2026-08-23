@@ -14,6 +14,8 @@ import DamageModificationDialog from "../apps/damage-modification-dialog.mjs";
 import MovementDialog from "../apps/movement-dialog.mjs";
 import SensesDialog from "../apps/senses-dialog.mjs";
 import ConditionsDialog from "../apps/conditions-dialog.mjs";
+import LevelUpDialog from "../apps/level-up-dialog.mjs";
+import { getEnduranceThreshold } from "../features/hp-automation.mjs";
 import WalletDialog, {
   getActiveCurrencies,
   getActorCurrencyCount,
@@ -178,9 +180,10 @@ export function getSafeWeaponApc(item, actor) {
  * @param {Item} item
  * @param {object} [options={}]
  * @param {boolean} [options.isCrit=false]
+ * @param {string|null} [options.rollMode=null]
  * @returns {Promise<ChatMessage|void>}
  */
-export async function rollItemDamage(actor, item, { isCrit = false } = {}) {
+export async function rollItemDamage(actor, item, { isCrit = false, rollMode = null } = {}) {
   if (!actor || !item) return;
 
   const rollData = actor.getRollData();
@@ -302,7 +305,12 @@ export async function rollItemDamage(actor, item, { isCrit = false } = {}) {
   if (isCrit && luckScore) notes.push(`+${luckScore} LUCK`);
   const flavorSuffix = notes.length ? ` (Includes ${notes.join(", ")})` : "";
 
-  return ChatMessage.create({
+  const defaultMode = game.settings.settings.has("core.messageMode") 
+    ? game.settings.get("core", "messageMode") 
+    : game.settings.get("core", "rollMode");
+  const activeRollMode = rollMode || defaultMode || "publicroll";
+
+  const messageData = {
     speaker: ChatMessage.getSpeaker({ actor }),
     rolls,
     flavor: `${flavorPrefix} - ${game.i18n.localize("MYTHCRAFT.Roll.Damage")}${flavorSuffix}`,
@@ -316,7 +324,118 @@ export async function rollItemDamage(actor, item, { isCrit = false } = {}) {
         isDamage: true,
       },
     },
+  };
+
+  ChatMessage.applyRollMode(messageData, activeRollMode);
+  return ChatMessage.create(messageData, { rollMode: activeRollMode });
+}
+
+/**
+ * Executes a full Spell Check / Spell Attack roll for an actor with magic source,
+ * spellcasting ability, defense target, and critical thresholds.
+ * @param {Actor} actor
+ * @param {Item} item
+ * @param {object} [options={}]
+ * @param {string|null} [options.rollMode=null]
+ * @returns {Promise<ChatMessage|void>}
+ */
+export async function rollSpellItem(actor, item, { rollMode = null } = {}) {
+  if (!actor || !item || item.type !== "spell") return;
+
+  const spellcastingAbility = actor.system?.sp?.attribute ?? "int";
+  let abilityMod = Number(actor.system?.attributes?.[spellcastingAbility] ?? 0);
+
+  const powerLevels = actor.system?.powerLevel ?? {};
+  const primarySource = Object.entries(powerLevels)
+    .sort(([, a], [, b]) => b - a)[0]?.[0];
+  const isPrimary = primarySource ? (item.system?.magicSource === primarySource) : true;
+  if (primarySource && !isPrimary) abilityMod = Math.ceil(abilityMod / 2);
+
+  const critHit = getActorCritHit(actor);
+  const critFail = getActorCritFail(actor);
+  const luck = Number(actor.system?.attributes?.luck?.value ?? actor.system?.attributes?.luck ?? 0);
+
+  // MythCraft Rule: If LUCK < 0, subtract LUCK from every d20 roll
+  let formula = `1d20 + ${abilityMod}`;
+  if (luck < 0) {
+    formula = `${formula} - ${Math.abs(luck)}`;
+  }
+
+  const SpellRollClass = mythcraft?.rolls?.SpellRoll || Roll;
+  const defenseTarget = item.system?.defenseTarget || item.system?.defense || "";
+  const roll = new SpellRollClass(formula, actor.getRollData(), {
+    spellName: item.name,
+    source: item.system?.magicSource,
+    isPrimary,
+    critHit,
+    flavor: `${item.name} - Spell Roll`,
+    spc: item.system?.spc,
+    range: item.system?.rangeLabel,
+    duration: item.system?.durationLabel,
   });
+
+  if (typeof roll.evaluate === "function" && !roll._evaluated) {
+    await roll.evaluate();
+  }
+
+  const d20Term = roll.terms?.find(t => t.faces === 20);
+  const d20Result = d20Term?.results?.find(r => r.active !== false)?.result ?? d20Term?.results?.[0]?.result ?? roll.dice?.[0]?.total;
+  const isCrit = typeof d20Result === "number" && d20Result >= critHit;
+  const isFumble = typeof d20Result === "number" && d20Result <= critFail;
+
+  const defBadgeHTML = defenseTarget ? renderDefenseTargetBadgeHTML(defenseTarget) : "";
+  const resultClass = isCrit ? "crit-success" : (isFumble ? "crit-fail" : "");
+  const resultLabel = isCrit ? "CRITICAL SUCCESS" : (isFumble ? "CRITICAL FAILURE" : "SPELL ROLL");
+
+  const content = `
+    <div class="mythcraft-statblock spell-card">
+      <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+          <img src="${item.img}" style="border: 1px solid #a8d5e2; border-radius: 4px; height: 32px; width: 32px; object-fit: cover; margin-right: 8px; flex-shrink: 0;" />
+          <span class="card-title" style="font-family: 'Cinzel', serif; font-size: 14px; color: #FEEBB3; font-weight: 700;">${item.name}</span>
+        </div>
+        ${defBadgeHTML}
+      </div>
+      <div class="roll-result ${resultClass}">
+        <div class="roll-label">${resultLabel}</div>
+        <div class="roll-value">${roll.total}</div>
+        <div class="roll-formula">${roll.formula}</div>
+      </div>
+    </div>
+  `;
+
+  const defaultMode = game.settings.settings.has("core.messageMode") 
+    ? game.settings.get("core", "messageMode") 
+    : game.settings.get("core", "rollMode");
+  const activeRollMode = rollMode || defaultMode || "publicroll";
+
+  const msgData = {
+    user: game.user.id,
+    speaker: ChatMessage.getSpeaker({ actor }),
+    flavor: item.name,
+    content: content,
+    rolls: [roll],
+    flags: {
+      "mythcraft-essence-sheet": {
+        itemId: item.id,
+        itemUuid: item.uuid,
+        itemName: item.name,
+        defenseTarget,
+        isSpell: true,
+        critHit,
+        isCrit,
+        isFumble,
+      },
+    },
+  };
+
+  ChatMessage.applyRollMode(msgData, activeRollMode);
+
+  if (CONST.CHAT_MESSAGE_STYLES) {
+    msgData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
+  }
+
+  return await ChatMessage.create(msgData, { rollMode: activeRollMode });
 }
 
 /**
@@ -378,6 +497,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       editSenses: this.#editSenses,
       editConditions: this.#editConditions,
       openWalletDialog: this.#openWalletDialog,
+      openLevelUpDialog: this.#openLevelUpDialog,
       openTab: this.#openTab,
       toggleItemEmbed: this.#toggleItemEmbed,
       toggleEffectEmbed: this.#toggleEffectEmbed,
@@ -650,93 +770,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     const itemId = target.closest("[data-item-id]")?.dataset.itemId;
     const item = this.actor.items.get(itemId);
     if (!item || item.type !== "spell") return;
-
-    const spellcastingAbility = this.actor.system?.sp?.attribute ?? "int";
-    let abilityMod = Number(this.actor.system?.attributes?.[spellcastingAbility] ?? 0);
-
-    const powerLevels = this.actor.system?.powerLevel ?? {};
-    const primarySource = Object.entries(powerLevels)
-      .sort(([, a], [, b]) => b - a)[0]?.[0];
-    const isPrimary = item.system?.magicSource === primarySource;
-    if (!isPrimary) abilityMod = Math.ceil(abilityMod / 2);
-
-    const critFail = Number(this.actor.system?.critical?.effectiveFail ?? this.actor.system?.critical?.fail ?? 1);
-    const luck = Number(this.actor.system?.attributes?.luck?.value ?? this.actor.system?.attributes?.luck ?? 0);
-
-    // MythCraft Rule: If LUCK < 0, subtract LUCK from every d20 roll
-    let formula = `1d20 + ${abilityMod}`;
-    if (luck < 0) {
-      formula = `${formula} - ${Math.abs(luck)}`;
-    }
-
-    const SpellRollClass = mythcraft.rolls?.SpellRoll || Roll;
-    const defenseTarget = item.system?.defenseTarget || item.system?.defense || "";
-    const roll = new SpellRollClass(formula, this.actor.getRollData(), {
-      spellName: item.name,
-      source: item.system?.magicSource,
-      isPrimary,
-      critHit,
-      flavor: `${item.name} - Spell Roll`,
-      spc: item.system?.spc,
-      range: item.system?.rangeLabel,
-      duration: item.system?.durationLabel,
-    });
-
-    if (typeof roll.evaluate === "function" && !roll._evaluated) {
-      await roll.evaluate();
-    }
-
-    const d20Term = roll.terms?.find(t => t.faces === 20);
-    const d20Result = d20Term?.results?.find(r => r.active !== false)?.result ?? d20Term?.results?.[0]?.result ?? roll.dice?.[0]?.total;
-    const isCrit = typeof d20Result === "number" && d20Result >= critHit;
-    const isFumble = typeof d20Result === "number" && d20Result <= critFail;
-
-    const defBadgeHTML = defenseTarget ? renderDefenseTargetBadgeHTML(defenseTarget) : "";
-    const resultClass = isCrit ? "crit-success" : (isFumble ? "crit-fail" : "");
-    const resultLabel = isCrit ? "CRITICAL SUCCESS" : (isFumble ? "CRITICAL FAILURE" : "SPELL ROLL");
-
-    const content = `
-      <div class="mythcraft-statblock spell-card">
-        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-          <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
-            <img src="${item.img}" style="border: 1px solid #a8d5e2; border-radius: 4px; height: 32px; width: 32px; object-fit: cover; margin-right: 8px; flex-shrink: 0;" />
-            <span class="card-title" style="font-family: 'Cinzel', serif; font-size: 14px; color: #FEEBB3; font-weight: 700;">${item.name}</span>
-          </div>
-          ${defBadgeHTML}
-        </div>
-        <div class="roll-result ${resultClass}">
-          <div class="roll-label">${resultLabel}</div>
-          <div class="roll-value">${roll.total}</div>
-          <div class="roll-formula">${roll.formula}</div>
-        </div>
-      </div>
-    `;
-
-    const msgData = {
-      user: game.user.id,
-      speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-      flavor: item.name,
-      content: content,
-      rolls: [roll],
-      flags: {
-        "mythcraft-essence-sheet": {
-          itemId: item.id,
-          itemUuid: item.uuid,
-          itemName: item.name,
-          defenseTarget,
-          isSpell: true,
-          critHit,
-          isCrit,
-          isFumble,
-        },
-      },
-    };
-
-    if (CONST.CHAT_MESSAGE_STYLES) {
-      msgData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
-    }
-
-    return await ChatMessage.create(msgData);
+    return await rollSpellItem(this.actor, item);
   }
 
 
@@ -918,6 +952,12 @@ export default class EssenceCharacterSheet extends CharacterSheet {
   static async #openWalletDialog(event, target) {
     event.stopPropagation();
     new WalletDialog({ document: this.actor }).render(true);
+  }
+
+  static async #openLevelUpDialog(event, target) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    new LevelUpDialog(this.actor).render(true);
   }
 
   static async #openTab(event, target) {
@@ -1378,10 +1418,32 @@ export default class EssenceCharacterSheet extends CharacterSheet {
    * @type {Map<string, string>}
    */
   #meterValues = new Map();
+  #lastHasSpellcasting = null;
 
   /** @inheritdoc */
   _onRender(context, options) {
     super._onRender(context, options);
+
+    // Magical dissolve / expand animation for Resource Meters Panel & SP Meter
+    const spMeter = this.element.querySelector(".sp-meter");
+    const currentHasSpellcasting = spMeter?.classList.contains("has-sp") ?? false;
+
+    if (this.#lastHasSpellcasting !== null && this.#lastHasSpellcasting !== currentHasSpellcasting) {
+      if (currentHasSpellcasting && spMeter) {
+        // Just gained spellcasting: animate SP dissolving in like a magic spell
+        spMeter.classList.add("magic-dissolve-enter");
+        setTimeout(() => {
+          spMeter.classList.remove("magic-dissolve-enter");
+        }, 700);
+      } else if (!currentHasSpellcasting && spMeter) {
+        // Just lost spellcasting: animate SP dissolving away like smoke/fade
+        spMeter.classList.add("magic-dissolve-exit");
+        setTimeout(() => {
+          spMeter.classList.remove("magic-dissolve-exit");
+        }, 600);
+      }
+    }
+    this.#lastHasSpellcasting = currentHasSpellcasting;
 
     // Character sheet window overflow and folder tab positioning are handled cleanly via CSS (:not(.minimized))
 
@@ -1405,6 +1467,85 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       }
       this.#meterValues.set(key, targetWidth);
     }
+
+    // Intercept Level input changes to open Level Up & HP Calculator
+    const levelInput = this.element.querySelector("input[name='system.level']");
+    if (levelInput) {
+      levelInput.addEventListener("change", (event) => {
+        const newLvl = parseInt(event.target.value, 10);
+        const curLvl = this.actor.system.level || 0;
+        if (!isNaN(newLvl) && newLvl !== curLvl) {
+          event.preventDefault();
+          event.stopPropagation();
+          event.target.value = curLvl;
+          new LevelUpDialog(this.actor, { targetLevel: newLvl }).render(true);
+        }
+      });
+    }
+
+    // Endurance Threshold change detection: prompt HP recalculation
+    const endInput = this.element.querySelector("input[name='system.attributes.end']");
+    if (endInput) {
+      endInput.addEventListener("change", async (event) => {
+        const oldEnd = Number(this.actor.system.attributes?.end ?? 0);
+        const newEnd = parseInt(event.target.value, 10);
+        if (isNaN(newEnd)) return;
+
+        const oldTh = getEnduranceThreshold(oldEnd);
+        const newTh = getEnduranceThreshold(newEnd);
+
+        if (oldTh.threshold !== newTh.threshold) {
+          const level = Math.max(1, this.actor.system.level || 1);
+          setTimeout(() => {
+            new LevelUpDialog(this.actor, {
+              mode: "recalculate",
+              targetLevel: level,
+            }).render(true);
+          }, 250);
+        }
+      });
+    }
+
+    // Fear tracker input listener
+    const fearInput = this.element.querySelector("input[name='flags.mythcraft-essence-sheet.fear'], input[name='fear.value']");
+    if (fearInput) {
+      fearInput.addEventListener("change", async (event) => {
+        const val = Math.max(0, parseInt(event.target.value, 10) || 0);
+        await this.actor.update({ "flags.mythcraft-essence-sheet.fear": val });
+      });
+    }
+
+    // Direct attribute score change listener for standard, Sanity, and custom attributes
+    const attrInputs = this.element.querySelectorAll(".attr-num-input");
+    attrInputs.forEach(input => {
+      input.addEventListener("change", async (event) => {
+        const name = event.target.name;
+        const val = parseInt(event.target.value, 10);
+        if (!isNaN(val) && name) {
+          await this.actor.update({ [name]: val });
+        }
+      });
+    });
+
+    // Right-click to Delete Origin Items (Lineage, Background, Profession)
+    const originFilledChips = this.element.querySelectorAll(".origin-chip.origin-filled");
+    originFilledChips.forEach(chip => {
+      chip.addEventListener("contextmenu", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const itemId = chip.dataset.itemId;
+        const item = this.actor.items.get(itemId);
+        if (!item) return;
+
+        const confirmed = await EssenceCharacterSheet.#confirmDeletion(
+          `Delete ${item.name}?`,
+          `Are you sure you want to remove <strong>${item.name}</strong> (${item.type}) from this character?`
+        );
+        if (confirmed) {
+          await item.delete();
+        }
+      });
+    });
 
     // Right-click Image Popout for Actor Portrait & all Item Images on Sheet
     const ImagePopoutApp = foundry.applications.apps.ImagePopout || globalThis.ImagePopout;
@@ -1692,6 +1833,12 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       .filter(s => s.value > 0);
     context.hasMagicPower = context.magicPowerPills.length > 0;
 
+    // Spellcasting presence check (Spells, Spell Points > 0, or Power Level > 0)
+    const spellCount = this.actor.itemTypes?.spell?.length ?? this.actor.items.filter(i => i.type === "spell").length;
+    const spVal = Number(sp?.value ?? 0);
+    const spMax = Number(sp?.max ?? 0);
+    context.hasSpellcasting = (spellCount > 0) || (spMax > 0) || (spVal > 0) || context.hasMagicPower;
+
     // Prepare structured attribute and skill groups
     this._prepareEssenceAttributes(context);
 
@@ -1925,7 +2072,13 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       for (const [id, cfg] of Object.entries(skillConfig)) {
         if (cfg.attribute === attrKey && id in allSkills) {
           const sData = allSkills[id];
-          const rawLabel = cfg.specialized ? game.i18n.format(cfg.specialized, sData) : (cfg.label ? game.i18n.localize(cfg.label) : id);
+          let rawLabel = id;
+          if (cfg.specialized) {
+            rawLabel = game.i18n.format(cfg.specialized, sData);
+          } else if (cfg.label) {
+            const loc = game.i18n.localize(cfg.label);
+            rawLabel = loc && !loc.startsWith("MYTHCRAFT.") ? loc : (cfg.label || id);
+          }
           list.push({
             id,
             label: rawLabel || id,
@@ -2017,6 +2170,42 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         skills: getSkillsForAttr("cor"),
       },
     ];
+
+    // Homebrew: Sanity (SAN) Metaphysical Attribute
+    const enableSanity = game.settings.get("mythcraft-essence-sheet", "enableSanity") ?? false;
+    if (enableSanity) {
+      context.metaAttrs.push({
+        key: "san",
+        label: "SAN",
+        name: "Sanity",
+        value: attrs.san ?? 0,
+        bonusDisplay: formatBonus(attrs.san ?? 0),
+        defense: null,
+        skills: getSkillsForAttr("san"),
+        footnote: "Ability to endure terror. Modifies Sanity checks and increases Fear Threshold (+1 per 2 SAN; negative SAN subtracts). Gain +1 Attribute Point at creation, and at levels 5, 10, 15, 20, 25, and 29.",
+        isSanity: true,
+      });
+    }
+
+    // Homebrew: Custom Attributes Engine
+    const customAttrs = game.settings.get("mythcraft-essence-sheet", "customAttributes") ?? [];
+    for (const cAttr of customAttrs) {
+      if (!cAttr.key || !cAttr.name) continue;
+      const attrObj = {
+        key: cAttr.key,
+        label: cAttr.abbr || cAttr.key.toUpperCase(),
+        name: cAttr.name,
+        value: attrs[cAttr.key] ?? 0,
+        bonusDisplay: formatBonus(attrs[cAttr.key] ?? 0),
+        defense: null,
+        skills: getSkillsForAttr(cAttr.key),
+        footnote: cAttr.footnote || null,
+        isCustom: true,
+      };
+      if (cAttr.category === "physical") context.physicalAttrs.push(attrObj);
+      else if (cAttr.category === "mental") context.mentalAttrs.push(attrObj);
+      else context.metaAttrs.push(attrObj);
+    }
   }
 
   /** @inheritdoc */
@@ -2071,6 +2260,21 @@ export default class EssenceCharacterSheet extends CharacterSheet {
 
     context.spPct = spMax > 0 ? Math.round(Math.min(100, Math.max(0, (sp.value / spMax) * 100))) : 0;
     context.isBloodied = hpVal > 0 && hpVal <= (hp.bloodied || Math.floor(hpMax / 2));
+
+    // Homebrew: Fear Threshold & Fear Resource calculation
+    const enableSanitySetting = game.settings.get("mythcraft-essence-sheet", "enableSanity") ?? false;
+    const enableFearSetting = enableSanitySetting && (game.settings.get("mythcraft-essence-sheet", "enableFear") ?? false);
+    context.enableFear = enableFearSetting;
+    if (enableFearSetting) {
+      const sanVal = Number(this.actor.system?.attributes?.san ?? 0);
+      const fearThreshold = sanVal >= 0 ? (1 + Math.floor(sanVal / 2)) : (1 + sanVal);
+      const fearVal = Number(this.actor.system?.fear?.value ?? this.actor.flags?.["mythcraft-essence-sheet"]?.fear ?? 0);
+      context.fearValue = fearVal;
+      context.fearThreshold = fearThreshold;
+      context.displayFearThreshold = Math.max(0, fearThreshold);
+      context.isFearExceeded = fearVal > fearThreshold;
+      context.fearPct = fearThreshold > 0 ? Math.round(Math.min(100, Math.max(0, (fearVal / fearThreshold) * 100))) : (fearVal > 0 ? 100 : 0);
+    }
 
     // ── 4 Dedicated Quick-Access Side Tabs & Drawer System ──
     const allContainers = this.actor.items.filter(i => isItemContainer(i));

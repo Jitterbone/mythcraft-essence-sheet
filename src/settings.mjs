@@ -7,6 +7,7 @@
 
 import CurrencyConfigDialog from "./apps/currency-config-dialog.mjs";
 import TagsManagementDialog from "./apps/tags-dialog.mjs";
+import HomebrewConfigDialog from "./apps/homebrew-config-dialog.mjs";
 import { DEFAULT_TAGS_LIBRARY } from "./data/tags-library.mjs";
 
 export const MODULE_ID = "mythcraft-essence-sheet";
@@ -28,6 +29,60 @@ export const DEFAULT_CURRENCY_PRESETS = [
  * Register all module settings
  */
 export function registerSettings() {
+
+  // ── HOMEBREW & CUSTOM ATTRIBUTES ──────────────────────────────────────────
+
+  game.settings.registerMenu(MODULE_ID, "homebrewConfigMenu", {
+    name: "Homebrew Rules & Custom Attributes",
+    label: "Configure Homebrew & Attributes",
+    hint: "Enable Sanity (SAN) attribute, Fear Threshold & resource meter, or create custom Physical, Mental, and Metaphysical attributes.",
+    icon: "fas fa-flask-vial",
+    type: HomebrewConfigDialog,
+    restricted: true,
+  });
+
+  game.settings.register(MODULE_ID, "enableSanity", {
+    name: "Enable Sanity (SAN) Attribute",
+    hint: "Adds Sanity as a 3rd Metaphysical attribute on character sheets.",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+  });
+
+  game.settings.register(MODULE_ID, "enableFear", {
+    name: "Enable Fear Threshold & Resource Bar",
+    hint: "Displays an automated Fear Threshold and resource tracker bar on character sheets.",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+  });
+
+  game.settings.register(MODULE_ID, "sanityOnNpc", {
+    name: "Include Sanity on NPC Sheets",
+    hint: "Displays the Sanity (SAN) attribute on NPC stat sheets when Sanity is enabled.",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+  });
+
+  game.settings.register(MODULE_ID, "customAttributes", {
+    name: "Custom Attributes",
+    scope: "world",
+    config: false,
+    type: Array,
+    default: [],
+  });
+
+  game.settings.register(MODULE_ID, "customSkills", {
+    name: "Custom Skills",
+    scope: "world",
+    config: false,
+    type: Array,
+    default: [],
+  });
 
   // ── QUALITY OF LIFE SETTINGS ──────────────────────────────────────────────
 
@@ -195,6 +250,17 @@ export function registerSettings() {
 
     const mainHeaderStyle = "font-size: 1.15rem; font-weight: 700; border-bottom: 2px solid rgba(42, 122, 127, 0.85); color: #9bd7e5; margin: 20px 0 10px 0; padding-bottom: 4px; display: flex; align-items: center; gap: 8px; width: 100%; text-transform: uppercase; letter-spacing: 0.05em; grid-column: 1 / -1; flex-basis: 100%; clear: both;";
     const subHeaderStyle = "font-size: 0.92rem; font-weight: 700; color: #6ee7b7; margin: 14px 0 6px 0; padding: 3px 0 4px 8px; border-left: 3px solid #2a7a7f; border-bottom: 1px solid rgba(42, 122, 127, 0.35); background: rgba(42, 122, 127, 0.08); display: flex; align-items: center; gap: 6px; width: 100%; text-transform: uppercase; letter-spacing: 0.03em; grid-column: 1 / -1; flex-basis: 100%; clear: both;";
+
+    // 0. HOMEBREW & CUSTOM ATTRIBUTES Header
+    const targetHomebrewEl = root.querySelector('[data-key="mythcraft-essence-sheet.homebrewConfigMenu"]');
+    const targetHomebrew = targetHomebrewEl?.closest('.form-group') || targetHomebrewEl?.closest('.setting') || targetHomebrewEl;
+    if (targetHomebrew && !root.querySelector('.essence-homebrew-main-header')) {
+      const hbHeader = document.createElement('h3');
+      hbHeader.className = 'essence-homebrew-main-header';
+      hbHeader.innerHTML = '<i class="fas fa-flask-vial" style="color: #a78bfa;"></i> Homebrew &amp; Alternate Rules';
+      hbHeader.style.cssText = mainHeaderStyle;
+      targetHomebrew.parentNode.insertBefore(hbHeader, targetHomebrew);
+    }
 
     // 1. QUALITY OF LIFE Header
     const targetQoLEl = root.querySelector('[data-key="mythcraft-essence-sheet.currencyConfigMenu"]') ||

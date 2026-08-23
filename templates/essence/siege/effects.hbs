@@ -1,0 +1,92 @@
+{{!-- ============================================================
+     MythCraft Essence Sheet — Siege Weapon Effects
+     Context: document, actor, effects
+     ============================================================ --}}
+<section class="tab {{tab.cssClass}} siege-effects-tab" data-group="primary" data-tab="effects">
+  <div class="inventory-section">
+
+    <div class="inventory-header">
+      <h3 class="section-header">
+        <i class="fas fa-bolt"></i>
+        <span>Active Engine Conditions &amp; Effects</span>
+      </h3>
+      <button type="button"
+              class="create-item-btn"
+              data-action="createEffect"
+              title="Add Effect">
+        <i class="fas fa-plus"></i>
+        <span>Add Effect</span>
+      </button>
+    </div>
+
+    {{#each effects as |category|}}
+      <div class="effect-cat-group">
+        <div class="effect-cat-title-strip">
+          <span class="cat-name">{{category.label}}</span>
+          <span class="cat-badge">({{category.effects.length}})</span>
+        </div>
+
+        {{#if category.effects.length}}
+          <ul class="item-list spell-list">
+            {{#each category.effects as |eff|}}
+              <li class="item item-row spell-row {{#if eff.expanded}}expanded{{/if}}"
+                  data-effect-id="{{eff.effect.id}}"
+                  data-document-class="ActiveEffect">
+                <div class="spell-left-group">
+                  <img class="item-img spell-img" src="{{eff.effect.img}}" alt="{{eff.effect.name}}" />
+                  <span class="item-name spell-name"
+                        data-action="toggleEffectEmbed"
+                        data-effect-id="{{eff.effect.id}}">
+                    {{eff.effect.name}}
+                  </span>
+                </div>
+                <div class="spell-right-group">
+                  <div class="item-actions">
+                    <button type="button"
+                            class="item-action-btn toggle-btn {{#if eff.effect.disabled}}disabled{{/if}}"
+                            data-action="toggleEffect"
+                            data-effect-id="{{eff.effect.id}}"
+                            title="Toggle Effect Enabled/Disabled">
+                      <i class="fas fa-power-off"></i>
+                    </button>
+                    <button type="button"
+                            class="item-action-btn edit-btn"
+                            data-action="editEffect"
+                            data-effect-id="{{eff.effect.id}}"
+                            title="Edit Effect">
+                      <i class="fas fa-edit"></i>
+                    </button>
+                    <button type="button"
+                            class="item-action-btn delete-btn"
+                            data-action="deleteEffect"
+                            data-effect-id="{{eff.effect.id}}"
+                            title="Delete Effect">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </div>
+                </div>
+
+                {{#if eff.expanded}}
+                  <div class="item-embed-card spell-embed">
+                    <div class="spell-embed-body">
+                      {{#if eff.embed}}
+                        {{{eff.embed}}}
+                      {{else if eff.effect.description}}
+                        {{{eff.effect.description}}}
+                      {{else}}
+                        <p class="empty-desc-hint">No effect details provided.</p>
+                      {{/if}}
+                    </div>
+                  </div>
+                {{/if}}
+              </li>
+            {{/each}}
+          </ul>
+        {{else}}
+          <p class="empty-desc-hint" style="padding: 4px 8px;">No {{category.label}} effects.</p>
+        {{/if}}
+      </div>
+    {{/each}}
+
+  </div>
+</section>

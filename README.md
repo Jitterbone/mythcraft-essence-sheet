@@ -178,8 +178,10 @@ Navigate to **Game Settings** -> **Configure Settings** -> **MythCraft Essence S
   - Automates full LP restoration upon Taking a Rest.
 - **Player Ownership & GM-Only Permission Fix**:
   - Intercepts and sanitizes GM-only fields (`system.description.gm`, `system.biography.gm`) during player sheet updates and item creation, resolving Foundry `HTMLField._sanitize` permission errors.
-- **Spell Creation Bugfix**:
-  - Resolved `cleanSourceLabel` type error crash when adding new spells to character sheets.
+- **Hand-and-a-Half Two-Handed APC Reduction**:
+  - Automatically parses 2H APC reduction rules from weapon tags and item descriptions (e.g. `"STR Weapon, Hand-and-a-Half (reduce APC by 1, min 2)"`, `"-1 APC, min 2"`, `"2 APC"`).
+  - Dynamically computes and displays the reduced APC on character sheet equipment cards and side drawer slots when toggled to Two-Handed grip.
+  - Automatically enforces the reduced APC cost during combat attack rolls and AP deduction.
 - **Dynamic Resource Bar Titles**:
   - Character header resource bars automatically show full names (**Hit Points**, **Action Points**, **Spell Points**) when Fear Threshold is disabled.
 

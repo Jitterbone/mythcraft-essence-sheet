@@ -729,6 +729,126 @@ export function evaluateApcFormula(formula, actorOrRollData) {
 }
 
 /**
+ * Extracts two-handed APC reduction rules for a Hand-and-a-Half weapon.
+ * Handles formats like:
+ * • "STR Weapon, Hand-and-a-Half (reduce APC by 1, min 2)"
+ * • "Hand-and-a-Half (reduce APC by 1, min 2)"
+ * • "Hand-and-a-Half (reduce APC by 1, min 1)"
+ * • "Hand-and-a-Half (-1 APC, min 2)"
+ * • "Hand-and-a-Half (APC -1, min 2)"
+ * • "When wielded with two hands, reduce APC by 1 (min 2)"
+ * • "Hand-and-a-Half (2 APC)"
+ * @param {Item} weapon
+ * @returns {{ reduction: number, minApc: number, overrideApc: number|null }|null}
+ */
+export function getTwoHandedApcRule(weapon) {
+  if (!weapon) return null;
+
+  // 1. Direct flags/system fields
+  const flagReduction = weapon.flags?.["mythcraft-essence-sheet"]?.twoHandedApcReduction;
+  const flagMin = weapon.flags?.["mythcraft-essence-sheet"]?.twoHandedApcMin;
+  const flagOverride = weapon.flags?.["mythcraft-essence-sheet"]?.twoHandedApc;
+  if (flagOverride !== undefined && flagOverride !== null && !isNaN(Number(flagOverride))) {
+    return { reduction: 0, minApc: 0, overrideApc: Number(flagOverride) };
+  }
+  if (flagReduction !== undefined && flagReduction !== null && !isNaN(Number(flagReduction))) {
+    return { reduction: Number(flagReduction), minApc: Number(flagMin || 2), overrideApc: null };
+  }
+
+  // 2. Search tags and description strings
+  const rawTags = weapon.system?.tags || [];
+  const tagList = Array.isArray(rawTags)
+    ? rawTags
+    : (rawTags instanceof Set ? Array.from(rawTags) : (typeof rawTags === "object" && rawTags !== null ? Object.keys(rawTags).concat(Object.values(rawTags)) : String(rawTags).split(",")));
+  
+  const searchTexts = [];
+  for (const t of tagList) {
+    const str = typeof t === "string" ? t : (t?.name || t?.label || t?.value || t?.id || "");
+    if (str) searchTexts.push(str);
+  }
+
+  const desc = String(weapon.system?.description?.value ?? weapon.system?.description ?? "");
+  if (desc) searchTexts.push(desc);
+
+  for (const text of searchTexts) {
+    // Check "reduce APC by X, min Y" or "reduce APC by X (min Y)" or "reduce the APC by X, min Y"
+    const reduceMatch = text.match(/(?:reduce|lower)\s*(?:the\s*)?apc\s*(?:by\s*)?(\d+)?(?:.*?min(?:imum)?\s*[:=]?\s*(\d+))?/i) ||
+                        text.match(/(?:reduce|lower)\s*(?:the\s*)?ap\s*(?:cost)?\s*(?:by\s*)?(\d+)?(?:.*?min(?:imum)?\s*[:=]?\s*(\d+))?/i);
+    if (reduceMatch) {
+      const reduction = reduceMatch[1] ? parseInt(reduceMatch[1], 10) : 1;
+      const minApc = reduceMatch[2] ? parseInt(reduceMatch[2], 10) : 2;
+      return { reduction, minApc, overrideApc: null };
+    }
+
+    // Check "-X APC, min Y" or "APC -X, min Y" or "-X APC (min Y)"
+    const minusMatch = text.match(/[+\-]\s*(\d+)\s*(?:apc|ap)(?:.*?min(?:imum)?\s*[:=]?\s*(\d+))?/i) ||
+                       text.match(/(?:apc|ap)\s*[+\-]\s*(\d+)(?:.*?min(?:imum)?\s*[:=]?\s*(\d+))?/i);
+    if (minusMatch) {
+      const reduction = parseInt(minusMatch[1], 10);
+      const minApc = minusMatch[2] ? parseInt(minusMatch[2], 10) : 2;
+      return { reduction, minApc, overrideApc: null };
+    }
+
+    // Check "Hand-and-a-Half (X APC)"
+    const directMatch = text.match(/(?:hand(?:-|\s*)(?:and|in)(?:-|\s*)a(?:-|\s*)half|handhalf|1\.5h|two-handed|versatile)[^\(]*\(\s*(\d+)\s*apc\s*\)/i) ||
+                        text.match(/(?:hand(?:-|\s*)(?:and|in)(?:-|\s*)a(?:-|\s*)half|handhalf|1\.5h|two-handed|versatile)[^\(]*\(\s*apc\s*[:=]?\s*(\d+)\s*\)/i);
+    if (directMatch) {
+      const override = parseInt(directMatch[1], 10);
+      return { reduction: 0, minApc: 0, overrideApc: override };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Safely parse weapon APC cost, handling base formulas and Hand-and-a-Half 2H APC reductions.
+ * @param {Item} item
+ * @param {Actor} [actor]
+ * @returns {number}
+ */
+export function getSafeWeaponApc(item, actor) {
+  if (!item) return 3;
+  const sys = item.system || {};
+  const srcSys = item._source?.system || {};
+  const flagFormula = item.flags?.["mythcraft-essence-sheet"]?.apcFormula;
+
+  const rawCandidate = flagFormula || sys.apcFormula || srcSys.apcFormula || sys.apc || srcSys.apc || sys.ap || "";
+  let baseApc = 3;
+
+  if (typeof rawCandidate === "string" && rawCandidate.trim().length > 0) {
+    const evaluated = evaluateApcFormula(rawCandidate, actor || item.actor || item.parent);
+    if (evaluated > 0) baseApc = evaluated;
+  } else if (typeof rawCandidate === "number" && rawCandidate > 0) {
+    baseApc = rawCandidate;
+  } else {
+    // Check description for standard APC formula (e.g. "4-STR, min 3")
+    const desc = String(sys.description?.value ?? sys.description ?? "");
+    const apcDescMatch = desc.match(/(?:apc|ap)\s*[:=]?\s*([0-9\s\+\-\*\/\@a-zA-Z_.]+(?:,\s*min\s*\d+)?)/i);
+    if (apcDescMatch) {
+      const evaluated = evaluateApcFormula(apcDescMatch[1], actor || item.actor || item.parent);
+      if (evaluated > 0) baseApc = evaluated;
+    }
+  }
+
+  // Hand-and-a-Half 2H grip APC reduction
+  const grip = getWeaponEffectiveGrip(item);
+  if (grip === "2h") {
+    const apcRule = getTwoHandedApcRule(item);
+    if (apcRule) {
+      if (apcRule.overrideApc !== null && apcRule.overrideApc > 0) {
+        baseApc = apcRule.overrideApc;
+      } else if (apcRule.reduction > 0) {
+        const minVal = apcRule.minApc ?? 1;
+        baseApc = Math.max(minVal, baseApc - apcRule.reduction);
+      }
+    }
+  }
+
+  return baseApc;
+}
+
+/**
  * Patches core MythCraft WeaponModel prototype getter for `apc`
  */
 export function patchWeaponApcGetter() {
@@ -743,8 +863,7 @@ export function patchWeaponApcGetter() {
     try {
       Object.defineProperty(model.prototype, "apc", {
         get() {
-          const raw = this.apcFormula ?? this.parent?._source?.system?.apcFormula;
-          return evaluateApcFormula(raw, this.parent?.actor ?? this.parent);
+          return getSafeWeaponApc(this.parent, this.parent?.actor ?? this.parent);
         },
         configurable: true,
         enumerable: true,

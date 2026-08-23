@@ -48,6 +48,8 @@ import {
   toggleEquipWeapon,
   toggleEquipShield,
   evaluateApcFormula,
+  getTwoHandedApcRule,
+  getSafeWeaponApc,
   checkAndEnforceAp,
 } from "../features/equipment-automation.mjs";
 import { getSetting } from "../settings.mjs";
@@ -132,37 +134,7 @@ export function getEnrichedItemTags(item) {
   return result;
 }
 
-/**
- * Safely parse weapon APC cost, handling MythCraft min/max formulas like "max(2, 4-@STR)" or "8-STR, min 4"
- * @param {Item} item
- * @param {Actor} actor
- * @returns {number}
- */
-export function getSafeWeaponApc(item, actor) {
-  if (!item) return 3;
-  const sys = item.system || {};
-  const srcSys = item._source?.system || {};
-  const flagFormula = item.flags?.["mythcraft-essence-sheet"]?.apcFormula;
-
-  const rawCandidate = flagFormula || sys.apcFormula || srcSys.apcFormula || sys.apc || srcSys.apc || sys.ap || "";
-  
-  if (typeof rawCandidate === "string" && rawCandidate.trim().length > 0) {
-    const evaluated = evaluateApcFormula(rawCandidate, actor || item.actor || item.parent);
-    if (evaluated > 0) return evaluated;
-  } else if (typeof rawCandidate === "number" && rawCandidate > 0) {
-    return rawCandidate;
-  }
-
-  // Check description for APC formula (e.g. "4-STR, min 3")
-  const desc = String(sys.description?.value ?? sys.description ?? "");
-  const apcDescMatch = desc.match(/(?:apc|ap)\s*[:=]?\s*([0-9\s\+\-\*\/\@a-zA-Z_.]+(?:,\s*min\s*\d+)?)/i);
-  if (apcDescMatch) {
-    const evaluated = evaluateApcFormula(apcDescMatch[1], actor || item.actor || item.parent);
-    if (evaluated > 0) return evaluated;
-  }
-
-  return 3;
-}
+export { getSafeWeaponApc };
 
 /**
  * Roll damage for a weapon or spell document, supporting MythCraft critical damage rules.

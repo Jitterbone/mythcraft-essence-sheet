@@ -53,52 +53,40 @@ Hooks.once("init", () => {
 
   const { DocumentSheetConfig } = foundry.applications.apps;
 
-  // ── Actor Sheets ───────────────────────────────────────────────────────────
-
-  DocumentSheetConfig.registerSheet(
-    foundry.documents.Actor,
-    MODULE_ID,
-    EssenceCharacterSheet,
-    {
+  // ── Actor & Item Sheets Registration ───────────────────────────────────────
+  const registerActorSheet = (cls, type, label) => {
+    DocumentSheetConfig.registerSheet(foundry.documents.Actor, MODULE_ID, cls, {
       makeDefault: true,
-      types: ["character"],
-      label: "MythCraft Essence: Character Sheet",
+      types: [type],
+      label,
+    });
+    if (globalThis.Actors?.registerSheet) {
+      try {
+        globalThis.Actors.registerSheet(MODULE_ID, cls, {
+          makeDefault: true,
+          types: [type],
+          label,
+        });
+      } catch (e) {}
     }
-  );
+  };
 
-  DocumentSheetConfig.registerSheet(
-    foundry.documents.Actor,
-    MODULE_ID,
-    EssenceNPCSheet,
-    {
-      makeDefault: true,
-      types: ["npc"],
-      label: "MythCraft Essence: NPC Sheet",
-    }
-  );
+  registerActorSheet(EssenceCharacterSheet, "character", "MythCraft Essence: Character Sheet");
+  registerActorSheet(EssenceNPCSheet, "npc", "MythCraft Essence: NPC Sheet");
+  registerActorSheet(EssenceSiegeWeaponSheet, "siege", "MythCraft Essence: Siege Weapon Sheet");
 
-  DocumentSheetConfig.registerSheet(
-    foundry.documents.Actor,
-    MODULE_ID,
-    EssenceSiegeWeaponSheet,
-    {
-      makeDefault: true,
-      types: ["siege"],
-      label: "MythCraft Essence: Siege Weapon Sheet",
-    }
-  );
-
-  // ── Item Sheets ────────────────────────────────────────────────────────────
-
-  DocumentSheetConfig.registerSheet(
-    foundry.documents.Item,
-    MODULE_ID,
-    EssenceItemSheet,
-    {
-      makeDefault: true,
-      label: "MythCraft Essence: Item Sheet",
-    }
-  );
+  DocumentSheetConfig.registerSheet(foundry.documents.Item, MODULE_ID, EssenceItemSheet, {
+    makeDefault: true,
+    label: "MythCraft Essence: Item Sheet",
+  });
+  if (globalThis.Items?.registerSheet) {
+    try {
+      globalThis.Items.registerSheet(MODULE_ID, EssenceItemSheet, {
+        makeDefault: true,
+        label: "MythCraft Essence: Item Sheet",
+      });
+    } catch (e) {}
+  }
 
   // ── CONFIG overrides ───────────────────────────────────────────────────────
   // Place any CONFIG.* remaps here.  These run before any actor data is
@@ -595,7 +583,7 @@ Hooks.once("init", () => {
 
 
 
-Hooks.once("ready", () => {
+Hooks.once("ready", async () => {
   console.log(`${MODULE_ID} | Ready.`);
   patchWeaponApcGetter();
   initDamageAutomation();
@@ -604,6 +592,43 @@ Hooks.once("ready", () => {
   syncHomebrewAttributesToSystem();
   patchAttributeSkillInput();
 
+
+  // Ensure Essence sheets are set as the default world sheets
+  if (game.user.isGM) {
+    try {
+      const coreSheets = foundry.utils.deepClone(game.settings.get("core", "sheetClasses") || {});
+      if (!coreSheets.Actor) coreSheets.Actor = {};
+      if (!coreSheets.Item) coreSheets.Item = {};
+
+      const defaultActorMap = {
+        character: `${MODULE_ID}.EssenceCharacterSheet`,
+        npc: `${MODULE_ID}.EssenceNPCSheet`,
+        siege: `${MODULE_ID}.EssenceSiegeWeaponSheet`,
+      };
+
+      let changed = false;
+      for (const [type, desiredSheet] of Object.entries(defaultActorMap)) {
+        const current = coreSheets.Actor[type];
+        // If unset, or currently pointing to the default base mythcraft sheet, update to Essence sheet
+        if (!current || current.startsWith("mythcraft.")) {
+          coreSheets.Actor[type] = desiredSheet;
+          changed = true;
+        }
+      }
+
+      if (!coreSheets.Item.base || coreSheets.Item.base.startsWith("mythcraft.")) {
+        coreSheets.Item.base = `${MODULE_ID}.EssenceItemSheet`;
+        changed = true;
+      }
+
+      if (changed) {
+        await game.settings.set("core", "sheetClasses", coreSheets);
+        console.log(`${MODULE_ID} | Essence sheets set as default in core.sheetClasses.`);
+      }
+    } catch (e) {
+      console.warn(`${MODULE_ID} | Error setting default sheet classes:`, e);
+    }
+  }
 
   // Expose Tag, Defense & Damage API globally for external modules (e.g. MythCraft HUD) or macros
   const moduleObj = game.modules.get(MODULE_ID);

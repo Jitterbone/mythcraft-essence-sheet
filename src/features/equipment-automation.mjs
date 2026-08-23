@@ -1368,24 +1368,39 @@ export async function checkAndEnforceAp(actor, cost, actionName = "Action") {
 
   // 2. Ask for Confirmation (Default)
   if (setting === "confirm") {
+    const deficit = cost - totalAvailableAp;
     const confirmed = await new Promise((resolve) => {
       new Dialog({
         title: "Insufficient Action Points",
         content: `
-          <div style="padding: 6px 0; font-size: 13px; color: #FEEBB3;">
-            <p style="margin-bottom: 8px;"><strong>${actor.name}</strong> does not have enough Action Points to use <strong>${actionName}</strong>.</p>
-            <ul style="margin: 0 0 10px 18px; padding: 0; font-size: 12px; color: #9bd7e5;">
-              <li><strong>Cost:</strong> ${cost} AP</li>
-              <li><strong>Available:</strong> ${totalAvailableAp} AP (${currentAp} AP${specialAp > 0 ? ` + ${specialAp} SAP` : ""})</li>
-              <li><strong>Deficit:</strong> ${cost - totalAvailableAp} AP</li>
-            </ul>
-            <p style="margin: 0; font-style: italic; color: #cbd5e1;">Do you wish to proceed anyway?</p>
+          <div class="insufficient-ap-modal-content">
+            <div class="ap-modal-banner">
+              <div class="ap-modal-icon"><i class="fas fa-bolt-lightning"></i></div>
+              <div class="ap-modal-text">
+                <p class="ap-modal-actor"><strong>${actor.name}</strong> has insufficient Action Points to use <strong class="ap-modal-action-name">${actionName}</strong>.</p>
+              </div>
+            </div>
+            <div class="ap-modal-breakdown">
+              <div class="ap-modal-row">
+                <span class="ap-modal-label"><i class="fas fa-bolt"></i> Required Cost:</span>
+                <span class="ap-modal-val cost">${cost} AP</span>
+              </div>
+              <div class="ap-modal-row">
+                <span class="ap-modal-label"><i class="fas fa-shield-halved"></i> Available:</span>
+                <span class="ap-modal-val avail">${totalAvailableAp} AP <small>(${currentAp} AP${specialAp > 0 ? ` + ${specialAp} SAP` : ""})</small></span>
+              </div>
+              <div class="ap-modal-row deficit-row">
+                <span class="ap-modal-label"><i class="fas fa-triangle-exclamation"></i> Deficit:</span>
+                <span class="ap-modal-val deficit">-${deficit} AP</span>
+              </div>
+            </div>
+            <p class="ap-modal-question">Do you wish to proceed and perform this action anyway?</p>
           </div>
         `,
         buttons: {
           proceed: {
             icon: '<i class="fas fa-check"></i>',
-            label: "Proceed",
+            label: "Proceed Anyway",
             callback: () => resolve(true),
           },
           cancel: {
@@ -1396,6 +1411,9 @@ export async function checkAndEnforceAp(actor, cost, actionName = "Action") {
         },
         default: "cancel",
         close: () => resolve(false),
+      }, {
+        classes: ["dialog", "essence-dialog", "insufficient-ap-dialog"],
+        width: 420,
       }).render(true);
     });
 

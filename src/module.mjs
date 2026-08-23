@@ -362,17 +362,59 @@ Hooks.once("init", () => {
       }
     };
 
+    const applyDamageButtons = root.querySelectorAll(".apply-damage, .apply-damage-btn, .apply-healing, .apply-healing-btn");
+
     if (isRecent) {
-      // Build suspense: Wait until the die lands on the result, then flash green/red before modifiers are added!
+      // Build suspense: Hide the Apply Damage button initially, wait until the roll animation finishes and modifiers land, then pop it in!
+      if (applyDamageButtons.length > 0) {
+        applyDamageButtons.forEach(btn => {
+          btn.classList.add("suspense-hidden");
+          btn.classList.remove("suspense-revealed");
+        });
+      }
+
       const rollDuration = (game.modules.get('mythcraft-hud')?.active 
         ? (Number(game.settings.get('mythcraft-hud', 'rollAnimationDuration')) || 1300) 
-        : 600);
-      setTimeout(() => {
+        : (game.dice3d ? 1500 : 700));
+
+      const revealButtons = () => {
         applyCritStyling();
-      }, rollDuration);
+        if (applyDamageButtons.length > 0) {
+          applyDamageButtons.forEach(btn => {
+            btn.classList.remove("suspense-hidden");
+            btn.classList.add("suspense-revealed");
+          });
+        }
+      };
+
+      if (game.dice3d && typeof Hooks.once === "function") {
+        let revealed = false;
+        const fallbackTimer = setTimeout(() => {
+          if (!revealed) {
+            revealed = true;
+            revealButtons();
+          }
+        }, rollDuration + 1000);
+
+        Hooks.once("diceSoNiceRollComplete", (msgId) => {
+          if (msgId === message.id && !revealed) {
+            revealed = true;
+            clearTimeout(fallbackTimer);
+            setTimeout(revealButtons, 300);
+          }
+        });
+      } else {
+        setTimeout(revealButtons, rollDuration);
+      }
     } else {
-      // Historical messages on load / refresh get colored immediately
+      // Historical messages on load / refresh get colored and revealed immediately
       applyCritStyling();
+      if (applyDamageButtons.length > 0) {
+        applyDamageButtons.forEach(btn => {
+          btn.classList.remove("suspense-hidden");
+          btn.classList.add("suspense-revealed");
+        });
+      }
     }
 
   // 2. Tag Strip Injection

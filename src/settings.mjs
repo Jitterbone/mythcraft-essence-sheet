@@ -243,6 +243,21 @@ export function registerSettings() {
     default: true,
   });
 
+  game.settings.register(MODULE_ID, "insufficientApBehavior", {
+    name: "Insufficient Action Points (AP) Enforcement",
+    hint: "Select what occurs when a character attempts an action, weapon attack, spell, or ability costing more Action Points than currently available.",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: {
+      confirm: "Ask for Confirmation (Default)",
+      block: "Block Action",
+      warn: "Allow & Post Warning to Chat",
+      disabled: "Disabled",
+    },
+    default: "confirm",
+  });
+
   // Render styled category headers in Settings Config
   Hooks.on("renderSettingsConfig", (app, html) => {
     const root = html instanceof HTMLElement ? html : (html[0] || html);

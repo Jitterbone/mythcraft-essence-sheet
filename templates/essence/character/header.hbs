@@ -170,7 +170,7 @@
           <div class="meter-header">
             <div class="meter-label-group">
               <i class="fas fa-heart meter-icon hp-icon"></i>
-              <span class="meter-title">Health Points</span>
+              <span class="meter-title">HP</span>
               {{#if isBloodied}}
                 <span class="bloodied-tag">Bloodied</span>
               {{/if}}
@@ -211,10 +211,18 @@
           <div class="meter-header">
             <div class="meter-label-group">
               <i class="fas fa-bolt meter-icon ap-icon"></i>
-              <span class="meter-title">Action Points</span>
+              <span class="meter-title">AP</span>
             </div>
             <div class="meter-inputs-group">
-              <input type="number" name="system.ap.value" value="{{system.ap.value}}" class="meter-val-input" min="0" data-tooltip="<strong>Current Action Points</strong>" data-tooltip-direction="UP" />
+              <div class="ap-stepper-wrap" data-tooltip="<strong>Current Action Points</strong><br/><span style='font-size:11px;'>Use &minus; and + or type directly</span>" data-tooltip-direction="UP">
+                <button type="button" class="ap-step-btn ap-step-minus" data-action="adjustAp" data-delta="-1" title="Subtract 1 AP">
+                  <i class="fas fa-minus"></i>
+                </button>
+                <input type="number" name="system.ap.value" value="{{system.ap.value}}" class="meter-val-input ap-val-input" min="0" />
+                <button type="button" class="ap-step-btn ap-step-plus" data-action="adjustAp" data-delta="1" title="Add 1 AP">
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
               <span class="meter-divider">/</span>
               <input type="number" name="system.ap.max" value="{{system.ap.max}}" class="meter-max-input" min="0" data-tooltip="<strong>Max Action Points</strong>" data-tooltip-direction="UP" />
               <div class="sap-mini-box" data-tooltip="<strong>Special Action Points (SAP)</strong><br/><span style='font-size:11px;'>Bonus AP that resets at start of turn</span>" data-tooltip-direction="UP">
@@ -267,7 +275,7 @@
           <div class="meter-header">
             <div class="meter-label-group">
               <i class="fas fa-hat-wizard meter-icon sp-icon"></i>
-              <span class="meter-title">Spell Points</span>
+              <span class="meter-title">SP</span>
             </div>
             <div class="meter-inputs-group">
               <input type="number" name="system.sp.value" value="{{system.sp.value}}" class="meter-val-input" min="0" data-tooltip="<strong>Current Spell Points</strong>" data-tooltip-direction="UP" />
@@ -506,74 +514,279 @@
 
         {{!-- ARMOR TAB CONTENT --}}
         {{else if (eq sideDrawer.activeTab 'armor')}}
-          {{#if sideDrawer.armor.items.length}}
-            <ul class="drawer-items-list">
-              {{#each sideDrawer.armor.items as |ar|}}
-                <li class="drawer-item-row donned-armor-row" data-item-id="{{ar.id}}">
-                  <img src="{{ar.img}}" alt="{{ar.name}}" class="drawer-item-img" data-action="viewDoc" data-item-id="{{ar.id}}" />
-                  <div class="drawer-item-info">
-                    <span class="drawer-item-name" data-action="viewDoc" data-item-id="{{ar.id}}">{{ar.name}}</span>
-                    <span class="drawer-ar-tag"><i class="fas fa-shield"></i> AR {{ar.ar}}</span>
-                  </div>
-                  <button type="button" 
-                          class="drawer-action-toggle-btn doff-btn" 
-                          data-action="toggleDonArmor" 
-                          data-item-id="{{ar.id}}" 
-                          title="Doff Armor">
-                    <i class="fas fa-shield-xmark"></i>
-                    <span>Doff</span>
-                  </button>
-                </li>
-              {{/each}}
-            </ul>
-          {{else}}
-            <p class="drawer-empty-msg">No armor currently donned.</p>
-          {{/if}}
+          <div class="drawer-dual-hands-grid">
 
-        {{!-- WEAPONS TAB CONTENT --}}
-        {{else if (eq sideDrawer.activeTab 'weapons')}}
-          {{#if sideDrawer.weapons.items.length}}
-            <ul class="drawer-items-list">
-              {{#each sideDrawer.weapons.items as |wp|}}
-                <li class="drawer-item-row equipped-weapon-row" data-item-id="{{wp.id}}">
-                  <img src="{{wp.img}}" alt="{{wp.name}}" class="drawer-item-img" data-action="viewDoc" data-item-id="{{wp.id}}" />
-                  <div class="drawer-item-info">
-                    <span class="drawer-item-name" data-action="viewDoc" data-item-id="{{wp.id}}">{{wp.name}}</span>
-                    <div class="drawer-weapon-mini-stats">
-                      <span class="mini-hand-tag">{{wp.handLabel}}</span>
-                      <span class="mini-ap-tag">{{wp.apc}} AP</span>
+            {{!-- BODY ARMOR SLOT --}}
+            <div class="drawer-hand-column hand-column-body-armor">
+              <div class="drawer-hand-header">
+                <i class="fas fa-vest"></i>
+                <span>Body Armor</span>
+              </div>
+
+              {{#if sideDrawer.armor.bodyArmor}}
+                <div class="drawer-hand-card filled-hand-card" data-item-id="{{sideDrawer.armor.bodyArmor.id}}">
+                  <div class="hand-card-main-info">
+                    <img src="{{sideDrawer.armor.bodyArmor.img}}" alt="{{sideDrawer.armor.bodyArmor.name}}" class="drawer-item-img" data-action="viewDoc" data-item-id="{{sideDrawer.armor.bodyArmor.id}}" />
+                    <div class="drawer-item-info">
+                      <span class="drawer-item-name" data-action="viewDoc" data-item-id="{{sideDrawer.armor.bodyArmor.id}}">{{sideDrawer.armor.bodyArmor.name}}</span>
+                      <div class="drawer-weapon-mini-stats">
+                        <span class="mini-hand-tag">Armor</span>
+                        <span class="mini-ar-tag">AR {{sideDrawer.armor.bodyArmor.ar}}</span>
+                      </div>
                     </div>
                   </div>
                   <div class="drawer-weapon-actions">
                     <button type="button" 
-                            class="drawer-roll-atk-btn" 
-                            data-action="rollAttack" 
-                            data-item-id="{{wp.id}}" 
-                            title="Roll Attack">
-                      <i class="fas fa-crosshairs"></i>
+                            class="drawer-action-toggle-btn doff-btn" 
+                            data-action="toggleDonArmor" 
+                            data-item-id="{{sideDrawer.armor.bodyArmor.id}}" 
+                            title="Doff Armor">
+                      <i class="fas fa-shield-xmark"></i>
+                      <span>Doff</span>
                     </button>
-                    <button type="button" 
-                            class="drawer-roll-dmg-btn" 
-                            data-action="rollDamage" 
-                            data-item-id="{{wp.id}}" 
-                            title="Roll Damage">
-                      <i class="fas fa-burst"></i>
-                    </button>
+                  </div>
+                </div>
+              {{else}}
+                {{!-- Empty Body Armor Slot --}}
+                <button type="button" 
+                        class="drawer-empty-hand-slot" 
+                        data-action="openArmorPicker" 
+                        data-armor-type="body" 
+                        title="Click to don body armor">
+                  <i class="fas fa-plus"></i>
+                  <span>Don Body Armor</span>
+                </button>
+              {{/if}}
+            </div>
+
+            {{!-- SHIELD SLOT --}}
+            <div class="drawer-hand-column hand-column-shield">
+              <div class="drawer-hand-header">
+                <i class="fas fa-shield"></i>
+                <span>Shield</span>
+              </div>
+
+              {{#if sideDrawer.armor.shield}}
+                <div class="drawer-hand-card filled-hand-card" data-item-id="{{sideDrawer.armor.shield.id}}">
+                  <div class="hand-card-main-info">
+                    <img src="{{sideDrawer.armor.shield.img}}" alt="{{sideDrawer.armor.shield.name}}" class="drawer-item-img" data-action="viewDoc" data-item-id="{{sideDrawer.armor.shield.id}}" />
+                    <div class="drawer-item-info">
+                      <span class="drawer-item-name" data-action="viewDoc" data-item-id="{{sideDrawer.armor.shield.id}}">{{sideDrawer.armor.shield.name}}</span>
+                      <div class="drawer-weapon-mini-stats">
+                        <span class="mini-hand-tag">Shield</span>
+                        <span class="mini-ar-tag">+{{sideDrawer.armor.shield.shieldArBonus}} AR</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="drawer-weapon-actions">
                     <button type="button" 
                             class="drawer-action-toggle-btn stow-btn" 
-                            data-action="toggleEquipWeapon" 
-                            data-item-id="{{wp.id}}" 
-                            title="Stow Weapon">
+                            data-action="toggleEquipShield" 
+                            data-item-id="{{sideDrawer.armor.shield.id}}" 
+                            title="Stow Shield">
                       <i class="fas fa-hand-holding-box"></i>
                       <span>Stow</span>
                     </button>
                   </div>
-                </li>
-              {{/each}}
-            </ul>
-          {{else}}
-            <p class="drawer-empty-msg">No weapons currently equipped.</p>
-          {{/if}}
+                </div>
+              {{else}}
+                {{!-- Empty Shield Slot --}}
+                <button type="button" 
+                        class="drawer-empty-hand-slot" 
+                        data-action="openArmorPicker" 
+                        data-armor-type="shield" 
+                        title="Click to equip shield">
+                  <i class="fas fa-plus"></i>
+                  <span>Equip Shield</span>
+                </button>
+              {{/if}}
+            </div>
+
+          </div>
+
+        {{!-- WEAPONS TAB CONTENT (Side-by-Side Dual-Hand Layout) --}}
+        {{else if (eq sideDrawer.activeTab 'weapons')}}
+          <div class="drawer-dual-hands-grid">
+
+            {{!-- LEFT HAND (Off Hand) --}}
+            <div class="drawer-hand-column hand-column-left">
+              <div class="drawer-hand-header">
+                <i class="fas fa-hand-back-fist"></i>
+                <span>Left Hand</span>
+              </div>
+
+              {{#if sideDrawer.weapons.isTwoHanded}}
+                {{!-- 2H Weapon Spans / Occupies Left Hand --}}
+                <div class="drawer-hand-card two-handed-grip-card" data-item-id="{{sideDrawer.weapons.twoHanded.id}}">
+                  <div class="two-handed-badge-label">
+                    {{#if sideDrawer.weapons.twoHanded.isHandAndHalf}}
+                      <button type="button" 
+                              class="mini-hand-tag hand-and-a-half-drawer-toggle" 
+                              data-action="toggleHandAndHalfMode" 
+                              data-item-id="{{sideDrawer.weapons.twoHanded.id}}" 
+                              title="Hand-and-a-Half Weapon (Gripped 2H). Click to switch to 1H.">
+                        <i class="fas fa-hands"></i> 1.5H (2H)
+                      </button>
+                    {{else}}
+                      <i class="fas fa-hands"></i> 2H Grip
+                    {{/if}}
+                  </div>
+                  <span class="two-handed-item-name">{{sideDrawer.weapons.twoHanded.name}}</span>
+                </div>
+              {{else if sideDrawer.weapons.offHand}}
+                <div class="drawer-hand-card filled-hand-card" data-item-id="{{sideDrawer.weapons.offHand.id}}">
+                  <div class="hand-card-main-info">
+                    <img src="{{sideDrawer.weapons.offHand.img}}" alt="{{sideDrawer.weapons.offHand.name}}" class="drawer-item-img" data-action="viewDoc" data-item-id="{{sideDrawer.weapons.offHand.id}}" />
+                    <div class="drawer-item-info">
+                      <span class="drawer-item-name" data-action="viewDoc" data-item-id="{{sideDrawer.weapons.offHand.id}}">{{sideDrawer.weapons.offHand.name}}</span>
+                      <div class="drawer-weapon-mini-stats">
+                        {{#if sideDrawer.weapons.offHand.isShield}}
+                          <span class="mini-hand-tag">Shield</span>
+                          <span class="mini-ar-tag">+{{sideDrawer.weapons.offHand.shieldArBonus}} AR</span>
+                        {{else if sideDrawer.weapons.offHand.isHandAndHalf}}
+                          <button type="button" 
+                                  class="mini-hand-tag hand-and-a-half-drawer-toggle" 
+                                  data-action="toggleHandAndHalfMode" 
+                                  data-item-id="{{sideDrawer.weapons.offHand.id}}" 
+                                  title="Hand-and-a-Half Weapon (Gripped {{sideDrawer.weapons.offHand.effectiveGrip}}). Click to toggle 1H / 2H.">
+                            {{sideDrawer.weapons.offHand.handLabel}}
+                          </button>
+                          <span class="mini-ap-tag">{{sideDrawer.weapons.offHand.apc}} AP</span>
+                        {{else}}
+                          <span class="mini-hand-tag">{{sideDrawer.weapons.offHand.handLabel}}</span>
+                          <span class="mini-ap-tag">{{sideDrawer.weapons.offHand.apc}} AP</span>
+                        {{/if}}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="drawer-weapon-actions">
+                    {{#if sideDrawer.weapons.offHand.isShield}}
+                      <button type="button" 
+                              class="drawer-action-toggle-btn stow-btn" 
+                              data-action="toggleEquipShield" 
+                              data-item-id="{{sideDrawer.weapons.offHand.id}}" 
+                              title="Stow Shield">
+                        <i class="fas fa-hand-holding-box"></i>
+                      </button>
+                    {{else}}
+                      <button type="button" 
+                              class="drawer-roll-atk-btn" 
+                              data-action="rollAttack" 
+                              data-item-id="{{sideDrawer.weapons.offHand.id}}" 
+                              title="Roll Attack">
+                        <i class="fas fa-crosshairs"></i>
+                      </button>
+                      <button type="button" 
+                              class="drawer-roll-dmg-btn" 
+                              data-action="rollDamage" 
+                              data-item-id="{{sideDrawer.weapons.offHand.id}}" 
+                              title="Roll Damage">
+                        <i class="fas fa-burst"></i>
+                      </button>
+                      <button type="button" 
+                              class="drawer-action-toggle-btn stow-btn" 
+                              data-action="toggleEquipWeapon" 
+                              data-item-id="{{sideDrawer.weapons.offHand.id}}" 
+                              title="Stow Weapon">
+                        <i class="fas fa-hand-holding-box"></i>
+                      </button>
+                    {{/if}}
+                  </div>
+                </div>
+              {{else}}
+                {{!-- Empty Left Hand Slot --}}
+                <button type="button" 
+                        class="drawer-empty-hand-slot" 
+                        data-action="openHandEquipPicker" 
+                        data-hand="off" 
+                        title="Click to equip weapon/shield into Left Hand">
+                  <i class="fas fa-plus"></i>
+                  <span>Equip Left Hand</span>
+                </button>
+              {{/if}}
+            </div>
+
+            {{!-- RIGHT HAND (Main Hand) --}}
+            <div class="drawer-hand-column hand-column-right">
+              <div class="drawer-hand-header">
+                <i class="fas fa-hand-fist"></i>
+                <span>Right Hand</span>
+              </div>
+
+              {{#if sideDrawer.weapons.mainHand}}
+                <div class="drawer-hand-card filled-hand-card {{#if sideDrawer.weapons.isTwoHanded}}two-handed-main-card{{/if}}" data-item-id="{{sideDrawer.weapons.mainHand.id}}">
+                  <div class="hand-card-main-info">
+                    <img src="{{sideDrawer.weapons.mainHand.img}}" alt="{{sideDrawer.weapons.mainHand.name}}" class="drawer-item-img" data-action="viewDoc" data-item-id="{{sideDrawer.weapons.mainHand.id}}" />
+                    <div class="drawer-item-info">
+                      <span class="drawer-item-name" data-action="viewDoc" data-item-id="{{sideDrawer.weapons.mainHand.id}}">{{sideDrawer.weapons.mainHand.name}}</span>
+                      <div class="drawer-weapon-mini-stats">
+                        {{#if sideDrawer.weapons.mainHand.isShield}}
+                          <span class="mini-hand-tag">Shield</span>
+                          <span class="mini-ar-tag">+{{sideDrawer.weapons.mainHand.shieldArBonus}} AR</span>
+                        {{else if sideDrawer.weapons.mainHand.isHandAndHalf}}
+                          <button type="button" 
+                                  class="mini-hand-tag hand-and-a-half-drawer-toggle" 
+                                  data-action="toggleHandAndHalfMode" 
+                                  data-item-id="{{sideDrawer.weapons.mainHand.id}}" 
+                                  title="Hand-and-a-Half Weapon (Gripped {{sideDrawer.weapons.mainHand.effectiveGrip}}). Click to toggle 1H / 2H.">
+                            {{sideDrawer.weapons.mainHand.handLabel}}
+                          </button>
+                          <span class="mini-ap-tag">{{sideDrawer.weapons.mainHand.apc}} AP</span>
+                        {{else}}
+                          <span class="mini-hand-tag">{{sideDrawer.weapons.mainHand.handLabel}}</span>
+                          <span class="mini-ap-tag">{{sideDrawer.weapons.mainHand.apc}} AP</span>
+                        {{/if}}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="drawer-weapon-actions">
+                    {{#if sideDrawer.weapons.mainHand.isShield}}
+                      <button type="button" 
+                              class="drawer-action-toggle-btn stow-btn" 
+                              data-action="toggleEquipShield" 
+                              data-item-id="{{sideDrawer.weapons.mainHand.id}}" 
+                              title="Stow Shield">
+                        <i class="fas fa-hand-holding-box"></i>
+                      </button>
+                    {{else}}
+                      <button type="button" 
+                              class="drawer-roll-atk-btn" 
+                              data-action="rollAttack" 
+                              data-item-id="{{sideDrawer.weapons.mainHand.id}}" 
+                              title="Roll Attack">
+                        <i class="fas fa-crosshairs"></i>
+                      </button>
+                      <button type="button" 
+                              class="drawer-roll-dmg-btn" 
+                              data-action="rollDamage" 
+                              data-item-id="{{sideDrawer.weapons.mainHand.id}}" 
+                              title="Roll Damage">
+                        <i class="fas fa-burst"></i>
+                      </button>
+                      <button type="button" 
+                              class="drawer-action-toggle-btn stow-btn" 
+                              data-action="toggleEquipWeapon" 
+                              data-item-id="{{sideDrawer.weapons.mainHand.id}}" 
+                              title="Stow Weapon">
+                        <i class="fas fa-hand-holding-box"></i>
+                      </button>
+                    {{/if}}
+                  </div>
+                </div>
+              {{else}}
+                {{!-- Empty Right Hand Slot --}}
+                <button type="button" 
+                        class="drawer-empty-hand-slot" 
+                        data-action="openHandEquipPicker" 
+                        data-hand="main" 
+                        title="Click to equip weapon into Right Hand">
+                  <i class="fas fa-plus"></i>
+                  <span>Equip Right Hand</span>
+                </button>
+              {{/if}}
+            </div>
+
+          </div>
 
         {{/if}}
 

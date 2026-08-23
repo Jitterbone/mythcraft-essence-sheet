@@ -146,6 +146,44 @@ export function patchAttributeSkillInput() {
       return context;
     };
 
+    const origOnRender = AttributeSkillInput.prototype._onRender;
+    AttributeSkillInput.prototype._onRender = function(context, options) {
+      if (origOnRender) origOnRender.call(this, context, options);
+
+      // Bind range slider to synchronize with score display/input and update document
+      const rangeInput = this.element?.querySelector('input[type="range"]');
+      const numInput = this.element?.querySelector('input[type="number"], .range-value, span.range-value');
+
+      if (rangeInput) {
+        rangeInput.addEventListener("input", (event) => {
+          const val = event.target.value;
+          if (numInput) {
+            if (numInput.tagName === "INPUT") {
+              numInput.value = val;
+              numInput.dispatchEvent(new Event("change", { bubbles: true }));
+            } else {
+              numInput.textContent = val;
+            }
+          }
+        });
+
+        rangeInput.addEventListener("change", async (event) => {
+          const val = Number(event.target.value);
+          const attrKey = this.attribute;
+          const actor = this.document || this.actor;
+          if (actor && attrKey) {
+            await actor.update({ [`system.attributes.${attrKey}`]: val });
+          }
+        });
+      }
+
+      if (numInput && numInput.tagName === "INPUT" && rangeInput) {
+        numInput.addEventListener("input", (event) => {
+          rangeInput.value = event.target.value;
+        });
+      }
+    };
+
     AttributeSkillInput._essencePatched = true;
   }
 

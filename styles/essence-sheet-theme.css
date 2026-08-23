@@ -746,6 +746,65 @@
   margin: 0 1px;
 }
 
+/* Sleek Integrated AP Stepper Capsule */
+.essence-sheet .ap-stepper-wrap {
+  display: inline-flex;
+  align-items: center;
+  background: var(--mc-bg);
+  border: 1px solid var(--mc-border);
+  border-radius: 3px;
+  overflow: hidden;
+  height: 18px;
+  transition: border-color 0.15s ease;
+}
+
+.essence-sheet .ap-stepper-wrap:focus-within,
+.essence-sheet .ap-stepper-wrap:hover {
+  border-color: var(--mc-teal);
+}
+
+.essence-sheet .ap-stepper-wrap .meter-val-input.ap-val-input {
+  width: 18px !important;
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  color: var(--mc-gold) !important;
+  text-align: center !important;
+}
+
+.essence-sheet .ap-step-btn {
+  background: transparent !important;
+  border: none !important;
+  color: var(--mc-text-muted) !important;
+  width: 11px !important;
+  height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 7.5px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  line-height: 1 !important;
+  flex-shrink: 0 !important;
+}
+
+.essence-sheet .ap-step-btn:hover {
+  background: rgba(42, 122, 127, 0.4) !important;
+  color: #ffffff !important;
+}
+
+.essence-sheet .ap-step-btn.ap-step-minus {
+  border-right: 1px solid rgba(42, 122, 127, 0.25) !important;
+}
+
+.essence-sheet .ap-step-btn.ap-step-plus {
+  border-left: 1px solid rgba(42, 122, 127, 0.25) !important;
+}
+
 .essence-sheet .shield-mini-box,
 .essence-sheet .sap-mini-box {
   display: inline-flex;
@@ -3323,6 +3382,16 @@
   font-weight: 700;
 }
 
+.mini-ar-tag {
+  background: rgba(46, 204, 113, 0.2);
+  color: #2ecc71;
+  border: 1px solid rgba(46, 204, 113, 0.5);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
 .drawer-action-toggle-btn {
   display: inline-flex;
   align-items: center;
@@ -3396,6 +3465,145 @@
 .drawer-roll-dmg-btn:hover {
   background: rgba(231, 76, 60, 0.4);
   box-shadow: 0 0 8px rgba(231, 76, 60, 0.6);
+}
+
+/* ── Equipped Weapons Dual-Hand Layout ──────────────────── */
+.essence-side-drawer-flyout:has(.drawer-dual-hands-grid) {
+  width: 380px !important;
+  right: -425px !important;
+}
+
+.drawer-dual-hands-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.drawer-hand-column {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(14, 20, 24, 0.6);
+  border: 1px solid rgba(58, 122, 127, 0.35);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.drawer-hand-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #FEEBB3;
+  border-bottom: 1px solid rgba(58, 122, 127, 0.3);
+  padding-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.drawer-hand-header i {
+  color: #9bd7e5;
+  font-size: 0.85rem;
+}
+
+.drawer-hand-card {
+  background: rgba(20, 24, 28, 0.85);
+  border: 1px solid rgba(58, 122, 127, 0.4);
+  border-radius: 5px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.drawer-hand-card:hover {
+  border-color: #9bd7e5;
+  background: rgba(42, 90, 95, 0.35);
+}
+
+.drawer-hand-card.two-handed-grip-card {
+  border: 1px dashed #dfb15b;
+  background: rgba(223, 177, 91, 0.08);
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 14px 6px;
+}
+
+.two-handed-badge-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #dfb15b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.two-handed-item-name {
+  font-size: 0.72rem;
+  color: #a0aec0;
+  font-style: italic;
+}
+
+.hand-card-main-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.drawer-empty-hand-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 80px;
+  background: rgba(15, 23, 28, 0.45);
+  border: 1.5px dashed rgba(58, 122, 127, 0.4);
+  border-radius: 5px;
+  color: #7a9fa4;
+  cursor: pointer;
+  padding: 10px;
+  transition: all 0.2s ease;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.drawer-empty-hand-slot:hover {
+  background: rgba(42, 90, 95, 0.25);
+  border-color: #9bd7e5;
+  color: #FEEBB3;
+  box-shadow: 0 0 8px rgba(155, 215, 229, 0.25);
+}
+
+.drawer-empty-hand-slot i {
+  font-size: 1rem;
+}
+
+/* ── 1.5H Hand Mode Toggle Button in Equipment Tab ──── */
+.weapon-hand-pill.hand-and-a-half-toggle {
+  background: rgba(223, 177, 91, 0.15);
+  border: 1px solid rgba(223, 177, 91, 0.6);
+  color: #dfb15b;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.weapon-hand-pill.hand-and-a-half-toggle:hover {
+  background: rgba(223, 177, 91, 0.35);
+  border-color: #FEEBB3;
+  color: #ffffff;
+  box-shadow: 0 0 6px rgba(223, 177, 91, 0.4);
 }
 
 .drawer-container-card {
@@ -8192,7 +8400,8 @@
 }
 
 /* Apply Damage Button - Crimson Glassmorphic */
-.chat-message .apply-damage-btn {
+.chat-message .apply-damage-btn,
+.chat-message .apply-damage {
   width: 100% !important;
   box-sizing: border-box !important;
   display: flex !important;
@@ -8215,12 +8424,108 @@
   transition: all 0.2s ease !important;
 }
 
-.chat-message .apply-damage-btn:hover {
+.chat-message .apply-damage-btn:hover,
+.chat-message .apply-damage:hover {
   background: linear-gradient(135deg, rgba(239, 68, 68, 0.45) 0%, rgba(185, 28, 28, 0.6) 100%) !important;
   border-color: #f87171 !important;
   color: #ffffff !important;
   box-shadow: 0 0 12px rgba(239, 68, 68, 0.5) !important;
   transform: translateY(-1px) !important;
+}
+
+/* Suspense state: Hide button until animation completes & modifiers land */
+.chat-message .apply-damage-btn.suspense-hidden,
+.chat-message .apply-damage.suspense-hidden,
+.chat-message .apply-healing-btn.suspense-hidden,
+.chat-message .apply-healing.suspense-hidden {
+  opacity: 0 !important;
+  max-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+  visibility: hidden !important;
+}
+
+.chat-message .apply-damage-btn.suspense-revealed,
+.chat-message .apply-damage.suspense-revealed,
+.chat-message .apply-healing-btn.suspense-revealed,
+.chat-message .apply-healing.suspense-revealed {
+  opacity: 1 !important;
+  max-height: 50px !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  animation: suspensePopIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
+}
+
+@keyframes suspensePopIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Grip Mode Toggle Button in Equipment Strip */
+.weapon-stat-btn.grip-toggle-btn {
+  background: rgba(58, 122, 127, 0.25) !important;
+  border: 1px solid #3a7a7f !important;
+  color: #FEEBB3 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 2px 7px !important;
+  border-radius: 4px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  transition: all 0.2s ease !important;
+}
+
+.weapon-stat-btn.grip-toggle-btn:hover {
+  background: rgba(58, 122, 127, 0.5) !important;
+  border-color: #9bd7e5 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+}
+
+.weapon-stat-btn.grip-toggle-btn.grip-2h {
+  background: rgba(223, 177, 91, 0.25) !important;
+  border-color: #dfb15b !important;
+  color: #dfb15b !important;
+}
+
+.weapon-stat-btn.grip-toggle-btn.grip-2h:hover {
+  background: rgba(223, 177, 91, 0.45) !important;
+  color: #ffffff !important;
+}
+
+/* Hand-and-a-Half Toggle in Side Drawer Cards */
+button.mini-hand-tag.hand-and-a-half-drawer-toggle {
+  cursor: pointer !important;
+  background: rgba(58, 122, 127, 0.35) !important;
+  border: 1px solid #3a7a7f !important;
+  color: #FEEBB3 !important;
+  padding: 1px 6px !important;
+  border-radius: 3px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  transition: all 0.2s ease !important;
+  line-height: 1.3 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+}
+
+button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
+  background: rgba(223, 177, 91, 0.35) !important;
+  border-color: #dfb15b !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 0 6px rgba(223, 177, 91, 0.4) !important;
 }
 
 /* Apply Healing Button - Emerald Glassmorphic */

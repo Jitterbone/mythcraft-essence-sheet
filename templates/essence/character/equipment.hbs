@@ -113,9 +113,19 @@
 
               {{!-- Hand Slot Tag (Only if weapon has hand tag) --}}
               {{#if w.requiresEquip}}
-                <span class="weapon-hand-pill {{w.handType}}" title="{{w.handType}} weapon">
-                  {{w.handLabel}}
-                </span>
+                {{#if w.isHandAndHalf}}
+                  <button type="button"
+                          class="weapon-hand-pill hand-and-a-half-toggle mode-toggle-btn"
+                          data-action="toggleHandAndHalfMode"
+                          data-item-id="{{w.item.id}}"
+                          title="Hand-and-a-Half Weapon (Currently Gripped {{w.currentGripLabel}}). Click to toggle 1H / 2H grip.">
+                    <i class="fas fa-hand-holding"></i> 1.5H ({{w.currentGripLabel}})
+                  </button>
+                {{else}}
+                  <span class="weapon-hand-pill {{w.handType}}" title="{{w.handType}} weapon">
+                    {{w.handLabel}}
+                  </span>
+                {{/if}}
 
                 {{#if w.isUnwieldy}}
                   <span class="unwieldy-pill" title="Unwieldy (Costs 1 AP to equip/stow in combat)">
@@ -181,6 +191,18 @@
                     <span class="stat-val">{{w.damageDisplay}}</span>
                   </button>
                 {{/if}}
+              {{/if}}
+
+              {{!-- Hand-and-a-Half Grip Toggle (1H / 2H) when equipped --}}
+              {{#if (and w.isHandAndHalf w.isEquipped)}}
+                <button type="button"
+                        class="weapon-stat-btn grip-toggle-btn {{#if (eq w.effectiveGrip '2h')}}grip-2h{{else}}grip-1h{{/if}}"
+                        data-action="toggleHandAndHalfMode"
+                        data-item-id="{{w.item.id}}"
+                        title="Hand-and-a-Half: Gripped {{w.currentGripLabel}}. Click to switch to {{#if (eq w.effectiveGrip '2h')}}One-Handed (1H){{else}}Two-Handed (2H){{/if}}.">
+                  <i class="fas {{#if (eq w.effectiveGrip '2h')}}fa-hands{{else}}fa-hand{{/if}}"></i>
+                  <span class="stat-val">{{w.currentGripLabel}}</span>
+                </button>
               {{/if}}
 
               {{!-- Equip / Stow Toggle Button (If weapon requires equipping) --}}
@@ -321,15 +343,26 @@
                 {{a.item.name}}
               </span>
               
-              {{!-- Don / Doff Toggle Button --}}
-              <button type="button"
-                      class="armor-don-btn {{#if a.isDonned}}donned{{else}}doffed{{/if}}"
-                      data-action="toggleDonArmor"
-                      data-item-id="{{a.item.id}}"
-                      title="{{#if a.isDonned}}Donned (Active). Click to Doff armor.{{else}}Doffed (Inactive). Click to Don armor.{{/if}}">
-                <i class="fas {{#if a.isDonned}}fa-shield-halved{{else}}fa-shield{{/if}}"></i>
-                <span>{{a.donStatusLabel}}</span>
-              </button>
+              {{!-- Don / Doff (Body Armor) or Equip / Stow (Shield) Button --}}
+              {{#if a.isShield}}
+                <button type="button"
+                        class="armor-don-btn shield-equip-btn {{#if a.isEquipped}}donned{{else}}doffed{{/if}}"
+                        data-action="toggleEquipShield"
+                        data-item-id="{{a.item.id}}"
+                        title="{{#if a.isEquipped}}Equipped (+{{a.shieldArBonus}} AR). Click to Stow shield.{{else}}Stowed. Click to Equip shield.{{/if}}">
+                  <i class="fas {{#if a.isEquipped}}fa-shield-halved{{else}}fa-shield{{/if}}"></i>
+                  <span>{{#if a.isEquipped}}Equipped{{else}}Stowed{{/if}}</span>
+                </button>
+              {{else}}
+                <button type="button"
+                        class="armor-don-btn {{#if a.isDonned}}donned{{else}}doffed{{/if}}"
+                        data-action="toggleDonArmor"
+                        data-item-id="{{a.item.id}}"
+                        title="{{#if a.isDonned}}Donned (Active). Click to Doff armor.{{else}}Doffed (Inactive). Click to Don armor.{{/if}}">
+                  <i class="fas {{#if a.isDonned}}fa-shield-halved{{else}}fa-shield{{/if}}"></i>
+                  <span>{{a.donStatusLabel}}</span>
+                </button>
+              {{/if}}
 
               {{#if a.essenceCost}}
                 <div class="item-inline-tags">
@@ -347,11 +380,18 @@
             </div>
 
             <div class="weapon-stats-strip armor-stats-strip">
-              {{#if a.ar}}
-                <span class="ar-badge {{#if a.isDonned}}active-stat{{/if}}" title="Armor Rating: {{a.ar}}">
-                  <i class="fas fa-shield-alt"></i>
-                  AR {{a.ar}}
+              {{#if a.isShield}}
+                <span class="ar-badge {{#if a.isEquipped}}active-stat{{/if}}" title="Shield Additional Armor: +{{a.shieldArBonus}} AR">
+                  <i class="fas fa-shield"></i>
+                  +{{a.shieldArBonus}} AR
                 </span>
+              {{else}}
+                {{#if a.ar}}
+                  <span class="ar-badge {{#if a.isDonned}}active-stat{{/if}}" title="Armor Rating: {{a.ar}}">
+                    <i class="fas fa-shield-alt"></i>
+                    AR {{a.ar}}
+                  </span>
+                {{/if}}
               {{/if}}
             </div>
 

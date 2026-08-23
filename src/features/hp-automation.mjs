@@ -158,12 +158,16 @@ export function patchSystemHpCalculation() {
       return;
     }
 
-    // Check if custom / rolled / calculated Max HP is stored in flags or override
+    // Check if custom / rolled / calculated / manual Max HP is stored in flags or in source data
     const flagMaxHp = this.parent?.flags?.["mythcraft-essence-sheet"]?.maxHp;
+    const sourceMaxHp = this._source?.hp?.max;
+
     if (flagMaxHp !== undefined && flagMaxHp !== null) {
       this.hp.max = Math.max(0, Number(flagMaxHp));
-      this.hp.bloodied = Math.floor(this.hp.max / 2);
+    } else if (sourceMaxHp !== undefined && sourceMaxHp !== null) {
+      this.hp.max = Math.max(0, Number(sourceMaxHp));
     }
+    this.hp.bloodied = Math.floor(this.hp.max / 2);
   };
 
   charModel._essenceHpPatched = true;

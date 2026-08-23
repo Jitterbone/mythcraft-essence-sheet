@@ -24,17 +24,28 @@ import WalletDialog, {
 import ItemAcquisitionDialog, { parseItemCost, processItemPurchase } from "../apps/item-acquisition-dialog.mjs";
 import {
   getDonnedArmor,
+  isShield,
+  isShieldEquipped,
+  getShieldArBonus,
+  getEquippedShields,
   calculateEffectiveResistances,
   getWeaponDamageData,
+  getTwoHandedBaseFormula,
   applyEffectiveArmorAndDefenses,
   syncArmorStrConditions,
   isItemClothes,
   isItemWorn,
   toggleWearItem,
   getWeaponHandType,
+  getWeaponEffectiveGrip,
+  toggleHandAndHalfMode,
   isWeaponUnwieldy,
+  isWeaponEquippable,
   isWeaponEquipped,
   toggleEquipWeapon,
+  toggleEquipShield,
+  evaluateApcFormula,
+  checkAndEnforceAp,
 } from "../features/equipment-automation.mjs";
 import { getSetting } from "../settings.mjs";
 import { findTagDefinition } from "../data/tags-library.mjs";
@@ -119,50 +130,35 @@ export function getEnrichedItemTags(item) {
 }
 
 /**
- * Safely parse weapon APC cost, handling MythCraft min/max formulas like "8-STR, min 4"
+ * Safely parse weapon APC cost, handling MythCraft min/max formulas like "max(2, 4-@STR)" or "8-STR, min 4"
  * @param {Item} item
  * @param {Actor} actor
- * @returns {number|string}
+ * @returns {number}
  */
 export function getSafeWeaponApc(item, actor) {
   if (!item) return 3;
-  const rawApcFormula = item.system?.apcFormula || item._source?.system?.apcFormula || "";
+  const sys = item.system || {};
+  const srcSys = item._source?.system || {};
+  const flagFormula = item.flags?.["mythcraft-essence-sheet"]?.apcFormula;
 
-  if (typeof rawApcFormula === "number") return rawApcFormula;
-
-  if (typeof rawApcFormula === "string" && rawApcFormula.trim()) {
-    const raw = rawApcFormula.trim();
-    // Check if it matches "X - ATTR, min Y" or "X - @ATTR, min Y"
-    const minMatch = raw.match(/^([0-9\s\+\-\*\/\@a-zA-Z_]+?)(?:,\s*min\s*(\d+))$/i);
-    if (minMatch) {
-      const expr = minMatch[1].trim();
-      const minVal = parseInt(minMatch[2], 10);
-      try {
-        const actorStr = Number(actor?.system?.attributes?.str ?? 0);
-        const parts = expr.match(/^(\d+)\s*-\s*(@?STR|@?attributes\.str)/i);
-        if (parts) {
-          const base = parseInt(parts[1], 10);
-          return Math.max(minVal, base - actorStr);
-        }
-      } catch (err) {
-        // Continue to fallback
-      }
-    }
-
-    if (/^\d+$/.test(raw)) {
-      return parseInt(raw, 10);
-    }
+  const rawCandidate = flagFormula || sys.apcFormula || srcSys.apcFormula || sys.apc || srcSys.apc || sys.ap || "";
+  
+  if (typeof rawCandidate === "string" && rawCandidate.trim().length > 0) {
+    const evaluated = evaluateApcFormula(rawCandidate, actor || item.actor || item.parent);
+    if (evaluated > 0) return evaluated;
+  } else if (typeof rawCandidate === "number" && rawCandidate > 0) {
+    return rawCandidate;
   }
 
-  // Safe fallback to getter or 3
-  try {
-    const val = item.system?.apc;
-    if (typeof val === "number" && !isNaN(val)) return val;
-  } catch (e) {
-    // Ignore getter error
+  // Check description for APC formula (e.g. "4-STR, min 3")
+  const desc = String(sys.description?.value ?? sys.description ?? "");
+  const apcDescMatch = desc.match(/(?:apc|ap)\s*[:=]?\s*([0-9\s\+\-\*\/\@a-zA-Z_.]+(?:,\s*min\s*\d+)?)/i);
+  if (apcDescMatch) {
+    const evaluated = evaluateApcFormula(apcDescMatch[1], actor || item.actor || item.parent);
+    if (evaluated > 0) return evaluated;
   }
 
-  return Number(item._source?.system?.apcFormula) || 3;
+  return 3;
 }
 
 /**
@@ -190,9 +186,22 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
   const isWeapon = item.type === "weapon";
   const isSpell = item.type === "spell";
 
+  let weaponData = null;
+  if (isWeapon) {
+    weaponData = getWeaponDamageData(actor, item);
+  }
+
   // 1. Collect raw damage definitions
   let damages = [];
-  if (Array.isArray(item.system?.damage) && item.system.damage.length > 0) {
+  if (isWeapon && weaponData) {
+    const defaultType = (Array.isArray(item.system?.damage) && item.system.damage[0]?.type) || item.system?.damageType || "sharp";
+    damages = [{ formula: weaponData.baseFormula, type: defaultType }];
+    if (Array.isArray(item.system?.damage) && item.system.damage.length > 1) {
+      for (let i = 1; i < item.system.damage.length; i++) {
+        if (item.system.damage[i]?.formula) damages.push(item.system.damage[i]);
+      }
+    }
+  } else if (Array.isArray(item.system?.damage) && item.system.damage.length > 0) {
     damages = item.system.damage.filter(d => d && d.formula);
   } else if (item.system?.damageFormula) {
     damages = [{ formula: item.system.damageFormula, type: item.system.damageType || "sharp" }];
@@ -300,6 +309,7 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
   const flavorPrefix = isCrit ? `💥 CRITICAL HIT: ${item.name}` : `${item.name}`;
   const notes = [];
   if (isCrit) notes.push("Critical Damage");
+  if (isWeapon && weaponData?.isTwoHandedGrip) notes.push("2H Grip");
   if (attrModLabel) notes.push(attrModLabel);
   if (hasItemAffinity) notes.push("+3 Affinity");
   if (isCrit && luckScore) notes.push(`+${luckScore} LUCK`);
@@ -341,6 +351,12 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
  */
 export async function rollSpellItem(actor, item, { rollMode = null } = {}) {
   if (!actor || !item || item.type !== "spell") return;
+
+  const apc = Number(item.system?.apc ?? item.system?.ap ?? 0);
+  if (apc > 0) {
+    const allowed = await checkAndEnforceAp(actor, apc, item.name);
+    if (!allowed) return;
+  }
 
   const spellcastingAbility = actor.system?.sp?.attribute ?? "int";
   let abilityMod = Number(actor.system?.attributes?.[spellcastingAbility] ?? 0);
@@ -518,11 +534,16 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       showImage: this.#showImage,
       toggleAttunement: this.#toggleAttunement,
       toggleDonArmor: this.#toggleDonArmor,
+      toggleEquipShield: this.#toggleEquipShield,
+      openArmorPicker: this.#openArmorPicker,
+      adjustAp: this.#adjustAp,
       toggleContainer: this.#toggleContainer,
       removeFromContainer: this.#removeFromContainer,
       openContainerTab: this.#openContainerTab,
       toggleWearClothes: this.#toggleWearClothes,
       toggleEquipWeapon: this.#toggleEquipWeapon,
+      toggleHandAndHalfMode: this.#toggleHandAndHalfMode,
+      openHandEquipPicker: this.#openHandEquipPicker,
       toggleSideDrawer: this.#toggleSideDrawer,
       closeSideDrawer: this.#closeSideDrawer,
       toggleFavorite: this.#toggleFavorite,
@@ -681,6 +702,10 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     const item = this.actor.items.get(itemId);
     if (!item || item.type !== "weapon") return;
 
+    const apc = getSafeWeaponApc(item, this.actor);
+    const allowed = await checkAndEnforceAp(this.actor, apc, item.name);
+    if (!allowed) return;
+
     const attr = item.system?.attr || "str";
     const attrValue = Number(this.actor.system?.attributes?.[attr] ?? 0);
     const critHit = getActorCritHit(this.actor);
@@ -829,12 +854,16 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     const item = this.actor.items.get(itemId);
     if (!item || item.type !== "armor") return;
 
+    if (isShield(item)) {
+      return EssenceCharacterSheet.#toggleEquipShield.call(this, event, target);
+    }
+
     const isCurrentlyDonned = item.system?.equipped === true || item.flags?.["mythcraft-essence-sheet"]?.isDonned === true;
     const newDonState = !isCurrentlyDonned;
 
-    // If donning this armor, un-don all other armor items on the actor
+    // If donning this armor, un-don all other body armor items on the actor (excluding shields)
     if (newDonState) {
-      const otherArmors = this.actor.itemTypes.armor.filter(a => a.id !== item.id && (a.system?.equipped || a.flags?.["mythcraft-essence-sheet"]?.isDonned));
+      const otherArmors = this.actor.itemTypes.armor.filter(a => a.id !== item.id && !isShield(a) && (a.system?.equipped || a.flags?.["mythcraft-essence-sheet"]?.isDonned));
       for (const other of otherArmors) {
         await other.update({
           "system.equipped": false,
@@ -864,6 +893,116 @@ export default class EssenceCharacterSheet extends CharacterSheet {
 
     const stateLabel = newDonState ? "Donned" : "Doffed";
     ui.notifications.info(`${item.name} is now ${stateLabel}. (AR: ${this.actor.system.defenses.ar})`);
+  }
+
+  static async #toggleEquipShield(event, target) {
+    event.stopPropagation();
+    const itemId = target.dataset.itemId || target.closest("[data-item-id]")?.dataset.itemId;
+    const targetHand = target.dataset.hand || null;
+    const item = this.actor.items.get(itemId);
+    if (item) {
+      await toggleEquipShield(this.actor, item, targetHand);
+      this.render(false);
+    }
+  }
+
+  static async #adjustAp(event, target) {
+    event.stopPropagation();
+    event.preventDefault();
+    const delta = Number(target.dataset.delta || 0);
+    if (!delta) return;
+
+    const currentAp = Number(this.actor.system?.ap?.value ?? 0);
+    const newAp = Math.max(0, currentAp + delta);
+
+    await this.actor.update({ "system.ap.value": newAp });
+    this.render(false);
+  }
+
+  static async #openArmorPicker(event, target) {
+    event.stopPropagation();
+    const armorType = target.dataset.armorType || "body"; // "body" or "shield"
+    
+    if (armorType === "shield") {
+      const availableShields = (this.actor.itemTypes?.armor || []).filter(a => isShield(a) && !isShieldEquipped(a));
+      if (!availableShields.length) {
+        ui.notifications.info("No unequipped shields available in inventory.");
+        return;
+      }
+
+      const optionsHtml = availableShields.map(s => {
+        const bonus = getShieldArBonus(s);
+        return `<button type="button" class="equip-picker-option" data-item-id="${s.id}" style="display:flex; align-items:center; gap:8px; width:100%; margin-bottom:6px; padding:6px 10px; background:#14171a; border:1px solid #3a7a7f; border-radius:4px; color:#FEEBB3; cursor:pointer; text-align:left;">
+          <img src="${s.img}" style="width:24px; height:24px; object-fit:cover; border-radius:3px;" />
+          <span style="flex:1; font-weight:600; font-size:12px;">${s.name}</span>
+          <span style="font-size:10px; padding:2px 5px; background:rgba(46,139,154,0.3); border-radius:3px; color:#9bd7e5;">Shield</span>
+          <span style="font-size:10px; padding:2px 5px; background:rgba(254,235,179,0.15); border-radius:3px; color:#FEEBB3;">+${bonus} AR</span>
+        </button>`;
+      }).join("");
+
+      const dialogContent = `<div class="hand-equip-picker-dialog" style="max-height:280px; overflow-y:auto; padding:4px;">
+        <p style="margin:0 0 8px; font-size:12px; color:#9bd7e5;">Select a shield to equip:</p>
+        <div class="equip-options-container">${optionsHtml}</div>
+      </div>`;
+
+      const d = new Dialog({
+        title: "Equip Shield",
+        content: dialogContent,
+        buttons: { cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancel" } },
+        render: (html) => {
+          html.find(".equip-picker-option").on("click", async (e) => {
+            const pickedId = e.currentTarget.dataset.itemId;
+            const pickedItem = this.actor.items.get(pickedId);
+            if (pickedItem) {
+              await toggleEquipShield(this.actor, pickedItem);
+              this.render(false);
+            }
+            d.close();
+          });
+        },
+      });
+      d.render(true);
+    } else {
+      // Body armor
+      const availableArmors = (this.actor.itemTypes?.armor || []).filter(a => !isShield(a) && !a.system?.equipped && !a.flags?.["mythcraft-essence-sheet"]?.isDonned);
+      if (!availableArmors.length) {
+        ui.notifications.info("No un-donned body armor in inventory.");
+        return;
+      }
+
+      const optionsHtml = availableArmors.map(a => {
+        const ar = a.system?.ar || 10;
+        return `<button type="button" class="equip-picker-option" data-item-id="${a.id}" style="display:flex; align-items:center; gap:8px; width:100%; margin-bottom:6px; padding:6px 10px; background:#14171a; border:1px solid #3a7a7f; border-radius:4px; color:#FEEBB3; cursor:pointer; text-align:left;">
+          <img src="${a.img}" style="width:24px; height:24px; object-fit:cover; border-radius:3px;" />
+          <span style="flex:1; font-weight:600; font-size:12px;">${a.name}</span>
+          <span style="font-size:10px; padding:2px 5px; background:rgba(58,122,127,0.3); border-radius:3px; color:#9bd7e5;">Armor</span>
+          <span style="font-size:10px; padding:2px 5px; background:rgba(254,235,179,0.15); border-radius:3px; color:#FEEBB3;">AR ${ar}</span>
+        </button>`;
+      }).join("");
+
+      const dialogContent = `<div class="hand-equip-picker-dialog" style="max-height:280px; overflow-y:auto; padding:4px;">
+        <p style="margin:0 0 8px; font-size:12px; color:#9bd7e5;">Select body armor to don:</p>
+        <div class="equip-options-container">${optionsHtml}</div>
+      </div>`;
+
+      const d = new Dialog({
+        title: "Don Body Armor",
+        content: dialogContent,
+        buttons: { cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancel" } },
+        render: (html) => {
+          html.find(".equip-picker-option").on("click", async (e) => {
+            const pickedId = e.currentTarget.dataset.itemId;
+            const pickedItem = this.actor.items.get(pickedId);
+            if (pickedItem) {
+              await EssenceCharacterSheet.#toggleDonArmor.call(this, e, e.currentTarget);
+              this.render(false);
+            }
+            d.close();
+          });
+        },
+      });
+      d.render(true);
+    }
   }
 
   static async #toggleContainer(event, target) {
@@ -925,11 +1064,94 @@ export default class EssenceCharacterSheet extends CharacterSheet {
   static async #toggleEquipWeapon(event, target) {
     event.stopPropagation();
     const itemId = target.dataset.itemId || target.closest("[data-item-id]")?.dataset.itemId;
+    const targetHand = target.dataset.hand || null;
     const item = this.actor.items.get(itemId);
     if (item) {
-      await toggleEquipWeapon(this.actor, item);
+      await toggleEquipWeapon(this.actor, item, targetHand);
       this.render(false);
     }
+  }
+
+  static async #toggleHandAndHalfMode(event, target) {
+    event.stopPropagation();
+    const itemId = target.dataset.itemId || target.closest("[data-item-id]")?.dataset.itemId;
+    const item = this.actor.items.get(itemId);
+    if (item) {
+      await toggleHandAndHalfMode(this.actor, item);
+      this.render(false);
+    }
+  }
+
+  static async #openHandEquipPicker(event, target) {
+    event.stopPropagation();
+    const hand = target.dataset.hand || "main";
+    const handTitle = hand === "main" ? "Right Hand" : "Left Hand";
+
+    const availableWeapons = (this.actor.itemTypes?.weapon || []).filter(w => isWeaponEquippable(w) && !isWeaponEquipped(w));
+    const availableShields = (this.actor.itemTypes?.armor || []).filter(a => isShield(a) && !isShieldEquipped(a));
+
+    if (!availableWeapons.length && !availableShields.length) {
+      ui.notifications.info("No unequipped weapons or shields available to equip.");
+      return;
+    }
+
+    const weaponOptionsHtml = availableWeapons.map(w => {
+      const handType = getWeaponHandType(w);
+      const handLabel = handType === "two-handed" ? "2H" : (handType === "hand-and-a-half" ? "1.5H" : "1H");
+      const apc = getSafeWeaponApc(w, this.actor);
+      return `<button type="button" class="equip-picker-option" data-item-id="${w.id}" data-item-type="weapon" style="display:flex; align-items:center; gap:8px; width:100%; margin-bottom:6px; padding:6px 10px; background:#14171a; border:1px solid #3a7a7f; border-radius:4px; color:#FEEBB3; cursor:pointer; text-align:left;">
+        <img src="${w.img}" style="width:24px; height:24px; object-fit:cover; border-radius:3px;" />
+        <span style="flex:1; font-weight:600; font-size:12px;">${w.name}</span>
+        <span style="font-size:10px; padding:2px 5px; background:rgba(58,122,127,0.3); border-radius:3px; color:#9bd7e5;">${handLabel}</span>
+        <span style="font-size:10px; padding:2px 5px; background:rgba(254,235,179,0.15); border-radius:3px; color:#FEEBB3;">${apc} AP</span>
+      </button>`;
+    }).join("");
+
+    const shieldOptionsHtml = availableShields.map(s => {
+      const shieldBonus = getShieldArBonus(s);
+      return `<button type="button" class="equip-picker-option" data-item-id="${s.id}" data-item-type="shield" style="display:flex; align-items:center; gap:8px; width:100%; margin-bottom:6px; padding:6px 10px; background:#14171a; border:1px solid #3a7a7f; border-radius:4px; color:#FEEBB3; cursor:pointer; text-align:left;">
+        <img src="${s.img}" style="width:24px; height:24px; object-fit:cover; border-radius:3px;" />
+        <span style="flex:1; font-weight:600; font-size:12px;">${s.name}</span>
+        <span style="font-size:10px; padding:2px 5px; background:rgba(46,139,154,0.3); border-radius:3px; color:#9bd7e5;">Shield</span>
+        <span style="font-size:10px; padding:2px 5px; background:rgba(254,235,179,0.15); border-radius:3px; color:#FEEBB3;">+${shieldBonus} AR</span>
+      </button>`;
+    }).join("");
+
+    const dialogContent = `<div class="hand-equip-picker-dialog" style="max-height:280px; overflow-y:auto; padding:4px;">
+      <p style="margin:0 0 8px; font-size:12px; color:#9bd7e5;">Select an item to equip to <strong>${handTitle}</strong>:</p>
+      <div class="equip-options-container">
+        ${weaponOptionsHtml}
+        ${shieldOptionsHtml}
+      </div>
+    </div>`;
+
+    const d = new Dialog({
+      title: `Equip to ${handTitle}`,
+      content: dialogContent,
+      buttons: {
+        cancel: {
+          icon: '<i class="fas fa-times"></i>',
+          label: "Cancel",
+        },
+      },
+      render: (html) => {
+        html.find(".equip-picker-option").on("click", async (e) => {
+          const pickedId = e.currentTarget.dataset.itemId;
+          const itemType = e.currentTarget.dataset.itemType;
+          const pickedItem = this.actor.items.get(pickedId);
+          if (pickedItem) {
+            if (itemType === "shield" || isShield(pickedItem)) {
+              await toggleEquipShield(this.actor, pickedItem, hand);
+            } else {
+              await toggleEquipWeapon(this.actor, pickedItem, hand);
+            }
+            this.render(false);
+          }
+          d.close();
+        });
+      },
+    });
+    d.render(true);
   }
 
   static async #toggleSideDrawer(event, target) {
@@ -1515,6 +1737,18 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       });
     }
 
+    // Max HP manual input listener (ensures true manual Max HP persists)
+    const maxHpInput = this.element.querySelector("input[name='system.hp.max']");
+    if (maxHpInput) {
+      maxHpInput.addEventListener("change", async (event) => {
+        const val = Math.max(0, parseInt(event.target.value, 10) || 0);
+        await this.actor.update({
+          "system.hp.max": val,
+          "flags.mythcraft-essence-sheet.maxHp": val,
+        });
+      });
+    }
+
     // Direct attribute score change listener for standard, Sanity, and custom attributes
     const attrInputs = this.element.querySelectorAll(".attr-num-input");
     attrInputs.forEach(input => {
@@ -1742,6 +1976,18 @@ export default class EssenceCharacterSheet extends CharacterSheet {
    *  Context preparation — call super to get all the system's prepared data,
    *  then augment with Essence-specific additions.
    * ──────────────────────────────────────────────────────────────────────── */
+
+  /** @inheritdoc */
+  _prepareSubmitData(event, form, formData) {
+    const submitData = super._prepareSubmitData ? super._prepareSubmitData(event, form, formData) : (formData?.object ?? {});
+
+    // If user edited system.hp.max in the form, ensure flags.mythcraft-essence-sheet.maxHp matches
+    if (submitData["system.hp.max"] !== undefined && submitData["system.hp.max"] !== null) {
+      submitData["flags.mythcraft-essence-sheet.maxHp"] = Number(submitData["system.hp.max"]);
+    }
+
+    return submitData;
+  }
 
   /** @inheritdoc */
   async _prepareContext(options) {
@@ -2310,8 +2556,28 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     }));
     const wornClothesList = clothesList.filter(c => c.isWorn);
 
-    // Donned Armor
+    // Donned Body Armor (excluding shields)
+    const donnedBodyArmorItem = (this.actor.itemTypes?.armor || []).find(item => !isShield(item) && (item.system?.equipped === true || item.flags?.["mythcraft-essence-sheet"]?.isDonned === true));
+    const equippedShieldItem = (this.actor.itemTypes?.armor || []).find(item => isShield(item) && isShieldEquipped(item));
+
+    const bodyArmorCard = donnedBodyArmorItem ? {
+      id: donnedBodyArmorItem.id,
+      name: donnedBodyArmorItem.name,
+      img: donnedBodyArmorItem.img,
+      ar: donnedBodyArmorItem.system?.ar || 10,
+      resist: donnedBodyArmorItem.system?.resist || "",
+    } : null;
+
+    const shieldCard = equippedShieldItem ? {
+      id: equippedShieldItem.id,
+      name: equippedShieldItem.name,
+      img: equippedShieldItem.img,
+      shieldArBonus: getShieldArBonus(equippedShieldItem),
+      handSlot: equippedShieldItem.flags?.["mythcraft-essence-sheet"]?.equippedHand || "off",
+    } : null;
+
     const donnedArmors = (this.actor.itemTypes?.armor || []).filter(item => {
+      if (isShield(item)) return false;
       return item.system?.equipped === true || item.flags?.["mythcraft-essence-sheet"]?.isDonned === true;
     }).map(item => ({
       id: item.id,
@@ -2321,21 +2587,73 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       resist: item.system?.resist || "",
     }));
 
-    // Equipped Weapons
-    const equippedWeaponsList = (this.actor.itemTypes?.weapon || []).filter(item => isWeaponEquipped(item)).map(item => {
+    // Equipped Weapons & Shields for Dual-Hand Layout (Right Hand / Main & Left Hand / Off)
+    const rawEquippedWeapons = (this.actor.itemTypes?.weapon || []).filter(item => isWeaponEquipped(item));
+    const rawEquippedShields = (this.actor.itemTypes?.armor || []).filter(item => isShield(item) && isShieldEquipped(item));
+
+    let mainHandItem = null;
+    let offHandItem = null;
+    let twoHandedWeapon = null;
+
+    const equippedHandList = [];
+
+    for (const item of rawEquippedWeapons) {
       const weaponData = getWeaponDamageData(this.actor, item);
       const handType = getWeaponHandType(item);
-      const handLabel = handType === "two-handed" ? "2H" : (handType === "hand-and-a-half" ? "1.5H" : (handType === "one-handed" ? "1H" : ""));
+      const effectiveGrip = getWeaponEffectiveGrip(item);
+      const handLabel = handType === "two-handed" ? "2H" : (handType === "hand-and-a-half" ? `1.5H (${effectiveGrip.toUpperCase()})` : "1H");
       const apc = getSafeWeaponApc(item, this.actor);
-      return {
+      const handSlot = item.flags?.["mythcraft-essence-sheet"]?.equippedHand || "main";
+
+      const formatted = {
         id: item.id,
         name: item.name,
         img: item.img,
         apc,
+        isShield: false,
+        isHandAndHalf: handType === "hand-and-a-half",
+        handType,
+        effectiveGrip,
         handLabel,
+        handSlot,
         damageDisplay: weaponData.effectiveFormula,
       };
-    });
+
+      if (effectiveGrip === "2h" || handSlot === "both") {
+        twoHandedWeapon = formatted;
+        mainHandItem = formatted;
+        offHandItem = formatted;
+      } else if (handSlot === "off") {
+        offHandItem = formatted;
+      } else {
+        mainHandItem = formatted;
+      }
+
+      equippedHandList.push(formatted);
+    }
+
+    for (const item of rawEquippedShields) {
+      const shieldBonus = getShieldArBonus(item);
+      const handSlot = item.flags?.["mythcraft-essence-sheet"]?.equippedHand || "off";
+
+      const formatted = {
+        id: item.id,
+        name: item.name,
+        img: item.img,
+        isShield: true,
+        shieldArBonus: shieldBonus,
+        handLabel: "Shield",
+        handSlot,
+      };
+
+      if (handSlot === "main") {
+        mainHandItem = formatted;
+      } else {
+        offHandItem = formatted;
+      }
+
+      equippedHandList.push(formatted);
+    }
 
     context.sideDrawer = {
       activeTab: this.activeSideDrawerTab || null,
@@ -2350,13 +2668,20 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         totalCount: clothesList.length,
       },
       armor: {
+        bodyArmor: bodyArmorCard,
+        shield: shieldCard,
         items: donnedArmors,
-        count: donnedArmors.length,
+        count: (bodyArmorCard ? 1 : 0) + (shieldCard ? 1 : 0),
         ar: this.actor.system?.defenses?.ar || 10,
       },
       weapons: {
-        items: equippedWeaponsList,
-        count: equippedWeaponsList.length,
+        items: equippedHandList,
+        count: equippedHandList.length,
+        mainHand: mainHandItem,
+        offHand: offHandItem,
+        twoHanded: twoHandedWeapon,
+        isTwoHanded: Boolean(twoHandedWeapon),
+        hasAny: equippedHandList.length > 0,
       },
     };
 
@@ -2651,7 +2976,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         const damages = (item.system?.damage ?? []).filter(d => d.formula);
         const damageParts = damages.map((d, idx) => {
           const dmgType = String(d.type || "sharp").trim();
-          let formulaDisplay = d.formula;
+          let formulaDisplay = (idx === 0) ? weaponData.baseFormula : d.formula;
           if (idx === 0 && weaponData.attrMod !== 0) {
             formulaDisplay = `${formulaDisplay} ${weaponData.attrMod > 0 ? "+" : "-"} ${Math.abs(weaponData.attrMod)}`;
           }
@@ -2681,8 +3006,11 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         const containerExpanded = this.expandedItems.has(`container-${item.id}`);
 
         const handType = getWeaponHandType(item);
+        const effectiveGrip = getWeaponEffectiveGrip(item);
         const requiresEquip = Boolean(handType);
         const handLabel = handType === "two-handed" ? "2H" : (handType === "hand-and-a-half" ? "1.5H" : (handType === "one-handed" ? "1H" : ""));
+        const currentGripLabel = effectiveGrip.toUpperCase();
+        const isHandAndHalf = handType === "hand-and-a-half";
         const isEquipped = requiresEquip ? isWeaponEquipped(item) : Boolean(item.system?.equipped);
         const isUnwieldy = isWeaponUnwieldy(item);
         const defenseTarget = (item.system?.defenseTarget || item.system?.defense || "").toUpperCase();
@@ -2695,6 +3023,9 @@ export default class EssenceCharacterSheet extends CharacterSheet {
           hasAttackRoll,
           defenseTarget,
           handType,
+          effectiveGrip,
+          currentGripLabel,
+          isHandAndHalf,
           handLabel,
           isUnwieldy,
           essenceCost,
@@ -2719,12 +3050,15 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         const essenceCost = Number(item.flags?.["mythcraft-essence-sheet"]?.essenceCost ?? item.system?.essenceCost ?? 0);
         const isAttuned = item.flags?.["mythcraft-essence-sheet"]?.isAttuned ?? true;
 
-        const isDonned = item.system?.equipped === true || item.flags?.["mythcraft-essence-sheet"]?.isDonned === true;
+        const isShieldItem = isShield(item);
+        const isEquipped = isShieldItem ? isShieldEquipped(item) : false;
+        const isDonned = !isShieldItem && (item.system?.equipped === true || item.flags?.["mythcraft-essence-sheet"]?.isDonned === true);
+        const shieldArBonus = isShieldItem ? getShieldArBonus(item) : 0;
         const ar = Number.isNumeric(item.system?.ar) ? Number(item.system.ar) : 10;
         const resist = item.system?.resist || "";
         const strMin = item.system?.strMin;
         const actorStr = this.actor.system?.attributes?.str ?? 0;
-        const isStrFailed = isDonned && Number.isNumeric(strMin) && strMin > 0 && actorStr < strMin;
+        const isStrFailed = (isDonned || isEquipped) && Number.isNumeric(strMin) && strMin > 0 && actorStr < strMin;
 
         const dexMax = item.system?.dexMax;
         const actorDex = this.actor.system?.attributes?.dex ?? 0;
@@ -2757,7 +3091,10 @@ export default class EssenceCharacterSheet extends CharacterSheet {
           expanded,
           essenceCost,
           isAttuned,
+          isShield: isShieldItem,
+          isEquipped,
           isDonned,
+          shieldArBonus,
           donStatusLabel: isDonned ? "Donned" : "Doffed",
           ar,
           resist,

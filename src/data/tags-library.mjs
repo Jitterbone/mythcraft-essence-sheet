@@ -20,12 +20,23 @@
  */
 export function formatTagTitle(str) {
   if (!str || typeof str !== "string") return "";
-  const clean = str.trim().replace(/^MYTHCRAFT\.Item\.[a-zA-Z0-9_]+\.tags\./i, "").replace(/[-_]/g, " ");
+  let clean = str.trim()
+    .replace(/^MYTHCRAFT\.Item\.[a-zA-Z0-9_]+\.tags\./i, "")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[-_]/g, " ");
+
+  // Normalize specific known phrases
+  if (/^hand\s*(?:and\s*a\s*)?half/i.test(clean) || /^handhalf/i.test(clean)) {
+    const diceMatch = str.match(/\(([^)]+)\)/);
+    return diceMatch ? `Hand-and-a-Half (${diceMatch[1].trim()})` : "Hand-and-a-Half";
+  }
+  if (/^two\s*handed/i.test(clean)) return "Two-Handed";
+  if (/^one\s*handed/i.test(clean)) return "One-Handed";
+
   return clean
     .split(" ")
     .map(word => {
       if (!word) return "";
-      // Keep small connectors lowercase unless it's first word
       const lower = word.toLowerCase();
       if (["and", "of", "the", "in", "a", "an"].includes(lower)) return lower;
       return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
@@ -598,13 +609,29 @@ export function getActiveTagsLibrary() {
  * @param {string} tagString
  * @returns {object}
  */
-export function findTagDefinition(tagString) {
+export function findTagDefinition(tagInput) {
+  if (!tagInput) return null;
+  const tagString = typeof tagInput === "string" ? tagInput : (tagInput.name || tagInput.label || tagInput.id || tagInput.value || "");
   if (!tagString || typeof tagString !== "string") return null;
+
   const library = getActiveTagsLibrary();
   const rawClean = tagString.trim().replace(/^MYTHCRAFT\.Item\.[a-zA-Z0-9_]+\.tags\./i, "");
   const clean = rawClean.toLowerCase().replace(/[^a-z0-9]/g, "");
   const formattedName = formatTagTitle(rawClean);
-  
+
+  // Special match for Hand-and-a-Half
+  if (clean.includes("handandahalf") || clean.includes("handhalf") || clean.includes("15h")) {
+    const officialDef = library.find(t => t.id === "hand-and-a-half");
+    if (officialDef) {
+      const cat = TAG_CATEGORIES[officialDef.category] || TAG_CATEGORIES.weapon;
+      return {
+        ...officialDef,
+        name: formattedName,
+        categoryMeta: cat,
+      };
+    }
+  }
+
   // 1. Direct match on ID or normalized name
   let found = library.find(t => {
     const tIdNorm = (t.id || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -613,7 +640,7 @@ export function findTagDefinition(tagString) {
   });
   if (found) {
     const cat = TAG_CATEGORIES[found.category] || TAG_CATEGORIES.custom;
-    return { ...found, name: formatTagTitle(found.name), categoryMeta: cat };
+    return { ...found, name: formattedName, categoryMeta: cat };
   }
 
   // 2. Partial/Prefix match (e.g. "Regen 5" -> "Regen")

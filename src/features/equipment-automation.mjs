@@ -58,7 +58,62 @@ export function formatResistanceString(list) {
 }
 
 /**
- * Get the currently donned (equipped) armor for an actor
+ * Checks whether an item is a shield.
+ * @param {Item} item
+ * @returns {boolean}
+ */
+export function isShield(item) {
+  if (!item || item.type !== "armor") return false;
+  const cat = String(item.system?.category || item.system?.armorType || item.system?.type || "").toLowerCase().trim();
+  if (cat === "shield" || cat.includes("shield")) return true;
+  const nameLower = (item.name || "").toLowerCase();
+  if (nameLower.includes("shield") || nameLower.includes("buckler") || nameLower.includes("targe") || nameLower.includes("pavise") || nameLower.includes("aegis")) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Checks whether a shield is currently equipped.
+ * @param {Item} item
+ * @returns {boolean}
+ */
+export function isShieldEquipped(item) {
+  if (!isShield(item)) return false;
+  const flag = item.flags?.["mythcraft-essence-sheet"]?.isEquipped;
+  if (typeof flag === "boolean") return flag;
+  return item.system?.equipped === true;
+}
+
+/**
+ * Gets the additional AR modifier provided by a shield.
+ * @param {Item} item
+ * @returns {number}
+ */
+export function getShieldArBonus(item) {
+  if (!item) return 0;
+  const sys = item.system || {};
+  if (sys.ar !== undefined && sys.ar !== null && !isNaN(Number(sys.ar))) return Number(sys.ar);
+  if (sys.arBonus !== undefined && sys.arBonus !== null && !isNaN(Number(sys.arBonus))) return Number(sys.arBonus);
+  if (sys.defenses?.ar !== undefined && sys.defenses?.ar !== null && !isNaN(Number(sys.defenses.ar))) return Number(sys.defenses.ar);
+  if (sys.armorModifier !== undefined && sys.armorModifier !== null && !isNaN(Number(sys.armorModifier))) return Number(sys.armorModifier);
+  const parsed = parseInt(String(sys.ar || sys.arBonus || "").replace(/[^0-9\-]/g, ""), 10);
+  return !isNaN(parsed) ? parsed : 1;
+}
+
+/**
+ * Gets all equipped shields for an actor.
+ * @param {Actor} actor
+ * @returns {Array<Item>}
+ */
+export function getEquippedShields(actor) {
+  if (!actor) return [];
+  const armors = actor.itemTypes?.armor || (actor.items ? actor.items.filter(i => i.type === "armor") : []);
+  return armors.filter(item => isShield(item) && isShieldEquipped(item));
+}
+
+/**
+ * Get the currently donned (equipped) body armor for an actor (excluding shields)
  * @param {Actor} actor
  * @returns {Item|null}
  */
@@ -66,6 +121,7 @@ export function getDonnedArmor(actor) {
   if (!actor) return null;
   const armors = actor.itemTypes?.armor || (actor.items ? actor.items.filter(i => i.type === "armor") : []);
   return armors.find(item => {
+    if (isShield(item)) return false;
     return item.system?.equipped === true || item.flags?.["mythcraft-essence-sheet"]?.isDonned === true;
   }) || null;
 }
@@ -131,12 +187,64 @@ export function calculateEffectiveResistances(actor) {
 /**
  * Calculate effective weapon damage data including attribute modifier and affinity bonus
  * STRICT: If the item has no attribute assigned or is not a weapon with an attack roll, it gets NO bonus!
+/**
+ * Extracts the base two-handed damage formula for a hand-and-a-half weapon from system data, tags, or description.
+ * (e.g. "Hand-and-a-Half (1d10)", "Hand in a Half (1d10)", "1d10 when wielded with two hands" -> "1d10")
+ * @param {Item} weapon
+ * @returns {string|null}
+ */
+export function getTwoHandedBaseFormula(weapon) {
+  if (!weapon) return null;
+
+  // 1. Direct system/flag fields
+  if (weapon.system?.twoHandedDamage) return String(weapon.system.twoHandedDamage).trim();
+  if (weapon.system?.versatileDamage) return String(weapon.system.versatileDamage).trim();
+  if (weapon.system?.twoHandDamage) return String(weapon.system.twoHandDamage).trim();
+  if (weapon.system?.twoHanded) return String(weapon.system.twoHanded).trim();
+  if (weapon.flags?.["mythcraft-essence-sheet"]?.twoHandedDamage) return String(weapon.flags["mythcraft-essence-sheet"].twoHandedDamage).trim();
+
+  // 2. Check tags (objects or strings)
+  const rawTags = weapon.system?.tags || [];
+  const tagList = Array.isArray(rawTags)
+    ? rawTags
+    : (rawTags instanceof Set ? Array.from(rawTags) : (typeof rawTags === "object" && rawTags !== null ? Object.keys(rawTags).concat(Object.values(rawTags)) : String(rawTags).split(",")));
+  
+  for (const t of tagList) {
+    const str = typeof t === "string" ? t : (t?.name || t?.label || t?.value || t?.id || "");
+    const match = str.match(/(?:hand(?:-|\s*)(?:and|in)(?:-|\s*)a(?:-|\s*)half|handhalf|1\.5h|two-handed|versatile)[^\(]*\(\s*([0-9]+d[0-9]+(?:\s*[\+\-]\s*[0-9]+)?)\s*\)/i) || 
+                  str.match(/\(\s*([0-9]+d[0-9]+(?:\s*[\+\-]\s*[0-9]+)?)\s*\)/i);
+    if (match) return match[1].trim();
+  }
+
+  // 3. Check weapon description
+  const desc = String(weapon.system?.description?.value ?? weapon.system?.description ?? "");
+  const descMatch = desc.match(/(?:hand(?:-|\s*)(?:and|in)(?:-|\s*)a(?:-|\s*)half|handhalf|1\.5h|two-handed|versatile)[^\(]*\(\s*([0-9]+d[0-9]+(?:\s*[\+\-]\s*[0-9]+)?)\s*\)/i) ||
+                    desc.match(/\(\s*([0-9]+d[0-9]+(?:\s*[\+\-]\s*[0-9]+)?)\s*(?:when|if)?\s*(?:two-handed|two handed|2h|in two hands)?\s*\)/i) ||
+                    desc.match(/(?:deals|deal|damage:?)\s*([0-9]+d[0-9]+(?:\s*[\+\-]\s*[0-9]+)?)\s*(?:when|if)?\s*(?:wielded with two hands|wielded two-handed|two-handed|in two hands)/i) ||
+                    desc.match(/(?:when|if)\s*(?:wielded with two hands|wielded two-handed|two-handed|in two hands)[^.]*?([0-9]+d[0-9]+(?:\s*[\+\-]\s*[0-9]+)?)/i);
+  if (descMatch) return descMatch[1].trim();
+
+  return null;
+}
+
+/**
+ * Calculates effective weapon damage formula including assigned attribute modifiers, Affinity bonus, and 2H grip mode.
  * @param {Actor} actor
  * @param {Item} weapon
- * @returns {{ baseFormula: string, effectiveFormula: string, attrKey: string, attrMod: number, affinityBonus: number, totalMod: number }}
+ * @returns {{ baseFormula: string, effectiveFormula: string, attrKey: string, attrMod: number, affinityBonus: number, totalMod: number, isTwoHandedGrip: boolean }}
  */
 export function getWeaponDamageData(actor, weapon) {
-  const baseFormula = weapon?.system?.damage?.formula || weapon?.system?.damageFormula || "1d4";
+  let baseFormula = weapon?.system?.damage?.formula || weapon?.system?.damageFormula || (Array.isArray(weapon?.system?.damage) && weapon.system.damage[0]?.formula) || "1d4";
+  
+  const effectiveGrip = getWeaponEffectiveGrip(weapon);
+  const isTwoHandedGrip = effectiveGrip === "2h";
+
+  if (isTwoHandedGrip) {
+    const twoHandedFormula = getTwoHandedBaseFormula(weapon);
+    if (twoHandedFormula) {
+      baseFormula = twoHandedFormula;
+    }
+  }
 
   // Check if weapon has an attribute explicitly assigned
   let rawAttr = (weapon?.system?.attr || "").toLowerCase().trim();
@@ -174,6 +282,7 @@ export function getWeaponDamageData(actor, weapon) {
     attrMod,
     affinityBonus,
     totalMod,
+    isTwoHandedGrip,
   };
 }
 
@@ -203,12 +312,31 @@ export function applyEffectiveArmorAndDefenses(actor) {
     const bonusLog = Number(actor.system.bonuses?.log) || 0;
     const bonusWill = Number(actor.system.bonuses?.will) || 0;
 
+    // Calculate equipped shields additional armor and defense modifiers
+    const equippedShields = getEquippedShields(actor);
+    let shieldArBonus = 0;
+    let shieldRefBonus = 0;
+    let shieldFortBonus = 0;
+    let shieldAntBonus = 0;
+    let shieldLogBonus = 0;
+    let shieldWillBonus = 0;
+
+    for (const shield of equippedShields) {
+      shieldArBonus += getShieldArBonus(shield);
+      const sDefs = shield.system?.defenses || {};
+      if (sDefs.ref) shieldRefBonus += Number(sDefs.ref) || 0;
+      if (sDefs.fort) shieldFortBonus += Number(sDefs.fort) || 0;
+      if (sDefs.ant) shieldAntBonus += Number(sDefs.ant) || 0;
+      if (sDefs.log) shieldLogBonus += Number(sDefs.log) || 0;
+      if (sDefs.will) shieldWillBonus += Number(sDefs.will) || 0;
+    }
+
     if (donnedArmor) {
       const armorSys = donnedArmor.system || {};
 
       // 1. Armor Rating (AR)
       const armorAR = Number.isNumeric(armorSys.ar) ? Number(armorSys.ar) : 10;
-      actor.system.defenses.ar = armorAR + bonusAr;
+      actor.system.defenses.ar = armorAR + bonusAr + shieldArBonus;
 
       // 2. DEX Maximum Clamp on REF
       const dexMaxAuto = getSetting("armorDexMaxAutomation", true);
@@ -226,19 +354,19 @@ export function applyEffectiveArmorAndDefenses(actor) {
       const logMod = Number(armorDefs.log) || 0;
       const willMod = Number(armorDefs.will) || 0;
 
-      actor.system.defenses.ref = 10 + effectiveDex + bonusRef + refMod;
-      actor.system.defenses.fort = 10 + baseEnd + bonusFort + fortMod;
-      actor.system.defenses.ant = 10 + baseAwr + bonusAnt + antMod;
-      actor.system.defenses.log = 10 + baseInt + bonusLog + logMod;
-      actor.system.defenses.will = 10 + baseCha + bonusWill + willMod;
+      actor.system.defenses.ref = 10 + effectiveDex + bonusRef + refMod + shieldRefBonus;
+      actor.system.defenses.fort = 10 + baseEnd + bonusFort + fortMod + shieldFortBonus;
+      actor.system.defenses.ant = 10 + baseAwr + bonusAnt + antMod + shieldAntBonus;
+      actor.system.defenses.log = 10 + baseInt + bonusLog + logMod + shieldLogBonus;
+      actor.system.defenses.will = 10 + baseCha + bonusWill + willMod + shieldWillBonus;
     } else {
-      // Unarmored: Recalculate baseline 10 + attributes + bonuses
-      actor.system.defenses.ar = 10 + bonusAr;
-      actor.system.defenses.ref = 10 + baseDex + bonusRef;
-      actor.system.defenses.fort = 10 + baseEnd + bonusFort;
-      actor.system.defenses.ant = 10 + baseAwr + bonusAnt;
-      actor.system.defenses.log = 10 + baseInt + bonusLog;
-      actor.system.defenses.will = 10 + baseCha + bonusWill;
+      // Unarmored: Recalculate baseline 10 + attributes + bonuses + shield additional armor
+      actor.system.defenses.ar = 10 + bonusAr + shieldArBonus;
+      actor.system.defenses.ref = 10 + baseDex + bonusRef + shieldRefBonus;
+      actor.system.defenses.fort = 10 + baseEnd + bonusFort + shieldFortBonus;
+      actor.system.defenses.ant = 10 + baseAwr + bonusAnt + shieldAntBonus;
+      actor.system.defenses.log = 10 + baseInt + bonusLog + shieldLogBonus;
+      actor.system.defenses.will = 10 + baseCha + bonusWill + shieldWillBonus;
     }
   }
 
@@ -307,6 +435,100 @@ export function initEquipmentAutomation() {
 
 /**
  * Robustly patch WeaponModel.prototype.apc across all registries
+/**
+ * Safely and accurately evaluates weapon APC formulas including math expressions
+ * like "max(2, 4-@STR)", "4-STR, min 2", "max(2, 4-@attributes.str)", or plain numbers.
+ * @param {string|number} formula
+ * @param {Actor|object} [actorOrRollData]
+ * @returns {number}
+ */
+export function evaluateApcFormula(formula, actorOrRollData) {
+  if (typeof formula === "number") return formula;
+  if (!formula || typeof formula !== "string") return 0;
+  let trimmed = formula.trim().replace(/^(?:apc|ap)\s*[:=]?\s*/i, "").trim();
+  if (/^\d+$/.test(trimmed)) return parseInt(trimmed, 10);
+
+  // Convert "X - STR, min Y" or "X - STR (min Y)" or "X - STR, min: Y" format to "max(Y, X - @STR)"
+  const minMatch = trimmed.match(/^(.+?)(?:,|\()?\s*min(?:imum)?\s*[:=]?\s*(\d+)\)?$/i);
+  if (minMatch) {
+    trimmed = `max(${minMatch[2]}, ${minMatch[1].replace(/\($/, "").trim()})`;
+  }
+
+  // Get rollData object
+  let rollData = {};
+  if (actorOrRollData) {
+    if (typeof actorOrRollData.getRollData === "function") {
+      rollData = actorOrRollData.getRollData();
+    } else {
+      rollData = actorOrRollData;
+    }
+  }
+
+  // Add uppercase and lowercase aliases for attributes in rollData
+  const attrs = rollData?.attributes || {};
+  const data = {
+    ...rollData,
+    STR: attrs?.str?.value ?? attrs?.str ?? rollData?.str ?? 0,
+    DEX: attrs?.dex?.value ?? attrs?.dex ?? rollData?.dex ?? 0,
+    END: attrs?.end?.value ?? attrs?.end ?? rollData?.end ?? 0,
+    AWR: attrs?.awr?.value ?? attrs?.awr ?? rollData?.awr ?? 0,
+    INT: attrs?.int?.value ?? attrs?.int ?? rollData?.int ?? 0,
+    CHA: attrs?.cha?.value ?? attrs?.cha ?? rollData?.cha ?? 0,
+    LUCK: attrs?.luck?.value ?? attrs?.luck ?? rollData?.luck ?? 0,
+    COR: attrs?.cor?.value ?? attrs?.cor ?? rollData?.cor ?? 0,
+    str: attrs?.str?.value ?? attrs?.str ?? rollData?.str ?? 0,
+    dex: attrs?.dex?.value ?? attrs?.dex ?? rollData?.dex ?? 0,
+    end: attrs?.end?.value ?? attrs?.end ?? rollData?.end ?? 0,
+    awr: attrs?.awr?.value ?? attrs?.awr ?? rollData?.awr ?? 0,
+    int: attrs?.int?.value ?? attrs?.int ?? rollData?.int ?? 0,
+    cha: attrs?.cha?.value ?? attrs?.cha ?? rollData?.cha ?? 0,
+    luck: attrs?.luck?.value ?? attrs?.luck ?? rollData?.luck ?? 0,
+    cor: attrs?.cor?.value ?? attrs?.cor ?? rollData?.cor ?? 0,
+  };
+
+  // Replace @attributes.<attr>.value, @attributes.<attr>, @STR, and standalone STR / DEX words
+  const formatVal = (v) => (typeof v === "number" && v < 0 ? `(${v})` : String(v));
+  let replaced = trimmed.replace(/@attributes\.([a-zA-Z]+)(?:\.value)?/gi, (m, k) => {
+    const key = k.toUpperCase();
+    return formatVal(data[key] ?? 0);
+  });
+  replaced = replaced.replace(/@([a-zA-Z]+)/gi, (m, k) => {
+    const key = k.toUpperCase();
+    return formatVal(data[key] ?? 0);
+  });
+  replaced = replaced.replace(/\b(STR|DEX|END|AWR|INT|CHA|LUCK|COR)\b/gi, (match) => {
+    const key = match.toUpperCase();
+    return formatVal(data[key] ?? 0);
+  });
+
+  if (globalThis.Roll?.replaceFormulaData) {
+    replaced = globalThis.Roll.replaceFormulaData(replaced, data);
+  }
+
+  // Evaluate mathematical expression (support max, min, floor, ceil, abs, +, -, *, /)
+  try {
+    const mathExpr = replaced
+      .replace(/\bmax\s*\(/gi, "Math.max(")
+      .replace(/\bmin\s*\(/gi, "Math.min(")
+      .replace(/\bfloor\s*\(/gi, "Math.floor(")
+      .replace(/\bceil\s*\(/gi, "Math.ceil(")
+      .replace(/\bround\s*\(/gi, "Math.round(");
+
+    // Sanitize string to allow only numbers, Math methods, operators, commas, parentheses, and spaces
+    if (/^[0-9\s\+\-\*\/\,\(\)\.\Mathmaxinfloeclrud]+$/.test(mathExpr)) {
+      const fn = new Function(`"use strict"; return (${mathExpr});`);
+      const result = Number(fn());
+      if (!isNaN(result)) return Math.max(0, Math.round(result));
+    }
+  } catch (err) {
+    // Fallback if evaluation fails
+  }
+
+  return Number(trimmed) || 0;
+}
+
+/**
+ * Patches core MythCraft WeaponModel prototype getter for `apc`
  */
 export function patchWeaponApcGetter() {
   const models = [
@@ -320,39 +542,8 @@ export function patchWeaponApcGetter() {
     try {
       Object.defineProperty(model.prototype, "apc", {
         get() {
-          const raw = this.apcFormula;
-          if (typeof raw === "number") return raw;
-          if (!raw || typeof raw !== "string") return 0;
-          const trimmed = raw.trim();
-          if (/^\d+$/.test(trimmed)) return parseInt(trimmed, 10);
-
-          // Min/max formula e.g. "8-STR, min 4"
-          const minMatch = trimmed.match(/^([0-9\s\+\-\*\/\@a-zA-Z_.]+?)(?:,\s*min\s*(\d+))$/i);
-          if (minMatch) {
-            const expr = minMatch[1].trim();
-            const minVal = parseInt(minMatch[2], 10);
-            const rollData = this.parent?.getRollData?.() ?? {};
-            const actorStr = Number(rollData?.attributes?.str?.value ?? rollData?.attributes?.str ?? rollData?.str ?? 0);
-            const numParts = expr.match(/^(\d+)\s*-\s*(@?STR|@?attributes\.str)/i);
-            if (numParts) {
-              return Math.max(minVal, parseInt(numParts[1], 10) - actorStr);
-            }
-            return minVal;
-          }
-
-          // Simple arithmetic "8-3"
-          const mathMatch = trimmed.match(/^(\d+)\s*([\+\-\*\/])\s*(\d+)$/);
-          if (mathMatch) {
-            const a = parseInt(mathMatch[1], 10);
-            const op = mathMatch[2];
-            const b = parseInt(mathMatch[3], 10);
-            if (op === "+") return a + b;
-            if (op === "-") return a - b;
-            if (op === "*") return a * b;
-            if (op === "/") return b !== 0 ? Math.floor(a / b) : 0;
-          }
-
-          return Number(trimmed) || 0;
+          const raw = this.apcFormula ?? this.parent?._source?.system?.apcFormula;
+          return evaluateApcFormula(raw, this.parent?.actor ?? this.parent);
         },
         configurable: true,
         enumerable: true,
@@ -456,29 +647,117 @@ export function weaponHasHandTag(item) {
  * @returns {"two-handed" | "hand-and-a-half" | "one-handed" | null}
  */
 export function getWeaponHandType(item) {
-  if (!isWeaponEquippable(item)) return null;
+  if (!item || !isWeaponEquippable(item)) return null;
 
-  const rawTags = Array.isArray(item.system?.tags)
-    ? item.system.tags
-    : (item.system?.tags && typeof item.system.tags === "object" ? Object.values(item.system.tags) : []);
-  
-  const cleanTags = rawTags.map(t => String(t).toLowerCase().replace(/^mythcraft\.item\.weapon\.tags\./i, "").replace(/[-_]/g, " "));
+  // Check tags across all possible data shapes (Arrays, Sets, Objects)
+  const rawTags = item.system?.tags || [];
+  const tagList = Array.isArray(rawTags)
+    ? rawTags
+    : (rawTags instanceof Set ? Array.from(rawTags) : (typeof rawTags === "object" && rawTags !== null ? Object.keys(rawTags).concat(Object.values(rawTags)) : String(rawTags).split(",")));
 
-  if (cleanTags.some(t => t.includes("two handed") || t.includes("two-handed") || t === "2h")) return "two-handed";
-  if (cleanTags.some(t => t.includes("hand and a half") || t.includes("hand and a-half") || t === "1.5h")) return "hand-and-a-half";
-  if (cleanTags.some(t => t.includes("one handed") || t.includes("one-handed") || t === "1h")) return "one-handed";
+  const tagStrings = [];
+  for (const t of tagList) {
+    if (!t) continue;
+    if (typeof t === "string") tagStrings.push(t);
+    else if (typeof t === "object") {
+      if (t.id) tagStrings.push(t.id);
+      if (t.name) tagStrings.push(t.name);
+      if (t.label) tagStrings.push(t.label);
+      if (t.key) tagStrings.push(t.key);
+      if (t.value && typeof t.value === "string") tagStrings.push(t.value);
+    }
+  }
+
+  const normalized = tagStrings.map(s => String(s).toLowerCase().replace(/[^a-z0-9]/g, ""));
+
+  if (normalized.some(t => t.includes("twohanded") || t === "2h" || t === "twohand")) return "two-handed";
+  if (normalized.some(t => t.includes("handandahalf") || t.includes("handinahalf") || t.includes("versatile") || t === "15h" || t === "handhalf")) return "hand-and-a-half";
+  if (normalized.some(t => t.includes("onehanded") || t === "1h" || t === "onehand")) return "one-handed";
+
+  // Description heuristic
+  const desc = String(item.system?.description?.value ?? item.system?.description ?? "").toLowerCase();
+  if (desc.includes("hand-and-a-half") || desc.includes("hand and a half") || desc.includes("hand-in-a-half") || desc.includes("hand in a half") || desc.includes("handhalf") || desc.includes("1.5h")) {
+    return "hand-and-a-half";
+  }
+  if (desc.includes("two-handed") || desc.includes("two handed") || desc.includes("2h weapon")) {
+    return "two-handed";
+  }
 
   // Name heuristic
   const nameLower = (item.name || "").toLowerCase();
-  if (nameLower.includes("greatsword") || nameLower.includes("greataxe") || nameLower.includes("greatclub") || nameLower.includes("longbow") || nameLower.includes("heavy crossbow") || nameLower.includes("halberd") || nameLower.includes("pike") || nameLower.includes("polearm") || nameLower.includes("quarterstaff") || nameLower.includes("maul")) {
+  if (nameLower.includes("greatsword") || nameLower.includes("greataxe") || nameLower.includes("greatclub") || nameLower.includes("longbow") || nameLower.includes("heavy crossbow") || nameLower.includes("halberd") || nameLower.includes("pike") || nameLower.includes("polearm") || nameLower.includes("quarterstaff") || nameLower.includes("maul") || nameLower.includes("tetsubo") || nameLower.includes("scythe")) {
     return "two-handed";
   }
-  if (nameLower.includes("bastard sword") || nameLower.includes("spear") || nameLower.includes("warhammer") || nameLower.includes("battleaxe") || nameLower.includes("katana")) {
+  if (nameLower.includes("bastard sword") || nameLower.includes("spear") || nameLower.includes("warhammer") || nameLower.includes("battleaxe") || nameLower.includes("katana") || nameLower.includes("lance")) {
     return "hand-and-a-half";
   }
 
-  // All other physical equippable weapons default to one-handed
   return "one-handed";
+}
+
+/**
+ * Returns the effective grip mode ("1h" or "2h") for a weapon.
+ * @param {Item} item
+ * @returns {"1h" | "2h"}
+ */
+export function getWeaponEffectiveGrip(item) {
+  const handType = getWeaponHandType(item);
+  if (handType === "two-handed") return "2h";
+  if (handType === "hand-and-a-half") {
+    return item.flags?.["mythcraft-essence-sheet"]?.gripMode === "2h" ? "2h" : "1h";
+  }
+  return "1h";
+}
+
+/**
+ * Toggles a Hand-and-a-Half weapon between 1H and 2H grip modes.
+ * @param {Actor} actor
+ * @param {Item} item
+ * @returns {Promise<void>}
+ */
+export async function toggleHandAndHalfMode(actor, item) {
+  if (!actor || !item) return;
+  const currentGrip = getWeaponEffectiveGrip(item);
+  const nextGrip = currentGrip === "2h" ? "1h" : "2h";
+
+  const isEquipped = isWeaponEquipped(item);
+  if (isEquipped && nextGrip === "2h") {
+    // 2H grip: Stow any other equipped weapons AND shields
+    const otherEquippedWeapons = actor.items.filter(i => i.type === "weapon" && i.id !== item.id && isWeaponEquipped(i));
+    for (const other of otherEquippedWeapons) {
+      await other.update({
+        "flags.mythcraft-essence-sheet.isEquipped": false,
+        "flags.mythcraft-essence-sheet.equippedHand": null,
+        "system.equipped": false,
+      });
+    }
+    const equippedShields = actor.items.filter(i => isShield(i) && isShieldEquipped(i));
+    for (const shield of equippedShields) {
+      await shield.update({
+        "flags.mythcraft-essence-sheet.isEquipped": false,
+        "flags.mythcraft-essence-sheet.equippedHand": null,
+        "system.equipped": false,
+      });
+    }
+
+    await item.update({
+      "flags.mythcraft-essence-sheet.gripMode": "2h",
+      "flags.mythcraft-essence-sheet.equippedHand": "both",
+    });
+    ui.notifications.info(`${item.name} is now gripped Two-Handed (occupies both hands).`);
+  } else if (isEquipped && nextGrip === "1h") {
+    await item.update({
+      "flags.mythcraft-essence-sheet.gripMode": "1h",
+      "flags.mythcraft-essence-sheet.equippedHand": "main",
+    });
+    ui.notifications.info(`${item.name} is now gripped One-Handed (freeing off-hand).`);
+  } else {
+    await item.update({
+      "flags.mythcraft-essence-sheet.gripMode": nextGrip,
+    });
+  }
+
+  applyEffectiveArmorAndDefenses(actor);
 }
 
 /**
@@ -492,7 +771,7 @@ export function isWeaponUnwieldy(item) {
   const rawTags = Array.isArray(item.system?.tags)
     ? item.system.tags
     : (item.system?.tags && typeof item.system.tags === "object" ? Object.values(item.system.tags) : []);
-  const cleanTags = rawTags.map(t => String(t).toLowerCase().replace(/^mythcraft\.item\.weapon\.tags\./i, ""));
+  const cleanTags = rawTags.map(t => String(t?.name || t?.label || t?.id || t).toLowerCase().replace(/^mythcraft\.item\.weapon\.tags\./i, ""));
   return cleanTags.some(t => t.includes("unwieldy"));
 }
 
@@ -514,9 +793,10 @@ export function isWeaponEquipped(item) {
  * and calculating AP cost during active combat turns.
  * @param {Actor} actor
  * @param {Item} item
+ * @param {"main"|"off"|null} [targetHand=null]
  * @returns {Promise<void>}
  */
-export async function toggleEquipWeapon(actor, item) {
+export async function toggleEquipWeapon(actor, item, targetHand = null) {
   if (!actor || !item) return;
 
   const inCombat = Boolean(game.combat?.started && actor.inCombat);
@@ -544,6 +824,7 @@ export async function toggleEquipWeapon(actor, item) {
 
     await item.update({
       "flags.mythcraft-essence-sheet.isEquipped": false,
+      "flags.mythcraft-essence-sheet.equippedHand": null,
       "system.equipped": false,
     });
   } else {
@@ -572,40 +853,253 @@ export async function toggleEquipWeapon(actor, item) {
     }
 
     // Hand Slots Enforcement
-    const handType = getWeaponHandType(item);
-    const otherEquipped = actor.items.filter(i => i.type === "weapon" && i.id !== item.id && isWeaponEquipped(i));
+    const effectiveGrip = getWeaponEffectiveGrip(item);
+    const otherEquippedWeapons = actor.items.filter(i => i.type === "weapon" && i.id !== item.id && isWeaponEquipped(i));
+    const equippedShields = actor.items.filter(i => isShield(i) && isShieldEquipped(i));
 
-    if (handType === "two-handed") {
-      // 2H occupies both hands: stow all other equipped weapons
-      for (const other of otherEquipped) {
+    if (effectiveGrip === "2h") {
+      // 2H occupies both hands: stow all other equipped weapons and shields
+      for (const other of otherEquippedWeapons) {
         await other.update({
           "flags.mythcraft-essence-sheet.isEquipped": false,
+          "flags.mythcraft-essence-sheet.equippedHand": null,
           "system.equipped": false,
         });
       }
+      for (const shield of equippedShields) {
+        await shield.update({
+          "flags.mythcraft-essence-sheet.isEquipped": false,
+          "flags.mythcraft-essence-sheet.equippedHand": null,
+          "system.equipped": false,
+        });
+      }
+
+      await item.update({
+        "flags.mythcraft-essence-sheet.isEquipped": true,
+        "flags.mythcraft-essence-sheet.equippedHand": "both",
+        "system.equipped": true,
+      });
     } else {
-      // 1H or 1.5H: max 2 equipped
-      for (const other of otherEquipped) {
-        if (getWeaponHandType(other) === "two-handed") {
+      // 1H weapon: Stow any 2H weapon currently equipped
+      for (const other of otherEquippedWeapons) {
+        if (getWeaponEffectiveGrip(other) === "2h") {
           await other.update({
             "flags.mythcraft-essence-sheet.isEquipped": false,
+            "flags.mythcraft-essence-sheet.equippedHand": null,
             "system.equipped": false,
           });
         }
       }
-      const remainingEquipped = actor.items.filter(i => i.type === "weapon" && i.id !== item.id && isWeaponEquipped(i));
-      if (remainingEquipped.length >= 2) {
-        // Stow first equipped weapon to make room
-        await remainingEquipped[0].update({
+
+      // Collect all occupied hand items
+      const allHandItems = [...otherEquippedWeapons, ...equippedShields];
+      let assignedHand = targetHand;
+
+      if (!assignedHand) {
+        const hasMain = allHandItems.some(i => (i.flags?.["mythcraft-essence-sheet"]?.equippedHand || "main") === "main");
+        assignedHand = hasMain ? "off" : "main";
+      }
+
+      // If an item is already in assignedHand, or 2 items are already equipped, stow it
+      for (const other of allHandItems) {
+        const otherHand = other.flags?.["mythcraft-essence-sheet"]?.equippedHand || "main";
+        if (otherHand === assignedHand || allHandItems.length >= 2) {
+          await other.update({
+            "flags.mythcraft-essence-sheet.isEquipped": false,
+            "flags.mythcraft-essence-sheet.equippedHand": null,
+            "system.equipped": false,
+          });
+          break;
+        }
+      }
+
+      await item.update({
+        "flags.mythcraft-essence-sheet.isEquipped": true,
+        "flags.mythcraft-essence-sheet.equippedHand": assignedHand,
+        "system.equipped": true,
+      });
+    }
+  }
+
+  applyEffectiveArmorAndDefenses(actor);
+}
+
+/**
+ * Toggles shield equip/stow state, enforcing hand slot rules alongside equipped weapons.
+ * @param {Actor} actor
+ * @param {Item} item
+ * @param {"main"|"off"|null} [targetHand=null]
+ * @returns {Promise<void>}
+ */
+export async function toggleEquipShield(actor, item, targetHand = null) {
+  if (!actor || !item || !isShield(item)) return;
+
+  const inCombat = Boolean(game.combat?.started && actor.inCombat);
+  const combatKey = (game.combat && inCombat) ? `${game.combat.id}-${game.combat.round}-${game.combat.turn}` : null;
+  const lastSwapKey = actor.flags?.["mythcraft-essence-sheet"]?.lastWeaponSwapKey;
+  const isSameTurn = Boolean(inCombat && combatKey && lastSwapKey === combatKey);
+
+  const currentlyEquipped = isShieldEquipped(item);
+
+  if (currentlyEquipped) {
+    // STOW SHIELD
+    if (inCombat && combatKey) {
+      await actor.setFlag("mythcraft-essence-sheet", "lastWeaponSwapKey", combatKey);
+    }
+    await item.update({
+      "flags.mythcraft-essence-sheet.isEquipped": false,
+      "flags.mythcraft-essence-sheet.equippedHand": null,
+      "system.equipped": false,
+    });
+    ui.notifications.info(`Stowed ${item.name}.`);
+  } else {
+    // EQUIP SHIELD
+    let apCost = isSameTurn ? 1 : 0;
+    if (inCombat && apCost > 0) {
+      const curAp = Number(actor.system?.ap?.value ?? 0);
+      const newAp = Math.max(0, curAp - apCost);
+      await actor.update({ "system.ap.value": newAp });
+      ui.notifications.info(`Equipped ${item.name} (${apCost} AP consumed for weapon/shield swap. Remaining: ${newAp} AP).`);
+    } else {
+      ui.notifications.info(`Equipped ${item.name}.`);
+    }
+
+    if (inCombat && combatKey) {
+      await actor.setFlag("mythcraft-essence-sheet", "lastWeaponSwapKey", combatKey);
+    }
+
+    // Stow any 2H weapon currently equipped
+    const equippedWeapons = actor.items.filter(i => i.type === "weapon" && isWeaponEquipped(i));
+    for (const w of equippedWeapons) {
+      if (getWeaponEffectiveGrip(w) === "2h") {
+        await w.update({
           "flags.mythcraft-essence-sheet.isEquipped": false,
+          "flags.mythcraft-essence-sheet.equippedHand": null,
           "system.equipped": false,
         });
       }
     }
 
+    // Determine target hand (default to off-hand / Left Hand)
+    let assignedHand = targetHand;
+    const allHandItems = actor.items.filter(i => (i.id !== item.id) && (isWeaponEquipped(i) || isShieldEquipped(i)));
+
+    if (!assignedHand) {
+      const isOffOccupied = allHandItems.some(i => (i.flags?.["mythcraft-essence-sheet"]?.equippedHand === "off"));
+      assignedHand = isOffOccupied ? "main" : "off";
+    }
+
+    // Stow whatever was in that hand slot
+    for (const other of allHandItems) {
+      const otherHand = other.flags?.["mythcraft-essence-sheet"]?.equippedHand || "main";
+      if (otherHand === assignedHand || allHandItems.length >= 2) {
+        await other.update({
+          "flags.mythcraft-essence-sheet.isEquipped": false,
+          "flags.mythcraft-essence-sheet.equippedHand": null,
+          "system.equipped": false,
+        });
+        break;
+      }
+    }
+
     await item.update({
       "flags.mythcraft-essence-sheet.isEquipped": true,
+      "flags.mythcraft-essence-sheet.equippedHand": assignedHand,
       "system.equipped": true,
     });
   }
+
+  // Recalculate effective defenses
+  applyEffectiveArmorAndDefenses(actor);
+}
+
+/**
+ * Checks whether a character has sufficient Action Points (AP + SAP) for an action.
+ * Enforces behavior based on the insufficientApBehavior module setting:
+ * - "confirm": Asks for confirmation before proceeding (Default)
+ * - "block": Blocks the action and shows a warning notification
+ * - "warn": Allows the action and posts a warning card to chat
+ * - "disabled": Disables the check completely
+ * 
+ * @param {Actor} actor
+ * @param {number} cost - Required AP cost
+ * @param {string} [actionName="Action"] - Name of the action, item, or spell
+ * @returns {Promise<boolean>} - True if action is allowed to proceed, false if blocked/cancelled
+ */
+export async function checkAndEnforceAp(actor, cost, actionName = "Action") {
+  if (!actor || actor.type !== "character" || cost <= 0) return true;
+
+  const setting = getSetting("insufficientApBehavior", "confirm");
+  if (setting === "disabled") return true;
+
+  const currentAp = Number(actor.system?.ap?.value ?? 0);
+  const specialAp = Number(actor.system?.ap?.special ?? 0);
+  const totalAvailableAp = currentAp + specialAp;
+
+  if (totalAvailableAp >= cost) {
+    return true;
+  }
+
+  // 1. Block Action
+  if (setting === "block") {
+    ui.notifications.warn(`Not enough Action Points! ${actionName} requires ${cost} AP, but you only have ${totalAvailableAp} AP available (${currentAp} AP${specialAp > 0 ? ` + ${specialAp} SAP` : ""}).`);
+    return false;
+  }
+
+  // 2. Ask for Confirmation (Default)
+  if (setting === "confirm") {
+    const confirmed = await new Promise((resolve) => {
+      new Dialog({
+        title: "Insufficient Action Points",
+        content: `
+          <div style="padding: 6px 0; font-size: 13px; color: #FEEBB3;">
+            <p style="margin-bottom: 8px;"><strong>${actor.name}</strong> does not have enough Action Points to use <strong>${actionName}</strong>.</p>
+            <ul style="margin: 0 0 10px 18px; padding: 0; font-size: 12px; color: #9bd7e5;">
+              <li><strong>Cost:</strong> ${cost} AP</li>
+              <li><strong>Available:</strong> ${totalAvailableAp} AP (${currentAp} AP${specialAp > 0 ? ` + ${specialAp} SAP` : ""})</li>
+              <li><strong>Deficit:</strong> ${cost - totalAvailableAp} AP</li>
+            </ul>
+            <p style="margin: 0; font-style: italic; color: #cbd5e1;">Do you wish to proceed anyway?</p>
+          </div>
+        `,
+        buttons: {
+          proceed: {
+            icon: '<i class="fas fa-check"></i>',
+            label: "Proceed",
+            callback: () => resolve(true),
+          },
+          cancel: {
+            icon: '<i class="fas fa-times"></i>',
+            label: "Cancel",
+            callback: () => resolve(false),
+          },
+        },
+        default: "cancel",
+        close: () => resolve(false),
+      }).render(true);
+    });
+
+    return Boolean(confirmed);
+  }
+
+  // 3. Allow & Post Warning to Chat
+  if (setting === "warn") {
+    ChatMessage.create({
+      speaker: ChatMessage.getSpeaker({ actor }),
+      content: `
+        <div class="mythcraft-statblock ap-exceeded-notice" style="border-left: 3px solid #f59e0b; background: rgba(245, 158, 11, 0.1); padding: 6px 10px; margin: 4px 0; border-radius: 4px;">
+          <div style="display:flex; align-items:center; gap:6px; color:#fbbf24; font-weight:700; font-size:12px;">
+            <i class="fas fa-triangle-exclamation"></i>
+            <span>Action Points Exceeded</span>
+          </div>
+          <p style="margin: 4px 0 0; font-size: 11px; color: #fee2e2;">
+            <strong>${actor.name}</strong> used <strong>${actionName}</strong> (${cost} AP), exceeding available AP (${totalAvailableAp} AP).
+          </p>
+        </div>
+      `,
+    });
+    return true;
+  }
+
+  return true;
 }

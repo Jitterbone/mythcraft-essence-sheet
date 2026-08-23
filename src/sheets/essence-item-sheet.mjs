@@ -8,8 +8,29 @@
 import MythCraftItemSheet from "/systems/mythcraft/module/applications/sheets/item-sheet.mjs";
 import { isItemContainer } from "../features/container-utils.mjs";
 import { isItemClothes } from "../features/equipment-automation.mjs";
+import { sanitizeGmOnlyFields } from "../features/permissions-fix.mjs";
 
 export default class EssenceItemSheet extends MythCraftItemSheet {
+
+  /**
+   * Players who own the item (or parent actor) can always edit it.
+   * @override
+   */
+  get isEditable() {
+    return Boolean(this.document?.isOwner || this.document?.parent?.isOwner || game.user?.isGM);
+  }
+
+  /**
+   * Strip GM-only fields for non-GM players to prevent Foundry sanitization errors.
+   * @override
+   */
+  _processFormData(event, form, formData) {
+    const data = super._processFormData(event, form, formData);
+    if (!game.user?.isGM) {
+      sanitizeGmOnlyFields(data);
+    }
+    return data;
+  }
 
   /** @inheritdoc */
   static DEFAULT_OPTIONS = {

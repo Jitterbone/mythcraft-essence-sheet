@@ -53,14 +53,27 @@
           </button>
 
           {{!-- Luck Points (LP) Badge --}}
-          <div class="lp-badge" title="Luck Points (LP)">
+          <div class="lp-badge" title="Luck Points (LP) — Max: {{maxLp}} (1 per 2 LUCK). Regained upon Taking a Rest.">
             <i class="fas fa-clover lp-icon"></i>
             <span class="lp-title">LP</span>
-            <input type="number"
-                   name="system.lp.value"
-                   value="{{system.lp.value}}"
-                   class="lp-input"
-                   min="0" />
+            <div class="lp-val-wrap">
+              <div class="lp-stepper-wrap" data-tooltip="<strong>Luck Points</strong><br/><span style='font-size:11px;'>Use &minus; and + or type directly</span>" data-tooltip-direction="UP">
+                <button type="button" class="lp-step-btn lp-step-minus" data-action="adjustLp" data-delta="-1" title="Subtract 1 LP">
+                  <i class="fas fa-minus"></i>
+                </button>
+                <input type="number"
+                       name="system.lp.value"
+                       value="{{system.lp.value}}"
+                       class="lp-input"
+                       min="0"
+                       max="{{maxLp}}" />
+                <button type="button" class="lp-step-btn lp-step-plus" data-action="adjustLp" data-delta="1" title="Add 1 LP">
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
+              <span class="lp-max-divider">/</span>
+              <span class="lp-max-display" title="Max Luck Points (1 per 2 LUCK): {{maxLp}}">{{maxLp}}</span>
+            </div>
           </div>
         </div>
 

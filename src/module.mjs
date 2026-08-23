@@ -17,6 +17,8 @@ import { initDamageAutomation, patchFeatureUsesMaxFormula } from "./features/dam
 import { initEquipmentAutomation, patchWeaponApcGetter } from "./features/equipment-automation.mjs";
 import { patchSystemHpCalculation, getEnduranceThreshold } from "./features/hp-automation.mjs";
 import { syncHomebrewAttributesToSystem, patchAttributeSkillInput } from "./features/homebrew-attributes.mjs";
+import { initLuckPointReroll } from "./features/luck-points.mjs";
+import { initPermissionsFix } from "./features/permissions-fix.mjs";
 import LevelUpDialog from "./apps/level-up-dialog.mjs";
 import { registerSettings } from "./settings.mjs";
 
@@ -50,6 +52,8 @@ Hooks.once("init", () => {
   patchSystemHpCalculation();
   syncHomebrewAttributesToSystem();
   patchAttributeSkillInput();
+  initLuckPointReroll();
+  initPermissionsFix();
 
   const { DocumentSheetConfig } = foundry.applications.apps;
 

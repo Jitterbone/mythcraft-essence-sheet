@@ -504,6 +504,26 @@ export default class EssenceCharacterSheet extends CharacterSheet {
   expandedEffects = new Set();
   activeMagicFilters = new Set();
 
+  /**
+   * Players who own their actor document can always edit their sheet.
+   * @override
+   */
+  get isEditable() {
+    return Boolean(this.document?.isOwner || game.user?.isGM);
+  }
+
+  /**
+   * Strip GM-only fields for non-GM players to prevent Foundry sanitization errors.
+   * @override
+   */
+  _processFormData(event, form, formData) {
+    const data = super._processFormData(event, form, formData);
+    if (!game.user?.isGM) {
+      sanitizeGmOnlyFields(data);
+    }
+    return data;
+  };
+
   static DEFAULT_OPTIONS = {
     classes: ["mythcraft", "actor", "sheet", "essence-sheet"],
     position: { width: 920, height: 890 },
@@ -537,6 +557,8 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       toggleEquipShield: this.#toggleEquipShield,
       openArmorPicker: this.#openArmorPicker,
       adjustAp: this.#adjustAp,
+      adjustLp: this.#adjustLp,
+      createDoc: this.#createDoc,
       toggleContainer: this.#toggleContainer,
       removeFromContainer: this.#removeFromContainer,
       openContainerTab: this.#openContainerTab,
@@ -917,6 +939,62 @@ export default class EssenceCharacterSheet extends CharacterSheet {
 
     await this.actor.update({ "system.ap.value": newAp });
     this.render(false);
+  }
+
+  static async #adjustLp(event, target) {
+    event.stopPropagation();
+    event.preventDefault();
+    const delta = Number(target.dataset.delta || 0);
+    if (!delta) return;
+
+    const currentLp = Number(this.actor.system?.lp?.value ?? 0);
+    const luck = Number(this.actor.system?.attributes?.luck?.value ?? this.actor.system?.attributes?.luck ?? 0);
+    const maxLp = Math.max(0, Math.floor(luck / 2));
+    const newLp = Math.max(0, Math.min(maxLp || 999, currentLp + delta));
+
+    await this.actor.update({ "system.lp.value": newLp });
+    this.render(false);
+  }
+
+  static async #createDoc(event, target) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const docClass = target.dataset.documentClass || "Item";
+    const type = target.dataset.type || "weapon";
+
+    if (docClass === "Item") {
+      const defaultTypeNames = {
+        weapon: "New Weapon",
+        armor: "New Armor",
+        equipment: "New Equipment",
+        spell: "New Spell",
+        talent: "New Talent",
+        feature: "New Feature",
+        lineage: "New Lineage",
+        background: "New Background",
+        profession: "New Profession",
+        class: "New Class",
+      };
+      const name = defaultTypeNames[type] || `New ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+      const itemData = {
+        name,
+        type,
+        img: "icons/svg/item-bag.svg",
+      };
+
+      for (const [key, val] of Object.entries(target.dataset)) {
+        if (["action", "documentClass", "type"].includes(key)) continue;
+        foundry.utils.setProperty(itemData, key, val);
+      }
+
+      const created = await this.actor.createEmbeddedDocuments("Item", [itemData]);
+      if (created?.[0]) {
+        created[0].sheet?.render(true);
+      }
+      return created;
+    } else if (docClass === "ActiveEffect") {
+      return this.#createEffect(event, target);
+    }
   }
 
   static async #openArmorPicker(event, target) {
@@ -2058,6 +2136,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     context.luckScore = luck;
     context.hasNegativeLuck = luck < 0;
     context.luckPenalty = Math.abs(luck);
+    context.maxLp = Math.max(0, Math.floor(luck / 2));
     context.critHit = getActorCritHit(this.actor);
     const baseFail = Number(this.actor.system?.critical?.fail ?? 1);
     context.critFail = Math.max(1, baseFail);

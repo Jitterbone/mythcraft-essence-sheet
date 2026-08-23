@@ -339,6 +339,86 @@
   box-shadow: 0 0 6px var(--mc-gold-glow, rgba(241, 196, 15, 0.4)) !important;
 }
 
+.essence-sheet .lp-val-wrap {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+}
+
+/* Sleek Integrated LP Stepper Capsule */
+.essence-sheet .lp-stepper-wrap {
+  display: inline-flex !important;
+  align-items: center !important;
+  background: rgba(0, 0, 0, 0.45) !important;
+  border: 1px solid var(--mc-border, #3a4248) !important;
+  border-radius: 3px !important;
+  overflow: hidden !important;
+  height: 22px !important;
+  transition: border-color 0.15s ease !important;
+}
+
+.essence-sheet .lp-stepper-wrap:focus-within,
+.essence-sheet .lp-stepper-wrap:hover {
+  border-color: #2ecc71 !important;
+}
+
+.essence-sheet .lp-stepper-wrap .lp-input {
+  width: 22px !important;
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: var(--mc-gold, #f1c40f) !important;
+  text-align: center !important;
+}
+
+.essence-sheet .lp-step-btn {
+  background: transparent !important;
+  border: none !important;
+  color: var(--mc-text-muted, #94a3b8) !important;
+  width: 14px !important;
+  height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 8.5px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  line-height: 1 !important;
+  flex-shrink: 0 !important;
+}
+
+.essence-sheet .lp-step-btn:hover {
+  background: rgba(46, 204, 113, 0.3) !important;
+  color: #ffffff !important;
+}
+
+.essence-sheet .lp-step-btn.lp-step-minus {
+  border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.essence-sheet .lp-step-btn.lp-step-plus {
+  border-left: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.essence-sheet .lp-max-divider {
+  color: var(--mc-text-muted, #64748b) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  user-select: none !important;
+}
+
+.essence-sheet .lp-max-display {
+  color: #9bd7e5 !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  min-width: 10px !important;
+  user-select: none !important;
+}
+
 /* Middle Meta Block: Origins (Row 1) & Appearance + AR (Row 2) */
 .essence-sheet .header-meta-block {
   display: flex;

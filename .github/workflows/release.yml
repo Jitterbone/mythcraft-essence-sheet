@@ -18,27 +18,29 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Get Module Version
-        id: module-version
+      - name: Get Module Version & Determine Tag
+        id: release-meta
+        shell: bash
         run: |
-          echo "version_number=$(jq -r .version module.json)" >> $GITHUB_OUTPUT
-
-      - name: Check for Pre-release
-        id: prerelease-check
-        run: |
-          if [[ "${{ steps.module-version.outputs.version_number }}" == *-* ]]; then
+          VERSION="$(jq -r .version module.json)"
+          echo "version_number=$VERSION" >> $GITHUB_OUTPUT
+          
+          if [[ "$VERSION" == *-* ]]; then
             echo "is_prerelease=true" >> $GITHUB_OUTPUT
           else
             echo "is_prerelease=false" >> $GITHUB_OUTPUT
           fi
 
+          TAG="${{ github.event.release.tag_name || github.ref_name }}"
+          if [[ -z "$TAG" || "$TAG" == "main" || "$TAG" == "master" || "$TAG" == "refs/heads/"* ]]; then
+            TAG="v${VERSION}"
+          fi
+          echo "tag_name=$TAG" >> $GITHUB_OUTPUT
+
       - name: Update Manifest and Download URLs
         shell: bash
         run: |
-          TAG="${{ github.ref_name }}"
-          if [[ -z "$TAG" || "$TAG" == "main" || "$TAG" == "master" ]]; then
-            TAG="v${{ steps.module-version.outputs.version_number }}"
-          fi
+          TAG="${{ steps.release-meta.outputs.tag_name }}"
           jq --arg manifest "https://github.com/${{ github.repository }}/releases/latest/download/module.json" \
              --arg download "https://github.com/${{ github.repository }}/releases/download/${TAG}/mythcraft-essence-sheet.zip" \
              '.manifest = $manifest | .download = $download' module.json > module.json.tmp && mv module.json.tmp module.json
@@ -48,11 +50,13 @@ jobs:
           zip -r ./mythcraft-essence-sheet.zip . -x ".git/*" ".github/*" "dist/*" ".gitignore"
           cp ./mythcraft-essence-sheet.zip ./module.zip
 
-      - name: Create Release and Upload Assets
+      - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
-          name: Version ${{ steps.module-version.outputs.version_number }}
-          prerelease: ${{ steps.prerelease-check.outputs.is_prerelease }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ steps.release-meta.outputs.tag_name }}
+          name: Version ${{ steps.release-meta.outputs.version_number }}
+          prerelease: ${{ steps.release-meta.outputs.is_prerelease }}
           files: |
             ./mythcraft-essence-sheet.zip
             ./module.zip

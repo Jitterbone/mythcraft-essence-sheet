@@ -113,17 +113,35 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     },
   };
 
-  /**
-   * Loads documents from compendiums upon initialization.
-   */
   async loadCompendiumData() {
     const packs = getAvailableCompendiums();
 
     this.data.lineages = await loadPacksDocuments(packs.lineages);
     const bopsDocs = await loadPacksDocuments(packs.bops);
 
-    this.data.backgrounds = bopsDocs.filter(d => d.system?.category === "background" || d.name?.toLowerCase().includes("background") || d.system?.tags?.includes("background"));
-    this.data.professions = bopsDocs.filter(d => d.system?.category === "profession" || d.name?.toLowerCase().includes("profession") || d.system?.tags?.includes("profession"));
+    const isDocOfCategory = (d, categoryName) => {
+      const target = categoryName.toLowerCase();
+      const cat = String(d.system?.category || "").toLowerCase();
+      const type = String(d.type || "").toLowerCase();
+      const name = String(d.name || "").toLowerCase();
+      if (cat === target || type === target || name.includes(target)) return true;
+
+      const rawTags = d.system?.tags;
+      if (!rawTags) return false;
+      if (Array.isArray(rawTags)) {
+        return rawTags.some(t => String(t?.name || t?.label || t?.id || t).toLowerCase().includes(target));
+      }
+      if (rawTags instanceof Set) {
+        return Array.from(rawTags).some(t => String(t?.name || t?.label || t?.id || t).toLowerCase().includes(target));
+      }
+      if (typeof rawTags === "object") {
+        return Object.values(rawTags).some(t => String(t?.name || t?.label || t?.id || t).toLowerCase().includes(target));
+      }
+      return String(rawTags).toLowerCase().includes(target);
+    };
+
+    this.data.backgrounds = bopsDocs.filter(d => isDocOfCategory(d, "background"));
+    this.data.professions = bopsDocs.filter(d => isDocOfCategory(d, "profession"));
 
     // Starting Talents: Specialization and Magic Entry talents (Level 1 characters cannot take Class talents)
     const specTalents = await loadPacksDocuments(packs.specTalents);

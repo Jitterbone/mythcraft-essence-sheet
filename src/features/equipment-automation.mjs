@@ -113,7 +113,7 @@ export function parseResistanceString(resistInput) {
 }
 
 /**
- * Format a list of resistance objects back into a comma-separated string
+ * Format resistance objects into a comma-separated display string.
  * @param {Array<{ type: string, label?: string, value: number }>} list
  * @returns {string}
  */
@@ -630,7 +630,7 @@ export function initEquipmentAutomation() {
     };
   };
 
-  patchSystemEvaluateFormula();
+  patchWeaponApcGetter();
   patchActorDerivedData(CONFIG.Actor?.documentClass);
 }
 
@@ -851,20 +851,26 @@ export function getSafeWeaponApc(item, actor) {
 /**
  * Intercepts system evaluateFormula to cleanly parse ", min X" formulas before Roll parsing.
  */
-export function patchSystemEvaluateFormula() {
-  if (globalThis.mythcraft?.utils?.evaluateFormula) {
-    const orig = mythcraft.utils.evaluateFormula;
-    mythcraft.utils.evaluateFormula = function (formula, rollData = {}, options = {}) {
-      if (typeof formula === "string" && formula.includes(",")) {
-        const minMatch = formula.match(/^(.*?)[,;\s]+min\s*(\d+)/i);
-        if (minMatch) {
-          const core = minMatch[1].trim();
-          const minVal = minMatch[2].trim();
-          formula = `max(${minVal}, ${core})`;
-        }
-      }
-      return orig.call(this, formula, rollData, options);
-    };
+export function patchWeaponApcGetter() {
+  const models = [
+    CONFIG.Item?.dataModels?.weapon,
+    globalThis.mythcraft?.data?.Item?.WeaponModel,
+    globalThis.mythcraft?.data?.Item?.config?.weapon,
+  ].filter(Boolean);
+
+  for (const model of models) {
+    if (!model?.prototype) continue;
+    try {
+      Object.defineProperty(model.prototype, "apc", {
+        get() {
+          return getSafeWeaponApc(this.parent, this.parent?.actor ?? this.parent);
+        },
+        configurable: true,
+        enumerable: true,
+      });
+    } catch (error) {
+      // Ignore models whose APC getter cannot be redefined.
+    }
   }
 }
 

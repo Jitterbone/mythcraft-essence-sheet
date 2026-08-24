@@ -198,4 +198,8 @@ Navigate to **Game Settings** -> **Configure Settings** -> **MythCraft Essence S
 - 🐛 **GitHub Issues**: [Open an issue on GitHub](https://github.com/Jitterbone/mythcraft-essence-sheet/issues)
 - ☕ **Ko-fi**: [Support development on Ko-fi](https://ko-fi.com/jitterbone)
 
+---
 
+## ⚖️ Legal & Attribution
+
+This work is based on The MythCraft System by QuasiReal Publishing LLC and published using the Creative Commons Attribution 3.0 Unported license ([http://creativecommons.org/licenses/by/3.0/](http://creativecommons.org/licenses/by/3.0/)).

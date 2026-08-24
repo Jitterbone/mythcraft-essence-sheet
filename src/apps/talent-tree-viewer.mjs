@@ -11,9 +11,9 @@ import {
   parseTalentData,
 } from "../features/compendium-parser.mjs";
 
-const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications?.api ?? {};
+const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
 
-export default class TalentTreeViewer extends (HandlebarsApplicationMixin ? HandlebarsApplicationMixin(ApplicationV2) : class {}) {
+export default class TalentTreeViewer extends HandlebarsApplicationMixin(ApplicationV2) {
 
   constructor(actor, options = {}) {
     super(options);
@@ -161,3 +161,4 @@ export default class TalentTreeViewer extends (HandlebarsApplicationMixin ? Hand
     this.render();
   }
 }
+

@@ -55,15 +55,20 @@ Hooks.once("init", () => {
   initLuckPointReroll();
   initPermissionsFix();
 
-  const { DocumentSheetConfig } = foundry.applications.apps;
-
   // ── Actor & Item Sheets Registration ───────────────────────────────────────
   const registerActorSheet = (cls, type, label) => {
-    DocumentSheetConfig.registerSheet(foundry.documents.Actor, MODULE_ID, cls, {
-      makeDefault: true,
-      types: [type],
-      label,
-    });
+    const actorDoc = globalThis.Actor || foundry.documents?.BaseActor || foundry.documents?.Actor;
+    if (actorDoc && foundry.applications?.apps?.DocumentSheetConfig?.registerSheet) {
+      try {
+        foundry.applications.apps.DocumentSheetConfig.registerSheet(actorDoc, MODULE_ID, cls, {
+          makeDefault: true,
+          types: [type],
+          label,
+        });
+      } catch (e) {
+        console.warn(`${MODULE_ID} | DocumentSheetConfig.registerSheet for ${type} failed:`, e);
+      }
+    }
     if (globalThis.Actors?.registerSheet) {
       try {
         globalThis.Actors.registerSheet(MODULE_ID, cls, {
@@ -71,7 +76,9 @@ Hooks.once("init", () => {
           types: [type],
           label,
         });
-      } catch (e) {}
+      } catch (e) {
+        console.warn(`${MODULE_ID} | Actors.registerSheet for ${type} failed:`, e);
+      }
     }
   };
 
@@ -79,10 +86,15 @@ Hooks.once("init", () => {
   registerActorSheet(EssenceNPCSheet, "npc", "MythCraft Essence: NPC Sheet");
   registerActorSheet(EssenceSiegeWeaponSheet, "siege", "MythCraft Essence: Siege Weapon Sheet");
 
-  DocumentSheetConfig.registerSheet(foundry.documents.Item, MODULE_ID, EssenceItemSheet, {
-    makeDefault: true,
-    label: "MythCraft Essence: Item Sheet",
-  });
+  const itemDoc = globalThis.Item || foundry.documents?.BaseItem || foundry.documents?.Item;
+  if (itemDoc && foundry.applications?.apps?.DocumentSheetConfig?.registerSheet) {
+    try {
+      foundry.applications.apps.DocumentSheetConfig.registerSheet(itemDoc, MODULE_ID, EssenceItemSheet, {
+        makeDefault: true,
+        label: "MythCraft Essence: Item Sheet",
+      });
+    } catch (e) {}
+  }
   if (globalThis.Items?.registerSheet) {
     try {
       globalThis.Items.registerSheet(MODULE_ID, EssenceItemSheet, {

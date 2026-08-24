@@ -15,11 +15,11 @@ import {
   parseTalentData,
 } from "../features/compendium-parser.mjs";
 import { getSetting } from "../settings.mjs";
-import { ENDURANCE_THRESHOLD_CHART, getHpDataForEndurance } from "./level-up-dialog.mjs";
+import { getEnduranceThreshold, ENDURANCE_THRESHOLDS } from "../features/hp-automation.mjs";
 
-const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications?.api ?? {};
+const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
 
-export default class CharacterCreationWizard extends (HandlebarsApplicationMixin ? HandlebarsApplicationMixin(ApplicationV2) : class {}) {
+export default class CharacterCreationWizard extends HandlebarsApplicationMixin(ApplicationV2) {
 
   constructor(actor, options = {}) {
     super(options);
@@ -160,7 +160,7 @@ export default class CharacterCreationWizard extends (HandlebarsApplicationMixin
 
     // HP calculation based on Endurance
     const endVal = this.data.attributes.end || 0;
-    const hpData = getHpDataForEndurance(endVal);
+    const hpData = getEnduranceThreshold(endVal);
     const setHpValue = 10 + 1 + (1 * hpData.setHp); // Level 1 HP formula: 10 + Level + (Level * SetHP)
 
     return {
@@ -359,7 +359,7 @@ export default class CharacterCreationWizard extends (HandlebarsApplicationMixin
 
     // 1. HP calculation
     const endVal = this.data.attributes.end || 0;
-    const hpData = getHpDataForEndurance(endVal);
+    const hpData = getEnduranceThreshold(endVal);
     let finalHp = 10 + 1 + (1 * hpData.setHp);
 
     if (this.data.hpMode === "roll") {
@@ -513,3 +513,4 @@ export default class CharacterCreationWizard extends (HandlebarsApplicationMixin
     }).render(true);
   }
 }
+

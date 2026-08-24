@@ -63,7 +63,7 @@ export default class EssenceNPCSheet extends NPCSheet {
       editTags: this.#editTags,
       removeTag: this.#removeTag,
       filterMagicSource: this.#filterMagicSource,
-      editImage: this._onEditImage,
+      editImage: "_onEditImage",
     },
   };
 
@@ -146,14 +146,10 @@ export default class EssenceNPCSheet extends NPCSheet {
    * @param {PointerEvent} event
    * @param {HTMLElement} target
    */
-  static async _onEditImage(event, target) {
+  async _onEditImage(event, target) {
     if (!this.isEditable) return;
-    const parentFn = super._onEditImage 
-      || Object.getPrototypeOf(EssenceNPCSheet)?._onEditImage
-      || foundry.applications?.sheets?.ActorSheetV2?._onEditImage
-      || foundry.applications?.sheets?.DocumentSheetV2?._onEditImage;
-    if (typeof parentFn === "function" && parentFn !== EssenceNPCSheet._onEditImage) {
-      return parentFn.call(this, event, target);
+    if (typeof super._onEditImage === "function") {
+      return super._onEditImage(event, target);
     }
     const attr = target?.dataset?.edit || "img";
     const current = foundry.utils.getProperty(this.document, attr);
@@ -169,23 +165,6 @@ export default class EssenceNPCSheet extends NPCSheet {
       left: this.position.left + 10,
     });
     return fp.browse();
-  }
-
-  /**
-   * Instance method for image editing.
-   * @param {PointerEvent} event
-   * @param {HTMLElement} target
-   */
-  async _onEditImage(event, target) {
-    if (!this.isEditable) return;
-    const parentFn = super._onEditImage 
-      || Object.getPrototypeOf(this)?._onEditImage
-      || foundry.applications?.sheets?.ActorSheetV2?.prototype?._onEditImage
-      || foundry.applications?.sheets?.DocumentSheetV2?.prototype?._onEditImage;
-    if (typeof parentFn === "function") {
-      return parentFn.call(this, event, target);
-    }
-    return this.constructor._onEditImage.call(this, event, target);
   }
 
   static async #rollAttribute(event, target) {

@@ -529,7 +529,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       rollSpell: this.#rollSpell,
       postSpellToChat: this.#postSpellToChat,
       postItemToChat: this.#postItemToChat,
-      editImage: this._onEditImage,
+      editImage: "_onEditImage",
       showImage: this.#showImage,
       toggleAttunement: this.#toggleAttunement,
       toggleDonArmor: this.#toggleDonArmor,
@@ -808,14 +808,10 @@ export default class EssenceCharacterSheet extends CharacterSheet {
    * @param {PointerEvent} event
    * @param {HTMLElement} target
    */
-  static async _onEditImage(event, target) {
+  async _onEditImage(event, target) {
     if (!this.isEditable) return;
-    const parentFn = super._onEditImage 
-      || Object.getPrototypeOf(EssenceCharacterSheet)?._onEditImage
-      || foundry.applications?.sheets?.ActorSheetV2?._onEditImage
-      || foundry.applications?.sheets?.DocumentSheetV2?._onEditImage;
-    if (typeof parentFn === "function" && parentFn !== EssenceCharacterSheet._onEditImage) {
-      return parentFn.call(this, event, target);
+    if (typeof super._onEditImage === "function") {
+      return super._onEditImage(event, target);
     }
     const attr = target?.dataset?.edit || "img";
     const current = foundry.utils.getProperty(this.document, attr);
@@ -831,23 +827,6 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       left: this.position.left + 10,
     });
     return fp.browse();
-  }
-
-  /**
-   * Instance method for image editing.
-   * @param {PointerEvent} event
-   * @param {HTMLElement} target
-   */
-  async _onEditImage(event, target) {
-    if (!this.isEditable) return;
-    const parentFn = super._onEditImage 
-      || Object.getPrototypeOf(this)?._onEditImage
-      || foundry.applications?.sheets?.ActorSheetV2?.prototype?._onEditImage
-      || foundry.applications?.sheets?.DocumentSheetV2?.prototype?._onEditImage;
-    if (typeof parentFn === "function") {
-      return parentFn.call(this, event, target);
-    }
-    return this.constructor._onEditImage.call(this, event, target);
   }
 
   static async #showImage(event, target) {

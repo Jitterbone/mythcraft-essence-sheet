@@ -22,6 +22,7 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
     this.onSelectTalent = options.onSelectTalent ?? null;
     this.trees = [];
     this.activeCategory = "all"; // "all" | "class" | "spec" | "magic"
+    this.searchTerm = "";
   }
 
   /** @inheritdoc */
@@ -43,6 +44,7 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
       postTalent: this.#onPostTalent,
       chooseTalent: this.#onChooseTalent,
       filterCategory: this.#onFilterCategory,
+      searchTrees: this.#onSearchTrees,
     },
   };
 
@@ -68,6 +70,11 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
     const magicTalents = await loadPacksDocuments(packs.magic, { type: "talent" });
 
     allTalents.push(...classTalents, ...specTalents, ...magicTalents);
+    const categories = new Map([
+      ...classTalents.map(talent => [talent.id, "class"]),
+      ...specTalents.map(talent => [talent.id, "specialization"]),
+      ...magicTalents.map(talent => [talent.id, "magic"]),
+    ]);
 
     // Also include any custom talents from actor or other packs
     for (const at of actorTalents) {
@@ -76,7 +83,10 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
       }
     }
 
-    this.trees = buildTalentTrees(allTalents, actorTalents);
+    this.trees = buildTalentTrees(allTalents, actorTalents).map(tree => ({
+      ...tree,
+      category: categories.get(tree.root.id) || "custom",
+    }));
   }
 
   /** @inheritdoc */
@@ -97,12 +107,21 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
       displayTrees = this.trees.slice(0, 4);
     }
 
+    if (this.activeCategory !== "all") {
+      displayTrees = displayTrees.filter(tree => tree.category === this.activeCategory);
+    }
+    if (this.searchTerm.trim()) {
+      const query = this.searchTerm.trim().toLowerCase();
+      displayTrees = displayTrees.filter(tree => `${tree.root.name} ${tree.nodes.map(node => node.name).join(" ")}`.toLowerCase().includes(query));
+    }
+
     return {
       actor: this.actor,
       isPickerMode: this.isPickerMode,
       trees: displayTrees,
       hasStartedTrees: this.trees.some(t => t.isStarted),
       activeCategory: this.activeCategory,
+      searchTerm: this.searchTerm,
     };
   }
 
@@ -158,6 +177,11 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
 
   static #onFilterCategory(event, target) {
     this.activeCategory = target.dataset.category || "all";
+    this.render();
+  }
+
+  static #onSearchTrees(event, target) {
+    this.searchTerm = target.value || "";
     this.render();
   }
 }

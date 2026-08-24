@@ -45,31 +45,55 @@
           </div>
         </div>
 
+        <input class="wizard-search-input" type="search" data-action="setSearch" data-search="lineage" value="{{data.searches.lineage}}" placeholder="Search lineages..." />
         <div class="lineage-selection-grid">
-          {{#each data.lineages as |lineage|}}
-            <div class="wizard-selection-card {{#if (eq ../data.selectedLineageId lineage.id)}}selected{{/if}}"
+          {{#each filteredLineages as |lineage|}}
+                <div class="wizard-selection-card {{#if (eq ../data.selectedLineageId lineage.id)}}selected{{/if}}"
                  data-action="selectLineage"
-                 data-lineage-id="{{lineage.id}}">
+                data-lineage-id="{{lineage.id}}"
+                data-card-id="{{lineage.id}}">
               <div class="card-icon-wrap">
                 <img src="{{lineage.img}}" alt="{{lineage.name}}" />
               </div>
               <div class="card-info-wrap">
-                <h4 class="card-title">{{lineage.name}}</h4>
-                <div class="card-snippet">{{{lineage.system.description.value}}}</div>
+                <div class="card-top-row">
+                  <h4 class="card-title">{{lineage.name}}</h4>
+                </div>
               </div>
             </div>
           {{/each}}
         </div>
 
         {{#if selectedLineage}}
-          <div class="lineage-detail-box">
+            <div class="lineage-detail-box">
             <div class="detail-header">
-              <h4>{{selectedLineage.name}} — Starting Features</h4>
+              <h4>{{selectedLineage.name}} — Starting Features &amp; Traits</h4>
               {{#if data.bonusAttributePoints}}
                 <span class="golden-badge"><i class="fas fa-plus"></i> {{data.bonusAttributePoints}} Bonus Attribute Point</span>
               {{/if}}
             </div>
             <div class="detail-content">{{{selectedLineage.system.description.value}}}</div>
+            {{#if lineageStartingFeatures.length}}
+              <h5 class="wizard-detail-subtitle">Starting features (automatic)</h5>
+              <div class="feature-choice-list locked-feature-list">
+                {{#each lineageStartingFeatures as |feature|}}
+                  <div class="feature-choice-row locked"><span>{{feature.name}}</span><i class="fas fa-lock"></i></div>
+                {{/each}}
+              </div>
+            {{/if}}
+            {{#if lineageUniqueFeatures.length}}
+              <h5 class="wizard-detail-subtitle">Choose one unique lineage feature</h5>
+              <div class="feature-choice-list">
+                {{#each eligibleUniqueFeatures as |feature|}}
+                  <button type="button" class="feature-choice-row {{#if (eq ../data.selectedFeatureId feature.id)}}selected{{/if}}" data-action="selectLineageFeature" data-feature-id="{{feature.id}}">
+                    <span>{{feature.name}}</span><i class="fas {{#if (eq ../data.selectedFeatureId feature.id)}}fa-circle-check{{else}}fa-circle{{/if}}"></i>
+                  </button>
+                {{/each}}
+              </div>
+              {{#if selectedFeature}}
+                <div class="selected-feature-description">{{{selectedFeature.system.description.value}}}</div>
+              {{/if}}
+            {{/if}}
           </div>
         {{/if}}
       </div>
@@ -98,17 +122,17 @@
         </div>
 
         <div class="attr-assignment-grid">
-          {{#each data.attributes as |val key|}}
+          {{#each attributesList as |attr|}}
             <div class="attr-row-card">
-              <span class="attr-name">{{toUpperCase key}}</span>
+              <span class="attr-name">{{attr.label}}</span>
               <div class="attr-controls">
-                <button type="button" class="step-btn minus" data-action="adjustAttribute" data-attr="{{key}}" data-delta="-1">
+                <button type="button" class="step-btn minus" data-action="adjustAttribute" data-attr="{{attr.key}}" data-delta="-1">
                   <i class="fas fa-minus"></i>
                 </button>
-                <span class="attr-display-val {{#if (lt val 0)}}negative{{/if}} {{#if (gt val 0)}}positive{{/if}}">
-                  {{#if (gt val 0)}}+{{/if}}{{val}}
+                <span class="attr-display-val {{#if (lt attr.value 0)}}negative{{/if}} {{#if (gt attr.value 0)}}positive{{/if}}">
+                  {{#if (gt attr.value 0)}}+{{/if}}{{attr.value}}
                 </span>
-                <button type="button" class="step-btn plus" data-action="adjustAttribute" data-attr="{{key}}" data-delta="1">
+                <button type="button" class="step-btn plus" data-action="adjustAttribute" data-attr="{{attr.key}}" data-delta="1">
                   <i class="fas fa-plus"></i>
                 </button>
               </div>
@@ -187,26 +211,37 @@
           </div>
         </div>
 
-        <div class="bops-dual-column">
+        <div class="bops-dual-column wizard-bops-staged">
           {{!-- Background Column --}}
           <div class="bops-column">
             <h4 class="column-title"><i class="fas fa-book-bookmark"></i> Background</h4>
+            <input class="wizard-search-input" type="search" data-action="setSearch" data-search="background" value="{{data.searches.background}}" placeholder="Search backgrounds..." />
             <div class="bops-list">
-              {{#each data.backgrounds as |bg|}}
-                <div class="bops-item-card {{#if (eq ../data.selectedBackgroundId bg.id)}}selected{{/if}}"
+              {{#each filteredBackgrounds as |bg|}}
+                 <div class="bops-item-card {{#if (eq ../data.selectedBackgroundId bg.id)}}selected{{/if}}"
                      data-action="selectBackground"
-                     data-background-id="{{bg.id}}">
+                   data-background-id="{{bg.id}}"
+                   data-card-id="{{bg.id}}">
                   <img src="{{bg.img}}" alt="{{bg.name}}" />
                   <div class="bops-item-info">
-                    <h5>{{bg.name}}</h5>
+                    <div class="card-top-row">
+                      <h5>{{bg.name}}</h5>
+                    </div>
                   </div>
                 </div>
               {{/each}}
             </div>
 
             {{#if parsedBackground}}
+              <button type="button" class="wizard-confirm-btn" data-action="confirmBackground" {{#unless data.selectedBackgroundId}}disabled{{/unless}}>Confirm Background</button>
+            {{/if}}
+            {{#if (and parsedBackground data.backgroundConfirmed)}}
               <div class="bops-sub-panel">
-                <h5>Spend {{parsedBackground.skillPoints}} Skill Points (Max +{{parsedBackground.perSkillCap}}/skill)</h5>
+                <div class="selection-detail-copy">
+                  <h5>{{selectedBackground.name}}</h5>
+                  <div>{{{selectedBackground.system.description.value}}}</div>
+                </div>
+                <h5>Background skills: spend {{parsedBackground.skillPoints}} points ({{backgroundSkillSpent}}/{{parsedBackground.skillPoints}} used)</h5>
                 <div class="skill-allocator-list">
                   {{#each parsedBackground.eligibleSkills as |sk|}}
                     <div class="skill-alloc-row">
@@ -238,17 +273,25 @@
           </div>
 
           {{!-- Profession Column --}}
-          <div class="bops-column">
+          {{#if data.backgroundConfirmed}}
+          <div class="bops-column profession-stage">
             <h4 class="column-title"><i class="fas fa-hammer"></i> Profession</h4>
+            {{#if selectedBackground}}
+              <p class="choice-guidance">Choose a profession after selecting a background. Starred professions grant the background's bonus.</p>
+            {{/if}}
+            <input class="wizard-search-input" type="search" data-action="setSearch" data-search="profession" value="{{data.searches.profession}}" placeholder="Search professions..." />
             <div class="bops-list">
-              {{#each data.professions as |prof|}}
-                <div class="bops-item-card {{#if (eq ../data.selectedProfessionId prof.id)}}selected{{/if}} {{#if (and ../parsedBackground.encouragedProfessions.tag (includes prof.system.tags ../parsedBackground.encouragedProfessions.tag))}}encouraged-gold{{/if}}"
+              {{#each filteredProfessions as |prof|}}
+                 <div class="bops-item-card {{#if (eq ../data.selectedProfessionId prof.id)}}selected{{/if}} {{#if prof.isEncouraged}}encouraged-gold{{/if}}"
                      data-action="selectProfession"
-                     data-profession-id="{{prof.id}}">
+                   data-profession-id="{{prof.id}}"
+                   data-card-id="{{prof.id}}">
                   <img src="{{prof.img}}" alt="{{prof.name}}" />
                   <div class="bops-item-info">
-                    <h5>{{prof.name}}</h5>
-                    {{#if (and ../parsedBackground.encouragedProfessions.tag (includes prof.system.tags ../parsedBackground.encouragedProfessions.tag))}}
+                    <div class="card-top-row">
+                      <h5>{{prof.name}}</h5>
+                    </div>
+                    {{#if prof.isEncouraged}}
                       <span class="encouraged-pill"><i class="fas fa-star"></i> +{{../parsedBackground.encouragedProfessions.bonusValue}} {{../parsedBackground.encouragedProfessions.bonusSkill}}</span>
                     {{/if}}
                   </div>
@@ -257,7 +300,24 @@
             </div>
 
             {{#if parsedProfession}}
+              <button type="button" class="wizard-confirm-btn" data-action="confirmProfession" {{#unless data.selectedProfessionId}}disabled{{/unless}}>Confirm Profession</button>
+            {{/if}}
+            {{#if (and parsedProfession data.professionConfirmed)}}
               <div class="bops-sub-panel">
+                <div class="selection-detail-copy">
+                  <h5>{{selectedProfession.name}}</h5>
+                  <div>{{{selectedProfession.system.description.value}}}</div>
+                </div>
+                {{#if professionRankItems.length}}
+                  <h5>Profession rank abilities (automatic)</h5>
+                  <div class="profession-rank-list">
+                    {{#each professionRankItems as |rank|}}
+                      <div class="profession-rank-row"><strong>{{rank.name}}</strong><span>{{{rank.system.description.value}}}</span></div>
+                    {{/each}}
+                  </div>
+                {{/if}}
+                <h5>Profession skills</h5>
+                {{#each parsedProfession.fixedSkills as |skill|}}<p class="skill-summary">+{{skill.value}} {{skill.name}}</p>{{/each}}
                 {{#if parsedProfession.choiceSkills.count}}
                   <h5>Choose {{parsedProfession.choiceSkills.count}} Skills (+{{parsedProfession.choiceSkills.value}} each)</h5>
                   <div class="choice-skills-wrap">
@@ -280,6 +340,7 @@
               </div>
             {{/if}}
           </div>
+          {{/if}}
         </div>
       </div>
     {{/if}}
@@ -295,25 +356,35 @@
           </div>
         </div>
 
-        <div class="talents-selection-list">
-          {{#each data.talents as |talent|}}
-            <div class="talent-choice-card {{#if (eq ../data.selectedTalentId talent.id)}}selected{{/if}}"
-                 data-action="selectTalent"
-                 data-talent-id="{{talent.id}}">
-              <img src="{{talent.img}}" alt="{{talent.name}}" />
-              <div class="talent-info">
-                <h4>{{talent.name}}</h4>
-                <div class="talent-desc">{{{talent.system.description.value}}}</div>
-              </div>
+        <input class="wizard-search-input" type="search" data-action="setSearch" data-search="talent" value="{{data.searches.talent}}" placeholder="Search starting talents..." />
+        {{#each filteredTalentGroups as |group|}}
+          <section class="talent-source-group">
+            <h4 class="talent-source-title">{{group.label}}</h4>
+            <div class="talents-selection-list">
+              {{#each group.items as |talent|}}
+                <div class="talent-choice-card {{#if (eq @root.data.selectedTalentId talent.id)}}selected{{/if}}"
+                     data-action="selectTalent"
+                     data-talent-id="{{talent.id}}">
+                  <img src="{{talent.img}}" alt="{{talent.name}}" />
+                  <div class="talent-info"><h4>{{talent.name}}</h4></div>
+                </div>
+              {{/each}}
             </div>
-          {{/each}}
-        </div>
+          </section>
+        {{/each}}
+
+        {{#if selectedTalent}}
+          <div class="lineage-detail-box talent-detail-box">
+            <div class="detail-header"><h4>{{selectedTalent.name}}</h4></div>
+            <div class="detail-content">{{{selectedTalent.system.description.value}}}</div>
+          </div>
+        {{/if}}
 
         {{#if parsedTalent.extraStackTalents}}
           <div class="extra-talents-box">
             <h4>Choose {{parsedTalent.extraStackTalents}} Additional Stack Talents:</h4>
             <div class="extra-talents-list">
-              {{#each data.talents as |extra|}}
+              {{#each extraTalentOptions as |extra|}}
                 <button type="button" class="extra-talent-btn {{#if (includes ../data.selectedExtraTalentIds extra.id)}}active{{/if}}"
                         data-action="toggleExtraTalent"
                         data-talent-id="{{extra.id}}">
@@ -338,7 +409,8 @@
               </select>
             </div>
             <div class="spells-selection-grid">
-              {{#each data.availableSpells as |spell|}}
+              <input class="wizard-search-input" type="search" data-action="setSearch" data-search="spell" value="{{data.searches.spell}}" placeholder="Search spells and cantrips..." />
+              {{#each filteredSpells as |spell|}}
                 <div class="spell-select-card {{#if (includes ../data.selectedSpellIds spell.id)}}active{{/if}}"
                      data-action="toggleSpell"
                      data-spell-id="{{spell.id}}">

@@ -8,6 +8,10 @@
     <button type="button" class="tree-cat-btn {{#if (eq activeCategory 'all')}}active{{/if}}" data-action="filterCategory" data-category="all">
       <i class="fas fa-cubes"></i> All Active Tracks
     </button>
+    <button type="button" class="tree-cat-btn {{#if (eq activeCategory 'class')}}active{{/if}}" data-action="filterCategory" data-category="class">Class</button>
+    <button type="button" class="tree-cat-btn {{#if (eq activeCategory 'specialization')}}active{{/if}}" data-action="filterCategory" data-category="specialization">Specialization</button>
+    <button type="button" class="tree-cat-btn {{#if (eq activeCategory 'magic')}}active{{/if}}" data-action="filterCategory" data-category="magic">Magic</button>
+    <input class="tree-search-input" type="search" data-action="searchTrees" value="{{searchTerm}}" placeholder="Search talents or tracks..." />
   </div>
 
   {{!-- Trees Canvas Container --}}

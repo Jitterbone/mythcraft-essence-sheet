@@ -17,6 +17,11 @@ export const OFFICIAL_PACK_NAMES = {
   equipment: ["equipment", "chapter-6-equipment", "items", "gear"],
 };
 
+function descriptionText(item) {
+  const raw = String(item?.system?.description?.value ?? item?.system?.description ?? "");
+  return raw.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, " ").replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").trim();
+}
+
 /**
  * Discovers and groups all available MythCraft compendiums.
  * @returns {Record<string, Array<CompendiumCollection>>}
@@ -152,7 +157,7 @@ export function calculateAttributePool(attributes = {}, bonusPoints = 0, basePoo
  * @returns {{ skillPoints: number, perSkillCap: number, eligibleSkills: Array<string>, startingWealth: { formula: string, average: number }, encouragedProfessions: { tag: string, bonusSkill: string, bonusValue: number, rawProfessionUuids: Array<string> } }}
  */
 export function parseBackgroundData(item) {
-  const desc = String(item?.system?.description?.value ?? item?.system?.description ?? "");
+  const desc = descriptionText(item);
 
   // 1. Skill Points & Per-Skill Cap
   let skillPoints = 0;
@@ -231,7 +236,7 @@ export function parseBackgroundData(item) {
  * @returns {{ startingGear: Array<{ name: string, quantity: number, raw: string }>, fixedSkills: Array<{ name: string, value: number }>, choiceSkills: { count: number, value: number, options: Array<string> }, tenureUuids: Array<{ uuid: string, label: string, rank: number }> }}
  */
 export function parseProfessionData(item) {
-  const desc = String(item?.system?.description?.value ?? item?.system?.description ?? "");
+  const desc = descriptionText(item);
 
   // 1. Starting Gear List
   const startingGear = [];
@@ -321,7 +326,7 @@ export function parseProfessionData(item) {
  * @returns {{ prerequisites: Array<string>, incompatibilities: Array<string>, isMagicEntry: boolean, spBonus: number, magicPowerBonus: number, magicAttribute: string, extraStackTalents: number, magicStackTag: string }}
  */
 export function parseTalentData(item) {
-  const desc = String(item?.system?.description?.value ?? item?.system?.description ?? "");
+  const desc = descriptionText(item);
 
   // 1. Prerequisites
   const prerequisites = [];

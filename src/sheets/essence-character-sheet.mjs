@@ -335,7 +335,8 @@ export async function rollSpellItem(actor, item, { rollMode = null } = {}) {
     if (!allowed) return;
   }
 
-  const spellcastingAbility = actor.getFlag?.("mythcraft-essence-sheet", "magicAttribute") 
+  const spellcastingAbility = item.getFlag?.("mythcraft-essence-sheet", "spellcastingAttribute")
+    || actor.getFlag?.("mythcraft-essence-sheet", "magicAttribute")
     || actor.system?.sp?.attribute 
     || "int";
   let abilityMod = Number(actor.system?.attributes?.[spellcastingAbility]?.value ?? actor.system?.attributes?.[spellcastingAbility] ?? 0);
@@ -343,8 +344,7 @@ export async function rollSpellItem(actor, item, { rollMode = null } = {}) {
   const powerLevels = actor.system?.powerLevel ?? {};
   const primarySource = Object.entries(powerLevels)
     .sort(([, a], [, b]) => b - a)[0]?.[0];
-  const isPrimary = primarySource ? (item.system?.magicSource === primarySource) : true;
-  if (primarySource && !isPrimary) abilityMod = Math.ceil(abilityMod / 2);
+  const isPrimary = primarySource ? String(item.system?.magicSource || "").toLowerCase().includes(String(primarySource).toLowerCase()) : true;
 
   const critHit = getActorCritHit(actor);
   const critFail = getActorCritFail(actor);
@@ -490,18 +490,6 @@ export default class EssenceCharacterSheet extends CharacterSheet {
   get isEditable() {
     return Boolean(this.document?.isOwner || game.user?.isGM);
   }
-
-  /**
-   * Strip GM-only fields for non-GM players to prevent Foundry sanitization errors.
-   * @override
-   */
-  _processFormData(event, form, formData) {
-    const data = super._processFormData(event, form, formData);
-    if (!game.user?.isGM) {
-      sanitizeGmOnlyFields(data);
-    }
-    return data;
-  };
 
   static DEFAULT_OPTIONS = {
     classes: ["mythcraft", "actor", "sheet", "essence-sheet"],
@@ -1351,6 +1339,38 @@ export default class EssenceCharacterSheet extends CharacterSheet {
   static async #openLevelUpDialog(event, target) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
+
+    if (Number(this.actor.system?.level ?? 0) === 0) {
+      new foundry.applications.api.DialogV2({
+        window: { title: "Character Level 0 Setup" },
+        content: `
+          <div style="padding: 12px; font-family: var(--mc-font-body, system-ui); font-size: 13px; line-height: 1.5; color: #e2e8f0;">
+            <p style="margin: 0 0 8px 0; color: #FEEBB3; font-weight: bold; font-size: 14px;">
+              <i class="fas fa-sparkles" style="color: #38bdf8; margin-right: 6px;"></i>
+              Level 0 Character Setup
+            </p>
+            <p style="margin: 0 0 6px 0; color: #94a3b8;">Would you like to run through the guided <strong>Character Creation Wizard</strong> (Lineage, Attributes, Background, Profession, Talents, &amp; Spells), or proceed directly to <strong>Manual Level Up</strong>?</p>
+          </div>
+        `,
+        buttons: [
+          {
+            action: "wizard",
+            label: "Creation Wizard",
+            icon: "fa-solid fa-wand-magic-sparkles",
+            class: "default",
+            callback: () => new CharacterCreationWizard(this.actor).render(true),
+          },
+          {
+            action: "manual",
+            label: "Manual Level Up",
+            icon: "fa-solid fa-circle-arrow-up",
+            callback: () => new LevelUpDialog(this.actor).render(true),
+          },
+        ],
+      }).render(true);
+      return;
+    }
+
     new LevelUpDialog(this.actor).render(true);
   }
 
@@ -1819,6 +1839,38 @@ export default class EssenceCharacterSheet extends CharacterSheet {
   _onRender(context, options) {
     super._onRender(context, options);
 
+    const actorImage = typeof this.actor.img === "string" ? this.actor.img.trim() : "";
+    if ((!actorImage || !/\.(avif|gif|jpe?g|png|svg|webp)(?:$|[?#])/i.test(actorImage)) && !this.actor.flags?.["mythcraft-essence-sheet"]?.imagePathNormalized) {
+      this.actor.update({
+        img: "icons/svg/mystery-man.svg",
+        "flags.mythcraft-essence-sheet.imagePathNormalized": true,
+      });
+    }
+
+    const globalMagicAttribute = this.element.querySelector("#magic-attr-select");
+    if (globalMagicAttribute && !globalMagicAttribute.dataset.essenceBound) {
+      globalMagicAttribute.dataset.essenceBound = "true";
+      globalMagicAttribute.addEventListener("change", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        await this.actor.setFlag("mythcraft-essence-sheet", "magicAttribute", event.target.value);
+        this.render({ parts: ["spells"] });
+      });
+    }
+
+    for (const attributeSelect of this.element.querySelectorAll("[data-spell-attribute]")) {
+      if (attributeSelect.dataset.essenceBound) continue;
+      attributeSelect.dataset.essenceBound = "true";
+      attributeSelect.addEventListener("change", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const spell = this.actor.items.get(attributeSelect.dataset.itemId);
+        if (!spell) return;
+        await spell.setFlag("mythcraft-essence-sheet", "spellcastingAttribute", event.target.value);
+        this.render({ parts: ["spells"] });
+      });
+    }
+
     // Prompt Character Creation Wizard for Level 0 characters
     if (!this.#hasPromptedCreation && Number(this.actor.system?.level ?? 0) === 0 && this.isEditable) {
       this.#hasPromptedCreation = true;
@@ -2138,37 +2190,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     });
   }
 
-  /** @inheritdoc */
-  _processFormData(event, form, formData) {
-    const data = super._processFormData(event, form, formData);
-    for (const key of Object.keys(data)) {
-      if (key.startsWith("_conditions-")) delete data[key];
-      // Prevent empty or invalid img from being passed to document update
-      if (key === "img" && (!data[key] || typeof data[key] !== "string" || !data[key].trim())) {
-        delete data[key];
-      }
-    }
-    return data;
-  }
-
   /* ─────────────────────────────────────────────────────────────────────────
-   *  Context preparation — call super to get all the system's prepared data,
-   *  then augment with Essence-specific additions.
-   * ──────────────────────────────────────────────────────────────────────── */
-
-  /** @inheritdoc */
-  _prepareSubmitData(event, form, formData) {
-    const submitData = super._prepareSubmitData ? super._prepareSubmitData(event, form, formData) : (formData?.object ?? {});
-
-    // If user edited system.hp.max in the form, ensure flags.mythcraft-essence-sheet.maxHp matches
-    if (submitData["system.hp.max"] !== undefined && submitData["system.hp.max"] !== null) {
-      submitData["flags.mythcraft-essence-sheet.maxHp"] = Number(submitData["system.hp.max"]);
-    }
-
-    return submitData;
-  }
-
-  /** @inheritdoc */
   async _prepareContext(options) {
     // Ensure effective armor, AR, defenses, and restrictions are calculated
     applyEffectiveArmorAndDefenses(this.actor);
@@ -3064,6 +3086,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         return {
           item,
           expanded,
+          spellcastingAttribute: item.getFlag?.("mythcraft-essence-sheet", "spellcastingAttribute") || "",
           magicSourceKey: sourceKey,
           magicSourceLabel: cleanSourceLabel(rawSource),
           inlineTags,
@@ -3088,7 +3111,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       const remainingEssence = Math.max(0, maxEssence - usedEssence);
       const isOverCapacity = usedEssence > maxEssence;
       const overAmount = isOverCapacity ? (usedEssence - maxEssence) : 0;
-      
+
       // Bar is full (100%) by default and empties as essence is bound
       const remainingPercent = isOverCapacity ? 100 : Math.min(100, Math.max(0, Math.round((remainingEssence / maxEssence) * 100)));
 
@@ -3493,14 +3516,32 @@ export default class EssenceCharacterSheet extends CharacterSheet {
   _processFormData(event, form, formData) {
     const data = super._processFormData(event, form, formData);
 
+    if (!game.user?.isGM) {
+      sanitizeGmOnlyFields(data);
+    }
+
+    for (const key of Object.keys(data)) {
+      if (key.startsWith("_conditions-")) delete data[key];
+    }
+
     // Safeguard document name so it never causes schema validation errors
     if (!data.name || typeof data.name !== "string" || !data.name.trim()) {
       data.name = this.actor.name || "Character";
     }
 
-    // Preserve existing document img if none is provided
-    if (!data.img) {
-      data.img = this.actor.img;
+    // Never copy an extensionless or base64 image into updates
+    if ("img" in data) {
+      const imagePath = typeof data.img === "string" ? data.img.trim() : "";
+      if (!imagePath || /^data:/i.test(imagePath) || !/\.(avif|gif|jpe?g|png|svg|webp)(?:$|[?#])/i.test(imagePath)) {
+        delete data.img;
+      }
+    }
+
+    if ("prototypeToken.texture.src" in data) {
+      const tokenPath = typeof data["prototypeToken.texture.src"] === "string" ? data["prototypeToken.texture.src"].trim() : "";
+      if (!tokenPath || /^data:/i.test(tokenPath) || !/\.(avif|gif|jpe?g|png|svg|webp)(?:$|[?#])/i.test(tokenPath)) {
+        delete data["prototypeToken.texture.src"];
+      }
     }
 
     // Clean any array or comma-delimited values in appearance fields
@@ -3529,6 +3570,75 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     }
 
     return data;
+  }
+
+  /** @inheritdoc */
+  _prepareSubmitData(event, form, formData) {
+    const data = this._processFormData(event, form, formData);
+
+    if ("img" in data) {
+      const imagePath = typeof data.img === "string" ? data.img.trim() : "";
+      if (!imagePath || /^data:/i.test(imagePath) || !/\.(avif|gif|jpe?g|png|svg|webp)(?:$|[?#])/i.test(imagePath)) {
+        delete data.img;
+      }
+    }
+
+    if ("prototypeToken.texture.src" in data) {
+      const tokenPath = typeof data["prototypeToken.texture.src"] === "string" ? data["prototypeToken.texture.src"].trim() : "";
+      if (!tokenPath || /^data:/i.test(tokenPath) || !/\.(avif|gif|jpe?g|png|svg|webp)(?:$|[?#])/i.test(tokenPath)) {
+        delete data["prototypeToken.texture.src"];
+      }
+    }
+
+    // If user edited system.hp.max in the form, ensure flags.mythcraft-essence-sheet.maxHp matches
+    if (data["system.hp.max"] !== undefined && data["system.hp.max"] !== null) {
+      data["flags.mythcraft-essence-sheet.maxHp"] = Number(data["system.hp.max"]);
+    }
+
+    return data;
+  }
+
+  /** @inheritdoc */
+  _getSubmitData(updateData = {}) {
+    const data = super._getSubmitData ? super._getSubmitData(updateData) : { ...updateData };
+    if ("img" in data) {
+      const imagePath = typeof data.img === "string" ? data.img.trim() : "";
+      if (!imagePath || /^data:/i.test(imagePath) || !/\.(avif|gif|jpe?g|png|svg|webp)(?:$|[?#])/i.test(imagePath)) {
+        delete data.img;
+      }
+    }
+    if ("prototypeToken.texture.src" in data) {
+      const tokenPath = typeof data["prototypeToken.texture.src"] === "string" ? data["prototypeToken.texture.src"].trim() : "";
+      if (!tokenPath || /^data:/i.test(tokenPath) || !/\.(avif|gif|jpe?g|png|svg|webp)(?:$|[?#])/i.test(tokenPath)) {
+        delete data["prototypeToken.texture.src"];
+      }
+    }
+    return data;
+  }
+
+  async _updateObject(event, formData) {
+    // Aggressively check for invalid img data
+    if (formData.img !== undefined) {
+      const validExtensions = [".png", ".webp", ".jpg", ".jpeg", ".svg", ".gif", ".avif"];
+      const hasValidExt = typeof formData.img === "string" && validExtensions.some(ext => formData.img.toLowerCase().endsWith(ext));
+
+      // If it's empty, null, or lacks an extension, delete it from the payload
+      if (!formData.img || !hasValidExt) {
+        delete formData.img;
+      }
+    }
+
+    // Also clean up prototype token images if they are being submitted
+    if (formData["prototypeToken.texture.src"] !== undefined) {
+       const validExtensions = [".png", ".webp", ".jpg", ".jpeg", ".svg", ".gif", ".avif"];
+       const hasValidExt = typeof formData["prototypeToken.texture.src"] === "string" && validExtensions.some(ext => formData["prototypeToken.texture.src"].toLowerCase().endsWith(ext));
+       if (!formData["prototypeToken.texture.src"] || !hasValidExt) {
+           delete formData["prototypeToken.texture.src"];
+       }
+    }
+
+    // Call the parent class method with the cleaned formData
+    return super._updateObject(event, formData);
   }
 
   /** @inheritdoc */

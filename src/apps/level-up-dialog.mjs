@@ -26,6 +26,8 @@ import TalentTreeViewer from "./talent-tree-viewer.mjs";
 
 const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
 
+const getAttributeValue = (actor, key) => Number(actor?.system?.attributes?.[key]?.value ?? actor?.system?.attributes?.[key] ?? 0);
+
 export { ENDURANCE_THRESHOLDS as ENDURANCE_THRESHOLD_CHART, getEnduranceThreshold as getHpDataForEndurance };
 
 export default class LevelUpDialog extends HandlebarsApplicationMixin(ApplicationV2) {
@@ -109,7 +111,7 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
   async _prepareContext(options) {
     const curLvl = this._currentLevel;
     const tgtLvl = this._targetLevel;
-    const endVal = Number(this.actor.system.attributes?.end ?? 0) + (this._attributeChanges.end || 0);
+    const endVal = getAttributeValue(this.actor, "end") + (this._attributeChanges.end || 0);
     const activeTh = getEnduranceThreshold(endVal);
 
     const curHpMax = Number(this.actor.system.hp?.max ?? 0);
@@ -172,7 +174,7 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
 
     // Attributes list with current and preview values
     const attributesList = ["str", "dex", "end", "awr", "int", "cha"].map(key => {
-      const base = Number(this.actor.system.attributes?.[key]?.value ?? this.actor.system.attributes?.[key] ?? 0);
+      const base = getAttributeValue(this.actor, key);
       const mod = this._attributeChanges[key] || 0;
       return {
         key,
@@ -307,7 +309,7 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
     const curLvl = this._currentLevel;
     const isRecalculate = this._mode === "recalculate";
     const levelsGained = Math.max(1, tgtLvl - (isRecalculate ? 0 : curLvl));
-    const endVal = Number(this.actor.system.attributes?.end ?? 0) + (this._attributeChanges.end || 0);
+    const endVal = getAttributeValue(this.actor, "end") + (this._attributeChanges.end || 0);
     const activeTh = getEnduranceThreshold(endVal);
 
     let newMaxHp = Number(this.actor.system.hp?.max ?? 0);
@@ -352,11 +354,21 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       "system.hp.max": Math.max(1, newMaxHp),
     };
 
+    const attrPointsRemaining = Math.max(0, levelsGained - Object.values(this._attributeChanges).reduce((sum, value) => sum + value, 0));
+    if (levelsGained > 0 && Object.values(this._attributeChanges).reduce((sum, value) => sum + value, 0) > levelsGained) {
+      ui.notifications.warn(`Spend no more than ${levelsGained} attribute point${levelsGained === 1 ? "" : "s"}.`);
+      return;
+    }
+
     // Apply attribute advancements
     for (const [key, mod] of Object.entries(this._attributeChanges)) {
       if (mod > 0) {
-        const base = Number(this.actor.system.attributes?.[key]?.value ?? this.actor.system.attributes?.[key] ?? 0);
-        updates[`system.attributes.${key}.value`] = base + mod;
+        const currentAttribute = this.actor.system.attributes?.[key];
+        const base = getAttributeValue(this.actor, key);
+        const path = currentAttribute && typeof currentAttribute === "object" && "value" in currentAttribute
+          ? `system.attributes.${key}.value`
+          : `system.attributes.${key}`;
+        updates[path] = base + mod;
       }
     }
 

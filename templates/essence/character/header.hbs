@@ -10,13 +10,8 @@
     {{!-- 1. Enlarged Portrait on the Left --}}
     <div class="portrait-box {{#if isDead}}is-dead{{/if}}"
          data-action="editImage"
-         data-edit="img"
          title="{{#if isDead}}Character is Dead (Max Death Points Reached){{else}}Click to change character portrait{{/if}}">
-      <img class="profile profile-img portrait-img"
-           src="{{document.img}}"
-           alt="{{document.name}}"
-           data-action="editImage"
-           data-edit="img" />
+      <img class="profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
       {{#if isDead}}
         <div class="dead-banner-overlay">DEAD</div>
       {{/if}}
@@ -88,7 +83,7 @@
         <div class="origins-row">
           {{!-- Level Chip --}}
           <div class="badge-chip level-chip" title="Character Level — Click arrow to Level Up / Manage HP">
-            <span class="chip-label">Level</span>
+            <span class="chip-label" data-action="openLevelUpDialog" title="Level Up or Manage Level 0 Character">Level</span>
             <input type="number"
                    name="system.level"
                    value="{{system.level}}"

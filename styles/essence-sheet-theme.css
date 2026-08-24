@@ -133,10 +133,13 @@
   height: 100%;
 }
 
-.essence-sheet .portrait-img {
+.essence-sheet .portrait-img,
+.essence-sheet .profile-img,
+.essence-sheet .portrait-box img {
   width: 100%;
   height: 100%;
   min-height: 130px;
+  max-height: 160px;
   object-fit: cover;
   border-radius: var(--mc-radius);
   border: 2px solid var(--mc-teal);

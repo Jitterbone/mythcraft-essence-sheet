@@ -13,7 +13,7 @@
          data-action="editImage"
          title="Click to change NPC portrait">
       <img class="profile profile-img portrait-img"
-           src="{{document.img}}"
+           src="{{#if document.img}}{{document.img}}{{else if actor.img}}{{actor.img}}{{else}}icons/svg/mystery-man.svg{{/if}}"
            alt="{{document.name}}"
            data-edit="img" />
       <div class="portrait-overlay">

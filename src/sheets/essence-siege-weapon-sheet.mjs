@@ -289,7 +289,7 @@ export default class EssenceSiegeWeaponSheet extends SiegeWeaponSheet {
     if (typeof super._onEditImage === "function") {
       return super._onEditImage(event, target);
     }
-    const attr = target?.dataset?.edit || "img";
+    const attr = target?.dataset?.edit || target?.querySelector?.("[data-edit]")?.dataset?.edit || "img";
     const current = foundry.utils.getProperty(this.document || this.actor, attr);
     const { img } = this.actor?.constructor?.getDefaultArtwork?.(this.actor.toObject()) ?? {};
     const fp = new FilePicker({

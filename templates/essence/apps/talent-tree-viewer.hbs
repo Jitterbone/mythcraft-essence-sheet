@@ -1,0 +1,72 @@
+{{!-- ============================================================
+     MythCraft Essence Sheet — Talent Tree & Track Viewer
+     ============================================================ --}}
+<div class="talent-tree-viewer-root">
+
+  {{!-- Category Bar --}}
+  <div class="tree-category-bar">
+    <button type="button" class="tree-cat-btn {{#if (eq activeCategory 'all')}}active{{/if}}" data-action="filterCategory" data-category="all">
+      <i class="fas fa-cubes"></i> All Active Tracks
+    </button>
+  </div>
+
+  {{!-- Trees Canvas Container --}}
+  <div class="tree-canvas-container">
+    {{#if trees.length}}
+      {{#each trees as |tree|}}
+        <div class="talent-track-card">
+          <div class="track-header">
+            <div class="track-ornament left"></div>
+            <h3 class="track-title">{{tree.root.name}} Track</h3>
+            <div class="track-ornament right"></div>
+          </div>
+
+          <div class="track-nodes-flow">
+            {{#each tree.nodes as |node|}}
+              <div class="talent-node-card {{#if node.isOwned}}node-owned{{else if node.isAvailable}}node-available{{else}}node-locked{{/if}}">
+                <div class="node-icon-wrap">
+                  <img src="{{node.img}}" alt="{{node.name}}" />
+                  {{#if node.isOwned}}
+                    <span class="node-badge owned"><i class="fas fa-check"></i></span>
+                  {{else if (not node.isAvailable)}}
+                    <span class="node-badge locked"><i class="fas fa-lock"></i></span>
+                  {{/if}}
+                </div>
+
+                <div class="node-details">
+                  <h4 class="node-name">{{node.name}}</h4>
+                  {{#if node.prerequisites.length}}
+                    <span class="node-prereq">Req: {{#each node.prerequisites}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</span>
+                  {{/if}}
+                </div>
+
+                <div class="node-actions">
+                  <button type="button" class="node-btn view" data-action="viewTalent" data-talent-id="{{node.id}}" title="View Talent Details">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                  <button type="button" class="node-btn chat" data-action="postTalent" data-talent-id="{{node.id}}" title="Post to Chat">
+                    <i class="fas fa-comment-alt"></i>
+                  </button>
+                  {{#if ../../isPickerMode}}
+                    {{#if node.isAvailable}}
+                      <button type="button" class="node-btn select" data-action="chooseTalent" data-talent-id="{{node.id}}" title="Select for Level Up">
+                        <i class="fas fa-plus"></i> Select
+                      </button>
+                    {{/if}}
+                  {{/if}}
+                </div>
+              </div>
+            {{/each}}
+          </div>
+        </div>
+      {{/each}}
+    {{else}}
+      <div class="empty-tree-state">
+        <i class="fas fa-diagram-project"></i>
+        <h3>No Started Talent Tracks</h3>
+        <p>Your character has not acquired any tracked talent paths yet. Level up or take a starting talent to begin following a track!</p>
+      </div>
+    {{/if}}
+  </div>
+
+</div>

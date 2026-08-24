@@ -15,6 +15,8 @@ import MovementDialog from "../apps/movement-dialog.mjs";
 import SensesDialog from "../apps/senses-dialog.mjs";
 import ConditionsDialog from "../apps/conditions-dialog.mjs";
 import LevelUpDialog from "../apps/level-up-dialog.mjs";
+import CharacterCreationWizard from "../apps/character-creation-wizard.mjs";
+import TalentTreeViewer from "../apps/talent-tree-viewer.mjs";
 import { getEnduranceThreshold } from "../features/hp-automation.mjs";
 import WalletDialog, {
   getActiveCurrencies,
@@ -333,8 +335,10 @@ export async function rollSpellItem(actor, item, { rollMode = null } = {}) {
     if (!allowed) return;
   }
 
-  const spellcastingAbility = actor.system?.sp?.attribute ?? "int";
-  let abilityMod = Number(actor.system?.attributes?.[spellcastingAbility] ?? 0);
+  const spellcastingAbility = actor.getFlag?.("mythcraft-essence-sheet", "magicAttribute") 
+    || actor.system?.sp?.attribute 
+    || "int";
+  let abilityMod = Number(actor.system?.attributes?.[spellcastingAbility]?.value ?? actor.system?.attributes?.[spellcastingAbility] ?? 0);
 
   const powerLevels = actor.system?.powerLevel ?? {};
   const primarySource = Object.entries(powerLevels)
@@ -552,6 +556,8 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       addJournalEntry: this.#addJournalEntry,
       addContact: this.#addContact,
       addResource: this.#addResource,
+      openTalentTreeViewer: this.#openTalentTreeViewer,
+      openCharacterCreationWizard: this.#openCharacterCreationWizard,
     },
   };
 
@@ -856,6 +862,16 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       uuid: this.document.uuid,
     });
     ip.render(true);
+  }
+
+  static async #openTalentTreeViewer(event, target) {
+    event?.preventDefault?.();
+    new TalentTreeViewer(this.actor).render(true);
+  }
+
+  static async #openCharacterCreationWizard(event, target) {
+    event?.preventDefault?.();
+    new CharacterCreationWizard(this.actor).render(true);
   }
 
   static async #toggleAttunement(event, target) {
@@ -1817,11 +1833,17 @@ export default class EssenceCharacterSheet extends CharacterSheet {
    * @type {Map<string, string>}
    */
   #meterValues = new Map();
-  #lastHasSpellcasting = null;
+  #hasPromptedCreation = false;
 
   /** @inheritdoc */
   _onRender(context, options) {
     super._onRender(context, options);
+
+    // Prompt Character Creation Wizard for Level 0 characters
+    if (!this.#hasPromptedCreation && Number(this.actor.system?.level ?? 0) === 0 && this.isEditable) {
+      this.#hasPromptedCreation = true;
+      CharacterCreationWizard.promptStartup(this.actor, this);
+    }
 
     // Magical dissolve / expand animation for Resource Meters Panel & SP Meter
     const spMeter = this.element.querySelector(".sp-meter");
@@ -2966,6 +2988,8 @@ export default class EssenceCharacterSheet extends CharacterSheet {
           isActive: this.activeMagicFilters.has(k),
         };
       });
+
+      context.magicAttribute = this.actor.getFlag?.("mythcraft-essence-sheet", "magicAttribute") || this.actor.system?.sp?.attribute || "int";
 
       // Group/Sort spells by magic type (Arcane, Divine, Occult, Primal, Psionic) and then alphabetically
       const SOURCE_ORDER = {

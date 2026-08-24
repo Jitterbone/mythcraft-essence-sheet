@@ -113,7 +113,7 @@ export function parseResistanceString(resistInput) {
 }
 
 /**
- * Format resistance objects into a comma-separated display string.
+ * Format a list of resistance objects back into a comma-separated string
  * @param {Array<{ type: string, label?: string, value: number }>} list
  * @returns {string}
  */
@@ -849,7 +849,7 @@ export function getSafeWeaponApc(item, actor) {
 }
 
 /**
- * Intercepts system evaluateFormula to cleanly parse ", min X" formulas before Roll parsing.
+ * Patches core MythCraft WeaponModel prototype getter for `apc`
  */
 export function patchWeaponApcGetter() {
   const models = [
@@ -868,8 +868,8 @@ export function patchWeaponApcGetter() {
         configurable: true,
         enumerable: true,
       });
-    } catch (error) {
-      // Ignore models whose APC getter cannot be redefined.
+    } catch (e) {
+      // Ignore if cannot redefine
     }
   }
 }

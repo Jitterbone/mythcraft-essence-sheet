@@ -15,8 +15,6 @@ import MovementDialog from "../apps/movement-dialog.mjs";
 import SensesDialog from "../apps/senses-dialog.mjs";
 import ConditionsDialog from "../apps/conditions-dialog.mjs";
 import LevelUpDialog from "../apps/level-up-dialog.mjs";
-import CharacterCreationWizard from "../apps/character-creation-wizard.mjs";
-import TalentTreeViewer from "../apps/talent-tree-viewer.mjs";
 import { getEnduranceThreshold } from "../features/hp-automation.mjs";
 import WalletDialog, {
   getActiveCurrencies,
@@ -335,16 +333,14 @@ export async function rollSpellItem(actor, item, { rollMode = null } = {}) {
     if (!allowed) return;
   }
 
-  const spellcastingAbility = item.getFlag?.("mythcraft-essence-sheet", "spellcastingAttribute")
-    || actor.getFlag?.("mythcraft-essence-sheet", "magicAttribute")
-    || actor.system?.sp?.attribute 
-    || "int";
-  let abilityMod = Number(actor.system?.attributes?.[spellcastingAbility]?.value ?? actor.system?.attributes?.[spellcastingAbility] ?? 0);
+  const spellcastingAbility = actor.system?.sp?.attribute ?? "int";
+  let abilityMod = Number(actor.system?.attributes?.[spellcastingAbility] ?? 0);
 
   const powerLevels = actor.system?.powerLevel ?? {};
   const primarySource = Object.entries(powerLevels)
     .sort(([, a], [, b]) => b - a)[0]?.[0];
-  const isPrimary = primarySource ? String(item.system?.magicSource || "").toLowerCase().includes(String(primarySource).toLowerCase()) : true;
+  const isPrimary = primarySource ? (item.system?.magicSource === primarySource) : true;
+  if (primarySource && !isPrimary) abilityMod = Math.ceil(abilityMod / 2);
 
   const critHit = getActorCritHit(actor);
   const critFail = getActorCritFail(actor);
@@ -529,7 +525,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       rollSpell: this.#rollSpell,
       postSpellToChat: this.#postSpellToChat,
       postItemToChat: this.#postItemToChat,
-      editImage: "_onEditImage",
+      editImage: this.#editImage,
       showImage: this.#showImage,
       toggleAttunement: this.#toggleAttunement,
       toggleDonArmor: this.#toggleDonArmor,
@@ -556,8 +552,6 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       addJournalEntry: this.#addJournalEntry,
       addContact: this.#addContact,
       addResource: this.#addResource,
-      openTalentTreeViewer: this.#openTalentTreeViewer,
-      openCharacterCreationWizard: this.#openCharacterCreationWizard,
     },
   };
 
@@ -803,23 +797,14 @@ export default class EssenceCharacterSheet extends CharacterSheet {
   }
 
 
-  /**
-   * Edit image using native Foundry DocumentSheet handler (compatible with Tokenizer and image picker modules).
-   * @param {PointerEvent} event
-   * @param {HTMLElement} target
-   */
-  async _onEditImage(event, target) {
+  static async #editImage(event, target) {
+    event.stopPropagation();
     if (!this.isEditable) return;
-    if (typeof super._onEditImage === "function") {
-      return super._onEditImage(event, target);
-    }
-    const attr = target?.dataset?.edit || "img";
+    const attr = target.dataset.edit || "img";
     const current = foundry.utils.getProperty(this.document, attr);
-    const { img } = this.document.constructor?.getDefaultArtwork?.(this.document.toObject()) ?? {};
     const fp = new FilePicker({
       type: "image",
       current,
-      redirectToRoot: img ? [img] : [],
       callback: path => {
         this.document.update({ [attr]: path });
       },
@@ -841,16 +826,6 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       uuid: this.document.uuid,
     });
     ip.render(true);
-  }
-
-  static async #openTalentTreeViewer(event, target) {
-    event?.preventDefault?.();
-    new TalentTreeViewer(this.actor).render(true);
-  }
-
-  static async #openCharacterCreationWizard(event, target) {
-    event?.preventDefault?.();
-    new CharacterCreationWizard(this.actor).render(true);
   }
 
   static async #toggleAttunement(event, target) {
@@ -1351,38 +1326,6 @@ export default class EssenceCharacterSheet extends CharacterSheet {
   static async #openLevelUpDialog(event, target) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
-
-    if (Number(this.actor.system?.level ?? 0) === 0) {
-      new foundry.applications.api.DialogV2({
-        window: { title: "Character Level 0 Setup" },
-        content: `
-          <div style="padding: 12px; font-family: var(--mc-font-body, system-ui); font-size: 13px; line-height: 1.5; color: #e2e8f0;">
-            <p style="margin: 0 0 8px 0; color: #FEEBB3; font-weight: bold; font-size: 14px;">
-              <i class="fas fa-sparkles" style="color: #38bdf8; margin-right: 6px;"></i>
-              Level 0 Character Setup
-            </p>
-            <p style="margin: 0 0 6px 0; color: #94a3b8;">Would you like to run through the guided <strong>Character Creation Wizard</strong> (Lineage, Attributes, Background, Profession, Talents, &amp; Spells), or proceed directly to <strong>Manual Level Up</strong>?</p>
-          </div>
-        `,
-        buttons: [
-          {
-            action: "wizard",
-            label: "Creation Wizard",
-            icon: "fa-solid fa-wand-magic-sparkles",
-            class: "default",
-            callback: () => new CharacterCreationWizard(this.actor).render(true),
-          },
-          {
-            action: "manual",
-            label: "Manual Level Up",
-            icon: "fa-solid fa-circle-arrow-up",
-            callback: () => new LevelUpDialog(this.actor).render(true),
-          },
-        ],
-      }).render(true);
-      return;
-    }
-
     new LevelUpDialog(this.actor).render(true);
   }
 
@@ -1845,49 +1788,10 @@ export default class EssenceCharacterSheet extends CharacterSheet {
    */
   #meterValues = new Map();
   #lastHasSpellcasting = null;
-  #hasPromptedCreation = false;
 
   /** @inheritdoc */
   _onRender(context, options) {
     super._onRender(context, options);
-
-    const actorImage = typeof this.actor.img === "string" ? this.actor.img.trim() : "";
-    if ((!actorImage || !/\.(avif|gif|jpe?g|png|svg|webp)(?:$|[?#])/i.test(actorImage)) && !this.actor.flags?.["mythcraft-essence-sheet"]?.imagePathNormalized) {
-      this.actor.update({
-        img: "icons/svg/mystery-man.svg",
-        "flags.mythcraft-essence-sheet.imagePathNormalized": true,
-      });
-    }
-
-    const globalMagicAttribute = this.element.querySelector("#magic-attr-select");
-    if (globalMagicAttribute && !globalMagicAttribute.dataset.essenceBound) {
-      globalMagicAttribute.dataset.essenceBound = "true";
-      globalMagicAttribute.addEventListener("change", async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        await this.actor.setFlag("mythcraft-essence-sheet", "magicAttribute", event.target.value);
-        this.render({ parts: ["spells"] });
-      });
-    }
-
-    for (const attributeSelect of this.element.querySelectorAll("[data-spell-attribute]")) {
-      if (attributeSelect.dataset.essenceBound) continue;
-      attributeSelect.dataset.essenceBound = "true";
-      attributeSelect.addEventListener("change", async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const spell = this.actor.items.get(attributeSelect.dataset.itemId);
-        if (!spell) return;
-        await spell.setFlag("mythcraft-essence-sheet", "spellcastingAttribute", event.target.value);
-        this.render({ parts: ["spells"] });
-      });
-    }
-
-    // Prompt Character Creation Wizard for Level 0 characters
-    if (!this.#hasPromptedCreation && Number(this.actor.system?.level ?? 0) === 0 && this.isEditable) {
-      this.#hasPromptedCreation = true;
-      CharacterCreationWizard.promptStartup(this.actor, this);
-    }
 
     // Magical dissolve / expand animation for Resource Meters Panel & SP Meter
     const spMeter = this.element.querySelector(".sp-meter");
@@ -2207,12 +2111,9 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     const data = super._processFormData(event, form, formData);
     for (const key of Object.keys(data)) {
       if (key.startsWith("_conditions-")) delete data[key];
-      // Prevent the form's unrelated image field from invalidating other changes.
-      if (key === "img") {
-        const imagePath = typeof data[key] === "string" ? data[key].trim() : "";
-        if (!imagePath || !/\.(avif|gif|jpe?g|png|svg|webp)(?:$|[?#])/i.test(imagePath)) {
-          delete data[key];
-        }
+      // Prevent empty or invalid img from being passed to document update
+      if (key === "img" && (!data[key] || typeof data[key] !== "string" || !data[key].trim())) {
+        delete data[key];
       }
     }
     return data;
@@ -2226,11 +2127,6 @@ export default class EssenceCharacterSheet extends CharacterSheet {
   /** @inheritdoc */
   _prepareSubmitData(event, form, formData) {
     const submitData = super._prepareSubmitData ? super._prepareSubmitData(event, form, formData) : (formData?.object ?? {});
-
-    const imagePath = typeof submitData.img === "string" ? submitData.img.trim() : "";
-    if ("img" in submitData && (!imagePath || !/\.(avif|gif|jpe?g|png|svg|webp)(?:$|[?#])/i.test(imagePath))) {
-      delete submitData.img;
-    }
 
     // If user edited system.hp.max in the form, ensure flags.mythcraft-essence-sheet.maxHp matches
     if (submitData["system.hp.max"] !== undefined && submitData["system.hp.max"] !== null) {
@@ -3041,8 +2937,6 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         };
       });
 
-      context.magicAttribute = this.actor.getFlag?.("mythcraft-essence-sheet", "magicAttribute") || this.actor.system?.sp?.attribute || "int";
-
       // Group/Sort spells by magic type (Arcane, Divine, Occult, Primal, Psionic) and then alphabetically
       const SOURCE_ORDER = {
         arcane: 1,
@@ -3136,7 +3030,6 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         return {
           item,
           expanded,
-          spellcastingAttribute: item.getFlag?.("mythcraft-essence-sheet", "spellcastingAttribute") || "",
           magicSourceKey: sourceKey,
           magicSourceLabel: cleanSourceLabel(rawSource),
           inlineTags,

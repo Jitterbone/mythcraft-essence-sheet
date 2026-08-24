@@ -43,7 +43,7 @@ export default class EssenceSiegeWeaponSheet extends SiegeWeaponSheet {
     },
     actions: {
       adjustAmmo: this.#adjustAmmo,
-      editImage: "_onEditImage",
+      editImage: this.#editImage,
       editDamageMod: this.#editDamageMod,
       createDoc: this.#createDoc,
       deleteDoc: this.#deleteDoc,
@@ -279,25 +279,16 @@ export default class EssenceSiegeWeaponSheet extends SiegeWeaponSheet {
     await this.actor.update({ "system.ammunition.value": next });
   }
 
-  /**
-   * Edit image using native Foundry DocumentSheet handler (compatible with Tokenizer and image picker modules).
-   * @param {PointerEvent} event
-   * @param {HTMLElement} target
-   */
-  async _onEditImage(event, target) {
-    if (!this.isEditable) return;
-    if (typeof super._onEditImage === "function") {
-      return super._onEditImage(event, target);
-    }
-    const attr = target?.dataset?.edit || "img";
-    const current = foundry.utils.getProperty(this.document || this.actor, attr);
-    const { img } = this.actor?.constructor?.getDefaultArtwork?.(this.actor.toObject()) ?? {};
+  static async #editImage(event, target) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const attr = target.dataset.edit || "img";
+    const current = foundry.utils.getProperty(this.actor, attr);
     const fp = new FilePicker({
       type: "image",
       current: current,
-      redirectToRoot: img ? [img] : [],
       callback: (path) => {
-        (this.document || this.actor).update({ [attr]: path });
+        this.actor.update({ [attr]: path });
       },
       top: this.position.top + 40,
       left: this.position.left + 10,

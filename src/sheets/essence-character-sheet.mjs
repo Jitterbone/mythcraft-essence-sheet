@@ -1812,6 +1812,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
    * @type {Map<string, string>}
    */
   #meterValues = new Map();
+  #lastHasSpellcasting = null;
   #hasPromptedCreation = false;
 
   /** @inheritdoc */

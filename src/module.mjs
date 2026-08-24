@@ -46,10 +46,6 @@ Hooks.once("init", () => {
   // Register granular module settings
   registerSettings();
 
-  // Register helpers before any initialization can render an Application.
-  Handlebars.registerHelper("toUpperCase", (str) => typeof str === "string" ? str.toUpperCase() : String(str ?? ""));
-  Handlebars.registerHelper("uppercase", (str) => typeof str === "string" ? str.toUpperCase() : String(str ?? ""));
-
   // Initialize Automation Engines
   initDamageAutomation();
   initEquipmentAutomation();
@@ -144,25 +140,9 @@ Hooks.once("init", () => {
   Handlebars.registerHelper("gt",  (a, b) => Number(a) >  Number(b));
   Handlebars.registerHelper("lt",  (a, b) => Number(a) <  Number(b));
   Handlebars.registerHelper("eq",  (a, b) => a === b);
-  Handlebars.registerHelper("add", (a, b) => Number(a) + Number(b));
+  Handlebars.registerHelper("ne",  (a, b) => a !== b);
   Handlebars.registerHelper("subtract", (a, b) => Number(a) - Number(b));
-  Handlebars.registerHelper("and", (...args) => {
-    args.pop();
-    return args.every(Boolean);
-  });
-  Handlebars.registerHelper("or", (...args) => {
-    args.pop();
-    return args.some(Boolean);
-  });
-  Handlebars.registerHelper("not", (val) => !val);
-  Handlebars.registerHelper("includes", (collection, item) => {
-    if (!collection || !item) return false;
-    if (typeof collection === "string") return collection.includes(String(item));
-    if (Array.isArray(collection)) return collection.includes(item);
-    if (collection instanceof Set) return collection.has(item);
-    if (typeof collection === "object") return Object.values(collection).includes(item);
-    return false;
-  });
+
   // String concat helper (used as sub-expression in formInput name= param)
   // Only register if Foundry hasn't already provided one.
   if (!Handlebars.helpers["concat"]) {

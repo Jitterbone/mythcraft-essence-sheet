@@ -151,7 +151,7 @@ export default class EssenceNPCSheet extends NPCSheet {
     if (typeof super._onEditImage === "function") {
       return super._onEditImage(event, target);
     }
-    const attr = target?.dataset?.edit || target?.querySelector?.("[data-edit]")?.dataset?.edit || "img";
+    const attr = target?.dataset?.edit || "img";
     const current = foundry.utils.getProperty(this.document, attr);
     const { img } = this.document.constructor?.getDefaultArtwork?.(this.document.toObject()) ?? {};
     const fp = new FilePicker({

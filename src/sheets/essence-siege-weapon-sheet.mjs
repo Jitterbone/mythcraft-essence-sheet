@@ -43,7 +43,7 @@ export default class EssenceSiegeWeaponSheet extends SiegeWeaponSheet {
     },
     actions: {
       adjustAmmo: this.#adjustAmmo,
-      editImage: this.#editImage,
+      editImage: this._onEditImage,
       editDamageMod: this.#editDamageMod,
       createDoc: this.#createDoc,
       deleteDoc: this.#deleteDoc,
@@ -279,21 +279,51 @@ export default class EssenceSiegeWeaponSheet extends SiegeWeaponSheet {
     await this.actor.update({ "system.ammunition.value": next });
   }
 
-  static async #editImage(event, target) {
-    event?.preventDefault?.();
-    event?.stopPropagation?.();
-    const attr = target.dataset.edit || "img";
-    const current = foundry.utils.getProperty(this.actor, attr);
+  /**
+   * Edit image using native Foundry DocumentSheet handler (compatible with Tokenizer and image picker modules).
+   * @param {PointerEvent} event
+   * @param {HTMLElement} target
+   */
+  static async _onEditImage(event, target) {
+    if (!this.isEditable) return;
+    const parentFn = super._onEditImage 
+      || Object.getPrototypeOf(EssenceSiegeWeaponSheet)?._onEditImage
+      || foundry.applications?.sheets?.ActorSheetV2?._onEditImage
+      || foundry.applications?.sheets?.DocumentSheetV2?._onEditImage;
+    if (typeof parentFn === "function" && parentFn !== EssenceSiegeWeaponSheet._onEditImage) {
+      return parentFn.call(this, event, target);
+    }
+    const attr = target?.dataset?.edit || "img";
+    const current = foundry.utils.getProperty(this.document || this.actor, attr);
+    const { img } = this.actor?.constructor?.getDefaultArtwork?.(this.actor.toObject()) ?? {};
     const fp = new FilePicker({
       type: "image",
       current: current,
+      redirectToRoot: img ? [img] : [],
       callback: (path) => {
-        this.actor.update({ [attr]: path });
+        (this.document || this.actor).update({ [attr]: path });
       },
       top: this.position.top + 40,
       left: this.position.left + 10,
     });
     return fp.browse();
+  }
+
+  /**
+   * Instance method for image editing.
+   * @param {PointerEvent} event
+   * @param {HTMLElement} target
+   */
+  async _onEditImage(event, target) {
+    if (!this.isEditable) return;
+    const parentFn = super._onEditImage 
+      || Object.getPrototypeOf(this)?._onEditImage
+      || foundry.applications?.sheets?.ActorSheetV2?.prototype?._onEditImage
+      || foundry.applications?.sheets?.DocumentSheetV2?.prototype?._onEditImage;
+    if (typeof parentFn === "function") {
+      return parentFn.call(this, event, target);
+    }
+    return this.constructor._onEditImage.call(this, event, target);
   }
 
   static async #createDoc(event, target) {

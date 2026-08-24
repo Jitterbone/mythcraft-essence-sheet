@@ -10,11 +10,13 @@
     {{!-- 1. Enlarged Portrait on the Left --}}
     <div class="portrait-box {{#if isDead}}is-dead{{/if}}"
          data-action="editImage"
+         data-edit="img"
          title="{{#if isDead}}Character is Dead (Max Death Points Reached){{else}}Click to change character portrait{{/if}}">
-      <img class="portrait-img"
+      <img class="profile profile-img portrait-img"
            src="{{document.img}}"
            alt="{{document.name}}"
-           data-action="editImage" />
+           data-action="editImage"
+           data-edit="img" />
       {{#if isDead}}
         <div class="dead-banner-overlay">DEAD</div>
       {{/if}}

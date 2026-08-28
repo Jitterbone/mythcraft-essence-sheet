@@ -282,6 +282,11 @@ export default class EssenceSiegeWeaponSheet extends SiegeWeaponSheet {
   static async #editImage(event, target) {
     if (!this.isEditable) return;
 
+    // Resolve the actual IMG element for Foundry's native #onEditImage handler
+    const imgElement = target.tagName === "IMG" 
+      ? target 
+      : (target.querySelector("img") || target.closest(".portrait-box, .npc-portrait-box, .siege-portrait-box")?.querySelector("img") || target);
+
     // Check if upstream DocumentSheet / ActorSheet provides an editImage action
     const superAction = super.constructor?.DEFAULT_OPTIONS?.actions?.editImage
       || foundry?.applications?.sheets?.ActorSheet?.DEFAULT_OPTIONS?.actions?.editImage
@@ -289,10 +294,14 @@ export default class EssenceSiegeWeaponSheet extends SiegeWeaponSheet {
       || foundry?.applications?.api?.DocumentSheetV2?.DEFAULT_OPTIONS?.actions?.editImage;
 
     if (typeof superAction === "function") {
-      return await superAction.call(this, event, target);
+      try {
+        return await superAction.call(this, event, imgElement);
+      } catch (err) {
+        // Fallback to direct FilePicker if superAction fails
+      }
     }
 
-    const attr = target.dataset.edit || "img";
+    const attr = imgElement.dataset.edit || "img";
     const current = foundry.utils.getProperty(this.actor, attr);
     const fp = new FilePicker({
       type: "image",

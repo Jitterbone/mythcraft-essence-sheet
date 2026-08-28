@@ -676,6 +676,9 @@ Hooks.once("ready", async () => {
     }
   }
 
+  // Ensure Weapon APC getter and evaluateFormula are patched
+  patchWeaponApcGetter();
+
   // Expose Tag, Defense & Damage API globally for external modules (e.g. MythCraft HUD) or macros
   const moduleObj = game.modules.get(MODULE_ID);
   if (moduleObj) {
@@ -692,6 +695,10 @@ Hooks.once("ready", async () => {
     };
   }
 
+});
+
+Hooks.once("setup", () => {
+  patchWeaponApcGetter();
 });
 
 /* ─────────────────────────────────────────────────────────────────────────────

@@ -849,9 +849,35 @@ export function getSafeWeaponApc(item, actor) {
 }
 
 /**
+ * Patches global evaluateFormula to safely handle "X-STR, min Y" formulas
+ */
+export function patchEvaluateFormula() {
+  if (globalThis.mythcraft?.utils?.evaluateFormula) {
+    const original = globalThis.mythcraft.utils.evaluateFormula;
+    if (!original._essencePatched) {
+      const patched = function(formula, rollData = {}, options = {}) {
+        if (typeof formula === "string" && (formula.includes(",") || /min/i.test(formula) || /STR|DEX|END|INT|AWR|CHA/i.test(formula))) {
+          try {
+            const evaluated = evaluateApcFormula(formula, rollData);
+            if (typeof evaluated === "number" && !isNaN(evaluated)) {
+              return evaluated;
+            }
+          } catch (e) {}
+        }
+        return original.call(this, formula, rollData, options);
+      };
+      patched._essencePatched = true;
+      globalThis.mythcraft.utils.evaluateFormula = patched;
+    }
+  }
+}
+
+/**
  * Patches core MythCraft WeaponModel prototype getter for `apc`
  */
 export function patchWeaponApcGetter() {
+  patchEvaluateFormula();
+
   const models = [
     CONFIG.Item?.dataModels?.weapon,
     globalThis.mythcraft?.data?.Item?.WeaponModel,

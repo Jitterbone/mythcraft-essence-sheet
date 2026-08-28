@@ -63,7 +63,11 @@ export default class EssenceNPCSheet extends NPCSheet {
       editTags: this.#editTags,
       removeTag: this.#removeTag,
       filterMagicSource: this.#filterMagicSource,
+<<<<<<< HEAD
+      editImage: this.#editImage,
+=======
       editImage: async function(event, target) { return this._onEditImage(event, target); },
+>>>>>>> Level-up-Automation
     },
   };
 
@@ -141,23 +145,14 @@ export default class EssenceNPCSheet extends NPCSheet {
     return true;
   }
 
-  /**
-   * Edit image using native Foundry DocumentSheet handler (compatible with Tokenizer and image picker modules).
-   * @param {PointerEvent} event
-   * @param {HTMLElement} target
-   */
-  async _onEditImage(event, target) {
+  static async #editImage(event, target) {
+    event.stopPropagation();
     if (!this.isEditable) return;
-    if (typeof super._onEditImage === "function") {
-      return super._onEditImage(event, target);
-    }
-    const attr = target?.dataset?.edit || target?.querySelector?.("[data-edit]")?.dataset?.edit || "img";
+    const attr = target.dataset.edit || "img";
     const current = foundry.utils.getProperty(this.document, attr);
-    const { img } = this.document.constructor?.getDefaultArtwork?.(this.document.toObject()) ?? {};
     const fp = new FilePicker({
       type: "image",
       current,
-      redirectToRoot: img ? [img] : [],
       callback: path => {
         this.document.update({ [attr]: path });
       },

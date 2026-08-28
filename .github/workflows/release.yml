@@ -41,6 +41,16 @@ jobs:
              --arg download "https://github.com/${{ github.repository }}/releases/download/${TAG}/mythcraft-essence-sheet.zip" \
              '.manifest = $manifest | .download = $download' module.json > module.json.tmp && mv module.json.tmp module.json
 
+      - name: Check for Pre-release
+        id: prerelease-check
+        shell: bash
+        run: |
+          if [[ "${{ steps.release-meta.outputs.version_number }}" == *-* ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create ZIP package
         run: |
           zip -r ./mythcraft-essence-sheet.zip . -x ".git/*" ".github/*" "dist/*" ".gitignore"
@@ -52,7 +62,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ steps.release-meta.outputs.tag_name }}
           name: Version ${{ steps.release-meta.outputs.version_number }}
-          prerelease: false
+          prerelease: ${{ steps.prerelease-check.outputs.is_prerelease }}
           make_latest: true
           overwrite: true
           files: |

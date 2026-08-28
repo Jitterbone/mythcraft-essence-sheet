@@ -111,7 +111,7 @@
 /* ── Header Outer Layout: Big Portrait Left + Right Content ─ */
 .essence-sheet .header-outer-layout {
   display: grid;
-  grid-template-columns: 140px 1fr;
+  grid-template-columns: 130px 1fr;
   gap: 12px;
   align-items: stretch;
 }
@@ -119,13 +119,10 @@
 /* 1. Enlarged Portrait Box */
 .essence-sheet .portrait-box {
   position: relative;
-  width: 140px;
+  width: 130px;
   height: 100%;
-  min-height: 140px;
+  min-height: 130px;
   flex-shrink: 0;
-  cursor: pointer;
-  border-radius: var(--mc-radius);
-  overflow: hidden;
 }
 
 .essence-sheet .portrait-label {
@@ -136,13 +133,11 @@
   height: 100%;
 }
 
-.essence-sheet .portrait-img,
-.essence-sheet .profile-img,
-.essence-sheet .portrait-box img {
+.essence-sheet .portrait-img {
   width: 100%;
   height: 100%;
+  min-height: 130px;
   object-fit: cover;
-  object-position: top center;
   border-radius: var(--mc-radius);
   border: 2px solid var(--mc-teal);
   display: block;
@@ -9051,28 +9046,28 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
 /* Header layout matches character sheet: 130px portrait column + flex content */
 .essence-npc-sheet .header-outer-layout {
   display: grid;
-  grid-template-columns: 140px 1fr;
+  grid-template-columns: 130px 1fr;
   gap: 12px;
   align-items: stretch;
 }
 
 .essence-npc-sheet .npc-portrait-box {
   position: relative;
-  width: 140px;
+  width: 130px;
   height: 100%;
-  min-height: 140px;
+  min-height: 130px;
   flex-shrink: 0;
   cursor: pointer;
   border-radius: var(--mc-radius, 6px);
   overflow: hidden;
 }
 
-.essence-npc-sheet .npc-portrait-box .portrait-img,
-.essence-npc-sheet .npc-portrait-box img {
+.essence-npc-sheet .npc-portrait-box .portrait-img {
   width: 100% !important;
   height: 100% !important;
+  min-height: 130px !important;
   object-fit: cover !important;
-  object-position: top center !important;
+  object-position: center !important;
   border-radius: var(--mc-radius, 6px) !important;
   border: 2px solid var(--mc-teal, #3a7a7f) !important;
   box-shadow: 0 0 12px rgba(58, 122, 127, 0.6) !important;
@@ -12612,6 +12607,8 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
   text-align: center;
 }
 
+<<<<<<< HEAD
+=======
 /* ============================================================
    CHARACTER CREATION WIZARD & TALENT TREE VIEWER (Dark Teal & Gold)
    ============================================================ */
@@ -14446,4 +14443,5 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
 
 
 
+>>>>>>> Level-up-Automation
 

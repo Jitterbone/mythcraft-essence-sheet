@@ -8,7 +8,7 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 
 ## ✨ Features Overview
 
-### 🧙‍♂️ 1. Interactive 6-Step Character Creation Wizard
+### ‍♂️ 1. Interactive 6-Step Character Creation Wizard
 - **Guided New Character Experience**:
   - Automatically prompts when opening a new **Level 0** character sheet or clicking the **Level** badge.
   - Interactive multi-step wizard styled in the signature Dark Teal & Gold Essence theme (`#0d1217` slate, gold Cinzel headings, glowing indicators).

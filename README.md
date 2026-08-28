@@ -1,14 +1,49 @@
-# Mythcraft Essence Sheet (v0.2.4-alpha) 📜✨
+# Mythcraft Essence Sheet (v0.3.0-alpha) 📜✨
 
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Development-FF5E5B?style=flat&logo=kofi&logoColor=white)](https://ko-fi.com/jitterbone)
 
-A complete suite of elegant, high-readability alternate actor and item sheets for the **Mythcraft** system in Foundry VTT. Designed to seamlessly match the **Mythcraft HUD** aesthetic with a dark teal-and-gold palette, streamlined workflows, rich embedded editors, built-in damage automation, interactive level/HP progression, homebrew rules, and full support for Characters, NPCs, and Siege Engines.
+A complete suite of elegant, high-readability alternate actor and item sheets for the **Mythcraft** system in Foundry VTT. Designed to seamlessly match the **Mythcraft HUD** aesthetic with a dark teal-and-gold palette, streamlined workflows, rich embedded editors, built-in damage automation, interactive character creation and level up progression, homebrew rules, and full support for Characters, NPCs, and Siege Engines.
 
 ---
 
 ## ✨ Features Overview
 
-### 🧪 1. Homebrew Rules & Custom Attributes Engine
+### 🧙‍♂️ 1. Interactive 6-Step Character Creation Wizard
+- **Guided New Character Experience**:
+  - Automatically prompts when opening a new **Level 0** character sheet or clicking the **Level** badge.
+  - Interactive multi-step wizard styled in the signature Dark Teal & Gold Essence theme (`#0d1217` slate, gold Cinzel headings, glowing indicators).
+- **Step 1 — Lineage & Skill Trees**:
+  - Browse official and custom Lineages with instant keyword search.
+  - **SRD Talent Tree Integration**: Lineage unique milestone features are presented in an authentic vertical skill tree flow with branch connectors, lock states, and prerequisite tooltips.
+  - **Automatic Starting Features**: Free starting features (e.g. *Rapid Regeneration*, *Stoneform*) are cleanly integrated as compact tier 0 nodes.
+  - **Bonus Attribute Points**: Automatically detects and displays bonus points granted by lineages/features (e.g., *Tenacious*).
+- **Step 2 — Attribute Allocation**:
+  - Dynamic starting attribute pool calculation: standard characters receive **5 points**, while each active custom attribute (or Sanity) dynamically grants an extra **+1 point**.
+  - Enforces the official MythCraft Level 1 attribute cap (maximum **+2**).
+- **Step 3 — Stats & Health Progression**:
+  - Endurance Threshold calculation automatically determines starting HP die and Set HP values.
+  - Choose between **Take Set HP** or **Roll HP**.
+- **Step 4 — Backgrounds & Professions (BOPs)**:
+  - Select background to unlock skill category points (e.g. 12 points across 6 categories) with real-time category pools and per-skill point caps.
+  - **Encouraged Profession Synergy**: Automatically highlights background-encouraged professions in shimmering gold with badge indicators (`★ +2 Medicine / Religion`).
+- **Step 5 — Starting Talents & Magic**:
+  - Select starting Specialization or Magic entry talents organized into cohesive talent stacks.
+  - Select starting spells/cantrips and assign primary spellcasting attributes.
+- **Step 6 — Finalize & Create**:
+  - Review complete character summary and automatically populate items, attributes, stats, and starting wealth.
+
+---
+
+### 🌳 2. Full-Featured Talent Tree Viewer & Side Tab
+- **Talent Tracks & Skill Trees**:
+  - Visual tree flow displaying prerequisite dependencies, tiers, locked status, and owned talents.
+  - Dedicated **Talent Tree Bookmark Tab** (`diagram-project` icon) on the right side drawer of the character sheet for instant access.
+- **Dynamic Compendium Parsing**:
+  - Intelligently extracts prerequisites, mutually exclusive incompatibilities, and stacks from Class, Magic, and Specialization compendiums.
+
+---
+
+### 🧪 3. Homebrew Rules & Custom Attributes Engine
 - **Alternate Metaphysical Rules: Sanity (SAN)**:
   - Adds Sanity as a 3rd Metaphysical attribute representing psychological resilience against terror and occult corruption.
   - Modifies Sanity ability checks and governs the **Fear Threshold**.
@@ -22,12 +57,10 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 - **Custom Skills Engine**:
   - Define custom skills linked to standard attributes, Sanity (SAN), or custom attributes.
   - Custom skills appear in attribute configuration dialogs and can be trained and rolled like core system skills.
-- **Themed Attribute & Skill Configuration**:
-  - Replaces default input dialogs with high-contrast, themed modals featuring smooth sliders, plus/minus modifiers, and clear skill association dropdowns.
 
 ---
 
-### 🏰 2. Complete Essence Siege Weapon Sheet
+### 🏰 4. Complete Essence Siege Weapon Sheet
 - **Unified Single-View Operations & Combat Layout**:
   - Replaces default form sheets with a purpose-built, high-contrast Essence Siege Weapon layout.
 - **Structural Integrity (HP) Meter**:
@@ -40,12 +73,10 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
   - Dedicated cards for **Range & Area of Effect**, **Reload Cost (AP / Actions)**, and **Mobility Speed & Heft**.
 - **Siege Attacks & Actions**:
   - Streamlined attack cards featuring D20 Siege Attack rolls (with MythCraft's 1–2 crit-fail misfire rules), damage buttons, defense target badges (`vs AR`, `vs REF`), and expandable descriptions.
-- **Integrated Damage Modifications & Conditions**:
-  - Direct modal configuration of Resistances, Immunities, Vulnerabilities, DR, and DT, plus active condition tracking.
 
 ---
 
-### 📈 3. Level Up & Endurance-Based HP Automation
+### 📈 5. Level Up & Endurance-Based HP Automation
 - **Official Endurance Threshold Chart**:
   - Automatic lookup of Thresholds 1 through 7 with appropriate HP die sizes (`1d2` to `1d12`) and flat Set HP bonuses (`+0` to `+6`).
 - **MythCraft HP Formula**:
@@ -55,12 +86,10 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
   - **Progression Options**: Choose guaranteed **Take Set HP (Flat)** or **Roll HP Dice** with automatic in-chat 3D dice rolls upon applying.
 - **Threshold Shift Auto-Prompt**:
   - Automatically prompts for HP recalculation when Endurance crosses threshold boundaries during play or level editing.
-- **Header Level Up Controls**:
-  - Quick `[ ▲ ]` Level Up button and direct level change interception.
 
 ---
 
-### 🔮 4. Advanced Spells & Magic Power Scaling
+### 🔮 6. Advanced Spells & Magic Power Scaling
 - **Magic Source Filtering & School Badges**:
   - Interactive filter buttons for Arcane, Divine, Occult, Primal, and Psionic magic with custom school colors.
 - **Intelligent Grouping & Sorting**:
@@ -75,7 +104,7 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 
 ---
 
-### 🛡️ 5. Integrated Damage Automation & Defenses Engine
+### 🛡️ 7. Integrated Damage Automation & Defenses Engine
 - **Full MythCraft Damage Pipeline**:
   - Intercepts chat damage application and evaluates incoming damage against:
     1. **Damage Threshold (DT)**: Cancels damage below threshold.
@@ -89,30 +118,18 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
   - Automatically absorbs damage into Shield HP (acting as Temporary HP) first before any regular HP is lost.
 - **Outgoing Affinity Bonus**:
   - Automatically calculates and injects the `+3` Outgoing Affinity damage bonus into attack rolls when dealing affinity damage types.
-- **Token Scrolling Text & Breakdown**:
-  - Displays floating combat text over tokens and posts a step-by-step calculation breakdown notification.
 
 ---
 
-### 👹 6. NPC Sheet Enhancements
-- **Metaphysical Attributes Display**:
-  - Optional 3-column layout toggle to display Luck, Corruption, Sanity, and custom Metaphysical attributes.
-- **Combat Action Economy**:
-  - Dynamic modifier display on expanded action cards, turn action rules editor, and animated golden foil shimmer sweeps for reaction exploit highlights.
-- **Full Drawer & Spell Embed Parity**:
-  - Expandable drawer descriptions for all NPC spells, traits, actions, and reactions with rich tooltip lookups.
-
----
-
-### ⚔️ 7. Inventory, Currency & Effects
-- **Container & Backpack Hierarchy**:
-  - Organize gear into containers with real-time capacity and weight tracking.
-- **Custom Currency & Exchange System**:
-  - Manage currency names, abbreviations, exchange rates, and quick shopping presets.
-- **Categorized Active Effects**:
-  - Grouped into **Temporary Effects** (with duration), **Passive Effects**, and **Inactive Effects** with one-click toggles.
-- **Accidental Deletion Protection**:
-  - Confirmation modals (*"Are you sure?"*) prevent accidental deletion across all items, active effects, conditions, contacts, resources, and journal entries.
+### ⚔️ 8. Equipment, Armor Enhancements & Native Mod Compatibility
+- **Hand-and-a-Half Two-Handed APC Automation**:
+  - Automatically parses and applies 2H APC reductions (e.g., `-1 APC, min 2`) during Two-Handed grip mode.
+- **Armor Enhancements System**:
+  - Supports wearable enhancement items, stacking defenses and resistances with base armor.
+- **Robust Weapon APC Formula Parsing**:
+  - Normalizes compendium formulas containing `, min X` notation (e.g. `8-STR, min 4`, `5-STR, min 2`) without throwing parsing errors.
+- **Native Avatar & Tokenizer Compatibility**:
+  - Native Foundry image editing support with full compatibility for **Tokenizer** and other portrait modules.
 
 ---
 
@@ -137,59 +154,37 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 
 ---
 
-## 🎮 Usage & Controls
-
-### Damage Modifications Configuration
-Click the gear icon (⚙️) on the **Damage Modifications** panel to open the modal:
-- Toggle **Affinity** and **Immunity** pills with a single click.
-- Add and configure **Resist** and **Vulnerable** damage types with numerical values.
-- Set **Damage Reduction (DR)** with optional bypass criteria, and configure **Damage Threshold (DT)**.
-
-### Homebrew & Custom Attributes Configuration
-Navigate to **Game Settings** -> **Configure Settings** -> **MythCraft Essence Sheet** -> **Configure Homebrew & Attributes**:
-- Enable **Sanity (SAN)** and the **Fear Threshold & Tracker**.
-- Add custom attributes with custom data keys, abbreviations, and categories.
-- Check **Include in NPC sheets** for any custom attributes you want available on monster and NPC sheets.
-- Add custom skills linked to your new attributes.
-
----
-
 ## 🧩 Compatibility
 
 - **System**: Mythcraft v0.6.4+
 - **Foundry VTT**: v14 (Verified)
 - **Mythcraft HUD**: Required
+- **Tokenizer**: Compatible
 - **Dice So Nice!**: Supported for 3D dice rolls.
+
+---
 
 ## 📝 Changelog
 
+### v0.3.0-alpha
+- **Character Creation Wizard**:
+  - Complete 6-step guided wizard for creating Level 1 characters from scratch.
+  - Integrated Lineage Skill Trees with starting automatic features and selectable unique features.
+  - Dynamic attribute pool calculation (+1 point per active custom attribute).
+  - Background skill allocation engine with encouraged profession synergy highlighting.
+  - Automatic startup prompt when opening Level 0 character sheets.
+- **Talent Tree Viewer & Side Tab**:
+  - Interactive skill tree viewer with dedicated bookmark tab on character sheet.
+- **Weapon APC Formula Evaluation Fix**:
+  - Safe evaluation and normalization of `, min X` APC formulas across system weapons and data models.
+- **Native Portrait Editing**:
+  - Full compatibility with native Foundry file pickers and third-party modules like Tokenizer.
+
 ### v0.2.4-alpha
 - **Hand-and-a-Half Two-Handed APC Reduction**:
-  - Automatically parses 2H APC reduction rules from weapon tags and item descriptions (e.g. `"STR Weapon, Hand-and-a-Half (reduce APC by 1, min 2)"`, `"-1 APC, min 2"`, `"2 APC"`).
-  - Dynamically computes and displays the reduced APC on character sheet equipment cards and side drawer slots when toggled to Two-Handed grip.
-  - Automatically enforces the reduced APC cost during combat attack rolls and AP deduction.
-- **Redesigned Themed Insufficient Action Points Modal**:
-  - Complete dark teal & gold redesign (`#0d1217` slate frame, gold Cinzel header, glowing amber lightning icon, teal borders).
-  - Structured high-contrast breakdown of Required Cost (cyan), Available AP/SAP (green), and Deficit (red).
-  - Custom styled "Proceed Anyway" and "Cancel" buttons.
-
-### v0.2.3-alpha
-- **Armor Enhancements System**:
-  - Automatically identifies armor items in the `Enhancement` category (`system.category`, `system.armorType`, or tag).
-  - Enforces single-enhancement equip limit and combines enhancement defense bonuses (+AR, REF, FORT, ANT, LOG, WILL) with base armor.
-  - Multi-Armor Resistance Stacking: Resistances across Body Armor, Shields, and Enhancements seamlessly stack (e.g. `Sharp 2` + `Sharp 2` + `Sharp 2` = `Sharp 6`).
-  - Signed STR Minimum & DEX Maximum Modifier calculations:
-    - Base armor and enhancement STR requirements combine with positive/negative modifiers (`+2`, `-1`, etc.). If unmet, walk speed becomes 0 and Dazed is applied.
-    - Accurately reduces DEX max (`armorDexMax - enhDexMax` or `12 - enhDexMax`) and clamps Reflex defense.
-  - Dedicated **Wear / Remove** buttons in the equipment list and a centered enhancement slot rendered in the side drawer armor tab.
-- **Luck Points Automation & Stepper**:
-  - Added `-` and `+` stepper capsule to character header for quick Luck Point adjustments.
-  - Automates maximum Luck Points calculation from LUCK attribute (1 LP per 2 LUCK).
-  - Automates full LP restoration upon Taking a Rest.
-- **Player Ownership & GM-Only Permission Fix**:
-  - Intercepts and sanitizes GM-only fields (`system.description.gm`, `system.biography.gm`) during player sheet updates and item creation, resolving Foundry `HTMLField._sanitize` permission errors.
-- **Dynamic Resource Bar Titles**:
-  - Character header resource bars automatically show full names (**Hit Points**, **Action Points**, **Spell Points**) when Fear Threshold is disabled.
+  - Automatically parses 2H APC reduction rules from weapon tags and item descriptions.
+- **Redesigned Insufficient Action Points Modal**:
+  - Complete dark teal & gold redesign with structured cost breakdown.
 
 ---
 
@@ -203,6 +198,7 @@ Navigate to **Game Settings** -> **Configure Settings** -> **MythCraft Essence S
 ## ⚖️ Legal & Attribution
 
 This work is based on The MythCraft System by QuasiReal Publishing LLC and published using the Creative Commons Attribution 3.0 Unported license ([http://creativecommons.org/licenses/by/3.0/](http://creativecommons.org/licenses/by/3.0/)).
+
 
 
 

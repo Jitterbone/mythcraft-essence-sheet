@@ -529,7 +529,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       rollSpell: this.#rollSpell,
       postSpellToChat: this.#postSpellToChat,
       postItemToChat: this.#postItemToChat,
-      editImage: async function(event, target) { return this._onEditImage(event, target); },
+      editImage: this.#editImage,
       showImage: this.#showImage,
       toggleAttunement: this.#toggleAttunement,
       toggleDonArmor: this.#toggleDonArmor,

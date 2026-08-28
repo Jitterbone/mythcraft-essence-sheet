@@ -849,13 +849,14 @@ export function getSafeWeaponApc(item, actor) {
 }
 
 /**
- * Intercepts system evaluateFormula to cleanly parse ", min X" formulas before Roll parsing.
+ * Robustly patch WeaponModel.prototype.apc across all data model registries.
  */
 export function patchWeaponApcGetter() {
   const models = [
     CONFIG.Item?.dataModels?.weapon,
     globalThis.mythcraft?.data?.Item?.WeaponModel,
     globalThis.mythcraft?.data?.Item?.config?.weapon,
+    globalThis.CONFIG?.Item?.systemDataModels?.weapon,
   ].filter(Boolean);
 
   for (const model of models) {

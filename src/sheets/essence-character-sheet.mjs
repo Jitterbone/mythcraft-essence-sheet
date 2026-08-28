@@ -489,18 +489,6 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     return Boolean(this.document?.isOwner || game.user?.isGM);
   }
 
-  /**
-   * Strip GM-only fields for non-GM players to prevent Foundry sanitization errors.
-   * @override
-   */
-  _processFormData(event, form, formData) {
-    const data = super._processFormData(event, form, formData);
-    if (!game.user?.isGM) {
-      sanitizeGmOnlyFields(data);
-    }
-    return data;
-  };
-
   static DEFAULT_OPTIONS = {
     classes: ["mythcraft", "actor", "sheet", "essence-sheet"],
     position: { width: 920, height: 890 },
@@ -2149,12 +2137,23 @@ export default class EssenceCharacterSheet extends CharacterSheet {
 
   /** @inheritdoc */
   _processFormData(event, form, formData) {
+    if (formData?.object && typeof formData.object.img === "string") {
+      const v = formData.object.img.trim();
+      if (!v || !v.includes(".")) {
+        delete formData.object.img;
+        delete formData.object["img"];
+      }
+    }
     const data = super._processFormData(event, form, formData);
     for (const key of Object.keys(data)) {
       if (key.startsWith("_conditions-")) delete data[key];
       // Prevent empty or invalid img from being passed to document update
-      if (key === "img" && (!data[key] || typeof data[key] !== "string" || !data[key].trim())) {
-        delete data[key];
+      if (key === "img") {
+        const v = typeof data[key] === "string" ? data[key].trim() : "";
+        if (!v || !v.includes(".")) {
+          delete data[key];
+          delete data["img"];
+        }
       }
     }
     if (!game.user?.isGM) {
@@ -2165,7 +2164,29 @@ export default class EssenceCharacterSheet extends CharacterSheet {
 
   /** @inheritdoc */
   _prepareSubmitData(event, form, formData) {
+    if (formData?.object && "img" in formData.object) {
+      const v = typeof formData.object.img === "string" ? formData.object.img.trim() : "";
+      if (!v || !v.includes(".")) {
+        delete formData.object.img;
+        delete formData.object["img"];
+      }
+    }
+    if (typeof formData?.delete === "function") {
+      const rawImg = formData.get("img");
+      if (!rawImg || typeof rawImg !== "string" || !rawImg.trim() || !rawImg.includes(".")) {
+        formData.delete("img");
+      }
+    }
+
     const submitData = super._prepareSubmitData ? super._prepareSubmitData(event, form, formData) : (formData?.object ?? {});
+
+    if ("img" in submitData) {
+      const v = typeof submitData.img === "string" ? submitData.img.trim() : "";
+      if (!v || !v.includes(".")) {
+        delete submitData.img;
+        delete submitData["img"];
+      }
+    }
 
     // If user edited system.hp.max in the form, ensure flags.mythcraft-essence-sheet.maxHp matches
     if (submitData["system.hp.max"] !== undefined && submitData["system.hp.max"] !== null) {

@@ -506,4 +506,56 @@ export default class EssenceSiegeWeaponSheet extends SiegeWeaponSheet {
     });
     if (confirmed) await effect.delete();
   }
+
+  /** @inheritdoc */
+  _processFormData(event, form, formData) {
+    if (formData?.object && typeof formData.object.img === "string") {
+      const v = formData.object.img.trim();
+      if (!v || !v.includes(".")) {
+        delete formData.object.img;
+        delete formData.object["img"];
+      }
+    }
+    const data = super._processFormData(event, form, formData);
+    for (const key of Object.keys(data)) {
+      if (key.startsWith("_conditions-")) delete data[key];
+      if (key === "img") {
+        const v = typeof data[key] === "string" ? data[key].trim() : "";
+        if (!v || !v.includes(".")) {
+          delete data[key];
+          delete data["img"];
+        }
+      }
+    }
+    return data;
+  }
+
+  /** @inheritdoc */
+  _prepareSubmitData(event, form, formData) {
+    if (formData?.object && "img" in formData.object) {
+      const v = typeof formData.object.img === "string" ? formData.object.img.trim() : "";
+      if (!v || !v.includes(".")) {
+        delete formData.object.img;
+        delete formData.object["img"];
+      }
+    }
+    if (typeof formData?.delete === "function") {
+      const rawImg = formData.get("img");
+      if (!rawImg || typeof rawImg !== "string" || !rawImg.trim() || !rawImg.includes(".")) {
+        formData.delete("img");
+      }
+    }
+
+    const submitData = super._prepareSubmitData ? super._prepareSubmitData(event, form, formData) : (formData?.object ?? {});
+
+    if ("img" in submitData) {
+      const v = typeof submitData.img === "string" ? submitData.img.trim() : "";
+      if (!v || !v.includes(".")) {
+        delete submitData.img;
+        delete submitData["img"];
+      }
+    }
+
+    return submitData;
+  }
 }

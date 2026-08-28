@@ -63,7 +63,11 @@ export default class EssenceNPCSheet extends NPCSheet {
       editTags: this.#editTags,
       removeTag: this.#removeTag,
       filterMagicSource: this.#filterMagicSource,
+<<<<<<< HEAD
+      editImage: this.#editImage,
+=======
       editImage: async function(event, target) { return this._onEditImage(event, target); },
+>>>>>>> Level-up-Automation
     },
   };
 

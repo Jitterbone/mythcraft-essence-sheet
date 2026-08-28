@@ -280,8 +280,18 @@ export default class EssenceSiegeWeaponSheet extends SiegeWeaponSheet {
   }
 
   static async #editImage(event, target) {
-    event?.preventDefault?.();
-    event?.stopPropagation?.();
+    if (!this.isEditable) return;
+
+    // Check if upstream DocumentSheet / ActorSheet provides an editImage action
+    const superAction = super.constructor?.DEFAULT_OPTIONS?.actions?.editImage
+      || foundry?.applications?.sheets?.ActorSheet?.DEFAULT_OPTIONS?.actions?.editImage
+      || foundry?.applications?.sheets?.DocumentSheetV2?.DEFAULT_OPTIONS?.actions?.editImage
+      || foundry?.applications?.api?.DocumentSheetV2?.DEFAULT_OPTIONS?.actions?.editImage;
+
+    if (typeof superAction === "function") {
+      return await superAction.call(this, event, target);
+    }
+
     const attr = target.dataset.edit || "img";
     const current = foundry.utils.getProperty(this.actor, attr);
     const fp = new FilePicker({

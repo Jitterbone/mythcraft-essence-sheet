@@ -1,0 +1,757 @@
+{{!-- ============================================================
+     MythCraft Essence Sheet — Character Creation Wizard
+     ============================================================ --}}
+<div class="wizard-root-container">
+
+  {{!-- Step Header Navigation --}}
+  <div class="wizard-steps-nav">
+    <div class="wizard-step-item {{#if (eq step 1)}}active{{/if}} {{#if (gt step 1)}}completed{{/if}}">
+      <span class="step-num">1</span>
+      <span class="step-label">Lineage</span>
+    </div>
+    <div class="wizard-step-item {{#if (eq step 2)}}active{{/if}} {{#if (gt step 2)}}completed{{/if}}">
+      <span class="step-num">2</span>
+      <span class="step-label">Attributes</span>
+    </div>
+    <div class="wizard-step-item {{#if (eq step 3)}}active{{/if}} {{#if (gt step 3)}}completed{{/if}}">
+      <span class="step-num">3</span>
+      <span class="step-label">Stats & HP</span>
+    </div>
+    <div class="wizard-step-item {{#if (eq step 4)}}active{{/if}} {{#if (gt step 4)}}completed{{/if}}">
+      <span class="step-num">4</span>
+      <span class="step-label">BOPs</span>
+    </div>
+    <div class="wizard-step-item {{#if (eq step 5)}}active{{/if}} {{#if (gt step 5)}}completed{{/if}}">
+      <span class="step-num">5</span>
+      <span class="step-label">Talents</span>
+    </div>
+    <div class="wizard-step-item {{#if (eq step 6)}}active{{/if}}">
+      <span class="step-num">6</span>
+      <span class="step-label">Finalize</span>
+    </div>
+  </div>
+
+  {{!-- Step Content Panels --}}
+  <div class="wizard-body-content">
+
+    {{!-- STEP 1: CHOOSE LINEAGE --}}
+    {{#if (eq step 1)}}
+      <div class="wizard-step-panel step-lineage">
+        <div class="wizard-panel-header">
+          <i class="fas fa-paw"></i>
+          <div>
+            <h3>Step 1 — Choose a Lineage</h3>
+            <p>Pick your character's lineage to determine starting features, traits, and potential bonus attribute points.</p>
+          </div>
+        </div>
+
+        <div class="wizard-search-bar">
+          <i class="fas fa-search"></i>
+          <input class="wizard-search-input" type="search" data-search="lineage" value="{{data.searches.lineage}}" placeholder="Search lineages..." />
+        </div>
+
+        <div class="lineage-selection-grid">
+          {{#each filteredLineages as |lineage|}}
+            <div class="wizard-selection-card {{#if (eq ../data.selectedLineageId lineage.id)}}selected{{/if}}"
+                 data-action="selectLineage"
+                 data-lineage-id="{{lineage.id}}"
+                 data-card-id="{{lineage.id}}">
+              <div class="card-icon-wrap">
+                <img src="{{lineage.img}}" alt="{{lineage.name}}" />
+              </div>
+              <div class="card-info-wrap">
+                <div class="card-top-row">
+                  <h4 class="card-title">{{lineage.name}}</h4>
+                </div>
+              </div>
+            </div>
+          {{/each}}
+        </div>
+
+        {{#if selectedLineage}}
+          <div class="lineage-detail-box">
+            <div class="detail-header">
+              <div class="detail-title-wrap">
+                <img class="detail-thumb" src="{{selectedLineage.img}}" alt="{{selectedLineage.name}}" />
+                <h4>{{selectedLineage.name}}</h4>
+              </div>
+              {{#if data.bonusAttributePoints}}
+                <span class="golden-badge" data-tooltip="{{bonusAttributeSourcesTooltip}}">
+                  <i class="fas fa-sparkles"></i> +{{data.bonusAttributePoints}} Bonus Attribute Point{{#if (gt data.bonusAttributePoints 1)}}s{{/if}}
+                </span>
+              {{/if}}
+            </div>
+
+            <div class="detail-content-box">
+              {{{selectedLineage.system.description.value}}}
+            </div>
+
+            {{!-- Lineage Skill Tree (Includes Starting Features & Unique Choices) --}}
+            {{#if lineageTrees.length}}
+              <div class="feature-group-section lineage-tree-section">
+                <div class="srd-tracks-viewport lineage-skill-tree-viewport">
+                  {{#each lineageTrees as |tree|}}
+                    <div class="srd-track-column lineage-tree-track {{#if (or tree.isStarted @root.data.selectedFeatureId)}}track-active{{/if}}">
+                      
+                      {{!-- Ornate SRD Track Banner --}}
+                      <div class="srd-track-banner">
+                        <div class="banner-corner top-left"></div>
+                        <div class="banner-corner top-right"></div>
+                        <div class="banner-corner bottom-left"></div>
+                        <div class="banner-corner bottom-right"></div>
+                        
+                        <div class="banner-content-row">
+                          <div class="banner-title-wrap">
+                            <h3 class="srd-track-title">{{tree.trackTitle}}</h3>
+                            <div class="track-summary-pills">
+                              {{#if @root.lineageStartingFeatures.length}}
+                                <span class="track-pill owned"><i class="fas fa-gift"></i> {{@root.lineageStartingFeatures.length}} Starting</span>
+                              {{/if}}
+                              <span class="track-pill total">{{tree.nodes.length}} Selectable</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {{!-- Vertical Tier Flow --}}
+                      <div class="srd-tree-flow">
+                        
+                        {{!-- Level 1 Starting Features (Free & Automatic) --}}
+                        {{#if @root.lineageStartingFeatures.length}}
+                          <div class="srd-tier-level starting-features-tier" data-tier="0">
+                            <div class="srd-starting-tier-label">
+                              <i class="fas fa-gift"></i> Starting Features (Automatic)
+                            </div>
+                            <div class="srd-tier-nodes branching-row">
+                              {{#each @root.lineageStartingFeatures as |feature|}}
+                                <div class="srd-node-box node-owned starting-auto-node" data-talent-id="{{feature.id}}">
+                                  <div class="node-main-box" data-action="viewTalent" data-talent-id="{{feature.id}}" title="Inspect Starting Feature">
+                                    <span class="node-title">{{feature.name}}</span>
+                                    <span class="srd-status-icon owned" title="Free Starting Feature"><i class="fas fa-check-circle"></i></span>
+                                  </div>
+                                  <div class="srd-node-actions">
+                                    <button type="button" class="srd-action-btn view" data-action="viewTalent" data-talent-id="{{feature.id}}" title="Inspect Starting Feature">
+                                      <i class="fas fa-eye"></i>
+                                    </button>
+                                    <span class="srd-action-tag-badge">Automatic</span>
+                                  </div>
+                                </div>
+                              {{/each}}
+                            </div>
+                          </div>
+
+                          {{!-- Connector down arrow to Unique Choices --}}
+                          <div class="srd-tier-connector">
+                            <div class="connector-stem"></div>
+                            <i class="fas fa-chevron-down connector-arrow"></i>
+                          </div>
+                        {{/if}}
+
+                        {{#each tree.tiers as |tier|}}
+                          <div class="srd-tier-level" data-tier="{{tier.tierNumber}}">
+                            
+                            {{!-- Connector down arrow --}}
+                            {{#unless @first}}
+                              <div class="srd-tier-connector">
+                                <div class="connector-stem"></div>
+                                <i class="fas fa-chevron-down connector-arrow"></i>
+                              </div>
+                            {{/unless}}
+
+                            <div class="srd-tier-nodes {{#if (gt tier.nodes.length 1)}}branching-row{{/if}}">
+                              {{#each tier.nodes as |node|}}
+                                <div class="srd-node-box {{#if (or (eq @root.data.selectedFeatureId node.id) (eq @root.data.selectedFeatureId node.name))}}node-owned{{else if node.isAvailable}}node-available{{else}}node-locked{{/if}}"
+                                     data-talent-id="{{node.id}}"
+                                     {{#unless node.isAvailable}}data-tooltip="{{node.prereqTooltip}}"{{/unless}}>
+                                  
+                                  <div class="node-main-box" data-action="selectLineageFeature" data-feature-id="{{node.id}}" data-locked="{{#unless node.isAvailable}}true{{else}}false{{/unless}}">
+                                    <span class="node-title">{{node.name}}</span>
+                                    
+                                    {{#if (or (eq @root.data.selectedFeatureId node.id) (eq @root.data.selectedFeatureId node.name))}}
+                                      <span class="srd-status-icon owned" title="Selected"><i class="fas fa-check-circle"></i></span>
+                                    {{else if (not node.isAvailable)}}
+                                      <span class="srd-status-icon locked" title="{{node.prereqTooltip}}"><i class="fas fa-lock"></i></span>
+                                    {{/if}}
+                                  </div>
+
+                                  {{!-- Action Buttons --}}
+                                  <div class="srd-node-actions">
+                                    <button type="button" class="srd-action-btn view" data-action="viewTalent" data-talent-id="{{node.id}}" title="Inspect Feature">
+                                      <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button type="button" class="srd-action-btn pick {{#if (or (eq @root.data.selectedFeatureId node.id) (eq @root.data.selectedFeatureId node.name))}}selected{{/if}}"
+                                            data-action="selectLineageFeature"
+                                            data-feature-id="{{node.id}}"
+                                            data-locked="{{#unless node.isAvailable}}true{{else}}false{{/unless}}"
+                                            title="Choose this feature">
+                                      <i class="fas {{#if (or (eq @root.data.selectedFeatureId node.id) (eq @root.data.selectedFeatureId node.name))}}fa-check{{else}}fa-plus{{/if}}"></i>
+                                    </button>
+                                  </div>
+                                </div>
+                              {{/each}}
+                            </div>
+                          </div>
+                        {{/each}}
+                      </div>
+                    </div>
+                  {{/each}}
+                </div>
+              </div>
+            {{/if}}
+
+            {{!-- Lineage Progression Note --}}
+            {{#if lineageMilestones}}
+              <div class="lineage-milestone-banner">
+                <i class="fas fa-circle-info"></i>
+                <p>{{lineageMilestones}}</p>
+              </div>
+            {{/if}}
+          </div>
+        {{/if}}
+      </div>
+    {{/if}}
+
+    {{!-- STEP 2: ASSIGN ATTRIBUTES --}}
+    {{#if (eq step 2)}}
+      <div class="wizard-step-panel step-attributes">
+        <div class="wizard-panel-header">
+          <i class="fas fa-chart-simple"></i>
+          <div>
+            <h3>Step 2 — Assign Attributes</h3>
+            <p>You have <strong>{{pool.totalPool}} Attribute Points</strong> to allocate (5 base{{#if data.bonusAttributePoints}} + {{data.bonusAttributePoints}} bonus{{/if}}). Decreasing attributes below 0 refunds points to the pool. Level 1 cap is <strong>+{{levelCap}}</strong>.</p>
+          </div>
+        </div>
+
+        <div class="attr-pool-status {{#if (lt pool.remaining 0)}}error{{/if}}">
+          <div class="pool-stat">
+            <span class="pool-lbl">Base Pool:</span>
+            <span class="pool-val">5</span>
+          </div>
+          {{#if data.bonusAttributePoints}}
+            <div class="pool-stat bonus-stat" data-tooltip="{{bonusAttributeSourcesTooltip}}">
+              <span class="pool-lbl">Bonus Points:</span>
+              <span class="pool-val gold">+{{data.bonusAttributePoints}}</span>
+            </div>
+          {{/if}}
+          <div class="pool-stat remaining-stat">
+            <span class="pool-lbl">Remaining Points:</span>
+            <span class="pool-val {{#if (lt pool.remaining 0)}}negative{{else if (eq pool.remaining 0)}}zero{{else}}positive{{/if}}">{{pool.remaining}}</span>
+          </div>
+          <div class="pool-stat">
+            <span class="pool-lbl">Level 1 Cap:</span>
+            <span class="pool-val cap">+{{levelCap}}</span>
+          </div>
+        </div>
+
+        <div class="attr-assignment-grid">
+          {{#each attributesList as |attr|}}
+            <div class="attr-row-card">
+              <div class="attr-info">
+                <span class="attr-name">{{attr.label}}</span>
+                <span class="attr-subname">{{attr.name}}</span>
+              </div>
+              <div class="attr-controls">
+                <button type="button" class="step-btn minus" data-action="adjustAttribute" data-attr="{{attr.key}}" data-delta="-1" {{#unless attr.canDecrease}}disabled{{/unless}}>
+                  <i class="fas fa-minus"></i>
+                </button>
+                <span class="attr-display-val {{#if (lt attr.value 0)}}negative{{else if (gt attr.value 0)}}positive{{/if}}">
+                  {{#if (gt attr.value 0)}}+{{/if}}{{attr.value}}
+                </span>
+                <button type="button" class="step-btn plus" data-action="adjustAttribute" data-attr="{{attr.key}}" data-delta="1" {{#unless attr.canIncrease}}disabled{{/unless}}>
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
+            </div>
+          {{/each}}
+        </div>
+      </div>
+    {{/if}}
+
+    {{!-- STEP 3: STATS & HP --}}
+    {{#if (eq step 3)}}
+      <div class="wizard-step-panel step-stats">
+        <div class="wizard-panel-header">
+          <i class="fas fa-shield-heart"></i>
+          <div>
+            <h3>Step 3 — Hit Points & Defenses</h3>
+            <p>Hit Points are calculated from your Endurance score (END: <strong>{{data.attributes.end}}</strong>). Defenses start at <strong>10 + Attribute</strong>.</p>
+          </div>
+        </div>
+
+        <div class="hp-mode-selector">
+          <div class="hp-mode-option {{#if (eq data.hpMode 'set')}}active{{/if}}" data-action="setHpMode" data-mode="set">
+            <div class="mode-radio"><i class="fas {{#if (eq data.hpMode 'set')}}fa-circle-dot{{else}}fa-circle{{/if}}"></i></div>
+            <div class="mode-info">
+              <h4>Take Set HP (Guaranteed)</h4>
+              <p>Formula: 10 + 1 + (1 &times; {{hpData.setHp}}) = <strong>{{setHpValue}} HP</strong></p>
+            </div>
+          </div>
+
+          <div class="hp-mode-option {{#if (eq data.hpMode 'roll')}}active{{/if}}" data-action="setHpMode" data-mode="roll">
+            <div class="mode-radio"><i class="fas {{#if (eq data.hpMode 'roll')}}fa-circle-dot{{else}}fa-circle{{/if}}"></i></div>
+            <div class="mode-info">
+              <h4>Roll Hit Points Dice</h4>
+              <p>Roll <strong>10 + 1 + 1{{hpData.die}}</strong> in chat upon character creation.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="defenses-preview-grid">
+          <div class="defense-preview-card">
+            <span class="def-lbl">AR</span>
+            <span class="def-val">10</span>
+          </div>
+          <div class="defense-preview-card">
+            <span class="def-lbl">REF</span>
+            <span class="def-val">{{add 10 data.attributes.dex}}</span>
+          </div>
+          <div class="defense-preview-card">
+            <span class="def-lbl">FORT</span>
+            <span class="def-val">{{add 10 data.attributes.end}}</span>
+          </div>
+          <div class="defense-preview-card">
+            <span class="def-lbl">ANT</span>
+            <span class="def-val">{{add 10 data.attributes.awr}}</span>
+          </div>
+          <div class="defense-preview-card">
+            <span class="def-lbl">LOG</span>
+            <span class="def-val">{{add 10 data.attributes.int}}</span>
+          </div>
+          <div class="defense-preview-card">
+            <span class="def-lbl">WILL</span>
+            <span class="def-val">{{add 10 data.attributes.cha}}</span>
+          </div>
+        </div>
+      </div>
+    {{/if}}
+
+    {{!-- STEP 4: BACKGROUND & PROFESSION (BOPS) --}}
+    {{#if (eq step 4)}}
+      <div class="wizard-step-panel step-bops">
+        <div class="wizard-panel-header">
+          <i class="fas fa-scroll"></i>
+          <div>
+            <h3>Step 4 — Background &amp; Profession</h3>
+            <p>Select your background and starting profession to allocate background skill points, receive profession rank abilities, starting wealth, and starting equipment.</p>
+          </div>
+        </div>
+
+        {{!-- STAGE A: BACKGROUND SELECTION --}}
+        <div class="bops-staged-section">
+          <div class="stage-header">
+            <h4><i class="fas fa-book-bookmark"></i> 1. Choose Background</h4>
+            {{#if data.backgroundConfirmed}}
+              <span class="confirmed-badge"><i class="fas fa-check"></i> Confirmed: {{selectedBackground.name}}</span>
+            {{/if}}
+          </div>
+
+          <div class="wizard-search-bar">
+            <i class="fas fa-search"></i>
+            <input class="wizard-search-input" type="search" data-search="background" value="{{data.searches.background}}" placeholder="Search backgrounds..." />
+          </div>
+
+          <div class="bops-list-grid">
+            {{#each filteredBackgrounds as |bg|}}
+              <div class="bops-item-card {{#if (eq ../data.selectedBackgroundId bg.id)}}selected{{/if}}"
+                   data-action="selectBackground"
+                   data-background-id="{{bg.id}}"
+                   data-card-id="{{bg.id}}">
+                <img src="{{bg.img}}" alt="{{bg.name}}" />
+                <div class="bops-item-info">
+                  <h5>{{bg.name}}</h5>
+                </div>
+              </div>
+            {{/each}}
+          </div>
+
+          {{#if selectedBackground}}
+            <div class="selection-confirm-row">
+              <button type="button" class="wizard-confirm-btn {{#if data.backgroundConfirmed}}confirmed{{/if}}" data-action="confirmBackground">
+                <i class="fas {{#if data.backgroundConfirmed}}fa-check-double{{else}}fa-check{{/if}}"></i>
+                {{#if data.backgroundConfirmed}}Background Confirmed — Re-confirm if changed{{else}}Confirm Background Selection{{/if}}
+              </button>
+            </div>
+          {{/if}}
+        </div>
+
+        {{!-- STAGE B: DEDICATED SKILL POINT ALLOCATOR --}}
+        {{#if (and parsedBackground data.backgroundConfirmed)}}
+          <div class="bops-staged-section skill-allocator-stage">
+            <div class="stage-header">
+              <h4><i class="fas fa-graduation-cap"></i> 2. Background Skill Allocation</h4>
+              <div class="skill-pool-tracker">
+                <span>Available Points: <strong>{{backgroundSkillPool}}</strong></span>
+                <span class="used-pill {{#if (eq backgroundSkillRemaining 0)}}complete{{else}}pending{{/if}}">
+                  Spent: {{backgroundSkillSpent}} / {{backgroundSkillPool}} (Remaining: {{backgroundSkillRemaining}})
+                </span>
+                <span class="cap-pill">Individual Cap: +{{parsedBackground.perSkillCap}}</span>
+              </div>
+            </div>
+
+            <div class="skill-categories-allocator">
+              {{#if parsedBackground.skillCategories.length}}
+                {{#each parsedBackground.skillCategories as |cat|}}
+                  <div class="skill-category-block">
+                    <div class="category-title"><i class="fas fa-tag"></i> {{cat.category}}</div>
+                    <div class="category-skills-grid">
+                      {{#each cat.skills as |sk|}}
+                        <div class="skill-tile-card {{#if (gt (lookup ../../data.allocatedSkills sk.name) 0)}}allocated{{/if}}">
+                          <div class="skill-tile-info">
+                            <span class="skill-tile-name">{{sk.name}}{{#if sk.hasStar}}<span class="star-mark" title="Specialized / Craft / Language Skill">*</span>{{/if}}</span>
+                          </div>
+                          <div class="skill-tile-stepper">
+                            <button type="button" class="sk-btn minus" data-action="adjustSkill" data-skill="{{sk.name}}" data-delta="-1"
+                                    {{#unless (gt (lookup ../../data.allocatedSkills sk.name) 0)}}disabled{{/unless}}>
+                              <i class="fas fa-minus"></i>
+                            </button>
+                            <span class="sk-val">{{#if (lookup ../../data.allocatedSkills sk.name)}}{{lookup ../../data.allocatedSkills sk.name}}{{else}}0{{/if}}</span>
+                            <button type="button" class="sk-btn plus" data-action="adjustSkill" data-skill="{{sk.name}}" data-delta="1"
+                                    {{#if (or (gte (lookup ../../data.allocatedSkills sk.name) ../../parsedBackground.perSkillCap) (lte ../../backgroundSkillRemaining 0))}}disabled{{/if}}>
+                              <i class="fas fa-plus"></i>
+                            </button>
+                          </div>
+                        </div>
+                      {{/each}}
+                    </div>
+                  </div>
+                {{/each}}
+              {{else}}
+                <div class="category-skills-grid">
+                  {{#each parsedBackground.eligibleSkills as |sk|}}
+                    <div class="skill-tile-card {{#if (gt (lookup ../data.allocatedSkills sk) 0)}}allocated{{/if}}">
+                      <div class="skill-tile-info">
+                        <span class="skill-tile-name">{{sk}}</span>
+                      </div>
+                      <div class="skill-tile-stepper">
+                        <button type="button" class="sk-btn minus" data-action="adjustSkill" data-skill="{{sk}}" data-delta="-1"
+                                {{#unless (gt (lookup ../data.allocatedSkills sk) 0)}}disabled{{/unless}}>
+                          <i class="fas fa-minus"></i>
+                        </button>
+                        <span class="sk-val">{{#if (lookup ../data.allocatedSkills sk)}}{{lookup ../data.allocatedSkills sk}}{{else}}0{{/if}}</span>
+                        <button type="button" class="sk-btn plus" data-action="adjustSkill" data-skill="{{sk}}" data-delta="1"
+                                {{#if (or (gte (lookup ../data.allocatedSkills sk) ../parsedBackground.perSkillCap) (lte ../backgroundSkillRemaining 0))}}disabled{{/if}}>
+                          <i class="fas fa-plus"></i>
+                        </button>
+                      </div>
+                    </div>
+                  {{/each}}
+                </div>
+              {{/if}}
+            </div>
+
+            {{!-- Starting Wealth Picker --}}
+            <div class="wealth-selector-box">
+              <div class="wealth-header">
+                <h5><i class="fas fa-coins"></i> Starting Wealth</h5>
+                <span>Formula: {{parsedBackground.startingWealth.formula}} sc (Average: {{parsedBackground.startingWealth.average}} sc)</span>
+              </div>
+              <div class="wealth-options-row">
+                <label class="radio-label {{#if (eq data.wealthMode 'average')}}active{{/if}}">
+                  <input type="radio" name="wealthMode" value="average" {{#if (eq data.wealthMode 'average')}}checked{{/if}} data-action="setWealthMode" data-mode="average" />
+                  <span>Take Average (<strong>{{parsedBackground.startingWealth.average}} sc</strong>)</span>
+                </label>
+                <label class="radio-label {{#if (eq data.wealthMode 'roll')}}active{{/if}}">
+                  <input type="radio" name="wealthMode" value="roll" {{#if (eq data.wealthMode 'roll')}}checked{{/if}} data-action="setWealthMode" data-mode="roll" />
+                  <span>Roll in Chat (<strong>{{parsedBackground.startingWealth.formula}} sc</strong>)</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        {{/if}}
+
+        {{!-- STAGE C: PROFESSION SELECTION (UNLOCKED AFTER BACKGROUND) --}}
+        {{#if (and parsedBackground data.backgroundConfirmed)}}
+          <div class="bops-staged-section profession-stage">
+            <div class="stage-header">
+              <h4><i class="fas fa-hammer"></i> 3. Choose Profession</h4>
+              {{#if data.professionConfirmed}}
+                <span class="confirmed-badge"><i class="fas fa-check"></i> Confirmed: {{selectedProfession.name}}</span>
+              {{/if}}
+            </div>
+            <p class="choice-guidance">Professions highlighted in gold grant additional bonus skill points from your background.</p>
+
+            <div class="wizard-search-bar">
+              <i class="fas fa-search"></i>
+              <input class="wizard-search-input" type="search" data-search="profession" value="{{data.searches.profession}}" placeholder="Search professions..." />
+            </div>
+
+            <div class="bops-list-grid">
+              {{#each filteredProfessions as |prof|}}
+                <div class="bops-item-card {{#if (eq ../data.selectedProfessionId prof.id)}}selected{{/if}} {{#if prof.isEncouraged}}encouraged-gold{{/if}}"
+                     data-action="selectProfession"
+                     data-profession-id="{{prof.id}}"
+                     data-card-id="{{prof.id}}">
+                  <img src="{{prof.img}}" alt="{{prof.name}}" />
+                  <div class="bops-item-info">
+                    <h5>{{prof.name}}</h5>
+                    {{#if prof.isEncouraged}}
+                      <span class="encouraged-pill" data-tooltip="Grants background synergy bonus">
+                        <i class="fas fa-star"></i> +{{@root.parsedBackground.encouragedProfessions.bonusValue}} {{@root.parsedBackground.encouragedProfessions.bonusSkill}}
+                      </span>
+                    {{/if}}
+                  </div>
+                </div>
+              {{/each}}
+            </div>
+
+            {{#if selectedProfession}}
+              <div class="selection-confirm-row">
+                <button type="button" class="wizard-confirm-btn {{#if data.professionConfirmed}}confirmed{{/if}}" data-action="confirmProfession">
+                  <i class="fas {{#if data.professionConfirmed}}fa-check-double{{else}}fa-check{{/if}}"></i>
+                  {{#if data.professionConfirmed}}Profession Confirmed{{else}}Confirm Profession Selection{{/if}}
+                </button>
+              </div>
+            {{/if}}
+
+            {{#if (and parsedProfession data.professionConfirmed)}}
+              <div class="profession-detail-subpanel">
+                <div class="profession-summary-header">
+                  <h5>{{selectedProfession.name}} (Rank 1)</h5>
+                </div>
+
+                {{#if professionRankItems.length}}
+                  <div class="rank-features-box">
+                    <h6 class="box-sub"><i class="fas fa-award"></i> Profession Rank 1 Abilities:</h6>
+                    {{#each professionRankItems as |rank|}}
+                      <div class="profession-rank-row">
+                        <strong>{{rank.name}}</strong>
+                        <div>{{{rank.system.description.value}}}</div>
+                      </div>
+                    {{/each}}
+                  </div>
+                {{/if}}
+
+                <div class="prof-skills-box">
+                  <h6 class="box-sub"><i class="fas fa-book"></i> Profession Skills:</h6>
+                  <div class="fixed-skills-row">
+                    {{#each parsedProfession.fixedSkills as |skill|}}
+                      <span class="prof-skill-pill fixed">+{{skill.value}} {{skill.name}}</span>
+                    {{/each}}
+                  </div>
+
+                  {{#if parsedProfession.choiceSkills.count}}
+                    <h6 class="box-sub">Choose {{parsedProfession.choiceSkills.count}} Choice Skills (+{{parsedProfession.choiceSkills.value}} each):</h6>
+                    <div class="choice-skills-wrap">
+                      {{#each parsedProfession.choiceSkills.options as |opt|}}
+                        <button type="button" class="choice-skill-pill {{#if (includes ../data.selectedProfessionSkills opt)}}active{{/if}}"
+                                data-action="toggleProfessionSkill"
+                                data-skill="{{opt}}">
+                          <i class="fas {{#if (includes ../data.selectedProfessionSkills opt)}}fa-check-square{{else}}fa-square{{/if}}"></i> {{opt}}
+                        </button>
+                      {{/each}}
+                    </div>
+                  {{/if}}
+                </div>
+
+                {{#if parsedProfession.startingGear.length}}
+                  <div class="prof-gear-box">
+                    <h6 class="box-sub"><i class="fas fa-shield"></i> Starting Equipment:</h6>
+                    <div class="gear-preview-chips">
+                      {{#each parsedProfession.startingGear as |gear|}}
+                        <span class="gear-chip">{{gear.name}} {{#if (gt gear.quantity 1)}}&times;{{gear.quantity}}{{/if}}</span>
+                      {{/each}}
+                    </div>
+                  </div>
+                {{/if}}
+              </div>
+            {{/if}}
+          </div>
+        {{/if}}
+      </div>
+    {{/if}}
+
+    {{!-- STEP 5: TALENTS --}}
+    {{#if (eq step 5)}}
+      <div class="wizard-step-panel step-talents">
+        <div class="wizard-panel-header">
+          <i class="fas fa-sparkles"></i>
+          <div>
+            <h3>Step 5 — Talents</h3>
+            <p>Characters at level 1 can choose 1 <strong>Specialization Talent</strong> or <strong>Magic Entry Talent</strong> (Class Talents unlock at level 2). Stacks from official compendiums are organized below.</p>
+          </div>
+        </div>
+
+        <div class="wizard-search-bar">
+          <i class="fas fa-search"></i>
+          <input class="wizard-search-input" type="search" data-search="talent" value="{{data.searches.talent}}" placeholder="Search starting talents..." />
+        </div>
+
+        {{#each filteredTalentGroups as |group|}}
+          <section class="talent-source-group">
+            <h4 class="talent-source-title"><i class="fas fa-layer-group"></i> {{group.label}}</h4>
+            {{#each group.stacks as |stack|}}
+              <div class="talent-stack-block">
+                <div class="talent-stack-title-bar">
+                  <span class="talent-stack-name"><i class="fas fa-folder-tree"></i> {{stack.stackName}}</span>
+                  <span class="talent-stack-count">{{stack.items.length}} Option{{#if (gt stack.items.length 1)}}s{{/if}}</span>
+                </div>
+                <div class="talents-selection-list">
+                  {{#each stack.items as |talent|}}
+                    <div class="talent-choice-card {{#if (eq @root.data.selectedTalentId talent.id)}}selected{{/if}} {{#unless talent.isAvailable}}locked{{/unless}}"
+                         data-action="selectTalent"
+                         data-talent-id="{{talent.id}}"
+                         data-locked="{{#unless talent.isAvailable}}true{{else}}false{{/unless}}"
+                         {{#unless talent.isAvailable}}data-tooltip="{{talent.prereqTooltip}}"{{/unless}}>
+                      <div class="talent-card-left">
+                        <img src="{{talent.img}}" alt="{{talent.name}}" />
+                        <div class="talent-info">
+                          <div class="talent-title-line">
+                            <h4>{{talent.name}}</h4>
+                            {{#unless talent.isAvailable}}
+                              <span class="prereq-badge"><i class="fas fa-lock"></i> Locked</span>
+                            {{/unless}}
+                          </div>
+                          {{#if talent.shortDesc}}
+                            <p class="talent-short-desc">{{talent.shortDesc}}</p>
+                          {{/if}}
+                        </div>
+                      </div>
+                      <div class="talent-card-right">
+                        <i class="fas {{#if (eq @root.data.selectedTalentId talent.id)}}fa-circle-check{{else if talent.isAvailable}}fa-circle{{else}}fa-lock{{/if}}"></i>
+                      </div>
+                    </div>
+                  {{/each}}
+                </div>
+              </div>
+            {{/each}}
+          </section>
+        {{/each}}
+
+        {{#if selectedTalent}}
+          <div class="lineage-detail-box talent-detail-box">
+            <div class="detail-header">
+              <div class="detail-title-wrap">
+                <img class="detail-thumb" src="{{selectedTalent.img}}" alt="{{selectedTalent.name}}" />
+                <h4>{{selectedTalent.name}}</h4>
+              </div>
+            </div>
+            <div class="detail-content-box">{{{selectedTalent.system.description.value}}}</div>
+          </div>
+        {{/if}}
+
+        {{#if parsedTalent.extraStackTalents}}
+          <div class="extra-talents-box">
+            <h4><i class="fas fa-plus"></i> Choose {{parsedTalent.extraStackTalents}} Additional Stack Talents:</h4>
+            <div class="extra-talents-list">
+              {{#each extraTalentOptions as |extra|}}
+                <button type="button" class="extra-talent-btn {{#if (includes ../data.selectedExtraTalentIds extra.id)}}active{{/if}}"
+                        data-action="toggleExtraTalent"
+                        data-talent-id="{{extra.id}}">
+                  {{extra.name}}
+                </button>
+              {{/each}}
+            </div>
+          </div>
+        {{/if}}
+
+        {{#if parsedTalent.isMagicEntry}}
+          <div class="spells-picker-box">
+            <h4><i class="fas fa-wand-magic"></i> Select Known Spells &amp; Cantrips:</h4>
+            <div class="magic-attr-row">
+              <label>Magic Attribute:</label>
+              <select name="magicAttr" data-action="setMagicAttribute">
+                <option value="int" {{#if (eq data.magicAttribute 'int')}}selected{{/if}}>INT (Intelligence)</option>
+                <option value="awr" {{#if (eq data.magicAttribute 'awr')}}selected{{/if}}>AWR (Awareness)</option>
+                <option value="cha" {{#if (eq data.magicAttribute 'cha')}}selected{{/if}}>CHA (Charisma)</option>
+                <option value="str" {{#if (eq data.magicAttribute 'str')}}selected{{/if}}>STR (Strength)</option>
+                <option value="dex" {{#if (eq data.magicAttribute 'dex')}}selected{{/if}}>DEX (Dexterity)</option>
+              </select>
+            </div>
+            <div class="spells-selection-grid">
+              <div class="wizard-search-bar">
+                <i class="fas fa-search"></i>
+                <input class="wizard-search-input" type="search" data-search="spell" value="{{data.searches.spell}}" placeholder="Search spells and cantrips..." />
+              </div>
+              <div class="spells-cards-wrap">
+                {{#each filteredSpells as |spell|}}
+                  <div class="spell-select-card {{#if (includes ../data.selectedSpellIds spell.id)}}active{{/if}}"
+                       data-action="toggleSpell"
+                       data-spell-id="{{spell.id}}">
+                    <img src="{{spell.img}}" alt="{{spell.name}}" />
+                    <span class="spell-name">{{spell.name}}</span>
+                  </div>
+                {{/each}}
+              </div>
+            </div>
+          </div>
+        {{/if}}
+      </div>
+    {{/if}}
+
+    {{!-- STEP 6: FINALIZE --}}
+    {{#if (eq step 6)}}
+      <div class="wizard-step-panel step-finalize">
+        <div class="wizard-panel-header">
+          <i class="fas fa-check-circle"></i>
+          <div>
+            <h3>Step 6 — Final Review</h3>
+            <p>Review your character creation choices before applying them to your character sheet.</p>
+          </div>
+        </div>
+
+        <div class="summary-review-grid">
+          <div class="summary-card">
+            <h4><i class="fas fa-paw"></i> Lineage</h4>
+            <p><strong>{{selectedLineage.name}}</strong></p>
+            {{#if selectedFeature}}
+              <span class="summary-sub">Feature: {{selectedFeature.name}}</span>
+            {{/if}}
+          </div>
+
+          <div class="summary-card">
+            <h4><i class="fas fa-chart-simple"></i> Attributes</h4>
+            <p>
+              STR: {{data.attributes.str}} | DEX: {{data.attributes.dex}} | END: {{data.attributes.end}}<br>
+              AWR: {{data.attributes.awr}} | INT: {{data.attributes.int}} | CHA: {{data.attributes.cha}}
+            </p>
+          </div>
+
+          <div class="summary-card">
+            <h4><i class="fas fa-heart"></i> Hit Points</h4>
+            <p>{{#if (eq data.hpMode 'set')}}{{setHpValue}} HP (Set){{else}}Roll in chat (10 + 1 + 1{{hpData.die}}){{/if}}</p>
+          </div>
+
+          <div class="summary-card">
+            <h4><i class="fas fa-scroll"></i> Background &amp; Profession</h4>
+            <p>
+              <strong>Background:</strong> {{selectedBackground.name}}<br>
+              <strong>Profession:</strong> {{selectedProfession.name}} (Rank 1)
+            </p>
+          </div>
+
+          <div class="summary-card full-width">
+            <h4><i class="fas fa-sparkles"></i> Starting Talent</h4>
+            <p><strong>{{selectedTalent.name}}</strong></p>
+            {{#if data.selectedSpellIds.length}}
+              <span class="summary-sub">{{data.selectedSpellIds.length}} Spell(s) selected</span>
+            {{/if}}
+          </div>
+        </div>
+
+        <button type="button" class="wizard-finalize-btn" data-action="finalize">
+          <i class="fas fa-wand-magic-sparkles"></i> Complete &amp; Populate Character Sheet
+        </button>
+      </div>
+    {{/if}}
+
+  </div>
+
+  {{!-- Wizard Footer Controls --}}
+  <div class="wizard-footer-controls">
+    {{#if (gt step 1)}}
+      <button type="button" class="wizard-nav-btn prev" data-action="prevStep">
+        <i class="fas fa-arrow-left"></i> Back
+      </button>
+    {{else}}
+      <div></div>
+    {{/if}}
+
+    {{#if (lt step 6)}}
+      <button type="button" class="wizard-nav-btn next" data-action="nextStep">
+        Next Step <i class="fas fa-arrow-right"></i>
+      </button>
+    {{/if}}
+  </div>
+
+</div>
+

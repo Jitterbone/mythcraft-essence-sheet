@@ -54,6 +54,7 @@ jobs:
           name: Version ${{ steps.release-meta.outputs.version_number }}
           prerelease: false
           make_latest: true
+          overwrite: true
           files: |
             ./mythcraft-essence-sheet.zip
             ./module.zip

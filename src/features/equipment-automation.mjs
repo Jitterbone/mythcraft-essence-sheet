@@ -113,7 +113,7 @@ export function parseResistanceString(resistInput) {
 }
 
 /**
- * Format a list of resistance objects back into a comma-separated string
+ * Format resistance objects into a comma-separated display string.
  * @param {Array<{ type: string, label?: string, value: number }>} list
  * @returns {string}
  */
@@ -849,39 +849,14 @@ export function getSafeWeaponApc(item, actor) {
 }
 
 /**
- * Patches global evaluateFormula to safely handle "X-STR, min Y" formulas
- */
-export function patchEvaluateFormula() {
-  if (globalThis.mythcraft?.utils?.evaluateFormula) {
-    const original = globalThis.mythcraft.utils.evaluateFormula;
-    if (!original._essencePatched) {
-      const patched = function(formula, rollData = {}, options = {}) {
-        if (typeof formula === "string" && (formula.includes(",") || /min/i.test(formula) || /STR|DEX|END|INT|AWR|CHA/i.test(formula))) {
-          try {
-            const evaluated = evaluateApcFormula(formula, rollData);
-            if (typeof evaluated === "number" && !isNaN(evaluated)) {
-              return evaluated;
-            }
-          } catch (e) {}
-        }
-        return original.call(this, formula, rollData, options);
-      };
-      patched._essencePatched = true;
-      globalThis.mythcraft.utils.evaluateFormula = patched;
-    }
-  }
-}
-
-/**
- * Patches core MythCraft WeaponModel prototype getter for `apc`
+ * Robustly patch WeaponModel.prototype.apc across all data model registries.
  */
 export function patchWeaponApcGetter() {
-  patchEvaluateFormula();
-
   const models = [
     CONFIG.Item?.dataModels?.weapon,
     globalThis.mythcraft?.data?.Item?.WeaponModel,
     globalThis.mythcraft?.data?.Item?.config?.weapon,
+    globalThis.CONFIG?.Item?.systemDataModels?.weapon,
   ].filter(Boolean);
 
   for (const model of models) {
@@ -894,8 +869,8 @@ export function patchWeaponApcGetter() {
         configurable: true,
         enumerable: true,
       });
-    } catch (e) {
-      // Ignore if cannot redefine
+    } catch (error) {
+      // Ignore models whose APC getter cannot be redefined.
     }
   }
 }

@@ -15,6 +15,8 @@ import MovementDialog from "../apps/movement-dialog.mjs";
 import SensesDialog from "../apps/senses-dialog.mjs";
 import ConditionsDialog from "../apps/conditions-dialog.mjs";
 import LevelUpDialog from "../apps/level-up-dialog.mjs";
+import CharacterCreationWizard from "../apps/character-creation-wizard.mjs";
+import TalentTreeViewer from "../apps/talent-tree-viewer.mjs";
 import { getEnduranceThreshold } from "../features/hp-automation.mjs";
 import WalletDialog, {
   getActiveCurrencies,
@@ -509,6 +511,8 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       editConditions: this.#editConditions,
       openWalletDialog: this.#openWalletDialog,
       openLevelUpDialog: this.#openLevelUpDialog,
+      openCharacterCreationWizard: this.#openCharacterCreationWizard,
+      openTalentTreeViewer: this.#openTalentTreeViewer,
       openTab: this.#openTab,
       toggleItemEmbed: this.#toggleItemEmbed,
       toggleEffectEmbed: this.#toggleEffectEmbed,
@@ -1323,10 +1327,27 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     new WalletDialog({ document: this.actor }).render(true);
   }
 
+  static async #openCharacterCreationWizard(event, target) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    new CharacterCreationWizard(this.actor).render(true);
+  }
+
   static async #openLevelUpDialog(event, target) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
+    const curLvl = Number(this.actor.system?.level ?? 0);
+    if (curLvl === 0) {
+      new CharacterCreationWizard(this.actor).render(true);
+      return;
+    }
     new LevelUpDialog(this.actor).render(true);
+  }
+
+  static async #openTalentTreeViewer(event, target) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    new TalentTreeViewer(this.actor).render(true);
   }
 
   static async #openTab(event, target) {
@@ -1793,6 +1814,16 @@ export default class EssenceCharacterSheet extends CharacterSheet {
   _onRender(context, options) {
     super._onRender(context, options);
 
+    // Auto-prompt Character Creation Wizard on Level 0 characters when the sheet is first opened
+    if (this.actor.type === "character" && Number(this.actor.system?.level ?? 0) === 0) {
+      if (!this._hasPromptedWizard) {
+        this._hasPromptedWizard = true;
+        setTimeout(() => {
+          CharacterCreationWizard.promptStartup(this.actor, this);
+        }, 100);
+      }
+    }
+
     // Magical dissolve / expand animation for Resource Meters Panel & SP Meter
     const spMeter = this.element.querySelector(".sp-meter");
     const currentHasSpellcasting = spMeter?.classList.contains("has-sp") ?? false;
@@ -2116,13 +2147,11 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         delete data[key];
       }
     }
+    if (!game.user?.isGM) {
+      sanitizeGmOnlyFields(data);
+    }
     return data;
   }
-
-  /* ─────────────────────────────────────────────────────────────────────────
-   *  Context preparation — call super to get all the system's prepared data,
-   *  then augment with Essence-specific additions.
-   * ──────────────────────────────────────────────────────────────────────── */
 
   /** @inheritdoc */
   _prepareSubmitData(event, form, formData) {

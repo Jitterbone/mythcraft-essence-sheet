@@ -11,10 +11,11 @@
     <div class="portrait-box {{#if isDead}}is-dead{{/if}}"
          data-action="editImage"
          title="{{#if isDead}}Character is Dead (Max Death Points Reached){{else}}Click to change character portrait{{/if}}">
-      <img class="portrait-img"
-           src="{{document.img}}"
-           alt="{{document.name}}"
-           data-action="editImage" />
+      <img class="profile profile-img portrait-img"
+           src="{{#if actor.img}}{{actor.img}}{{else if document.img}}{{document.img}}{{else}}icons/svg/mystery-man.svg{{/if}}"
+           alt="{{actor.name}}"
+           data-edit="img"
+           title="{{actor.name}}" />
       {{#if isDead}}
         <div class="dead-banner-overlay">DEAD</div>
       {{/if}}
@@ -86,7 +87,7 @@
         <div class="origins-row">
           {{!-- Level Chip --}}
           <div class="badge-chip level-chip" title="Character Level — Click arrow to Level Up / Manage HP">
-            <span class="chip-label">Level</span>
+            <span class="chip-label" data-action="openLevelUpDialog" title="Level Up or Manage Level 0 Character">Level</span>
             <input type="number"
                    name="system.level"
                    value="{{system.level}}"
@@ -424,6 +425,15 @@
             data-tooltip-direction="LEFT">
       <i class="fas fa-crosshairs tab-icon"></i>
       <span class="side-tab-badge">{{sideDrawer.weapons.count}}</span>
+    </button>
+
+    {{!-- 5. Talent Trees Tab --}}
+    <button type="button" 
+            class="side-bookmark-tab talent-tree-tab"
+            data-action="openTalentTreeViewer"
+            data-tooltip="<strong>Talent Tracks &amp; Trees</strong><br>View character talent progression trees"
+            data-tooltip-direction="LEFT">
+      <i class="fas fa-diagram-project tab-icon"></i>
     </button>
 
   </aside>

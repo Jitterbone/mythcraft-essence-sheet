@@ -43,11 +43,7 @@ export default class EssenceSiegeWeaponSheet extends SiegeWeaponSheet {
     },
     actions: {
       adjustAmmo: this.#adjustAmmo,
-<<<<<<< HEAD
-      editImage: this.#editImage,
-=======
       editImage: async function(event, target) { return this._onEditImage(event, target); },
->>>>>>> Level-up-Automation
       editDamageMod: this.#editDamageMod,
       createDoc: this.#createDoc,
       deleteDoc: this.#deleteDoc,

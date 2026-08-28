@@ -7,10 +7,23 @@
 
   {{!-- ── Power Levels ─────────────────────────────────────── --}}
   <div class="magic-levels-section">
-    <h3 class="section-header">
-      <i class="fas fa-hat-wizard"></i>
-      <span>Power Levels</span>
-    </h3>
+    <div class="magic-levels-header-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <h3 class="section-header" style="margin: 0;">
+        <i class="fas fa-hat-wizard"></i>
+        <span>Power Levels</span>
+      </h3>
+      <div class="magic-attribute-selector" style="display: flex; align-items: center; gap: 8px;">
+        <label for="magic-attr-select" style="font-size: 11px; font-weight: 700; color: #a8d5e2; text-transform: uppercase;"><i class="fas fa-wand-magic-sparkles"></i> Magic Attribute:</label>
+        <select id="magic-attr-select" class="magic-attr-dropdown" style="background: #151e24; color: #FEEBB3; border: 1px solid #246975; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: 700;">
+          <option value="int" {{#if (eq magicAttribute 'int')}}selected{{/if}}>INT (Intelligence)</option>
+          <option value="awr" {{#if (eq magicAttribute 'awr')}}selected{{/if}}>AWR (Awareness)</option>
+          <option value="cha" {{#if (eq magicAttribute 'cha')}}selected{{/if}}>CHA (Charisma)</option>
+          <option value="str" {{#if (eq magicAttribute 'str')}}selected{{/if}}>STR (Strength)</option>
+          <option value="dex" {{#if (eq magicAttribute 'dex')}}selected{{/if}}>DEX (Dexterity)</option>
+          <option value="end" {{#if (eq magicAttribute 'end')}}selected{{/if}}>END (Endurance)</option>
+        </select>
+      </div>
+    </div>
 
     <div class="magic-levels-grid">
       {{#each magicLevels as |ml|}}
@@ -107,6 +120,15 @@
               {{/if}}
 
               <div class="item-actions">
+                <select class="spell-attribute-dropdown" data-spell-attribute data-item-id="{{spell.item.id}}" title="Attribute used for this spell attack">
+                  <option value="" {{#unless spell.spellcastingAttribute}}selected{{/unless}}>Global</option>
+                  <option value="int" {{#if (eq spell.spellcastingAttribute 'int')}}selected{{/if}}>INT</option>
+                  <option value="awr" {{#if (eq spell.spellcastingAttribute 'awr')}}selected{{/if}}>AWR</option>
+                  <option value="cha" {{#if (eq spell.spellcastingAttribute 'cha')}}selected{{/if}}>CHA</option>
+                  <option value="str" {{#if (eq spell.spellcastingAttribute 'str')}}selected{{/if}}>STR</option>
+                  <option value="dex" {{#if (eq spell.spellcastingAttribute 'dex')}}selected{{/if}}>DEX</option>
+                  <option value="end" {{#if (eq spell.spellcastingAttribute 'end')}}selected{{/if}}>END</option>
+                </select>
                 <button type="button"
                         class="item-action-btn roll-btn cast-btn"
                         data-action="rollSpell"

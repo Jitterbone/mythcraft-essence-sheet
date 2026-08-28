@@ -46,6 +46,10 @@ Hooks.once("init", () => {
   // Register granular module settings
   registerSettings();
 
+  // Register helpers before any initialization can render an Application.
+  Handlebars.registerHelper("toUpperCase", (str) => typeof str === "string" ? str.toUpperCase() : String(str ?? ""));
+  Handlebars.registerHelper("uppercase", (str) => typeof str === "string" ? str.toUpperCase() : String(str ?? ""));
+
   // Initialize Automation Engines
   initDamageAutomation();
   initEquipmentAutomation();
@@ -55,15 +59,20 @@ Hooks.once("init", () => {
   initLuckPointReroll();
   initPermissionsFix();
 
-  const { DocumentSheetConfig } = foundry.applications.apps;
-
   // ── Actor & Item Sheets Registration ───────────────────────────────────────
   const registerActorSheet = (cls, type, label) => {
-    DocumentSheetConfig.registerSheet(foundry.documents.Actor, MODULE_ID, cls, {
-      makeDefault: true,
-      types: [type],
-      label,
-    });
+    const actorDoc = globalThis.Actor || foundry.documents?.BaseActor || foundry.documents?.Actor;
+    if (actorDoc && foundry.applications?.apps?.DocumentSheetConfig?.registerSheet) {
+      try {
+        foundry.applications.apps.DocumentSheetConfig.registerSheet(actorDoc, MODULE_ID, cls, {
+          makeDefault: true,
+          types: [type],
+          label,
+        });
+      } catch (e) {
+        console.warn(`${MODULE_ID} | DocumentSheetConfig.registerSheet for ${type} failed:`, e);
+      }
+    }
     if (globalThis.Actors?.registerSheet) {
       try {
         globalThis.Actors.registerSheet(MODULE_ID, cls, {
@@ -71,7 +80,9 @@ Hooks.once("init", () => {
           types: [type],
           label,
         });
-      } catch (e) {}
+      } catch (e) {
+        console.warn(`${MODULE_ID} | Actors.registerSheet for ${type} failed:`, e);
+      }
     }
   };
 
@@ -79,10 +90,15 @@ Hooks.once("init", () => {
   registerActorSheet(EssenceNPCSheet, "npc", "MythCraft Essence: NPC Sheet");
   registerActorSheet(EssenceSiegeWeaponSheet, "siege", "MythCraft Essence: Siege Weapon Sheet");
 
-  DocumentSheetConfig.registerSheet(foundry.documents.Item, MODULE_ID, EssenceItemSheet, {
-    makeDefault: true,
-    label: "MythCraft Essence: Item Sheet",
-  });
+  const itemDoc = globalThis.Item || foundry.documents?.BaseItem || foundry.documents?.Item;
+  if (itemDoc && foundry.applications?.apps?.DocumentSheetConfig?.registerSheet) {
+    try {
+      foundry.applications.apps.DocumentSheetConfig.registerSheet(itemDoc, MODULE_ID, EssenceItemSheet, {
+        makeDefault: true,
+        label: "MythCraft Essence: Item Sheet",
+      });
+    } catch (e) {}
+  }
   if (globalThis.Items?.registerSheet) {
     try {
       globalThis.Items.registerSheet(MODULE_ID, EssenceItemSheet, {
@@ -128,9 +144,25 @@ Hooks.once("init", () => {
   Handlebars.registerHelper("gt",  (a, b) => Number(a) >  Number(b));
   Handlebars.registerHelper("lt",  (a, b) => Number(a) <  Number(b));
   Handlebars.registerHelper("eq",  (a, b) => a === b);
-  Handlebars.registerHelper("ne",  (a, b) => a !== b);
+  Handlebars.registerHelper("add", (a, b) => Number(a) + Number(b));
   Handlebars.registerHelper("subtract", (a, b) => Number(a) - Number(b));
-
+  Handlebars.registerHelper("and", (...args) => {
+    args.pop();
+    return args.every(Boolean);
+  });
+  Handlebars.registerHelper("or", (...args) => {
+    args.pop();
+    return args.some(Boolean);
+  });
+  Handlebars.registerHelper("not", (val) => !val);
+  Handlebars.registerHelper("includes", (collection, item) => {
+    if (!collection || !item) return false;
+    if (typeof collection === "string") return collection.includes(String(item));
+    if (Array.isArray(collection)) return collection.includes(item);
+    if (collection instanceof Set) return collection.has(item);
+    if (typeof collection === "object") return Object.values(collection).includes(item);
+    return false;
+  });
   // String concat helper (used as sub-expression in formInput name= param)
   // Only register if Foundry hasn't already provided one.
   if (!Handlebars.helpers["concat"]) {
@@ -676,9 +708,6 @@ Hooks.once("ready", async () => {
     }
   }
 
-  // Ensure Weapon APC getter and evaluateFormula are patched
-  patchWeaponApcGetter();
-
   // Expose Tag, Defense & Damage API globally for external modules (e.g. MythCraft HUD) or macros
   const moduleObj = game.modules.get(MODULE_ID);
   if (moduleObj) {
@@ -695,10 +724,6 @@ Hooks.once("ready", async () => {
     };
   }
 
-});
-
-Hooks.once("setup", () => {
-  patchWeaponApcGetter();
 });
 
 /* ─────────────────────────────────────────────────────────────────────────────

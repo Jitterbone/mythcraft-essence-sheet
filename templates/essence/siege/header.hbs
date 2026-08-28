@@ -9,9 +9,10 @@
     <div class="portrait-box npc-portrait-box siege-portrait-box"
          data-action="editImage"
          title="Click to change siege engine image">
-      <img class="portrait-img"
-           src="{{document.img}}"
-           alt="{{document.name}}" />
+      <img class="profile profile-img portrait-img"
+           src="{{#if document.img}}{{document.img}}{{else if actor.img}}{{actor.img}}{{else}}icons/svg/mystery-man.svg{{/if}}"
+           alt="{{document.name}}"
+           data-edit="img" />
       <div class="portrait-overlay">
         <i class="fas fa-camera"></i>
       </div>

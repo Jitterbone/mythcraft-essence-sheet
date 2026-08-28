@@ -1,4 +1,4 @@
-# Mythcraft Essence Sheet (v0.3.0-alpha) 📜✨
+# Mythcraft Essence Sheet (v0.3.1-alpha) 📜✨
 
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Development-FF5E5B?style=flat&logo=kofi&logoColor=white)](https://ko-fi.com/jitterbone)
 
@@ -104,7 +104,13 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 
 ---
 
-### 🛡️ 7. Integrated Damage Automation & Defenses Engine
+### 🛡️ 7. Dynamic Defense Formulas & Damage Automation Engine
+- **Custom Defense Formulas & Automation**:
+  - Full support for entering custom formula strings (e.g. `10 + @INT`, `10 + @DEX`, `10 + max(@INT, @DEX)`) or flat integers (e.g. `15`) for any defense (`REF`, `FORT`, `ANT`, `LOG`, `WILL`, and `AR`).
+  - `@ATTR` tokens dynamically resolve against the character's active attribute modifiers in real time.
+  - **Dynamic Equipment Layering**: Donned armor, shields, enhancements, and system bonuses layer on top of evaluated base formulas without destructive database overwrites.
+  - **Click-to-Edit Defense Badges**: Clicking any defense badge on the sheet opens the configuration dialog directly, with hover tooltips displaying the active formula.
+  - **NPC Sheet Parity**: NPC sheets feature the same formula evaluation and equipment defense automation.
 - **Full MythCraft Damage Pipeline**:
   - Intercepts chat damage application and evaluates incoming damage against:
     1. **Damage Threshold (DT)**: Cancels damage below threshold.
@@ -129,7 +135,8 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 - **Robust Weapon APC Formula Parsing**:
   - Normalizes compendium formulas containing `, min X` notation (e.g. `8-STR, min 4`, `5-STR, min 2`) without throwing parsing errors.
 - **Native Avatar & Tokenizer Compatibility**:
-  - Native Foundry image editing support with full compatibility for **Tokenizer** and other portrait modules.
+  - Native Foundry image editing support with full compatibility for **Tokenizer** and third-party portrait modules.
+  - Robust form submission sanitization prevents extension-less or empty image DataModel validation errors.
 
 ---
 
@@ -165,6 +172,17 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 ---
 
 ## 📝 Changelog
+
+### v0.3.1-alpha
+- **Custom Attribute Defense Formulas & Automation**:
+  - Defenses (`REF`, `FORT`, `ANT`, `LOG`, `WILL`, `AR`) now accept custom formula strings (e.g. `10 + @INT`, `10 + max(@INT, @DEX)`) and flat integers.
+  - `@ATTR` and `@attributes.<attr>` tokens resolve directly to attribute modifiers.
+  - Shield bonuses, armor modifiers, and enhancements stack dynamically on top of evaluated formulas without converting formula strings to static integers in the database.
+  - Added direct click-to-edit interactions and formula tooltips on defense badges for Character and NPC sheets.
+  - Full equipment defense calculation parity brought to the NPC sheet.
+- **Actor Image & Tokenizer Compatibility**:
+  - Direct pointer events passthrough on portrait overlays ensures Tokenizer capture-phase listeners open the Tokenizer window natively.
+  - Sanitized form submission data models across Character, NPC, and Siege sheets to eliminate `img: does not have a valid file extension` validation errors when updating attributes and names.
 
 ### v0.3.0-alpha
 - **Character Creation Wizard**:

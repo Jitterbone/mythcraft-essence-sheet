@@ -8,12 +8,17 @@ import {
   getAvailableCompendiums,
   loadPacksDocuments,
   parseAttributeBonusPoints,
+  parseLineageAttributeBonusSources,
+  parseLineageMilestones,
   getAttributeLevelCap,
   calculateAttributePool,
   parseBackgroundData,
   parseProfessionData,
   parseTalentData,
   checkTalentAvailability,
+  resolveLineageFeatures,
+  groupTalentsByStack,
+  buildTalentTrees,
 } from "../features/compendium-parser.mjs";
 import { getSetting } from "../settings.mjs";
 import { getEnduranceThreshold, ENDURANCE_THRESHOLDS } from "../features/hp-automation.mjs";
@@ -36,6 +41,8 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       expandedCardIds: new Set(),
       searches: { lineage: "", background: "", profession: "", talent: "", spell: "" },
       bonusAttributePoints: 0,
+      bonusAttributeSources: [],
+      lineageMilestones: "",
 
       // Step 2: Attributes
       attributes: {
@@ -50,7 +57,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       // Step 3: Stats
       hpMode: "set", // "set" | "roll"
 
-      // Step 4 & 5: Background & Profession (BOPs)
+      // Step 4: Background & Profession (BOPs)
       backgrounds: [],
       selectedBackgroundId: null,
       backgroundConfirmed: false,
@@ -62,7 +69,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       professionConfirmed: false,
       selectedProfessionSkills: [],
 
-      // Step 6: Starting Talent & Magic
+      // Step 5: Talents
       talents: [],
       selectedTalentId: null,
       selectedExtraTalentIds: [],
@@ -88,8 +95,8 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       resizable: true,
     },
     position: {
-      width: 780,
-      height: 720,
+      width: 860,
+      height: 760,
     },
     actions: {
       nextStep: this.#onNextStep,
@@ -111,6 +118,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       setMagicAttribute: this.#onSetMagicAttribute,
       toggleCardExpand: this.#toggleCardExpand,
       setSearch: this.#setSearch,
+      viewTalent: this.#onViewTalent,
       finalize: this.#onFinalize,
     },
   };
@@ -167,8 +175,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     // Starting Talents: Specialization and Magic Entry talents (Level 1 characters cannot take Class talents)
     const specTalents = await loadPacksDocuments(packs.specTalents);
     const magicTalents = await loadPacksDocuments(packs.magic, { type: "talent" });
-    const startingTalents = [...specTalents, ...magicTalents];
-    this.data.talents = startingTalents.filter(talent => checkTalentAvailability(talent, [] ).isAvailable);
+    this.data.talents = [...specTalents, ...magicTalents];
 
     // Magic Spells & Cantrips
     this.data.availableSpells = await loadPacksDocuments(packs.magic, { type: "spell" });
@@ -180,8 +187,44 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       await this.loadCompendiumData();
     }
 
+    // 1. Detect and register Custom Attributes & Sanity
+    const coreKeys = new Set(["str", "dex", "end", "awr", "int", "cha"]);
+    const sanityEnabled = Boolean(getSetting("enableSanity", false));
+    const validCustomKeys = new Set();
+    if (sanityEnabled) {
+      validCustomKeys.add("san");
+      if (this.data.attributes.san === undefined) {
+        this.data.attributes.san = 0;
+      }
+    }
+
+    const customAttrsSetting = getSetting("customAttributes", []);
+    if (Array.isArray(customAttrsSetting)) {
+      for (const ca of customAttrsSetting) {
+        const key = (typeof ca === "string" ? ca : ca?.key || ca?.id || "").toLowerCase().trim();
+        if (key && !coreKeys.has(key) && key !== "lck") {
+          validCustomKeys.add(key);
+          if (this.data.attributes[key] === undefined) {
+            this.data.attributes[key] = 0;
+          }
+        }
+      }
+    }
+
+    // Clean up this.data.attributes so no unintended system keys pollute the attributes list
+    for (const k of Object.keys(this.data.attributes)) {
+      const lower = k.toLowerCase().trim();
+      if (!coreKeys.has(lower) && !validCustomKeys.has(lower)) {
+        delete this.data.attributes[k];
+      }
+    }
+
+    // Base pool is 5 points for core 6 attributes. Each enabled custom attribute grants an additional +1 attribute point!
+    const customAttrCount = validCustomKeys.size;
+    const baseAttributePool = 5 + customAttrCount;
+
     const levelCap = getAttributeLevelCap(1); // At level 1, max +2
-    const pool = calculateAttributePool(this.data.attributes, this.data.bonusAttributePoints, 5);
+    const pool = calculateAttributePool(this.data.attributes, this.data.bonusAttributePoints, baseAttributePool);
 
     const attrNames = {
       str: "Strength",
@@ -198,57 +241,90 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       label: key.toUpperCase(),
       name: attrNames[key] || key.toUpperCase(),
       value: val,
+      isAtCap: val >= levelCap,
+      canIncrease: val < levelCap && pool.remaining > 0,
+      canDecrease: val > -10,
     }));
 
     // Selected Lineage Data
     const selectedLineage = this.data.lineages.find(l => l.id === this.data.selectedLineageId);
-    const lineageFolder = selectedLineage?.folder;
-    const lineageFolderId = lineageFolder?.id || lineageFolder;
-    const lineageFolderName = String(lineageFolder?.name || "").trim().toLowerCase();
-    const folderNames = folder => {
-      const names = [];
-      let current = folder;
-      while (current) {
-        if (current.name) names.push(String(current.name).trim().toLowerCase());
-        current = current.parent;
-      }
-      return names;
-    };
-    const folderIds = folder => {
-      const ids = [];
-      let current = folder;
-      while (current) {
-        if (current.id) ids.push(current.id);
-        current = current.parent;
-      }
-      return ids;
-    };
-    const lineageFeatures = selectedLineage
-      ? this.data.allLineageDocs.filter(doc => {
-          if (doc.id === selectedLineage.id) return false;
-          const docFolderId = doc.folder?.id || doc.folder;
-          const sameFolder = lineageFolderId
-            ? docFolderId === lineageFolderId || folderIds(doc.folder).includes(lineageFolderId)
-            : folderNames(doc.folder).includes(lineageFolderName);
-          return sameFolder && ["feature", "talent"].includes(String(doc.type || "").toLowerCase());
-        })
-      : [];
-    const lineageStartingFeatures = lineageFeatures.filter(feature => folderNames(feature.folder).some(name => name.endsWith("starting features")));
-    const lineageUniqueFeatures = lineageFeatures.filter(feature => folderNames(feature.folder).some(name => name.startsWith("all ") && name.endsWith("features")));
-    const eligibleUniqueFeatures = lineageUniqueFeatures.filter(feature => checkTalentAvailability(feature, [selectedLineage, ...lineageStartingFeatures]).isAvailable);
+
+    // Resolve starting features and unique features strictly isolated to this lineage
+    const { startingFeatures: lineageStartingFeatures, uniqueFeatures: lineageUniqueFeaturesRaw } = 
+      resolveLineageFeatures(selectedLineage, this.data.allLineageDocs || []);
+
+    const selectedFeature = lineageUniqueFeaturesRaw.find(feature => feature.id === this.data.selectedFeatureId);
+
+    // Build authentic Lineage Talent Tree for unique selectable features
+    const lineageTrees = buildTalentTrees(lineageUniqueFeaturesRaw, selectedFeature ? [{ name: selectedFeature.name }] : []);
+
+    // Evaluate prerequisites for unique lineage features list
+    const lineageUniqueFeatures = lineageUniqueFeaturesRaw.map(feature => {
+      const avail = checkTalentAvailability(feature, [selectedLineage, ...lineageStartingFeatures]);
+      return {
+        id: feature.id,
+        name: feature.name,
+        img: feature.img || "icons/svg/aura.svg",
+        description: feature.system?.description?.value ?? feature.system?.description ?? "",
+        isAvailable: avail.isAvailable,
+        missingPrereqs: avail.missingPrereqs,
+        prereqTooltip: avail.prereqTooltip,
+      };
+    });
+
+    const eligibleUniqueFeatures = lineageUniqueFeatures.filter(f => f.isAvailable);
     this.data.lineageStartingFeatures = lineageStartingFeatures;
     this.data.eligibleUniqueFeatures = eligibleUniqueFeatures;
-    const selectedFeature = eligibleUniqueFeatures.find(feature => feature.id === this.data.selectedFeatureId);
-    
+
+    // Calculate attribute bonuses from lineage + starting features + selected unique feature
+    const lineageBonusData = parseLineageAttributeBonusSources(selectedLineage, lineageStartingFeatures, selectedFeature);
+    this.data.bonusAttributePoints = lineageBonusData.total;
+    this.data.bonusAttributeSources = lineageBonusData.sources;
+    const bonusAttributeSourcesTooltip = lineageBonusData.sources.map(s => `${s.name} (+${s.points})`).join(", ");
+
+    // Milestone text
+    const lineageMilestones = parseLineageMilestones(selectedLineage);
+
     // Selected Background Data
     const selectedBackground = this.data.backgrounds.find(b => b.id === this.data.selectedBackgroundId);
     const parsedBackground = selectedBackground ? parseBackgroundData(selectedBackground) : null;
-    const encouragedTag = parsedBackground?.encouragedProfessions?.tag;
+    const encouragedTag = (parsedBackground?.encouragedProfessions?.tag || "").trim().toLowerCase();
+
+    // Helper to evaluate if profession is encouraged by background
+    const isEncouragedProfession = (profession) => {
+      if (!parsedBackground || !this.data.backgroundConfirmed) return false;
+      const pName = (profession.name || "").toLowerCase().replace(/ profession$/i, "").trim();
+      const pDesc = String(profession.system?.description?.value ?? profession.system?.description ?? "").toLowerCase();
+
+      // 1. Tag in profession tags
+      if (encouragedTag && (this.#hasTag(profession.system?.tags, encouragedTag) || this.#hasTag(profession.system?.tag, encouragedTag))) return true;
+
+      // 2. Tag in profession name or description
+      if (encouragedTag && (pName.includes(encouragedTag) || pDesc.includes(`tag: ${encouragedTag}`) || pDesc.includes(`tags: ${encouragedTag}`) || pDesc.includes(encouragedTag))) return true;
+
+      // 3. Matched by explicit UUID or name in background description
+      const rawUuids = parsedBackground?.encouragedProfessions?.rawProfessionUuids || [];
+      for (const ref of rawUuids) {
+        const refName = (ref.name || "").toLowerCase().replace(/ profession$/i, "").trim();
+        if (refName && (refName === pName || pName.includes(refName) || refName.includes(pName))) return true;
+        if (ref.uuid && (ref.uuid.includes(profession.id) || (profession._id && ref.uuid.includes(profession._id)))) return true;
+      }
+
+      return false;
+    };
+
+    // Professions sorted: encouraged professions with bonus in gold at the top
     const availableProfessions = parsedBackground && this.data.backgroundConfirmed
-      ? this.data.professions.map(profession => ({
-          ...profession,
-          isEncouraged: encouragedTag ? this.#hasTag(profession.system?.tags, encouragedTag) : false,
-        }))
+      ? this.data.professions.map(profession => {
+          const isEncouraged = isEncouragedProfession(profession);
+          return {
+            id: profession.id,
+            name: profession.name,
+            img: profession.img || "icons/svg/item-bag.svg",
+            system: profession.system,
+            isEncouraged,
+          };
+        }).sort((a, b) => (b.isEncouraged ? 1 : 0) - (a.isEncouraged ? 1 : 0))
       : [];
 
     // Selected Profession Data
@@ -258,56 +334,126 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       ? (this.data.allBopsDocs || []).filter(item => String(item.name || "").toLowerCase().startsWith(`${selectedProfession.name.toLowerCase().replace(/ profession$/, "")}: rank`))
       : [];
 
-    // Selected Talent Data
-    const selectedTalent = this.data.talents.find(t => t.id === this.data.selectedTalentId);
-    const parsedTalent = selectedTalent ? parseTalentData(selectedTalent) : null;
-    const talentGroups = [
-      { label: "Specialization Talents", key: "specialization", items: this.data.talents.filter(t => !parseTalentData(t).isMagicEntry) },
-      { label: "Magic Entry Talents", key: "magic", items: this.data.talents.filter(t => parseTalentData(t).isMagicEntry) },
-    ].filter(group => group.items.length);
-    const extraTalentOptions = parsedTalent?.magicStackTag
-      ? this.data.talents.filter(talent => parseTalentData(talent).magicStackTag === parsedTalent.magicStackTag)
-      : [];
+    // Search filter helper
     const matchesSearch = (document, query) => {
-      const text = `${document?.name || ""} ${document?.system?.description?.value || document?.system?.description || ""}`
+      const text = `${document?.name || ""} ${document?.system?.description?.value || document?.system?.description || document?.description || ""}`
         .replace(/<[^>]+>/g, " ").toLowerCase();
       return !query || text.includes(query.trim().toLowerCase());
     };
+
     const filteredLineages = this.data.lineages.filter(item => matchesSearch(item, this.data.searches.lineage));
     const filteredBackgrounds = this.data.backgrounds.filter(item => matchesSearch(item, this.data.searches.background));
     const filteredProfessions = availableProfessions.filter(item => matchesSearch(item, this.data.searches.profession));
+
+    // Known features/talents for prerequisite checking in Step 5
+    const knownItemsForPrereq = [
+      selectedLineage,
+      ...lineageStartingFeatures,
+      selectedFeature,
+      selectedBackground,
+      selectedProfession,
+    ].filter(Boolean);
+
+    // Selected Talent Data
+    const selectedTalent = this.data.talents.find(t => t.id === this.data.selectedTalentId);
+    const parsedTalent = selectedTalent ? parseTalentData(selectedTalent) : null;
+
+    // Divide talents into Stacks (Specialization & Magic)
+    const talentStacks = groupTalentsByStack(this.data.talents).map(stack => ({
+      stackName: stack.stackName,
+      stackKey: stack.stackKey,
+      items: stack.talents.map(t => {
+        const avail = checkTalentAvailability(t, knownItemsForPrereq);
+        const parsed = parseTalentData(t);
+        const descRaw = t.system?.description?.value ?? t.system?.description ?? "";
+        const descClean = descRaw.replace(/<[^>]+>/g, " ").trim();
+        const shortDesc = descClean.length > 120 ? descClean.substring(0, 117) + "..." : descClean;
+
+        return {
+          id: t.id,
+          name: t.name,
+          img: t.img || "icons/svg/aura.svg",
+          description: descRaw,
+          shortDesc,
+          isAvailable: avail.isAvailable,
+          missingPrereqs: avail.missingPrereqs,
+          prereqTooltip: avail.prereqTooltip,
+          parsed,
+        };
+      }),
+    }));
+
+    const talentGroups = [
+      { 
+        label: "Specialization Talents", 
+        key: "specialization", 
+        stacks: talentStacks.filter(s => !s.items.some(i => i.parsed?.isMagicEntry))
+      },
+      { 
+        label: "Magic Talents", 
+        key: "magic", 
+        stacks: talentStacks.filter(s => s.items.some(i => i.parsed?.isMagicEntry))
+      },
+    ];
+
+    // Filter talent groups by search
     const filteredTalentGroups = talentGroups.map(group => ({
       ...group,
-      items: group.items.filter(item => matchesSearch(item, this.data.searches.talent)),
-    })).filter(group => group.items.length);
-    const filteredSpells = this.data.availableSpells.filter(item => matchesSearch(item, this.data.searches.spell));
-    const backgroundSkillSpent = Object.values(this.data.allocatedSkills).reduce((sum, value) => sum + (Number(value) || 0), 0);
+      stacks: group.stacks.map(stack => ({
+        ...stack,
+        items: stack.items.filter(item => matchesSearch(item, this.data.searches.talent)),
+      })).filter(stack => stack.items.length > 0),
+    })).filter(group => group.stacks.length > 0);
 
-    // HP calculation based on Endurance
-    const endVal = this.data.attributes.end || 0;
-    const hpData = getEnduranceThreshold(endVal);
-    const setHpValue = 10 + 1 + (1 * hpData.setHp); // Level 1 HP formula: 10 + Level + (Level * SetHP)
+    // Extra talents and spells for magic entry talents
+    const extraTalentOptions = selectedTalent && parsedTalent?.extraStackTalents
+      ? this.data.talents.filter(t => t.id !== selectedTalent.id).map(t => {
+          const avail = checkTalentAvailability(t, [...knownItemsForPrereq, selectedTalent]);
+          return {
+            id: t.id,
+            name: t.name,
+            img: t.img,
+            isAvailable: avail.isAvailable,
+            missingPrereqs: avail.missingPrereqs,
+            prereqTooltip: avail.prereqTooltip,
+          };
+        })
+      : [];
+
+    const filteredSpells = this.data.availableSpells.filter(s => matchesSearch(s, this.data.searches.spell));
+
+    // Background skill allocator calculations
+    const backgroundSkillSpent = Object.values(this.data.allocatedSkills).reduce((sum, v) => sum + (Number(v) || 0), 0);
+    const backgroundSkillPool = parsedBackground?.skillPoints ?? 12;
+    const backgroundSkillRemaining = backgroundSkillPool - backgroundSkillSpent;
+
+    const hpData = getEnduranceThreshold(this.data.attributes.end || 0);
+    const setHpValue = 10 + 1 + (1 * hpData.setHp);
 
     return {
-      step: this.currentStep,
       actor: this.actor,
-      levelCap,
-      pool,
+      step: this.currentStep,
       data: this.data,
+      levelCap,
       attributesList,
-      selectedLineage,
+      pool,
+      bonusAttributeSourcesTooltip,
       filteredLineages,
       filteredBackgrounds,
       filteredProfessions,
-      lineageFeatures,
+      selectedLineage,
       lineageStartingFeatures,
       lineageUniqueFeatures,
       eligibleUniqueFeatures,
       selectedFeature,
+      lineageTrees,
+      lineageMilestones,
       selectedBackground,
       parsedBackground,
-      availableProfessions,
       backgroundSkillSpent,
+      backgroundSkillPool,
+      backgroundSkillRemaining,
+      availableProfessions,
       selectedProfession,
       parsedProfession,
       professionRankItems,
@@ -323,6 +469,56 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     };
   }
 
+  /** @inheritdoc */
+  _preRender(context, options) {
+    if (!this._savedScrolls) this._savedScrolls = new Map();
+    if (this.element) {
+      const scrollEls = this.element.querySelectorAll(".wizard-body-content, .wizard-step-panel, .skill-categories-allocator, .bops-selection-grid, .lineage-selection-grid");
+      for (const el of scrollEls) {
+        const cls = el.className;
+        this._savedScrolls.set(cls, el.scrollTop);
+      }
+    }
+    return super._preRender?.(context, options);
+  }
+
+  /** @inheritdoc */
+  _onRender(context, options) {
+    super._onRender?.(context, options);
+
+    // Restore scroll positions
+    if (this._savedScrolls && this.element) {
+      const scrollEls = this.element.querySelectorAll(".wizard-body-content, .wizard-step-panel, .skill-categories-allocator, .bops-selection-grid, .lineage-selection-grid");
+      for (const el of scrollEls) {
+        const cls = el.className;
+        if (this._savedScrolls.has(cls)) {
+          el.scrollTop = this._savedScrolls.get(cls);
+        }
+      }
+    }
+
+    // Setup responsive live search listeners
+    const searchInputs = this.element.querySelectorAll("input.wizard-search-input");
+    searchInputs.forEach(input => {
+      const searchKey = input.dataset.search;
+      if (!searchKey) return;
+
+      input.addEventListener("input", e => {
+        this.data.searches[searchKey] = e.target.value;
+        const cursorPos = e.target.selectionStart;
+        this.render();
+        // Re-focus search input after rendering
+        setTimeout(() => {
+          const freshInput = this.element.querySelector(`input.wizard-search-input[data-search="${searchKey}"]`);
+          if (freshInput) {
+            freshInput.focus();
+            try { freshInput.setSelectionRange(cursorPos, cursorPos); } catch (_) {}
+          }
+        }, 20);
+      });
+    });
+  }
+
   #hasTag(rawTags, target) {
     if (!rawTags || !target) return false;
     const values = Array.isArray(rawTags) ? rawTags : rawTags instanceof Set ? Array.from(rawTags) : Object.values(rawTags);
@@ -332,7 +528,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
   static #toggleCardExpand(event, target) {
     event.preventDefault();
     event.stopPropagation();
-    const card = target.closest(".wizard-selection-card, .bops-item-card, .talent-choice-card");
+    const card = target.closest(".wizard-selection-card, .bops-item-card, .talent-choice-card, .feature-detail-card");
     const cardId = card?.dataset.cardId;
     if (!cardId) return;
     if (this.data.expandedCardIds.has(cardId)) this.data.expandedCardIds.delete(cardId);
@@ -347,11 +543,32 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.render();
   }
 
+  #getBaseAttributePool() {
+    const coreKeys = new Set(["str", "dex", "end", "awr", "int", "cha"]);
+    const customKeys = Object.keys(this.data.attributes).filter(k => !coreKeys.has(k.toLowerCase()) && k !== "lck");
+    return 5 + customKeys.length;
+  }
+
   /* ─────────────────────────────────────────────────────────────────────────
    *  Action Handlers
    * ──────────────────────────────────────────────────────────────────────── */
 
   static #onNextStep(event, target) {
+    // Step validation checks
+    if (this.currentStep === 1 && !this.data.selectedLineageId) {
+      ui.notifications.warn("Please select a Lineage before proceeding.");
+      return;
+    }
+
+    if (this.currentStep === 2) {
+      const basePool = this.#getBaseAttributePool();
+      const pool = calculateAttributePool(this.data.attributes, this.data.bonusAttributePoints, basePool);
+      if (pool.remaining < 0) {
+        ui.notifications.warn("You have allocated more attribute points than available. Please adjust before proceeding.");
+        return;
+      }
+    }
+
     if (this.currentStep < 6) {
       this.currentStep++;
       this.render();
@@ -370,16 +587,32 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.data.selectedLineageId = id;
     this.data.expandedCardIds.add(id);
     this.data.selectedFeatureId = null;
-    const item = this.data.lineages.find(l => l.id === id);
-    if (item) {
-      this.data.bonusAttributePoints = parseAttributeBonusPoints(item);
-    }
     this.render();
   }
 
   static #onSelectLineageFeature(event, target) {
-    this.data.selectedFeatureId = target.dataset.featureId;
+    const id = target.dataset.featureId;
+    const isLocked = target.classList.contains("locked") || target.dataset.locked === "true";
+    if (isLocked) {
+      const tooltip = target.dataset.tooltip || "Prerequisites not met";
+      ui.notifications.warn(tooltip);
+      return;
+    }
+    this.data.selectedFeatureId = id;
     this.render();
+  }
+
+  static async #onViewTalent(event, target) {
+    event.preventDefault();
+    event.stopPropagation();
+    const id = target.dataset.talentId || target.dataset.featureId;
+    if (!id) return;
+    const doc = (this.data.allLineageDocs || []).find(d => d.id === id) 
+      || (this.data.talents || []).find(t => t.id === id)
+      || (this.data.allBopsDocs || []).find(b => b.id === id);
+    if (doc?.sheet?.render) {
+      doc.sheet.render(true);
+    }
   }
 
   static #onAdjustAttribute(event, target) {
@@ -389,9 +622,17 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     const levelCap = getAttributeLevelCap(1);
 
     const next = cur + delta;
-    if (next > levelCap) {
-      ui.notifications.warn(`Attributes cannot exceed +${levelCap} at level 1.`);
-      return;
+    if (delta > 0) {
+      const basePool = this.#getBaseAttributePool();
+      const pool = calculateAttributePool(this.data.attributes, this.data.bonusAttributePoints, basePool);
+      if (pool.remaining <= 0) {
+        ui.notifications.warn("No remaining attribute points to spend.");
+        return;
+      }
+      if (next > levelCap) {
+        ui.notifications.warn(`Attributes cannot exceed +${levelCap} at level 1.`);
+        return;
+      }
     }
 
     this.data.attributes[attr] = next;
@@ -428,10 +669,18 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     const bg = this.data.backgrounds.find(b => b.id === this.data.selectedBackgroundId);
     const parsed = bg ? parseBackgroundData(bg) : null;
     const cap = parsed?.perSkillCap ?? 4;
+    const maxPool = parsed?.skillPoints ?? 12;
 
-    if (next > cap) {
-      ui.notifications.warn(`This background limits individual skills to +${cap}.`);
-      return;
+    if (delta > 0) {
+      const currentSpent = Object.values(this.data.allocatedSkills).reduce((sum, v) => sum + (Number(v) || 0), 0);
+      if (currentSpent >= maxPool) {
+        ui.notifications.warn(`You have already spent all ${maxPool} background skill points.`);
+        return;
+      }
+      if (next > cap) {
+        ui.notifications.warn(`This background limits individual skills to +${cap}.`);
+        return;
+      }
     }
 
     this.data.allocatedSkills[skill] = next;
@@ -478,6 +727,12 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
   }
 
   static #onSelectTalent(event, target) {
+    const isLocked = target.classList.contains("locked") || target.dataset.locked === "true";
+    if (isLocked) {
+      const tooltip = target.dataset.tooltip || "Prerequisites not met";
+      ui.notifications.warn(tooltip);
+      return;
+    }
     this.data.selectedTalentId = target.dataset.talentId;
     this.data.expandedCardIds.add(target.dataset.cardId);
     this.data.selectedExtraTalentIds = [];
@@ -521,6 +776,13 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
   }
 
   static async #onFinalize(event, target) {
+    const basePool = this.#getBaseAttributePool();
+    const pool = calculateAttributePool(this.data.attributes, this.data.bonusAttributePoints, basePool);
+    if (pool.remaining < 0) {
+      ui.notifications.error("Attribute points are over-allocated. Please correct before completing.");
+      return;
+    }
+
     await this.applyToActor();
     this.close();
     ui.notifications.info(`Character Creation Complete for ${this.actor.name}!`);
@@ -532,16 +794,10 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
   async applyToActor() {
     const updates = {
       "system.level": 1,
-      "system.attributes.str": this.data.attributes.str || 0,
-      "system.attributes.dex": this.data.attributes.dex || 0,
-      "system.attributes.end": this.data.attributes.end || 0,
-      "system.attributes.awr": this.data.attributes.awr || 0,
-      "system.attributes.int": this.data.attributes.int || 0,
-      "system.attributes.cha": this.data.attributes.cha || 0,
     };
 
-    if (this.data.attributes.san !== undefined) {
-      updates["system.attributes.san"] = this.data.attributes.san;
+    for (const [attrKey, attrVal] of Object.entries(this.data.attributes)) {
+      updates[`system.attributes.${attrKey}`] = attrVal || 0;
     }
 
     // 1. HP calculation
@@ -601,6 +857,16 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       }
     }
 
+    // Background bonus skill for encouraged professions
+    if (parsedBg?.encouragedProfessions?.bonusSkill && prof) {
+      const tag = parsedBg.encouragedProfessions.tag;
+      const isEncouraged = tag ? (this.#hasTag(prof.system?.tags, tag) || prof.name.toLowerCase().includes(tag)) : false;
+      if (isEncouraged) {
+        const bKey = parsedBg.encouragedProfessions.bonusSkill.toLowerCase().trim();
+        skillUpdates[`system.skills.${bKey}.value`] = (this.actor.system?.skills?.[bKey]?.value || 0) + parsedBg.encouragedProfessions.bonusValue;
+      }
+    }
+
     Object.assign(updates, skillUpdates);
 
     // Apply actor updates
@@ -616,7 +882,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     for (const feature of this.data.lineageStartingFeatures || []) itemsToCreate.push(feature.toObject());
     if (this.data.selectedFeatureId) {
       const feature = this.data.allLineageDocs.find(item => item.id === this.data.selectedFeatureId);
-      if (feature && (this.data.eligibleUniqueFeatures || []).some(item => item.id === feature.id)) itemsToCreate.push(feature.toObject());
+      if (feature) itemsToCreate.push(feature.toObject());
     }
 
     if (bg) itemsToCreate.push(bg.toObject());

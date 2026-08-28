@@ -1,74 +1,142 @@
 {{!-- ============================================================
-     MythCraft Essence Sheet — Talent Tree & Track Viewer
+     MythCraft Essence Sheet — Talent Tree & Track Viewer (SRD Style)
      ============================================================ --}}
 <div class="talent-tree-viewer-root">
 
-  {{!-- Category Bar --}}
+  {{!-- Top Filter & Category Bar --}}
   <div class="tree-category-bar">
-    <button type="button" class="tree-cat-btn {{#if (eq activeCategory 'all')}}active{{/if}}" data-action="filterCategory" data-category="all">
-      <i class="fas fa-cubes"></i> All Active Tracks
-    </button>
-    <button type="button" class="tree-cat-btn {{#if (eq activeCategory 'class')}}active{{/if}}" data-action="filterCategory" data-category="class">Class</button>
-    <button type="button" class="tree-cat-btn {{#if (eq activeCategory 'specialization')}}active{{/if}}" data-action="filterCategory" data-category="specialization">Specialization</button>
-    <button type="button" class="tree-cat-btn {{#if (eq activeCategory 'magic')}}active{{/if}}" data-action="filterCategory" data-category="magic">Magic</button>
-    <input class="tree-search-input" type="search" data-action="searchTrees" value="{{searchTerm}}" placeholder="Search talents or tracks..." />
+    <div class="category-buttons-wrap">
+      <button type="button" class="tree-cat-btn {{#if (eq activeCategory 'character')}}active{{/if}}" data-action="filterCategory" data-category="character">
+        <i class="fas fa-user-shield"></i> Your Character {{#if startedTracksCount}}({{startedTracksCount}}){{/if}}
+      </button>
+      <button type="button" class="tree-cat-btn {{#if (eq activeCategory 'class')}}active{{/if}}" data-action="filterCategory" data-category="class">
+        <i class="fas fa-shield"></i> Class Tracks
+      </button>
+      <button type="button" class="tree-cat-btn {{#if (eq activeCategory 'specialization')}}active{{/if}}" data-action="filterCategory" data-category="specialization">
+        <i class="fas fa-crosshairs"></i> Specialization
+      </button>
+      <button type="button" class="tree-cat-btn {{#if (eq activeCategory 'magic')}}active{{/if}}" data-action="filterCategory" data-category="magic">
+        <i class="fas fa-wand-magic-sparkles"></i> Magic
+      </button>
+      <button type="button" class="tree-cat-btn {{#if (eq activeCategory 'all')}}active{{/if}}" data-action="filterCategory" data-category="all">
+        <i class="fas fa-cubes"></i> All Tracks ({{totalTracksCount}})
+      </button>
+    </div>
+
+    <div class="tree-search-wrap">
+      <i class="fas fa-search"></i>
+      <input class="tree-search-input" type="search" value="{{searchTerm}}" placeholder="Search talents or tracks..." />
+    </div>
   </div>
 
-  {{!-- Trees Canvas Container --}}
-  <div class="tree-canvas-container">
+  {{!-- Trees Canvas (Collapsible SRD Track Trees) --}}
+  <div class="tree-canvas-container srd-style-canvas">
     {{#if trees.length}}
-      {{#each trees as |tree|}}
-        <div class="talent-track-card">
-          <div class="track-header">
-            <div class="track-ornament left"></div>
-            <h3 class="track-title">{{tree.root.name}} Track</h3>
-            <div class="track-ornament right"></div>
-          </div>
-
-          <div class="track-nodes-flow">
-            {{#each tree.nodes as |node|}}
-              <div class="talent-node-card {{#if node.isOwned}}node-owned{{else if node.isAvailable}}node-available{{else}}node-locked{{/if}}">
-                <div class="node-icon-wrap">
-                  <img src="{{node.img}}" alt="{{node.name}}" />
-                  {{#if node.isOwned}}
-                    <span class="node-badge owned"><i class="fas fa-check"></i></span>
-                  {{else if (not node.isAvailable)}}
-                    <span class="node-badge locked"><i class="fas fa-lock"></i></span>
-                  {{/if}}
-                </div>
-
-                <div class="node-details">
-                  <h4 class="node-name">{{node.name}}</h4>
-                  {{#if node.prerequisites.length}}
-                    <span class="node-prereq">Req: {{#each node.prerequisites}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</span>
-                  {{/if}}
-                </div>
-
-                <div class="node-actions">
-                  <button type="button" class="node-btn view" data-action="viewTalent" data-talent-id="{{node.id}}" title="View Talent Details">
-                    <i class="fas fa-eye"></i>
-                  </button>
-                  <button type="button" class="node-btn chat" data-action="postTalent" data-talent-id="{{node.id}}" title="Post to Chat">
-                    <i class="fas fa-comment-alt"></i>
-                  </button>
-                  {{#if ../../isPickerMode}}
-                    {{#if node.isAvailable}}
-                      <button type="button" class="node-btn select" data-action="chooseTalent" data-talent-id="{{node.id}}" title="Select for Level Up">
-                        <i class="fas fa-plus"></i> Select
-                      </button>
+      <div class="srd-tracks-viewport {{#if (eq activeCategory 'character')}}character-focus-grid{{/if}}">
+        {{#each trees as |tree|}}
+          <div class="srd-track-column {{#if tree.isStarted}}track-active{{/if}} {{#if tree.isExpanded}}expanded{{else}}collapsed{{/if}}"
+               data-track-title="{{tree.trackTitle}}">
+            
+            {{!-- Collapsible Ornate SRD Track Banner --}}
+            <div class="srd-track-banner" data-action="toggleTrackExpand" data-track-title="{{tree.trackTitle}}">
+              <div class="banner-corner top-left"></div>
+              <div class="banner-corner top-right"></div>
+              <div class="banner-corner bottom-left"></div>
+              <div class="banner-corner bottom-right"></div>
+              
+              <div class="banner-content-row">
+                <div class="banner-title-wrap">
+                  <h3 class="srd-track-title">{{tree.trackTitle}}</h3>
+                  <div class="track-summary-pills">
+                    {{#if tree.ownedCount}}
+                      <span class="track-pill owned"><i class="fas fa-check"></i> {{tree.ownedCount}} Acquired</span>
                     {{/if}}
-                  {{/if}}
+                    {{#if tree.availableCount}}
+                      <span class="track-pill available"><i class="fas fa-sparkles"></i> {{tree.availableCount}} Available</span>
+                    {{/if}}
+                    <span class="track-pill total">{{tree.totalNodesCount}} Talents</span>
+                  </div>
+                </div>
+                <div class="track-expand-toggle">
+                  <i class="fas {{#if tree.isExpanded}}fa-chevron-down{{else}}fa-chevron-right{{/if}}"></i>
                 </div>
               </div>
-            {{/each}}
+            </div>
+
+            {{!-- Vertical Tier Flow (Visible when Expanded) --}}
+            {{#if tree.isExpanded}}
+              <div class="srd-tree-flow">
+                {{#each tree.tiers as |tier|}}
+                  <div class="srd-tier-level" data-tier="{{tier.tierNumber}}">
+                    
+                    {{!-- Connector down arrow --}}
+                    {{#unless @first}}
+                      <div class="srd-tier-connector">
+                        <div class="connector-stem"></div>
+                        <i class="fas fa-chevron-down connector-arrow"></i>
+                      </div>
+                    {{/unless}}
+
+                    <div class="srd-tier-nodes {{#if (gt tier.nodes.length 1)}}branching-row{{/if}}">
+                      {{#each tier.nodes as |node|}}
+                        <div class="srd-node-box {{#if node.isOwned}}node-owned{{else if node.isAvailable}}node-available{{else}}node-locked{{/if}}"
+                             data-talent-id="{{node.id}}"
+                             {{#unless node.isAvailable}}data-tooltip="{{node.prereqTooltip}}"{{/unless}}>
+                          
+                          <div class="node-main-box" data-action="viewTalent" data-talent-id="{{node.id}}">
+                            <span class="node-title">{{node.name}}</span>
+                            
+                            {{#if node.isOwned}}
+                              <span class="srd-status-icon owned" title="Acquired"><i class="fas fa-check-circle"></i></span>
+                            {{else if (not node.isAvailable)}}
+                              <span class="srd-status-icon locked" title="{{node.prereqTooltip}}"><i class="fas fa-lock"></i></span>
+                            {{/if}}
+                          </div>
+
+                          {{!-- Action Buttons --}}
+                          <div class="srd-node-actions">
+                            <button type="button" class="srd-action-btn view" data-action="viewTalent" data-talent-id="{{node.id}}" title="Inspect Talent">
+                              <i class="fas fa-eye"></i>
+                            </button>
+                            <button type="button" class="srd-action-btn chat" data-action="postTalent" data-talent-id="{{node.id}}" title="Share to Chat">
+                              <i class="fas fa-comment-alt"></i>
+                            </button>
+                            {{#if ../../../../isPickerMode}}
+                              {{#if node.isAvailable}}
+                                <button type="button" class="srd-action-btn select" data-action="chooseTalent" data-talent-id="{{node.id}}" title="Select for Level Up">
+                                  <i class="fas fa-plus"></i> Select
+                                </button>
+                              {{/if}}
+                            {{/if}}
+                          </div>
+
+                          {{#if node.prerequisites.length}}
+                            <div class="srd-req-badge" title="Prerequisites: {{#each node.prerequisites}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}">
+                              Req: {{#each node.prerequisites}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}
+                            </div>
+                          {{/if}}
+                        </div>
+                      {{/each}}
+                    </div>
+
+                  </div>
+                {{/each}}
+              </div>
+            {{/if}}
+
           </div>
-        </div>
-      {{/each}}
+        {{/each}}
+      </div>
     {{else}}
       <div class="empty-tree-state">
-        <i class="fas fa-diagram-project"></i>
-        <h3>No Started Talent Tracks</h3>
-        <p>Your character has not acquired any tracked talent paths yet. Level up or take a starting talent to begin following a track!</p>
+        <i class="fas fa-shield-halved"></i>
+        {{#if (eq activeCategory 'character')}}
+          <h3>No Started Tracks Yet</h3>
+          <p>Your character hasn't acquired talents from any tracks yet. Click the <strong>Class Tracks</strong>, <strong>Specialization</strong>, or <strong>Magic</strong> tabs above to explore available tracks!</p>
+        {{else}}
+          <h3>No Matching Talent Tracks</h3>
+          <p>No tracks found matching your current filter. Try selecting "All Tracks" or clearing your search.</p>
+        {{/if}}
       </div>
     {{/if}}
   </div>

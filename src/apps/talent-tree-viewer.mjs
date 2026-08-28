@@ -21,8 +21,9 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
     this.isPickerMode = options.isPickerMode ?? false;
     this.onSelectTalent = options.onSelectTalent ?? null;
     this.trees = [];
-    this.activeCategory = "all"; // "all" | "class" | "spec" | "magic"
+    this.activeCategory = "character"; // "character" | "class" | "specialization" | "magic" | "all"
     this.searchTerm = "";
+    this.expandedTrackTitles = new Set();
   }
 
   /** @inheritdoc */
@@ -31,20 +32,20 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
     classes: ["mythcraft", "essence-dialog", "talent-tree-viewer-dialog"],
     tag: "div",
     window: {
-      title: "MythCraft — Talent Tree & Tracks",
+      title: "MythCraft — Talent Trees & Tracks",
       icon: "fas fa-diagram-project",
       resizable: true,
     },
     position: {
-      width: 960,
-      height: 740,
+      width: 980,
+      height: 760,
     },
     actions: {
       viewTalent: this.#onViewTalent,
       postTalent: this.#onPostTalent,
       chooseTalent: this.#onChooseTalent,
       filterCategory: this.#onFilterCategory,
-      searchTrees: this.#onSearchTrees,
+      toggleTrackExpand: this.#onToggleTrackExpand,
     },
   };
 
@@ -56,37 +57,39 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
   };
 
   /**
-   * Loads talents from compendiums and builds interactive tree graphs.
+   * Loads talents from Class, Specialization, and Magic compendiums and builds tree graphs.
    */
   async loadTrees() {
     const packs = getAvailableCompendiums();
     const actorTalents = this.actor.items.filter(i => i.type === "talent" || i.type === "feature");
 
+    // ONLY source talents found in the Class, Magic, and Specialization Talents compendiums
+    const classTalents = await loadPacksDocuments(packs.classes);
+    const specTalents = await loadPacksDocuments(packs.specTalents);
+    const magicTalents = await loadPacksDocuments(packs.magic);
+
     const allTalents = [];
-    
-    // Load class, spec, and magic talents
-    const classTalents = await loadPacksDocuments(packs.classes, { type: "talent" });
-    const specTalents = await loadPacksDocuments(packs.specTalents, { type: "talent" });
-    const magicTalents = await loadPacksDocuments(packs.magic, { type: "talent" });
 
-    allTalents.push(...classTalents, ...specTalents, ...magicTalents);
-    const categories = new Map([
-      ...classTalents.map(talent => [talent.id, "class"]),
-      ...specTalents.map(talent => [talent.id, "specialization"]),
-      ...magicTalents.map(talent => [talent.id, "magic"]),
-    ]);
-
-    // Also include any custom talents from actor or other packs
-    for (const at of actorTalents) {
-      if (!allTalents.some(t => t.name === at.name)) {
-        allTalents.push(at);
+    for (const doc of classTalents) {
+      if (doc.type === "talent" || doc.type === "feature" || !doc.type) {
+        doc._compCategory = "class";
+        allTalents.push(doc);
+      }
+    }
+    for (const doc of specTalents) {
+      if (doc.type === "talent" || doc.type === "feature" || !doc.type) {
+        doc._compCategory = "specialization";
+        allTalents.push(doc);
+      }
+    }
+    for (const doc of magicTalents) {
+      if (doc.type === "talent" || doc.type === "feature" || !doc.type) {
+        doc._compCategory = "magic";
+        allTalents.push(doc);
       }
     }
 
-    this.trees = buildTalentTrees(allTalents, actorTalents).map(tree => ({
-      ...tree,
-      category: categories.get(tree.root.id) || "custom",
-    }));
+    this.trees = buildTalentTrees(allTalents, actorTalents);
   }
 
   /** @inheritdoc */
@@ -95,39 +98,103 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
       await this.loadTrees();
     }
 
-    const actorTalents = this.actor.items.filter(i => i.type === "talent" || i.type === "feature");
+    const startedTrees = this.trees.filter(t => t.isStarted);
+    const hasStarted = startedTrees.length > 0;
+    let displayTrees = this.trees;
 
-    // In viewer mode (non-picker), only show trees the character has started
-    let displayTrees = this.isPickerMode 
-      ? this.trees 
-      : this.trees.filter(t => t.isStarted);
-
-    if (!this.isPickerMode && displayTrees.length === 0) {
-      // If character has no started trees, show all available root tracks
-      displayTrees = this.trees.slice(0, 4);
+    // Filter by Active Tab
+    if (this.activeCategory === "character") {
+      displayTrees = startedTrees;
+    } else if (this.activeCategory !== "all") {
+      displayTrees = this.trees.filter(tree => tree.category === this.activeCategory);
     }
 
-    if (this.activeCategory !== "all") {
-      displayTrees = displayTrees.filter(tree => tree.category === this.activeCategory);
+    const query = (this.searchTerm || "").trim().toLowerCase();
+    if (query) {
+      displayTrees = displayTrees.filter(tree => {
+        const trackText = `${tree.trackTitle || ""} ${tree.root?.name || ""} ${tree.nodes?.map(n => n?.name || "").join(" ")}`.toLowerCase();
+        return trackText.includes(query);
+      });
     }
-    if (this.searchTerm.trim()) {
-      const query = this.searchTerm.trim().toLowerCase();
-      displayTrees = displayTrees.filter(tree => `${tree.root.name} ${tree.nodes.map(node => node.name).join(" ")}`.toLowerCase().includes(query));
-    }
+
+    // Prepare presentation tracks with expansion state
+    const tracks = displayTrees.map(tree => {
+      // In "Your Character" tab, started tracks are expanded by default unless explicitly collapsed
+      const isExpanded = (this.activeCategory === "character")
+        ? !this.expandedTrackTitles.has(`collapsed:${tree.trackTitle}`)
+        : (Boolean(query) || this.expandedTrackTitles.has(tree.trackTitle));
+
+      const ownedCount = tree.nodes.filter(n => n.isOwned).length;
+      const availableCount = tree.nodes.filter(n => n.isAvailable && !n.isOwned).length;
+
+      return {
+        ...tree,
+        isExpanded,
+        ownedCount,
+        availableCount,
+        totalNodesCount: tree.nodes.length,
+      };
+    });
 
     return {
       actor: this.actor,
       isPickerMode: this.isPickerMode,
-      trees: displayTrees,
-      hasStartedTrees: this.trees.some(t => t.isStarted),
+      trees: tracks,
+      totalTracksCount: this.trees.length,
+      startedTracksCount: startedTrees.length,
+      hasStartedTrees: hasStarted,
       activeCategory: this.activeCategory,
       searchTerm: this.searchTerm,
     };
   }
 
+  /** @inheritdoc */
+  _onRender(context, options) {
+    super._onRender?.(context, options);
+
+    // Setup live search listener with cursor and focus restoration
+    const searchInput = this.element.querySelector("input.tree-search-input");
+    if (searchInput) {
+      searchInput.addEventListener("input", e => {
+        this.searchTerm = e.target.value;
+        const cursorPos = e.target.selectionStart;
+        this.render();
+        setTimeout(() => {
+          const fresh = this.element.querySelector("input.tree-search-input");
+          if (fresh) {
+            fresh.focus();
+            try { fresh.setSelectionRange(cursorPos, cursorPos); } catch (_) {}
+          }
+        }, 20);
+      });
+    }
+  }
+
   /* ─────────────────────────────────────────────────────────────────────────
    *  Action Handlers
    * ──────────────────────────────────────────────────────────────────────── */
+
+  static #onToggleTrackExpand(event, target) {
+    event.preventDefault();
+    const trackTitle = target.dataset.trackTitle || target.closest(".srd-track-column")?.dataset.trackTitle;
+    if (!trackTitle) return;
+
+    if (this.activeCategory === "character") {
+      const collapseKey = `collapsed:${trackTitle}`;
+      if (this.expandedTrackTitles.has(collapseKey)) {
+        this.expandedTrackTitles.delete(collapseKey);
+      } else {
+        this.expandedTrackTitles.add(collapseKey);
+      }
+    } else {
+      if (this.expandedTrackTitles.has(trackTitle)) {
+        this.expandedTrackTitles.delete(trackTitle);
+      } else {
+        this.expandedTrackTitles.add(trackTitle);
+      }
+    }
+    this.render();
+  }
 
   static async #onViewTalent(event, target) {
     const talentId = target.dataset.talentId;
@@ -176,12 +243,7 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
   }
 
   static #onFilterCategory(event, target) {
-    this.activeCategory = target.dataset.category || "all";
-    this.render();
-  }
-
-  static #onSearchTrees(event, target) {
-    this.searchTerm = target.value || "";
+    this.activeCategory = target.dataset.category || "character";
     this.render();
   }
 }

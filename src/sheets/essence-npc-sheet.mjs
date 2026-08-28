@@ -17,6 +17,7 @@ import ActorTagsAssignmentDialog from "../apps/actor-tags-dialog.mjs";
 import { findTagDefinition, formatTagTitle } from "../data/tags-library.mjs";
 import { enrichText, getEnrichedItemTags, rollItemDamage, rollSpellItem, getActorCritHit, getActorCritFail } from "./essence-character-sheet.mjs";
 import { getDefenseTargetConfig, renderDefenseTargetBadgeHTML } from "../data/defense-config.mjs";
+import { applyEffectiveArmorAndDefenses } from "../features/equipment-automation.mjs";
 
 
 
@@ -599,6 +600,8 @@ export default class EssenceNPCSheet extends NPCSheet {
 
   /** @inheritdoc */
   async _prepareContext(options) {
+    applyEffectiveArmorAndDefenses(this.actor);
+
     const context = await super._prepareContext(options);
     context.isPlay = Boolean(this.isPlay);
     context.isGM = game.user.isGM;
@@ -1160,11 +1163,13 @@ export default class EssenceNPCSheet extends NPCSheet {
       return list;
     };
 
+    const sourceDefs = this.actor.system._source?.defenses || this.actor._source?.system?.defenses || this.actor.system.defenses || {};
     const buildAttr = (key, name, label, defKey, defName, defLabel) => {
       const val = sys.attributes?.[key] ?? 0;
       const bonus = Math.floor(val);
       const bonusDisplay = bonus >= 0 ? `+${bonus}` : `${bonus}`;
       const defenseVal = defKey ? sys.defenses?.[defKey] : null;
+      const defFormula = defKey ? (sourceDefs[defKey] || `10 + @${key.toUpperCase()}`) : null;
 
       return {
         key,
@@ -1172,7 +1177,7 @@ export default class EssenceNPCSheet extends NPCSheet {
         label,
         value: val,
         bonusDisplay,
-        defense: defKey ? { key: defKey, name: defName, label: defLabel, value: defenseVal } : null,
+        defense: defKey ? { key: defKey, name: defName, label: defLabel, value: defenseVal, formula: defFormula } : null,
         skills: getSkillsForAttr(key),
       };
     };

@@ -446,7 +446,69 @@ export function getWeaponDamageData(actor, weapon) {
 }
 
 /**
- * Applies all effective armor, defenses, speed, and restrictions directly to an actor's derived system data
+ * Evaluates an actor's defense formula (e.g. "10 + @DEX", "10 + @INT", "15", "10 + max(@INT, @DEX)").
+ * Supports @ATTR tokens for any standard or custom attribute, flat numbers, and arithmetic expressions.
+ * @param {string|number} formula
+ * @param {object} rollData
+ * @param {string} [defaultFormula="10"]
+ * @returns {number}
+ */
+export function evaluateDefenseFormula(formula, rollData = {}, defaultFormula = "10") {
+  if (formula === null || formula === undefined || String(formula).trim() === "") {
+    formula = defaultFormula;
+  }
+  const str = String(formula).trim();
+  if (/^-?\d+$/.test(str)) return Number(str);
+
+  let normalized = str;
+
+  // Replace @ATTR references with their numeric values
+  normalized = normalized.replace(/@([a-zA-Z0-9_.]+)/g, (match, key) => {
+    const lowerKey = key.toLowerCase();
+    const upperKey = key.toUpperCase();
+
+    if (rollData[upperKey] !== undefined) return String(rollData[upperKey]);
+    if (rollData[lowerKey] !== undefined) return String(rollData[lowerKey]);
+    if (rollData[key] !== undefined) return String(rollData[key]);
+
+    if (rollData.attributes) {
+      if (rollData.attributes[lowerKey] !== undefined) {
+        const val = rollData.attributes[lowerKey];
+        return String(typeof val === "object" && val !== null ? (val.value ?? 0) : val);
+      }
+      if (rollData.attributes[upperKey] !== undefined) {
+        const val = rollData.attributes[upperKey];
+        return String(typeof val === "object" && val !== null ? (val.value ?? 0) : val);
+      }
+    }
+
+    const nested = foundry?.utils?.getProperty ? foundry.utils.getProperty(rollData, key) : undefined;
+    if (nested !== undefined) return String(nested);
+
+    return "0";
+  });
+
+  try {
+    const sanitized = normalized
+      .replace(/max\(/g, "Math.max(")
+      .replace(/min\(/g, "Math.min(")
+      .replace(/floor\(/g, "Math.floor(")
+      .replace(/ceil\(/g, "Math.ceil(")
+      .replace(/abs\(/g, "Math.abs(");
+    if (/^[0-9+\-*/().,\sMathmaxinflecb]+$/.test(sanitized)) {
+      const result = new Function("return (" + sanitized + ");")();
+      return typeof result === "number" && !isNaN(result) ? result : 10;
+    }
+  } catch (err) {
+    console.warn(`[MythCraft Essence] Failed to evaluate defense formula: "${formula}"`, err);
+  }
+
+  return 10;
+}
+
+/**
+ * Calculates and applies effective Armor Rating (AR), Defenses (REF, FORT, ANT, LOG, WILL),
+ * and Movement speeds based on donned armor, shields, and equipped enhancements.
  * @param {Actor} actor
  */
 export function applyEffectiveArmorAndDefenses(actor) {
@@ -460,10 +522,6 @@ export function applyEffectiveArmorAndDefenses(actor) {
     if (!actor.system.defenses) actor.system.defenses = {};
 
     const baseDex = Number(actor.system.attributes?.dex ?? 0);
-    const baseEnd = Number(actor.system.attributes?.end ?? 0);
-    const baseAwr = Number(actor.system.attributes?.awr ?? 0);
-    const baseInt = Number(actor.system.attributes?.int ?? 0);
-    const baseCha = Number(actor.system.attributes?.cha ?? 0);
 
     const bonusAr = Number(actor.system.bonuses?.ar) || 0;
     const bonusRef = Number(actor.system.bonuses?.ref) || 0;
@@ -528,6 +586,41 @@ export function applyEffectiveArmorAndDefenses(actor) {
       effectiveDex = effectiveDexMax;
     }
 
+    // Prepare isolated roll data for defense formula evaluation
+    const rawRollData = typeof actor.getRollData === "function" ? actor.getRollData() : (actor.system || {});
+    const defenseRollData = { ...rawRollData, attributes: {} };
+
+    for (const [k, v] of Object.entries(actor.system.attributes || {})) {
+      const num = typeof v === "object" && v !== null ? Number(v.value ?? 0) : Number(v ?? 0);
+      const lower = k.toLowerCase();
+      const upper = k.toUpperCase();
+      defenseRollData[lower] = num;
+      defenseRollData[upper] = num;
+      defenseRollData.attributes[lower] = num;
+      defenseRollData.attributes[upper] = num;
+    }
+
+    // Apply effective (clamped) DEX for Reflexes formula evaluation
+    defenseRollData.dex = effectiveDex;
+    defenseRollData.DEX = effectiveDex;
+    defenseRollData.attributes.dex = effectiveDex;
+    defenseRollData.attributes.DEX = effectiveDex;
+
+    // Retrieve the base formula/value stored in actor _source
+    const sourceDefs = actor.system._source?.defenses || actor._source?.system?.defenses || actor.system.defenses || {};
+    const refFormula = sourceDefs.ref ?? "10 + @DEX";
+    const fortFormula = sourceDefs.fort ?? "10 + @END";
+    const antFormula = sourceDefs.ant ?? "10 + @AWR";
+    const logFormula = sourceDefs.log ?? "10 + @INT";
+    const willFormula = sourceDefs.will ?? "10 + @CHA";
+    const arFormula = sourceDefs.ar ?? "10";
+
+    const baseRef = evaluateDefenseFormula(refFormula, defenseRollData, "10 + @DEX");
+    const baseFort = evaluateDefenseFormula(fortFormula, defenseRollData, "10 + @END");
+    const baseAnt = evaluateDefenseFormula(antFormula, defenseRollData, "10 + @AWR");
+    const baseLog = evaluateDefenseFormula(logFormula, defenseRollData, "10 + @INT");
+    const baseWill = evaluateDefenseFormula(willFormula, defenseRollData, "10 + @CHA");
+
     if (donnedArmor) {
       const armorSys = donnedArmor.system || {};
 
@@ -543,19 +636,20 @@ export function applyEffectiveArmorAndDefenses(actor) {
       const logMod = parseSignedNumber(armorDefs.log, 0);
       const willMod = parseSignedNumber(armorDefs.will, 0);
 
-      actor.system.defenses.ref = 10 + effectiveDex + bonusRef + refMod + shieldRefBonus + enhRefBonus;
-      actor.system.defenses.fort = 10 + baseEnd + bonusFort + fortMod + shieldFortBonus + enhFortBonus;
-      actor.system.defenses.ant = 10 + baseAwr + bonusAnt + antMod + shieldAntBonus + enhAntBonus;
-      actor.system.defenses.log = 10 + baseInt + bonusLog + logMod + shieldLogBonus + enhLogBonus;
-      actor.system.defenses.will = 10 + baseCha + bonusWill + willMod + shieldWillBonus + enhWillBonus;
+      actor.system.defenses.ref = baseRef + bonusRef + refMod + shieldRefBonus + enhRefBonus;
+      actor.system.defenses.fort = baseFort + bonusFort + fortMod + shieldFortBonus + enhFortBonus;
+      actor.system.defenses.ant = baseAnt + bonusAnt + antMod + shieldAntBonus + enhAntBonus;
+      actor.system.defenses.log = baseLog + bonusLog + logMod + shieldLogBonus + enhLogBonus;
+      actor.system.defenses.will = baseWill + bonusWill + willMod + shieldWillBonus + enhWillBonus;
     } else {
       // Unarmored: Recalculate baseline 10 + attributes + bonuses + shield & enhancement additional armor
-      actor.system.defenses.ar = 10 + bonusAr + shieldArBonus + enhArBonus;
-      actor.system.defenses.ref = 10 + effectiveDex + bonusRef + shieldRefBonus + enhRefBonus;
-      actor.system.defenses.fort = 10 + baseEnd + bonusFort + shieldFortBonus + enhFortBonus;
-      actor.system.defenses.ant = 10 + baseAwr + bonusAnt + shieldAntBonus + enhAntBonus;
-      actor.system.defenses.log = 10 + baseInt + bonusLog + shieldLogBonus + enhLogBonus;
-      actor.system.defenses.will = 10 + baseCha + bonusWill + shieldWillBonus + enhWillBonus;
+      const baseAR = evaluateDefenseFormula(arFormula, defenseRollData, "10");
+      actor.system.defenses.ar = baseAR + bonusAr + shieldArBonus + enhArBonus;
+      actor.system.defenses.ref = baseRef + bonusRef + shieldRefBonus + enhRefBonus;
+      actor.system.defenses.fort = baseFort + bonusFort + shieldFortBonus + enhFortBonus;
+      actor.system.defenses.ant = baseAnt + bonusAnt + shieldAntBonus + enhAntBonus;
+      actor.system.defenses.log = baseLog + bonusLog + shieldLogBonus + enhLogBonus;
+      actor.system.defenses.will = baseWill + bonusWill + shieldWillBonus + enhWillBonus;
     }
   }
 
@@ -566,7 +660,8 @@ export function applyEffectiveArmorAndDefenses(actor) {
 
   if (donnedArmor || equippedEnhancement) {
     const strMinAuto = getSetting("armorStrMinAutomation", true);
-    const actorStr = Number(actor.system?.attributes?.str ?? 0);
+    const rawAttrStr = actor.system?.attributes?.str;
+    const actorStr = typeof rawAttrStr === "object" && rawAttrStr !== null ? Number(rawAttrStr.value ?? 0) : Number(rawAttrStr ?? 0);
 
     if (strMinAuto && totalStrMin > 0 && actorStr < totalStrMin) {
       if (actor.system.movement) actor.system.movement.walk = 0;

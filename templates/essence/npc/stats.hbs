@@ -39,7 +39,10 @@
                      title="{{attr.name}} Score" />
 
               {{#if attr.defense}}
-                <div class="defense-badge" title="{{attr.defense.name}}: {{attr.defense.value}}">
+                <div class="defense-badge"
+                     data-action="editAttribute"
+                     data-attribute="{{attr.key}}"
+                     title="{{attr.defense.name}}: {{attr.defense.value}}{{#if attr.defense.formula}} (Formula: {{attr.defense.formula}}){{/if}} — Click to edit">
                   <span class="def-tag">{{attr.defense.label}}</span>
                   <span class="def-num">{{attr.defense.value}}</span>
                 </div>
@@ -106,7 +109,10 @@
                      title="{{attr.name}} Score" />
 
               {{#if attr.defense}}
-                <div class="defense-badge" title="{{attr.defense.name}}: {{attr.defense.value}}">
+                <div class="defense-badge"
+                     data-action="editAttribute"
+                     data-attribute="{{attr.key}}"
+                     title="{{attr.defense.name}}: {{attr.defense.value}}{{#if attr.defense.formula}} (Formula: {{attr.defense.formula}}){{/if}} — Click to edit">
                   <span class="def-tag">{{attr.defense.label}}</span>
                   <span class="def-num">{{attr.defense.value}}</span>
                 </div>

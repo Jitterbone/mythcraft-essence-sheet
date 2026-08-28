@@ -893,19 +893,12 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     // Check STR requirements and update Dazed condition
     await syncArmorStrConditions(this.actor);
 
-    // Recalculate and persist effective defenses to the actor document
+    // Recalculate effective defenses in memory
     applyEffectiveArmorAndDefenses(this.actor);
-    await this.actor.update({
-      "system.defenses.ar": this.actor.system.defenses.ar,
-      "system.defenses.ref": this.actor.system.defenses.ref,
-      "system.defenses.fort": this.actor.system.defenses.fort,
-      "system.defenses.ant": this.actor.system.defenses.ant,
-      "system.defenses.log": this.actor.system.defenses.log,
-      "system.defenses.will": this.actor.system.defenses.will,
-    });
 
     const stateLabel = newDonState ? "Donned" : "Doffed";
     ui.notifications.info(`${item.name} is now ${stateLabel}. (AR: ${this.actor.system.defenses.ar})`);
+    this.render(false);
   }
 
   static async #toggleWearEnhancement(event, target) {
@@ -938,16 +931,8 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     // Check STR requirements and update Dazed condition
     await syncArmorStrConditions(this.actor);
 
-    // Recalculate and persist effective defenses to the actor document
+    // Recalculate effective defenses in memory
     applyEffectiveArmorAndDefenses(this.actor);
-    await this.actor.update({
-      "system.defenses.ar": this.actor.system.defenses.ar,
-      "system.defenses.ref": this.actor.system.defenses.ref,
-      "system.defenses.fort": this.actor.system.defenses.fort,
-      "system.defenses.ant": this.actor.system.defenses.ant,
-      "system.defenses.log": this.actor.system.defenses.log,
-      "system.defenses.will": this.actor.system.defenses.will,
-    });
 
     const stateLabel = newWearState ? "Worn" : "Removed";
     ui.notifications.info(`${item.name} enhancement is now ${stateLabel}. (AR: ${this.actor.system.defenses.ar})`);
@@ -2553,6 +2538,8 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       return list;
     };
 
+    const sourceDefs = this.actor.system._source?.defenses || this.actor._source?.system?.defenses || this.actor.system.defenses || {};
+
     context.physicalAttrs = [
       {
         key: "str",
@@ -2569,7 +2556,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         name: "Dexterity",
         value: attrs.dex ?? 0,
         bonusDisplay: formatBonus(attrs.dex ?? 0),
-        defense: { key: "ref", label: "REF", name: "Reflexes", value: defenses.ref ?? 10 },
+        defense: { key: "ref", label: "REF", name: "Reflexes", value: defenses.ref ?? 10, formula: sourceDefs.ref || "10 + @DEX" },
         skills: getSkillsForAttr("dex"),
       },
       {
@@ -2578,7 +2565,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         name: "Endurance",
         value: attrs.end ?? 0,
         bonusDisplay: formatBonus(attrs.end ?? 0),
-        defense: { key: "fort", label: "FORT", name: "Fortitude", value: defenses.fort ?? 10 },
+        defense: { key: "fort", label: "FORT", name: "Fortitude", value: defenses.fort ?? 10, formula: sourceDefs.fort || "10 + @END" },
         skills: getSkillsForAttr("end"),
       },
     ];
@@ -2590,7 +2577,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         name: "Awareness",
         value: attrs.awr ?? 0,
         bonusDisplay: formatBonus(attrs.awr ?? 0),
-        defense: { key: "ant", label: "ANT", name: "Anticipation", value: defenses.ant ?? 10 },
+        defense: { key: "ant", label: "ANT", name: "Anticipation", value: defenses.ant ?? 10, formula: sourceDefs.ant || "10 + @AWR" },
         skills: getSkillsForAttr("awr"),
       },
       {
@@ -2599,7 +2586,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         name: "Intellect",
         value: attrs.int ?? 0,
         bonusDisplay: formatBonus(attrs.int ?? 0),
-        defense: { key: "log", label: "LOG", name: "Logic", value: defenses.log ?? 10 },
+        defense: { key: "log", label: "LOG", name: "Logic", value: defenses.log ?? 10, formula: sourceDefs.log || "10 + @INT" },
         skills: getSkillsForAttr("int"),
       },
       {
@@ -2608,7 +2595,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         name: "Charisma",
         value: attrs.cha ?? 0,
         bonusDisplay: formatBonus(attrs.cha ?? 0),
-        defense: { key: "will", label: "WILL", name: "Willpower", value: defenses.will ?? 10 },
+        defense: { key: "will", label: "WILL", name: "Willpower", value: defenses.will ?? 10, formula: sourceDefs.will || "10 + @CHA" },
         skills: getSkillsForAttr("cha"),
       },
     ];

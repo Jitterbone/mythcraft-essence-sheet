@@ -223,6 +223,73 @@ export function registerSettings() {
     default: true,
   });
 
+  // ── AP & SP RESOURCE AUTOMATIONS ───────────────────────────────────────
+
+  game.settings.register(MODULE_ID, "turnAPMode", {
+    name: "Combat Turn AP Reset & Reactive Carryover",
+    hint: "Automatically reset character AP at the start of their combat turn with reactive AP carryover (capped at half level + 1).",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: {
+      auto: "Automatic (Default)",
+      prompt: "Prompt Confirmation Dialog",
+      disabled: "Disabled",
+    },
+    default: "auto",
+  });
+
+  game.settings.register(MODULE_ID, "movementAPMode", {
+    name: "Movement AP Deduction in Combat",
+    hint: "Automatically track token movement in active combat and deduct Action Points based on character speed and strides.",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: {
+      auto: "Automatic (Default)",
+      prompt: "Prompt Confirmation Dialog",
+      disabled: "Disabled",
+    },
+    default: "auto",
+  });
+
+  game.settings.register(MODULE_ID, "attackAPMode", {
+    name: "Attack & Action AP Deduction",
+    hint: "Automatically evaluate item APC formulas and deduct Action Points when weapons or actions are rolled in combat.",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: {
+      auto: "Automatic (Default)",
+      prompt: "Prompt Confirmation Dialog",
+      disabled: "Disabled",
+    },
+    default: "auto",
+  });
+
+  game.settings.register(MODULE_ID, "spellSPMode", {
+    name: "Spell SP Deduction",
+    hint: "Automatically deduct Spell Points (SP) when spells or magical powers are cast in or out of combat.",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: {
+      auto: "Automatic (Default)",
+      prompt: "Prompt Confirmation Dialog",
+      disabled: "Disabled",
+    },
+    default: "auto",
+  });
+
+  game.settings.register(MODULE_ID, "enforceSP", {
+    name: "Enforce Spell Point (SP) Limits",
+    hint: "Prompt or prevent player characters from casting spells if they lack sufficient Spell Points (GMs are exempt).",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+  });
+
   // ── COMBAT & DAMAGE AUTOMATIONS ──────────────────────────────────────────
 
   game.settings.register(MODULE_ID, "damageDefenseAutomation", {
@@ -321,6 +388,18 @@ export function registerSettings() {
       subHeader.innerHTML = '<i class="fas fa-shield-halved"></i> Armor Automations';
       subHeader.style.cssText = subHeaderStyle;
       targetArmor.parentNode.insertBefore(subHeader, targetArmor);
+    }
+
+    // Resource Subheading
+    const targetResourceEl = root.querySelector('[data-setting-id="mythcraft-essence-sheet.turnAPMode"]') ||
+                             root.querySelector('[name="mythcraft-essence-sheet.turnAPMode"]');
+    const targetResource = targetResourceEl?.closest('.form-group') || targetResourceEl?.closest('.setting') || targetResourceEl;
+    if (targetResource && !root.querySelector('.essence-resource-sub-header')) {
+      const subHeader = document.createElement('h4');
+      subHeader.className = 'essence-resource-sub-header';
+      subHeader.innerHTML = '<i class="fas fa-battery-bolt"></i> AP &amp; SP Resource Automations';
+      subHeader.style.cssText = subHeaderStyle;
+      targetResource.parentNode.insertBefore(subHeader, targetResource);
     }
 
     // Combat & Damage Subheading

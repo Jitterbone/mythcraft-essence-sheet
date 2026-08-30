@@ -212,7 +212,10 @@ export default class DamageModificationDialog extends HandlebarsApplicationMixin
         const typeKey = select.value;
         if (!typeKey) return;
         const targetListKey = select.dataset.target; // "resist" or "vulnerable"
-        const listEl = this.element.querySelector(`.${targetListKey}-entry-list`);
+        const selector = (targetListKey === "vulnerable" || targetListKey === "vuln")
+          ? ".vulnerable-entry-list, .vuln-entry-list"
+          : `.${targetListKey}-entry-list`;
+        const listEl = this.element.querySelector(selector);
         if (!listEl) return;
 
         // Check if already in list
@@ -298,7 +301,7 @@ export default class DamageModificationDialog extends HandlebarsApplicationMixin
     const resistString = resistParts.join(", ");
 
     // Collect configured Vulnerabilities
-    const vulnRows = this.element.querySelectorAll(".vuln-entry-list .dmg-entry-row");
+    const vulnRows = this.element.querySelectorAll(".vulnerable-entry-list .dmg-entry-row, .vuln-entry-list .dmg-entry-row");
     const vulnParts = [];
     for (const row of vulnRows) {
       const typeKey = row.dataset.type;

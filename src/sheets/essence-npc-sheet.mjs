@@ -183,9 +183,16 @@ export default class EssenceNPCSheet extends NPCSheet {
     if (attribute) this.actor.rollAttribute(attribute);
   }
 
-  static #editAttribute(event, target) {
-    const attribute = target.dataset.attribute;
-    if (attribute && this.actor.editAttribute) this.actor.editAttribute(attribute);
+  static async #editAttribute(event, target) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const attribute = target.dataset?.attribute || target.closest("[data-attribute]")?.dataset?.attribute;
+    if (!attribute) return;
+    const AttributeSkillInput = mythcraft?.applications?.apps?.AttributeSkillInput || globalThis.mythcraft?.applications?.apps?.AttributeSkillInput;
+    if (AttributeSkillInput) {
+      const input = new AttributeSkillInput({ document: this.actor, attribute });
+      await input.render({ force: true });
+    }
   }
 
   static async #rollSkill(event, target) {
@@ -344,7 +351,7 @@ export default class EssenceNPCSheet extends NPCSheet {
 
   static async #createTierAction(event, target) {
     event?.preventDefault?.();
-    const tier = Number(target.dataset?.tier || target.closest("[data-tier]")?.dataset?.tier || 1);
+    const tier = Number(target?.dataset?.tier || target?.closest?.("[data-tier]")?.dataset?.tier || 1);
     const itemData = {
       name: `New Tier ${tier} Action`,
       type: "feature",
@@ -352,10 +359,16 @@ export default class EssenceNPCSheet extends NPCSheet {
       system: {
         category: "action",
         tier: tier,
+        prerequisites: "",
       },
     };
-    const created = await this.actor.createEmbeddedDocuments("Item", [itemData]);
-    if (created?.[0]) created[0].sheet?.render(true);
+    try {
+      const created = await this.actor.createEmbeddedDocuments("Item", [itemData]);
+      if (created?.[0]) created[0].sheet?.render(true);
+    } catch (err) {
+      console.error("[MythCraft Essence] Failed to create Tier Action:", err);
+      ui.notifications.error("Failed to create Action.");
+    }
   }
 
   static async #createReaction(event, target) {
@@ -366,10 +379,16 @@ export default class EssenceNPCSheet extends NPCSheet {
       img: "icons/svg/lightning.svg",
       system: {
         category: "reaction",
+        prerequisites: "",
       },
     };
-    const created = await this.actor.createEmbeddedDocuments("Item", [itemData]);
-    if (created?.[0]) created[0].sheet?.render(true);
+    try {
+      const created = await this.actor.createEmbeddedDocuments("Item", [itemData]);
+      if (created?.[0]) created[0].sheet?.render(true);
+    } catch (err) {
+      console.error("[MythCraft Essence] Failed to create Reaction:", err);
+      ui.notifications.error("Failed to create Reaction.");
+    }
   }
 
   static async #createPassiveFeature(event, target) {
@@ -380,10 +399,16 @@ export default class EssenceNPCSheet extends NPCSheet {
       img: "icons/svg/aura.svg",
       system: {
         category: "passive",
+        prerequisites: "",
       },
     };
-    const created = await this.actor.createEmbeddedDocuments("Item", [itemData]);
-    if (created?.[0]) created[0].sheet?.render(true);
+    try {
+      const created = await this.actor.createEmbeddedDocuments("Item", [itemData]);
+      if (created?.[0]) created[0].sheet?.render(true);
+    } catch (err) {
+      console.error("[MythCraft Essence] Failed to create Feature:", err);
+      ui.notifications.error("Failed to create Feature.");
+    }
   }
 
   static async #createSpell(event, target) {
@@ -397,21 +422,33 @@ export default class EssenceNPCSheet extends NPCSheet {
         powerLevel: 1,
       },
     };
-    const created = await this.actor.createEmbeddedDocuments("Item", [itemData]);
-    if (created?.[0]) created[0].sheet?.render(true);
+    try {
+      const created = await this.actor.createEmbeddedDocuments("Item", [itemData]);
+      if (created?.[0]) created[0].sheet?.render(true);
+    } catch (err) {
+      console.error("[MythCraft Essence] Failed to create Spell:", err);
+      ui.notifications.error("Failed to create Spell.");
+    }
   }
 
   static async #createDoc(event, target) {
     event?.preventDefault?.();
     const type = target?.dataset?.type || "spell";
-    if (type === "spell") return this.#createSpell(event, target);
+    if (type === "spell") return EssenceNPCSheet.#createSpell.call(this, event, target);
+    if (type === "feature") return EssenceNPCSheet.#createTierAction.call(this, event, target);
     const itemData = {
       name: `New ${type.charAt(0).toUpperCase() + type.slice(1)}`,
       type,
       img: "icons/svg/item-bag.svg",
+      system: type === "feature" ? { prerequisites: "" } : {},
     };
-    const created = await this.actor.createEmbeddedDocuments("Item", [itemData]);
-    if (created?.[0]) created[0].sheet?.render(true);
+    try {
+      const created = await this.actor.createEmbeddedDocuments("Item", [itemData]);
+      if (created?.[0]) created[0].sheet?.render(true);
+    } catch (err) {
+      console.error(`[MythCraft Essence] Failed to create ${type}:`, err);
+      ui.notifications.error(`Failed to create ${type}.`);
+    }
   }
 
   static async #createEffect(event, target) {
@@ -835,6 +872,9 @@ export default class EssenceNPCSheet extends NPCSheet {
           }
         }
       }
+      context.senseInfo = { activeSenses, list: activeSenses };
+      context.activeSenses = activeSenses;
+
       // Homebrew: Fear calculation on NPC Header
       const enableSanity = game.settings.get("mythcraft-essence-sheet", "enableSanity") ?? false;
       const showMetaSetting = game.settings.get("mythcraft-essence-sheet", "npcShowMetaphysicalAttrs") ?? false;

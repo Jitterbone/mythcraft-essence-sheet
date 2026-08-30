@@ -54,7 +54,8 @@ export default class SensesDialog extends HandlebarsApplicationMixin(Application
   /** @inheritdoc */
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
-    const currentSenses = this.document?.system?.senses || {};
+    const actor = this.document;
+    const rawSenses = actor?.system?.senses;
 
     const availableSenses = [
       { key: "blindsight", label: "Blindsight", icon: "fas fa-eye-low-vision", defaultDist: 30 },
@@ -65,8 +66,25 @@ export default class SensesDialog extends HandlebarsApplicationMixin(Application
       { key: "truesight", label: "Truesight", icon: "fas fa-sun", defaultDist: 30 },
     ];
 
+    let currentSensesMap = {};
+    if (typeof rawSenses === "string" && rawSenses.trim()) {
+      for (const part of rawSenses.split(",").map(p => p.trim()).filter(Boolean)) {
+        const lower = part.toLowerCase();
+        for (const s of availableSenses) {
+          if (lower.includes(s.key.toLowerCase()) || lower.includes(s.label.toLowerCase()) || (s.key === "lowlight" && lower.includes("low-light"))) {
+            const distMatch = part.match(/(\d+)/);
+            const dist = distMatch ? parseInt(distMatch[1], 10) : s.defaultDist;
+            currentSensesMap[s.key] = { value: dist };
+            break;
+          }
+        }
+      }
+    } else if (rawSenses && typeof rawSenses === "object") {
+      currentSensesMap = rawSenses;
+    }
+
     context.senses = availableSenses.map(s => {
-      const existing = currentSenses[s.key];
+      const existing = currentSensesMap[s.key];
       const enabled = existing !== undefined && existing !== null;
       const value = enabled ? (existing.value ?? s.defaultDist) : s.defaultDist;
       return {
@@ -76,8 +94,8 @@ export default class SensesDialog extends HandlebarsApplicationMixin(Application
       };
     });
 
-    context.actor = this.document;
-    context.system = this.document?.system;
+    context.actor = actor;
+    context.system = actor?.system;
     return context;
   }
 
@@ -107,22 +125,43 @@ export default class SensesDialog extends HandlebarsApplicationMixin(Application
     const actor = this.document;
     if (!actor) return;
 
+    const isNPC = actor.type === "npc" || (typeof actor.system?.senses === "string");
     const rawData = formData.object;
-    const updates = {};
 
-    const availableKeys = ["blindsight", "lowlight", "darkvision", "magicDarkvision", "tremorsense", "truesight"];
+    const availableSenses = [
+      { key: "blindsight", label: "Blindsight", defaultDist: 30 },
+      { key: "lowlight", label: "Low-Light Vision", defaultDist: 60 },
+      { key: "darkvision", label: "Darkvision", defaultDist: 60 },
+      { key: "magicDarkvision", label: "Magical Darkvision", defaultDist: 60 },
+      { key: "tremorsense", label: "Tremorsense", defaultDist: 30 },
+      { key: "truesight", label: "Truesight", defaultDist: 30 },
+    ];
 
-    for (const key of availableKeys) {
-      const isEnabled = Boolean(rawData[`sense_${key}_enabled`]);
-      if (isEnabled) {
-        const dist = Number(rawData[`sense_${key}_value`]) || 30;
-        updates[`system.senses.${key}`] = { value: dist };
-      } else {
-        updates[`system.senses.-=${key}`] = null;
+    if (isNPC) {
+      const senseStrings = [];
+      for (const s of availableSenses) {
+        const isEnabled = Boolean(rawData[`sense_${s.key}_enabled`]);
+        if (isEnabled) {
+          const dist = Number(rawData[`sense_${s.key}_value`]) || s.defaultDist;
+          senseStrings.push(`${s.label} ${dist} ft.`);
+        }
       }
+      const formatted = senseStrings.join(", ");
+      await actor.update({ "system.senses": formatted });
+    } else {
+      const updates = {};
+      for (const s of availableSenses) {
+        const isEnabled = Boolean(rawData[`sense_${s.key}_enabled`]);
+        if (isEnabled) {
+          const dist = Number(rawData[`sense_${s.key}_value`]) || s.defaultDist;
+          updates[`system.senses.${s.key}`] = { value: dist };
+        } else {
+          updates[`system.senses.-=${s.key}`] = null;
+        }
+      }
+      await actor.update(updates);
     }
 
-    await actor.update(updates);
     ui.notifications.info(`Updated Senses for ${actor.name}`);
   }
 }

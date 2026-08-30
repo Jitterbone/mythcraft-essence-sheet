@@ -2191,7 +2191,22 @@ export default class EssenceCharacterSheet extends CharacterSheet {
   }
 
   /** @inheritdoc */
+  async _preparePartContext(partId, context, options) {
+    if (this.actor?.system?.movement && typeof this.actor.system.movement === "object") {
+      if ("speed" in this.actor.system.movement) {
+        delete this.actor.system.movement.speed;
+      }
+    }
+    return super._preparePartContext(partId, context, options);
+  }
+
+  /** @inheritdoc */
   async _prepareContext(options) {
+    if (this.actor?.system?.movement && typeof this.actor.system.movement === "object") {
+      if ("speed" in this.actor.system.movement) {
+        delete this.actor.system.movement.speed;
+      }
+    }
     // Ensure effective armor, AR, defenses, and restrictions are calculated
     applyEffectiveArmorAndDefenses(this.actor);
 

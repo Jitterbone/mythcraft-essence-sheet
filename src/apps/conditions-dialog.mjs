@@ -30,6 +30,8 @@ const CONDITION_DESCRIPTIONS = {
   sickened: "Penalties to stamina and physical fortitude.",
   slowed: "All movement speeds are halved.",
   stunned: "Incapacitated, cannot move, and speak falteringly.",
+  completeSurprise: "Cannot move or take actions on the first round of combat.",
+  partialSurprise: "Do not act on the first round of Initiative and suffer TD on the second round.",
   surprised: "Cannot move or take actions on the first round of combat.",
   unconscious: "Incapacitated, drops what holding, falls prone, unaware of surroundings.",
   vulnerable: "Takes additional damage from specified damage types.",
@@ -137,14 +139,23 @@ export default class ConditionsDialog extends HandlebarsApplicationMixin(Applica
     }
 
     // Determine conditions to add and remove
-    for (const [id] of Object.entries(mythcraft?.CONFIG?.conditions || {})) {
+    const availableConditions = mythcraft?.CONFIG?.conditions || {};
+    for (const [id] of Object.entries(availableConditions)) {
       const isCurrentlyActive = actor.statuses?.has?.(id) || actor.effects?.some(e => e.statuses?.has?.(id));
       const shouldBeActive = selectedStatusIds.has(id);
 
       if (shouldBeActive && !isCurrentlyActive) {
-        await actor.toggleStatusEffect(id, { active: true });
+        try {
+          await actor.toggleStatusEffect(id, { active: true });
+        } catch (err) {
+          console.warn(`[MythCraft Essence] Could not enable status effect ${id}:`, err);
+        }
       } else if (!shouldBeActive && isCurrentlyActive) {
-        await actor.toggleStatusEffect(id, { active: false });
+        try {
+          await actor.toggleStatusEffect(id, { active: false });
+        } catch (err) {
+          console.warn(`[MythCraft Essence] Could not disable status effect ${id}:`, err);
+        }
       }
     }
 

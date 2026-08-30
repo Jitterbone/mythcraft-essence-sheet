@@ -904,7 +904,11 @@ export default class EssenceNPCSheet extends NPCSheet {
 
     // ── Unified Actions & Features Tab ──
     if (partId === "actions") {
-      const allFeatures = this.actor.itemTypes.feature || [];
+      const allFeatures = [
+        ...(this.actor.itemTypes.feature || []),
+        ...(this.actor.itemTypes.weapon || []),
+        ...(this.actor.itemTypes.talent || []),
+      ];
       const rawTier1 = [];
       const rawTier2 = [];
       const reactions = [];
@@ -925,12 +929,13 @@ export default class EssenceNPCSheet extends NPCSheet {
         
         // Attack/Damage Info
         const attackBonusRaw = feat.system?.attackBonus ?? feat.system?.toHit ?? feat.system?.attackModifier ?? feat.system?.attack;
-        const hasAttack = Boolean(attackBonusRaw !== undefined && attackBonusRaw !== null && attackBonusRaw !== "" && attackBonusRaw !== false);
+        const hasAttack = Boolean(attackBonusRaw !== undefined && attackBonusRaw !== null && attackBonusRaw !== "" && attackBonusRaw !== false) || Boolean(feat.system?.hasAttack);
+        const hasSave = Boolean(feat.system?.hasSave);
         const attackBonus = Number(attackBonusRaw ?? 0);
         const attackBonusDisplay = attackBonus >= 0 ? `+${attackBonus}` : `${attackBonus}`;
         
         const damageFormula = feat.system?.damageFormula || (Array.isArray(feat.system?.damage) ? feat.system.damage.map(d => d?.formula).filter(Boolean).join(" + ") : "") || (typeof feat.system?.damage === "string" ? feat.system.damage : "") || "";
-        const hasDamage = Boolean(damageFormula && damageFormula.trim().length > 0);
+        const hasDamage = Boolean(damageFormula && damageFormula.trim().length > 0) || (Array.isArray(feat.system?.damage) && feat.system.damage.length > 0);
         const defenseTarget = (feat.system?.defense || feat.system?.defenseTarget || "AR").toUpperCase();
 
         const entry = {
@@ -946,18 +951,17 @@ export default class EssenceNPCSheet extends NPCSheet {
           isHighlighted: false,
         };
 
-        const featNameLower = (feat.name || "").trim().toLowerCase();
-        const isMoveAction = featNameLower === "move" || featNameLower === "movement";
+        const isWeapon = feat.type === "weapon";
+        const hasExplicitActionCategory = cat === "action";
+        const hasExplicitReactionCategory = cat === "reaction";
+        const hasTier = feat.system?.tier !== undefined && feat.system?.tier !== null;
+        const tier = Number(feat.system?.tier || 1);
 
-        if (cat === "action" || (!cat && (feat.system?.tier || feat.system?.attack || feat.system?.damage))) {
-          const tier = Number(feat.system?.tier || 1);
-          // Exclude generic movement actions from the tier action lists (declared in Turn Action Economy header)
-          if (!isMoveAction) {
-            if (tier === 2) rawTier2.push(entry);
-            else rawTier1.push(entry);
-          }
-        } else if (cat === "reaction") {
+        if (hasExplicitReactionCategory) {
           reactions.push(entry);
+        } else if (hasExplicitActionCategory || isWeapon || hasTier || hasAttack || hasSave || hasDamage) {
+          if (tier === 2) rawTier2.push(entry);
+          else rawTier1.push(entry);
         } else {
           passives.push(entry);
         }
@@ -1180,13 +1184,13 @@ export default class EssenceNPCSheet extends NPCSheet {
       return n >= 0 ? `+${n}` : `${n}`;
     };
 
-    const hasSpecificSkills = Object.keys(allSkills).length > 0;
     const getSkillsForAttr = (attrKey) => {
       const list = [];
       for (const [id, cfg] of Object.entries(skillConfig)) {
         if (cfg.attribute === attrKey) {
           const sData = allSkills[id];
-          if (!hasSpecificSkills || sData !== undefined) {
+          // On NPCs, only show skills that are explicitly configured in system.skills
+          if (sData !== undefined && sData !== null) {
             const rawLabel = cfg.specialized && sData?.specialization 
               ? game.i18n.format(cfg.specialized, sData) 
               : (cfg.label ? game.i18n.localize(cfg.label) : id);

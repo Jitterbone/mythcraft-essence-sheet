@@ -179,8 +179,12 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
   - Active senses render as interactive pills on the NPC sheet header.
 - **Damage Modifications Vulnerability Fix**:
   - Resolved an issue in `DamageModificationDialog` where adding and saving vulnerabilities failed due to selector mismatch.
-- **NPC Tier Action & Feature Creation**:
+- **NPC Tier Action & Weapon Categorization**:
+  - Actions now retain their Tier 1 / Tier 2 column placement when renamed or edited via the Item Sheet, preventing items from inadvertently moving to passives.
+  - Extended action processing to include embedded `weapon` documents on NPC actors.
   - Guaranteed `prerequisites: ""` schema initialization on quick-add actions to ensure seamless document creation on new NPC sheets without validation rejections.
+- **NPC Skills Display on New Sheets**:
+  - Fixed an issue where all system skills were displayed by default on brand-new NPC sheets; now only explicitly configured/trained skills are shown under each attribute.
 - **Attribute Cog Wheel Dialog on NPC Sheets**:
   - Restored the attribute and skill configuration dialog (`AttributeSkillInput`) when clicking the cog wheel or defense badges on NPC sheets.
 

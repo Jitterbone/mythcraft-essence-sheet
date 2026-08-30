@@ -189,3 +189,4 @@ export class RestDialog extends HandlebarsApplicationMixin(ApplicationV2) {
     this.close();
   }
 }
+

@@ -471,3 +471,4 @@ export const mcConditions = [
     flags: { "mythcraft-essence-sheet": { "unseen": true }, "mythcraft-hud": { "unseen": true } }
   }
 ];
+

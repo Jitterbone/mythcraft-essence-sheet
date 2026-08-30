@@ -6,8 +6,45 @@
  */
 
 import { getSetting } from "../settings.mjs";
-import { evaluateApcFormula, getEffective2hApcReduction } from "./equipment-automation.mjs";
-import { getActorCritHit, rollItemDamage } from "./damage-automation.mjs";
+import { getActorCritHit } from "./luck-points.mjs";
+
+/**
+ * Evaluates an APC formula string (e.g. "8-STR, min 4", "5-DEX", "3")
+ * @param {string} formula
+ * @param {Actor} actor
+ * @returns {number}
+ */
+export function evaluateApcFormula(formula, actor) {
+  if (!formula || typeof formula !== "string") return 3;
+  let cleanFormula = formula.trim();
+
+  const minMatch = cleanFormula.match(/^(.*?)[,\s]+min\s+(\d+)$/i);
+  if (minMatch) {
+    cleanFormula = `Math.max(${minMatch[1]}, ${minMatch[2]})`;
+  }
+  const maxMatch = cleanFormula.match(/^(.*?)[,\s]+max\s+(\d+)$/i);
+  if (maxMatch) {
+    cleanFormula = `Math.min(${maxMatch[1]}, ${maxMatch[2]})`;
+  }
+
+  const attrs = ["str", "dex", "end", "con", "int", "awa", "per", "wis", "cha", "luck", "agi", "cor", "san"];
+  for (const attr of attrs) {
+    const val = Number(actor?.system?.attributes?.[attr]?.value ?? actor?.system?.attributes?.[attr] ?? 0);
+    const reg = new RegExp(`@?${attr}\\b`, 'gi');
+    cleanFormula = cleanFormula.replace(reg, val);
+  }
+
+  cleanFormula = cleanFormula.replace(/max\(/g, "Math.max(").replace(/min\(/g, "Math.min(");
+
+  try {
+    const evalFunc = new Function('return ' + cleanFormula);
+    const res = Number(evalFunc());
+    if (Number.isFinite(res) && res >= 0) return res;
+  } catch (err) {
+    return 3;
+  }
+  return 3;
+}
 
 /**
  * Calculates effective APC for an item
@@ -19,26 +56,22 @@ import { getActorCritHit, rollItemDamage } from "./damage-automation.mjs";
 export function calculateItemAPC(item, actor, options = {}) {
   if (!item) return 0;
 
-  const is2HMode = options.isTwoHanded || item.flags?.["mythcraft-essence-sheet"]?.isTwoHanded || false;
-  const rawFormula = item.system?.apcFormula || item._source?.system?.apcFormula || "";
-  const rawApc = item.system?.apc ?? item._source?.system?.apc ?? 0;
+  const rawApc = item._source?.system?.apc ?? item.system?._source?.apc;
+  if (typeof rawApc === "number" && !isNaN(rawApc) && rawApc > 0) {
+    return Number(rawApc);
+  }
 
-  let baseApc = 0;
+  const rawFormula = item.system?.apcFormula || item._source?.system?.apcFormula || item.system?.apc_formula || "";
   if (rawFormula && typeof rawFormula === "string" && rawFormula.trim()) {
-    baseApc = evaluateApcFormula(rawFormula, actor);
-  } else {
-    baseApc = Number(rawApc) || 0;
+    return evaluateApcFormula(rawFormula, actor);
   }
 
-  // Apply Hand-and-a-Half 2H reduction if applicable
-  if (is2HMode && actor) {
-    const reductionData = getEffective2hApcReduction(item);
-    if (reductionData) {
-      baseApc = Math.max(reductionData.minApc, baseApc - reductionData.reduction);
-    }
+  const direct = item.system?.apc;
+  if (typeof direct === "number" && !isNaN(direct) && direct >= 0) {
+    return Number(direct);
   }
 
-  return Math.max(0, baseApc);
+  return 0;
 }
 
 /**
@@ -313,3 +346,4 @@ export async function executeUnifiedAction(actor, item, options = {}) {
     },
   });
 }
+

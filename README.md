@@ -1,4 +1,4 @@
-# Mythcraft Essence Sheet (v0.3.1-alpha) 📜✨
+# Mythcraft Essence Sheet (v0.3.2-alpha) 📜✨
 
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Development-FF5E5B?style=flat&logo=kofi&logoColor=white)](https://ko-fi.com/jitterbone)
 
@@ -172,6 +172,17 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 ---
 
 ## 📝 Changelog
+
+### v0.3.2-alpha
+- **NPC Senses Configuration & Header Display**:
+  - `SensesDialog` dynamically handles both Character (typed object) and NPC (string) data models, parsing existing senses and saving formatted string lists.
+  - Active senses render as interactive pills on the NPC sheet header.
+- **Damage Modifications Vulnerability Fix**:
+  - Resolved an issue in `DamageModificationDialog` where adding and saving vulnerabilities failed due to selector mismatch.
+- **NPC Tier Action & Feature Creation**:
+  - Guaranteed `prerequisites: ""` schema initialization on quick-add actions to ensure seamless document creation on new NPC sheets without validation rejections.
+- **Attribute Cog Wheel Dialog on NPC Sheets**:
+  - Restored the attribute and skill configuration dialog (`AttributeSkillInput`) when clicking the cog wheel or defense badges on NPC sheets.
 
 ### v0.3.1-alpha
 - **Custom Attribute Defense Formulas & Automation**:

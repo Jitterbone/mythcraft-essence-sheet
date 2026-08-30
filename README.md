@@ -1,4 +1,4 @@
-# Mythcraft Essence Sheet (v0.3.2-alpha) 📜✨
+# Mythcraft Essence Sheet (v0.3.2-alpha-hotfix) 📜✨
 
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Development-FF5E5B?style=flat&logo=kofi&logoColor=white)](https://ko-fi.com/jitterbone)
 
@@ -172,6 +172,18 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 ---
 
 ## 📝 Changelog
+
+### v0.3.2-alpha-hotfix
+- **Defensive Movement Sanitization**:
+  - Added an in-memory guard in `_preparePartContext` and `_prepareContext` that cleans up legacy/malformed active effect properties (such as `speed`) in `actor.system.movement`, permanently preventing sheet crashes when opening characters affected by the `slowed` condition.
+- **Conditions Dialog Error Resilience**:
+  - Added support for all core MythCraft conditions (`completeSurprise`, `partialSurprise`, `partialCover`, `totalCover`) with comprehensive descriptions.
+  - Wrapped status effect toggling in robust try/catch blocks to ensure that any third-party or invalid condition toggles fail gracefully without closing the dialog or locking the UI.
+- **NPC Action Retention & Weapon Support**:
+  - Actions now retain their Tier 1 / Tier 2 column placement when renamed or edited via the Item Sheet, preventing items from inadvertently moving to passives.
+  - Extended action processing to include embedded `weapon` documents on NPC actors.
+- **NPC Skills Display on New Sheets**:
+  - Fixed an issue where all system skills were displayed by default on brand-new NPC sheets; now only explicitly configured/trained skills are shown under each attribute.
 
 ### v0.3.2-alpha
 - **NPC Senses Configuration & Header Display**:

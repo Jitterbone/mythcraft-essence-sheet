@@ -49,6 +49,13 @@ for (const [mag, tracks] of Object.entries(CANONICAL_MAGIC_DISCIPLINES)) {
   }
 }
 
+export const SUBTRACK_TO_SPEC = {};
+for (const [spec, tracks] of Object.entries(CANONICAL_SPEC_STACKS)) {
+  for (const tr of tracks) {
+    SUBTRACK_TO_SPEC[tr.toLowerCase()] = spec;
+  }
+}
+
 export function normalizeTalentName(s) {
   if (!s) return "";
   return String(s)

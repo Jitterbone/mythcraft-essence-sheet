@@ -5,7 +5,13 @@
  * and Talent Tree Builder for Character Creation and Level-Up Progression.
  */
 
-import { CANONICAL_TALENTS, CANONICAL_TRACK_PARENTS } from "./talent-canonical-map.mjs";
+import {
+  CANONICAL_TALENTS,
+  CANONICAL_TRACK_PARENTS,
+  SUBCLASS_TO_CLASS,
+  DISCIPLINE_TO_MAGIC,
+  SUBTRACK_TO_SPEC,
+} from "./talent-canonical-map.mjs";
 
 /**
  * Recognized compendium titles and package IDs for official MythCraft content.
@@ -898,97 +904,154 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
       trackName = c.track;
       isEntry = c.isEntry;
     } else {
-      // 2. Direct canonical track / subfolder lookup
-      let matchedTrackParent = null;
+      // 2. Check subclass name in SUBCLASS_TO_CLASS (e.g. "Commander" -> "Warrior")
+      let matchedSubclass = null;
       for (const folder of chain) {
-        if (CANONICAL_TRACK_PARENTS?.[folder]) {
-          matchedTrackParent = CANONICAL_TRACK_PARENTS[folder];
+        if (SUBCLASS_TO_CLASS[folder]) {
+          matchedSubclass = { cls: SUBCLASS_TO_CLASS[folder], track: folder };
           break;
         }
       }
-
-      if (matchedTrackParent) {
-        category = matchedTrackParent.category;
-        rootName = matchedTrackParent.parent;
-        trackName = matchedTrackParent.track;
-        isEntry = /entry\b/i.test(docName) || trackName.toLowerCase().includes("entry");
-      } else {
-        // 3. Check Class match (13 Canonical MythCraft Classes)
-        let matchedClass = null;
-        for (const cls of MYTHCRAFT_CANONICAL_CLASSES) {
-          const cLow = cls.toLowerCase();
-          if (chain.some(f => f.includes(cLow)) || docName.startsWith(cLow) || docTags.includes(cLow)) {
-            matchedClass = cls;
+      if (!matchedSubclass) {
+        for (const tag of docTags) {
+          if (SUBCLASS_TO_CLASS[tag]) {
+            matchedSubclass = { cls: SUBCLASS_TO_CLASS[tag], track: tag };
             break;
           }
         }
+      }
 
-        if (matchedClass) {
-          category = "class";
-          rootName = matchedClass;
-          const cLow = matchedClass.toLowerCase();
-          const classFolderIdx = chain.findIndex(f => f.includes(cLow));
-          let subTrack = "";
-          if (classFolderIdx !== -1 && classFolderIdx + 1 < chain.length) {
-            subTrack = chain[classFolderIdx + 1];
+      if (matchedSubclass) {
+        category = "class";
+        rootName = matchedSubclass.cls;
+        trackName = matchedSubclass.track;
+        isEntry = /entry\b/i.test(docName) || trackName.toLowerCase().includes("entry");
+      } else {
+        // 3. Check magic discipline in DISCIPLINE_TO_MAGIC (e.g. "Telepathy" -> "Psionic")
+        let matchedDiscipline = null;
+        for (const folder of chain) {
+          if (DISCIPLINE_TO_MAGIC[folder]) {
+            matchedDiscipline = { mag: DISCIPLINE_TO_MAGIC[folder], track: folder };
+            break;
           }
-          if (!subTrack) {
-            const otherFolders = chain.filter(f => !/^(classes|class|talents|features|compendium)s?$/i.test(f) && !f.includes(cLow));
-            if (otherFolders.length > 0) subTrack = otherFolders[otherFolders.length - 1];
-          }
-          isEntry = !subTrack || /entry\b/i.test(docName) || docName === `${cLow} class`;
-          trackName = isEntry ? `${matchedClass} Entry` : subTrack;
-        } else {
-          // 4. Check Magic match (5 Canonical MythCraft Magic Stacks)
-          let matchedMagic = null;
-          for (const mag of MYTHCRAFT_CANONICAL_MAGIC) {
-            const mLow = mag.toLowerCase();
-            if (chain.some(f => f.includes(mLow)) || docName.includes(mLow) || docTags.includes(mLow)) {
-              matchedMagic = mag;
+        }
+        if (!matchedDiscipline) {
+          for (const tag of docTags) {
+            if (DISCIPLINE_TO_MAGIC[tag]) {
+              matchedDiscipline = { mag: DISCIPLINE_TO_MAGIC[tag], track: tag };
               break;
             }
           }
+        }
 
-          if (matchedMagic) {
-            category = "magic";
-            rootName = matchedMagic;
-            const mLow = matchedMagic.toLowerCase();
-            const magFolderIdx = chain.findIndex(f => f.includes(mLow));
-            let subTrack = "";
-            if (magFolderIdx !== -1 && magFolderIdx + 1 < chain.length) {
-              subTrack = chain[magFolderIdx + 1];
+        if (matchedDiscipline) {
+          category = "magic";
+          rootName = matchedDiscipline.mag;
+          trackName = matchedDiscipline.track;
+          isEntry = /entry\b/i.test(docName) || /adept\b/i.test(docName);
+        } else {
+          // 4. Check specialization track in SUBTRACK_TO_SPEC (e.g. "Armor" -> "Defense Stack")
+          let matchedSubtrackSpec = null;
+          for (const folder of chain) {
+            if (SUBTRACK_TO_SPEC[folder]) {
+              matchedSubtrackSpec = { spec: SUBTRACK_TO_SPEC[folder], track: folder };
+              break;
             }
-            if (!subTrack) {
-              const otherFolders = chain.filter(f => !/^(magic|talents|features|compendium)s?$/i.test(f) && !f.includes(mLow));
-              if (otherFolders.length > 0) subTrack = otherFolders[otherFolders.length - 1];
+          }
+          if (!matchedSubtrackSpec) {
+            for (const tag of docTags) {
+              if (SUBTRACK_TO_SPEC[tag]) {
+                matchedSubtrackSpec = { spec: SUBTRACK_TO_SPEC[tag], track: tag };
+                break;
+              }
             }
-            isEntry = !subTrack || /entry\b/i.test(docName) || /adept\b/i.test(docName);
-            trackName = isEntry ? `${matchedMagic} Entry` : subTrack;
+          }
+
+          if (matchedSubtrackSpec) {
+            category = "specialization";
+            rootName = matchedSubtrackSpec.spec;
+            trackName = matchedSubtrackSpec.track;
+            isEntry = /entry\b/i.test(docName);
           } else {
-            // 5. Check Specialization match (4 Canonical Specialization Stacks)
-            let matchedSpec = null;
-            for (const spec of MYTHCRAFT_CANONICAL_SPECS) {
-              const sBase = spec.replace(/\s+stack$/i, "").toLowerCase();
-              if (chain.some(f => f.includes(sBase)) || docDesc.includes(sBase) || docTags.includes(sBase)) {
-                matchedSpec = spec;
+            // 5. Check Class match (13 Canonical MythCraft Classes)
+            let matchedClass = null;
+            for (const cls of MYTHCRAFT_CANONICAL_CLASSES) {
+              const cLow = cls.toLowerCase();
+              if (chain.some(f => f.includes(cLow)) || docName.startsWith(cLow) || docTags.includes(cLow)) {
+                matchedClass = cls;
                 break;
               }
             }
 
-            category = "specialization";
-            rootName = matchedSpec || "Skill Stack";
-            const sBase = (matchedSpec || "Skill").replace(/\s+stack$/i, "").toLowerCase();
-            const specFolderIdx = chain.findIndex(f => f.includes(sBase));
-            let subTrack = "";
-            if (specFolderIdx !== -1 && specFolderIdx + 1 < chain.length) {
-              subTrack = chain[specFolderIdx + 1];
+            if (matchedClass) {
+              category = "class";
+              rootName = matchedClass;
+              const cLow = matchedClass.toLowerCase();
+              const classFolderIdx = chain.findIndex(f => f.includes(cLow));
+              let subTrack = "";
+              if (classFolderIdx !== -1 && classFolderIdx + 1 < chain.length) {
+                subTrack = chain[classFolderIdx + 1];
+              }
+              if (!subTrack) {
+                const otherFolders = chain.filter(f => !/^(classes|class|talents|features|compendium)s?$/i.test(f) && !f.includes(cLow));
+                if (otherFolders.length > 0) subTrack = otherFolders[otherFolders.length - 1];
+              }
+              isEntry = !subTrack || /entry\b/i.test(docName) || docName === `${cLow} class`;
+              trackName = isEntry ? `${matchedClass} Entry` : subTrack;
+            } else {
+              // 6. Check Magic match (5 Canonical MythCraft Magic Stacks)
+              let matchedMagic = null;
+              for (const mag of MYTHCRAFT_CANONICAL_MAGIC) {
+                const mLow = mag.toLowerCase();
+                if (chain.some(f => f.includes(mLow)) || docName.includes(mLow) || docTags.includes(mLow)) {
+                  matchedMagic = mag;
+                  break;
+                }
+              }
+
+              if (matchedMagic) {
+                category = "magic";
+                rootName = matchedMagic;
+                const mLow = matchedMagic.toLowerCase();
+                const magFolderIdx = chain.findIndex(f => f.includes(mLow));
+                let subTrack = "";
+                if (magFolderIdx !== -1 && magFolderIdx + 1 < chain.length) {
+                  subTrack = chain[magFolderIdx + 1];
+                }
+                if (!subTrack) {
+                  const otherFolders = chain.filter(f => !/^(magic|talents|features|compendium)s?$/i.test(f) && !f.includes(mLow));
+                  if (otherFolders.length > 0) subTrack = otherFolders[otherFolders.length - 1];
+                }
+                isEntry = !subTrack || /entry\b/i.test(docName) || /adept\b/i.test(docName);
+                trackName = isEntry ? `${matchedMagic} Entry` : subTrack;
+              } else {
+                // 7. Check Specialization match (4 Canonical Specialization Stacks with exact word boundary)
+                let matchedSpec = null;
+                for (const spec of MYTHCRAFT_CANONICAL_SPECS) {
+                  const sBase = spec.replace(/\s+stack$/i, "").toLowerCase();
+                  const wordBoundaryRegex = new RegExp(`\\b${sBase}\\b`, "i");
+                  if (chain.some(f => wordBoundaryRegex.test(f)) || wordBoundaryRegex.test(docDesc) || docTags.some(t => wordBoundaryRegex.test(t))) {
+                    matchedSpec = spec;
+                    break;
+                  }
+                }
+
+                category = "specialization";
+                rootName = matchedSpec || "Skill Stack";
+                const sBase = (matchedSpec || "Skill").replace(/\s+stack$/i, "").toLowerCase();
+                const specFolderIdx = chain.findIndex(f => new RegExp(`\\b${sBase}\\b`, "i").test(f));
+                let subTrack = "";
+                if (specFolderIdx !== -1 && specFolderIdx + 1 < chain.length) {
+                  subTrack = chain[specFolderIdx + 1];
+                }
+                if (!subTrack) {
+                  const otherFolders = chain.filter(f => !/^(specializations|specialization|spec|talents|features|compendium)s?$/i.test(f) && !f.includes(sBase));
+                  if (otherFolders.length > 0) subTrack = otherFolders[otherFolders.length - 1];
+                }
+                isEntry = /entry\b/i.test(docName);
+                trackName = subTrack || chain[chain.length - 1] || "General Specialization";
+              }
             }
-            if (!subTrack) {
-              const otherFolders = chain.filter(f => !/^(specializations|specialization|spec|talents|features|compendium)s?$/i.test(f) && !f.includes(sBase));
-              if (otherFolders.length > 0) subTrack = otherFolders[otherFolders.length - 1];
-            }
-            isEntry = /entry\b/i.test(docName);
-            trackName = subTrack || chain[chain.length - 1] || "General Specialization";
           }
         }
       }

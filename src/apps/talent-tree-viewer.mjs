@@ -73,23 +73,36 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
     const magicTalents = await loadPacksDocuments(packs.magic);
 
     const allTalents = [];
+    const seenNames = new Set();
 
     for (const doc of classTalents) {
       if (doc.type === "talent" || doc.type === "feature") {
         doc._compCategory = "class";
         allTalents.push(doc);
+        seenNames.add(String(doc.name || "").toLowerCase().trim());
       }
     }
     for (const doc of specTalents) {
       if (doc.type === "talent" || doc.type === "feature") {
         doc._compCategory = "specialization";
         allTalents.push(doc);
+        seenNames.add(String(doc.name || "").toLowerCase().trim());
       }
     }
     for (const doc of magicTalents) {
       if (doc.type === "talent" || doc.type === "feature") {
         doc._compCategory = "magic";
         allTalents.push(doc);
+        seenNames.add(String(doc.name || "").toLowerCase().trim());
+      }
+    }
+
+    // Include existing talents directly from the actor's sheet
+    for (const doc of actorTalents) {
+      const cleanName = String(doc.name || "").toLowerCase().trim();
+      if (!seenNames.has(cleanName)) {
+        allTalents.push(doc);
+        seenNames.add(cleanName);
       }
     }
 

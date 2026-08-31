@@ -1,7 +1,56 @@
-/**
- * Canonical MythCraft Talent Hierarchy Map
- * Maps talent and track names to their parent stacks without copying descriptive rules content.
- */
+// Complete canonical tracks for all 13 MythCraft classes
+export const CANONICAL_CLASS_SUBCLASSES = {
+  "Berzerker": ["Exile", "Fearless", "Juggernaut", "Rage", "Branded", "Berzerker Entry"],
+  "Cleric": ["Exorcist", "Piety", "Support", "Theologian", "Divine Icon", "Mythological Domain", "Cleric Entry"],
+  "Mage": ["Arcane Weaving", "Archmage", "Sorcery", "Tome Wizard", "Occultism", "Mage Entry"],
+  "Oracle": ["Fate", "Prophecy", "Seer", "Medium", "Augury", "Time", "Oracle Entry"],
+  "Pugilist": ["Brawler", "Drunken Master", "Grappler", "Iron Fist", "Martial Artist", "Street Fighter", "Pugilist Entry"],
+  "Ranger": ["Beast Master", "Hunter", "Scout", "Warden", "Trapper", "Horizon Walker", "Ranger Entry"],
+  "Rogue": ["Assassin", "Thief", "Shadow", "Swashbuckler", "Infiltrator", "Cutpurse", "Rogue Entry"],
+  "Tinkerer": ["Artificer", "Alchemist", "Gunsmith", "Clockwork", "Engineer", "Gadgeteer", "Tinkerer Entry"],
+  "Troubadour": ["Bard", "Jester", "Minstrel", "Skald", "Virtuoso", "Chanter", "Troubadour Entry"],
+  "Vessel": ["Avatar", "Channeler", "Conduit", "Host", "Medium", "Relic", "Vessel Entry"],
+  "Warrior": ["Champion", "Commander", "Duelist", "Gladiator", "Knight", "Tactician", "Defender", "Weapon Master", "Warrior Entry"],
+  "Witch": ["Coven", "Curse", "Hex", "Potion", "Familiar", "Blood Witch", "Witch Entry"],
+  "Zealot": ["Crusader", "Fanatic", "Inquisitor", "Templar", "Vindicator", "Avenger", "Zealot Entry"],
+};
+
+export const CANONICAL_MAGIC_DISCIPLINES = {
+  "Arcane": ["Evoking", "Altering", "Enchanting", "Illusory", "Necromancy", "Divining", "Warding", "Summoning", "Alchemy", "Metamagic", "Arcane Entry", "Arcane Magic"],
+  "Divine": ["Healing", "Radiance", "Blessing", "Holy", "Smiting", "Exorcism", "Warding", "Restoration", "Divine Entry", "Divine Magic"],
+  "Occult": ["Curses", "Blood Magic", "Shadow", "Hexes", "Nether", "Void", "Dark", "Occult Entry", "Occult Magic"],
+  "Primal": ["Elemental", "Nature", "Beast", "Storm", "Earth", "Fire", "Water", "Wind", "Primal Entry", "Primal Magic"],
+  "Psionic": ["Telepathy", "Telekinesis", "Clairsentience", "Psychometabolism", "Psychoportation", "Psionic Entry", "Psionic Magic"],
+};
+
+export const CANONICAL_SPEC_STACKS = {
+  "Combat Stack": ["Combat", "Melee", "Ranged", "Unarmed", "Martial Arts", "Weapon Mastery", "Maneuvers"],
+  "Command Stack": ["Command", "Leadership", "Tactics", "Rally", "Strategy", "Inspiration", "Orders", "Formation"],
+  "Defense Stack": ["Defense", "Armor", "Shield", "Resilience", "Resistance", "Toughness", "Fortification", "Heavy Armor"],
+  "Skill Stack": ["Skill", "Acrobatics", "Athleticism", "Crafting", "Influence", "Knowledge", "Observation", "Performance", "Stamina", "Subterfuge", "Survival", "Luck"],
+};
+
+// Fast lowercase reverse lookups
+export const SUBCLASS_TO_CLASS = {};
+for (const [cls, tracks] of Object.entries(CANONICAL_CLASS_SUBCLASSES)) {
+  for (const tr of tracks) {
+    SUBCLASS_TO_CLASS[tr.toLowerCase()] = cls;
+  }
+}
+
+export const DISCIPLINE_TO_MAGIC = {};
+for (const [mag, tracks] of Object.entries(CANONICAL_MAGIC_DISCIPLINES)) {
+  for (const tr of tracks) {
+    DISCIPLINE_TO_MAGIC[tr.toLowerCase()] = mag;
+  }
+}
+
+export const SUBTRACK_TO_SPEC = {};
+for (const [spec, tracks] of Object.entries(CANONICAL_SPEC_STACKS)) {
+  for (const tr of tracks) {
+    SUBTRACK_TO_SPEC[tr.toLowerCase()] = spec;
+  }
+}
 
 export const CANONICAL_TRACK_PARENTS = {
   "berzerker entry": {

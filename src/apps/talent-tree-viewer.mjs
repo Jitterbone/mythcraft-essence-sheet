@@ -11,6 +11,11 @@ import {
   parseTalentData,
   checkTalentAvailability,
 } from "../features/compendium-parser.mjs";
+import {
+  isDisallowedTalentItem,
+  normalizeTalentName,
+  NORMALIZED_CANONICAL_TALENTS,
+} from "../features/talent-canonical-map.mjs";
 
 const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
 
@@ -67,12 +72,22 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
    */
   async loadTrees() {
     const packs = getAvailableCompendiums();
-    const actorTalents = this.actor.items.filter(i => i.type === "talent" || i.type === "feature");
+    const actorItems = this.actor.items.filter(i => !isDisallowedTalentItem(i));
+
+    // Actor talents: all item type 'talent', plus 'feature' items that match known canonical talents
+    const actorTalents = actorItems.filter(i => {
+      if (i.type === "talent") return true;
+      if (i.type === "feature") {
+        const norm = normalizeTalentName(i.name);
+        return Boolean(NORMALIZED_CANONICAL_TALENTS[norm]);
+      }
+      return false;
+    });
 
     // ONLY source talents found in the Class, Magic, and Specialization Talents compendiums
-    const classTalents = await loadPacksDocuments(packs.classes);
-    const specTalents = await loadPacksDocuments(packs.specTalents);
-    const magicTalents = await loadPacksDocuments(packs.magic);
+    const classTalents = (await loadPacksDocuments(packs.classes)).filter(d => !isDisallowedTalentItem(d));
+    const specTalents = (await loadPacksDocuments(packs.specTalents)).filter(d => !isDisallowedTalentItem(d));
+    const magicTalents = (await loadPacksDocuments(packs.magic)).filter(d => !isDisallowedTalentItem(d));
 
     const allTalents = [];
     const seenNames = new Set();
@@ -81,27 +96,27 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
       if (doc.type === "talent" || doc.type === "feature") {
         doc._compCategory = "class";
         allTalents.push(doc);
-        seenNames.add(String(doc.name || "").toLowerCase().trim());
+        seenNames.add(normalizeTalentName(doc.name));
       }
     }
     for (const doc of specTalents) {
       if (doc.type === "talent" || doc.type === "feature") {
         doc._compCategory = "specialization";
         allTalents.push(doc);
-        seenNames.add(String(doc.name || "").toLowerCase().trim());
+        seenNames.add(normalizeTalentName(doc.name));
       }
     }
     for (const doc of magicTalents) {
       if (doc.type === "talent" || doc.type === "feature") {
         doc._compCategory = "magic";
         allTalents.push(doc);
-        seenNames.add(String(doc.name || "").toLowerCase().trim());
+        seenNames.add(normalizeTalentName(doc.name));
       }
     }
 
-    // Include existing talents directly from the actor's sheet
+    // Include existing talents directly from the actor's sheet (even if imported or not in compendiums)
     for (const doc of actorTalents) {
-      const cleanName = String(doc.name || "").toLowerCase().trim();
+      const cleanName = normalizeTalentName(doc.name);
       if (!seenNames.has(cleanName)) {
         allTalents.push(doc);
         seenNames.add(cleanName);

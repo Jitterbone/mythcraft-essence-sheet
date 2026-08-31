@@ -1,7 +1,7 @@
 {{!-- ============================================================
      MythCraft Essence Sheet — Visual Branching Talent Tree Viewer
      ============================================================ --}}
-<div class="talent-tree-viewer-root">
+<div class="talent-tree-viewer-root srd-diagram-theme">
 
   {{!-- Top Filter & Category Bar --}}
   <div class="tree-category-bar">
@@ -86,37 +86,33 @@
                     </div>
                     <div class="gateway-nodes-row">
                       {{#each tree.entryTalents as |node|}}
-                        <div class="tree-node-card gateway-node {{#if node.isOwned}}node-owned{{else if node.isAvailable}}node-available{{else}}node-locked{{/if}}"
+                        <div class="srd-badge-node gateway-badge-node {{#if node.isOwned}}node-owned{{else if node.isAvailable}}node-available{{else}}node-locked{{/if}}"
                              data-talent-id="{{node.id}}"
                              {{#unless node.isAvailable}}data-tooltip="{{node.prereqTooltip}}"{{/unless}}>
-                          <div class="node-icon-frame" data-action="viewTalent" data-talent-id="{{node.id}}">
-                            <img class="node-icon-img" src="{{node.img}}" alt="{{node.name}}" />
+                          <div class="badge-node-body" data-action="viewTalent" data-talent-id="{{node.id}}">
+                            <span class="badge-node-title">{{node.name}}</span>
                             {{#if node.isOwned}}
-                              <span class="node-badge status-owned" title="Acquired"><i class="fas fa-check"></i></span>
+                              <span class="badge-status-icon owned" title="Acquired"><i class="fas fa-check-circle"></i></span>
                             {{else if (not node.isAvailable)}}
-                              <span class="node-badge status-locked" title="{{node.prereqTooltip}}"><i class="fas fa-lock"></i></span>
+                              <span class="badge-status-icon locked" title="{{node.prereqTooltip}}"><i class="fas fa-lock"></i></span>
                             {{else}}
-                              <span class="node-badge status-available" title="Available to learn"><i class="fas fa-sparkles"></i></span>
+                              <span class="badge-status-icon available" title="Available to learn"><i class="fas fa-sparkles"></i></span>
                             {{/if}}
                           </div>
-                          <div class="node-info-block" data-action="viewTalent" data-talent-id="{{node.id}}">
-                            <span class="node-title">{{node.name}}</span>
-                            <span class="node-sub">Entry Gateway</span>
-                          </div>
-                          <div class="node-actions-bar">
-                            <button type="button" class="node-btn inspect" data-action="viewTalent" data-talent-id="{{node.id}}" title="Inspect Rules">
+                          <div class="badge-node-actions">
+                            <button type="button" class="badge-btn view" data-action="viewTalent" data-talent-id="{{node.id}}" title="Inspect Rules">
                               <i class="fas fa-eye"></i>
                             </button>
-                            <button type="button" class="node-btn chat" data-action="postTalent" data-talent-id="{{node.id}}" title="Share to Chat">
+                            <button type="button" class="badge-btn chat" data-action="postTalent" data-talent-id="{{node.id}}" title="Share to Chat">
                               <i class="fas fa-comment-alt"></i>
                             </button>
                             {{#if @root.isPickerMode}}
                               {{#if node.isAvailable}}
-                                <button type="button" class="node-btn select" data-action="chooseTalent" data-talent-id="{{node.id}}" title="Select for Level Up">
+                                <button type="button" class="badge-btn select" data-action="chooseTalent" data-talent-id="{{node.id}}" title="Select for Level Up">
                                   <i class="fas fa-plus"></i> Select
                                 </button>
                               {{else}}
-                                <button type="button" class="node-btn select disabled" disabled title="{{node.prereqTooltip}}">
+                                <button type="button" class="badge-btn select disabled" disabled title="{{node.prereqTooltip}}">
                                   <i class="fas fa-lock"></i> Locked
                                 </button>
                               {{/if}}
@@ -125,106 +121,97 @@
                         </div>
                       {{/each}}
                     </div>
-                    {{!-- Visual trunk stems leading down to subclass branches --}}
-                    <div class="tree-trunk-fanning-connector">
-                      <div class="trunk-center-line"></div>
-                      <div class="trunk-spread-line"></div>
+                    <div class="tree-trunk-stem">
+                      <div class="trunk-line"></div>
+                      <i class="fas fa-chevron-down trunk-arrow"></i>
                     </div>
                   </div>
                 {{/if}}
 
-                {{!-- Subclass Branch Columns Flow --}}
+                {{!-- Subclass Flowchart Tracks Grid --}}
                 {{#if tree.tracks.length}}
-                  <div class="srd-subtracks-grid visual-branches-grid">
+                  <div class="srd-tracks-flowchart-grid">
                     {{#each tree.tracks as |track|}}
-                      <div class="srd-track-column visual-branch-column {{#if track.isStarted}}track-active{{/if}} {{#if track.isExpanded}}expanded{{else}}collapsed{{/if}}"
+                      <div class="srd-flowchart-track-card {{#if track.isStarted}}track-active{{/if}} {{#if track.isExpanded}}expanded{{else}}collapsed{{/if}}"
                            data-track-title="{{track.trackTitle}}">
                         
-                        {{!-- Subtrack Branch Banner --}}
-                        <div class="srd-track-banner subtrack-banner" data-action="toggleTrackExpand" data-track-title="{{track.trackTitle}}">
-                          <div class="banner-corner top-left"></div>
-                          <div class="banner-corner top-right"></div>
-                          <div class="banner-corner bottom-left"></div>
-                          <div class="banner-corner bottom-right"></div>
+                        {{!-- Distinctive SRD Ornate Banner (Matching Official MythCraft SRD Diagram) --}}
+                        <div class="srd-diagram-header-banner" data-action="toggleTrackExpand" data-track-title="{{track.trackTitle}}">
+                          <div class="ornate-corner top-left"></div>
+                          <div class="ornate-corner top-right"></div>
+                          <div class="ornate-corner bottom-left"></div>
+                          <div class="ornate-corner bottom-right"></div>
                           
-                          <div class="banner-content-row">
-                            <div class="banner-title-wrap">
-                              <h4 class="srd-track-title">{{track.trackTitle}}</h4>
-                              <div class="track-summary-pills">
-                                {{#if track.ownedCount}}
-                                  <span class="track-pill owned"><i class="fas fa-check"></i> {{track.ownedCount}} Acquired</span>
-                                {{/if}}
-                                {{#if track.availableCount}}
-                                  <span class="track-pill available"><i class="fas fa-sparkles"></i> {{track.availableCount}} Available</span>
-                                {{/if}}
-                                <span class="track-pill total">{{track.totalNodesCount}} Talents</span>
-                              </div>
+                          <div class="banner-inner-content">
+                            <h3 class="srd-diagram-track-title">{{track.trackTitle}}</h3>
+                            <div class="track-summary-pills">
+                              {{#if track.ownedCount}}
+                                <span class="track-pill owned"><i class="fas fa-check"></i> {{track.ownedCount}}</span>
+                              {{/if}}
+                              {{#if track.availableCount}}
+                                <span class="track-pill available"><i class="fas fa-sparkles"></i> {{track.availableCount}}</span>
+                              {{/if}}
+                              <span class="track-pill total">{{track.totalNodesCount}} Talents</span>
                             </div>
-                            <div class="track-expand-toggle">
+                            <div class="track-expand-chevron">
                               <i class="fas {{#if track.isExpanded}}fa-chevron-down{{else}}fa-chevron-right{{/if}}"></i>
                             </div>
                           </div>
                         </div>
 
-                        {{!-- Vertical Tier Flow --}}
+                        {{!-- Flowchart Graph Web (Horizontal & Tiered Distribution) --}}
                         {{#if track.isExpanded}}
-                          <div class="srd-tree-flow visual-branch-flow">
+                          <div class="srd-flowchart-canvas">
                             {{#each track.tiers as |tier|}}
-                              <div class="srd-tier-level visual-tier-level" data-tier="{{tier.tierNumber}}">
+                              <div class="srd-flowchart-tier-row" data-tier="{{tier.tierNumber}}">
+                                
                                 {{#unless @first}}
-                                  <div class="srd-tier-connector visual-tier-connector">
-                                    <div class="connector-stem"></div>
-                                    <i class="fas fa-chevron-down connector-arrow"></i>
+                                  <div class="srd-flowchart-tier-stem">
+                                    <div class="stem-line"></div>
+                                    <i class="fas fa-chevron-down stem-arrow"></i>
                                   </div>
                                 {{/unless}}
 
-                                <div class="tier-badge-pill">Tier {{tier.tierNumber}}</div>
-
-                                <div class="srd-tier-nodes {{#if (gt tier.nodes.length 1)}}branching-row{{/if}}">
+                                <div class="srd-flowchart-nodes-cluster {{#if (gt tier.nodes.length 1)}}multi-branch-cluster{{/if}}">
                                   {{#each tier.nodes as |node|}}
-                                    <div class="tree-node-card branch-node {{#if node.isOwned}}node-owned{{else if node.isAvailable}}node-available{{else}}node-locked{{/if}}"
+                                    <div class="srd-badge-node {{#if node.isOwned}}node-owned{{else if node.isAvailable}}node-available{{else}}node-locked{{/if}}"
                                          data-talent-id="{{node.id}}"
                                          {{#unless node.isAvailable}}data-tooltip="{{node.prereqTooltip}}"{{/unless}}>
                                       
-                                      <div class="node-icon-frame" data-action="viewTalent" data-talent-id="{{node.id}}">
-                                        <img class="node-icon-img" src="{{node.img}}" alt="{{node.name}}" />
+                                      <div class="badge-node-body" data-action="viewTalent" data-talent-id="{{node.id}}">
+                                        <span class="badge-node-title">{{node.name}}</span>
                                         {{#if node.isOwned}}
-                                          <span class="node-badge status-owned" title="Acquired"><i class="fas fa-check"></i></span>
+                                          <span class="badge-status-icon owned" title="Acquired"><i class="fas fa-check-circle"></i></span>
                                         {{else if (not node.isAvailable)}}
-                                          <span class="node-badge status-locked" title="{{node.prereqTooltip}}"><i class="fas fa-lock"></i></span>
-                                        {{else}}
-                                          <span class="node-badge status-available" title="Available to learn"><i class="fas fa-sparkles"></i></span>
+                                          <span class="badge-status-icon locked" title="{{node.prereqTooltip}}"><i class="fas fa-lock"></i></span>
                                         {{/if}}
                                       </div>
 
-                                      <div class="node-info-block" data-action="viewTalent" data-talent-id="{{node.id}}">
-                                        <span class="node-title">{{node.name}}</span>
-                                        {{#if node.prerequisites.length}}
-                                          <span class="node-reqs-label" title="Prerequisites: {{#each node.prerequisites}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}">
-                                            Req: {{#each node.prerequisites}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}
-                                          </span>
-                                        {{/if}}
-                                      </div>
-
-                                      <div class="node-actions-bar">
-                                        <button type="button" class="node-btn inspect" data-action="viewTalent" data-talent-id="{{node.id}}" title="Inspect Rules">
+                                      <div class="badge-node-actions">
+                                        <button type="button" class="badge-btn view" data-action="viewTalent" data-talent-id="{{node.id}}" title="Inspect Talent">
                                           <i class="fas fa-eye"></i>
                                         </button>
-                                        <button type="button" class="node-btn chat" data-action="postTalent" data-talent-id="{{node.id}}" title="Share to Chat">
+                                        <button type="button" class="badge-btn chat" data-action="postTalent" data-talent-id="{{node.id}}" title="Share to Chat">
                                           <i class="fas fa-comment-alt"></i>
                                         </button>
                                         {{#if @root.isPickerMode}}
                                           {{#if node.isAvailable}}
-                                            <button type="button" class="node-btn select" data-action="chooseTalent" data-talent-id="{{node.id}}" title="Select for Level Up">
+                                            <button type="button" class="badge-btn select" data-action="chooseTalent" data-talent-id="{{node.id}}" title="Select for Level Up">
                                               <i class="fas fa-plus"></i> Select
                                             </button>
                                           {{else}}
-                                            <button type="button" class="node-btn select disabled" disabled title="{{node.prereqTooltip}}">
+                                            <button type="button" class="badge-btn select disabled" disabled title="{{node.prereqTooltip}}">
                                               <i class="fas fa-lock"></i> Locked
                                             </button>
                                           {{/if}}
                                         {{/if}}
                                       </div>
+
+                                      {{#if node.prerequisites.length}}
+                                        <div class="badge-req-hint" title="Prerequisites: {{#each node.prerequisites}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}">
+                                          Req: {{#each node.prerequisites}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}
+                                        </div>
+                                      {{/if}}
                                     </div>
                                   {{/each}}
                                 </div>

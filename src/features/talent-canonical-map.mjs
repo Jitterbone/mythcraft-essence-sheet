@@ -49,11 +49,37 @@ for (const [mag, tracks] of Object.entries(CANONICAL_MAGIC_DISCIPLINES)) {
   }
 }
 
-export const SUBTRACK_TO_SPEC = {};
-for (const [spec, tracks] of Object.entries(CANONICAL_SPEC_STACKS)) {
-  for (const tr of tracks) {
-    SUBTRACK_TO_SPEC[tr.toLowerCase()] = spec;
+export function normalizeTalentName(s) {
+  if (!s) return "";
+  return String(s)
+    .toLowerCase()
+    .replace(/["'“”‘’]/g, "")
+    .replace(/[!.,;:?]/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/\s*\(talent\)$/i, "")
+    .replace(/\s*(track\s*)?talents?$/i, "")
+    .replace(/\s*(track|stack)$/i, "")
+    .trim();
+}
+
+/**
+ * Checks if a document is NOT a valid talent (e.g. is a profession rank, lineage feature, background feature, spell, etc.)
+ */
+export function isDisallowedTalentItem(item) {
+  if (!item) return true;
+  const type = String(item.type || "").toLowerCase();
+  if (["profession", "background", "lineage", "ancestry", "disease", "condition", "curse", "spell", "weapon", "armor", "gear", "consumable"].includes(type)) {
+    return true;
   }
+  const name = String(item.name || "").toLowerCase();
+  if (/^rank\s*\d|\bprofession\b|:\s*rank\b|\btenure\b|\blineage\b|\bancestry\b|\bheritage\b|\bmilestone\b/i.test(name)) {
+    return true;
+  }
+  const chain = (item._folderChain || []).map(f => String(f).toLowerCase());
+  if (chain.some(f => /^(professions?|backgrounds?|lineages?|ancestrys?|heritages?|milestones?|diseases?|spells?|gear|items)$/i.test(f))) {
+    return true;
+  }
+  return false;
 }
 
 export const CANONICAL_TRACK_PARENTS = {
@@ -2485,3 +2511,38 @@ export const CANONICAL_TALENTS = {
     "category": "class"
   }
 };
+
+export const NORMALIZED_CANONICAL_TALENTS = {};
+for (const [k, v] of Object.entries(CANONICAL_TALENTS)) {
+  const normK = normalizeTalentName(k);
+  NORMALIZED_CANONICAL_TALENTS[normK] = v;
+  const arabicK = normK.replace(/\b(i|ii|iii|iv|v|vi|vii|viii|ix|x)\b/g, (m) => {
+    const rMap = { i: "1", ii: "2", iii: "3", iv: "4", v: "5", vi: "6", vii: "7", viii: "8", ix: "9", x: "10" };
+    return rMap[m] || m;
+  });
+  NORMALIZED_CANONICAL_TALENTS[arabicK] = v;
+}
+
+// Add common aliases / punctuation variants
+NORMALIZED_CANONICAL_TALENTS["cowards"] = {
+  name: "\"Cowards!\"",
+  parent: "Berzerker",
+  track: "Exile",
+  isEntry: false,
+  category: "class"
+};
+NORMALIZED_CANONICAL_TALENTS["throw anything 1"] = {
+  name: "Throw Anything I",
+  parent: "Berzerker",
+  track: "Exile",
+  isEntry: false,
+  category: "class"
+};
+NORMALIZED_CANONICAL_TALENTS["throw anything i"] = {
+  name: "Throw Anything I",
+  parent: "Berzerker",
+  track: "Exile",
+  isEntry: false,
+  category: "class"
+};
+

@@ -14645,6 +14645,7 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
   width: 100%;
   max-width: 680px;
   position: relative;
+  margin-bottom: 12px;
 }
 
 .gateway-altar-heading {
@@ -14654,7 +14655,7 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
   color: #FEEBB3;
   text-transform: uppercase;
   letter-spacing: 1px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -14665,264 +14666,304 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 14px;
   width: 100%;
 }
 
-.tree-trunk-fanning-connector {
-  position: relative;
-  width: 100%;
-  height: 28px;
+.tree-trunk-stem {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 10px;
 }
 
-.trunk-center-line {
-  width: 3px;
-  height: 100%;
+.tree-trunk-stem .trunk-line {
+  width: 2px;
+  height: 24px;
   background: linear-gradient(180deg, #FEEBB3 0%, #246975 100%);
   box-shadow: 0 0 8px rgba(254, 235, 179, 0.5);
 }
 
-/* ── Visual Branch Columns Grid ───────────────────────────── */
-.visual-branches-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
-  width: 100%;
-  align-items: start;
+.tree-trunk-stem .trunk-arrow {
+  color: #246975;
+  font-size: 11px;
+  margin-top: -3px;
 }
 
-.visual-branch-column {
+/* ============================================================
+   Official MythCraft SRD Flowchart Diagram Track Styling
+   ============================================================ */
+
+.srd-tracks-flowchart-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  width: 100%;
+}
+
+.srd-flowchart-track-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
   background: rgba(14, 22, 28, 0.85);
-  border: 1px solid rgba(36, 105, 117, 0.5);
+  border: 1px solid rgba(42, 122, 127, 0.4);
   border-radius: 8px;
-  padding: 12px 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  padding: 16px;
+  box-sizing: border-box;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
 }
 
-.visual-branch-column.track-active {
+.srd-flowchart-track-card.track-active {
   border-color: rgba(254, 235, 179, 0.6);
-  box-shadow: 0 0 18px rgba(254, 235, 179, 0.15);
+  box-shadow: 0 0 20px rgba(254, 235, 179, 0.18);
 }
 
-.visual-branch-flow {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  gap: 12px;
-  margin-top: 14px;
-}
-
-.visual-tier-level {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
+/* ── Distinctive MythCraft SRD Ornate Header Banner ──────── */
+.srd-diagram-header-banner {
   position: relative;
+  width: 100%;
+  max-width: 480px;
+  background: linear-gradient(180deg, #f4eee2 0%, #e2d7c3 100%);
+  border: 2px solid #8e734c;
+  border-radius: 3px;
+  padding: 8px 16px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4), inset 0 0 0 2px #d5c3a5;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+  margin-bottom: 16px;
 }
 
-.visual-tier-connector {
+.srd-diagram-header-banner:hover {
+  border-color: #bfa16f;
+  box-shadow: 0 0 16px rgba(254, 235, 179, 0.6), inset 0 0 0 2px #e9ddc9;
+  transform: translateY(-1px);
+}
+
+.ornate-corner {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: #6b5333;
+  border: 1px solid #d5c3a5;
+}
+
+.ornate-corner.top-left { top: 2px; left: 2px; }
+.ornate-corner.top-right { top: 2px; right: 2px; }
+.ornate-corner.bottom-left { bottom: 2px; left: 2px; }
+.ornate-corner.bottom-right { bottom: 2px; right: 2px; }
+
+.banner-inner-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.srd-diagram-track-title {
+  margin: 0;
+  font-family: 'Cinzel', 'Trajan Pro', serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: #1a3840;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-align: center;
+  flex: 1;
+}
+
+.track-expand-chevron {
+  color: #5c4426;
+  font-size: 12px;
+}
+
+/* ── Flowchart Canvas & Tier Connector Stems ──────────────── */
+.srd-flowchart-canvas {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 6px;
+  width: 100%;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 8px 0 16px 0;
 }
 
-.visual-tier-connector .connector-stem {
+.srd-flowchart-tier-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.srd-flowchart-tier-stem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 2px 0 6px 0;
+}
+
+.srd-flowchart-tier-stem .stem-line {
   width: 2px;
-  height: 16px;
-  background: linear-gradient(180deg, #246975 0%, #38bdf8 100%);
+  height: 18px;
+  background: #7c684d;
 }
 
-.visual-tier-connector .connector-arrow {
-  color: #38bdf8;
+.srd-flowchart-tier-stem .stem-arrow {
+  color: #7c684d;
   font-size: 10px;
   margin-top: -3px;
 }
 
-.tier-badge-pill {
-  font-family: 'Cinzel', serif;
-  font-size: 10px;
-  font-weight: 700;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid rgba(71, 85, 105, 0.5);
-  border-radius: 10px;
-  padding: 2px 8px;
-  margin-bottom: 8px;
+.srd-flowchart-nodes-cluster {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
 }
 
-/* ── Tree Node Card (Authentic Branching Node) ────────────── */
-.tree-node-card {
+.srd-flowchart-nodes-cluster.multi-branch-cluster {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  max-width: 1200px;
+}
+
+/* ── SRD Badge Node (Exact Match to Rulebook Diagram) ─────── */
+.srd-badge-node {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: linear-gradient(180deg, #131e25 0%, #0c1419 100%);
-  border: 1.5px solid #246975;
-  border-radius: 6px;
-  padding: 8px 10px;
-  width: 100%;
-  max-width: 260px;
+  background: linear-gradient(180deg, #ecdcc8 0%, #d8c4ab 100%);
+  border: 1.5px solid #7c684d;
+  border-radius: 3px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  padding: 6px 12px;
+  min-width: 110px;
+  max-width: 180px;
   box-sizing: border-box;
   text-align: center;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   position: relative;
+  user-select: none;
 }
 
-.tree-node-card:hover:not(.node-locked) {
-  border-color: #38bdf8;
-  background: linear-gradient(180deg, #182832 0%, #0e1a22 100%);
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+.srd-badge-node:hover:not(.node-locked) {
+  border-color: #246975;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transform: translateY(-2px);
+  z-index: 5;
 }
 
-.tree-node-card.node-owned {
-  background: linear-gradient(180deg, #173038 0%, #0f2026 100%);
+.srd-badge-node.node-owned {
+  background: linear-gradient(180deg, #1b3842 0%, #10242b 100%);
   border-color: #FEEBB3;
-  box-shadow: 0 0 14px rgba(254, 235, 179, 0.4);
+  box-shadow: 0 0 12px rgba(254, 235, 179, 0.45);
 }
 
-.tree-node-card.node-available {
+.srd-badge-node.node-available {
   border-color: #38bdf8;
-  box-shadow: 0 0 8px rgba(56, 189, 248, 0.25);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.35);
 }
 
-.tree-node-card.node-locked {
-  background: #090e12;
-  border-color: #1e293b;
+.srd-badge-node.node-locked {
+  background: linear-gradient(180deg, #242b30 0%, #151a1e 100%);
+  border-color: #3f4a52;
   opacity: 0.6;
 }
 
-.node-icon-frame {
-  position: relative;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 2px solid #246975;
-  padding: 2px;
-  margin-bottom: 6px;
-  cursor: pointer;
-  background: #090e12;
-}
-
-.tree-node-card.node-owned .node-icon-frame {
-  border-color: #FEEBB3;
-  box-shadow: 0 0 10px rgba(254, 235, 179, 0.5);
-}
-
-.node-icon-img {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.node-badge {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
+.badge-node-body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 8px;
-}
-
-.node-badge.status-owned {
-  background: #22c55e;
-  color: #000;
-}
-
-.node-badge.status-locked {
-  background: #ef4444;
-  color: #fff;
-}
-
-.node-badge.status-available {
-  background: #38bdf8;
-  color: #000;
-}
-
-.node-info-block {
+  gap: 6px;
   cursor: pointer;
   width: 100%;
-  margin-bottom: 6px;
 }
 
-.node-title {
-  font-family: 'Cinzel', serif;
+.badge-node-title {
+  font-family: 'Cinzel', 'Times New Roman', serif;
   font-weight: 700;
-  font-size: 11.5px;
-  color: #FEEBB3;
-  display: block;
-  line-height: 1.2;
+  font-size: 11px;
+  color: #1a2730;
+  line-height: 1.25;
+  letter-spacing: 0.3px;
 }
 
-.tree-node-card.node-locked .node-title {
+.srd-badge-node.node-owned .badge-node-title {
+  color: #FEEBB3;
+  text-shadow: 0 0 6px rgba(254, 235, 179, 0.4);
+}
+
+.srd-badge-node.node-locked .badge-node-title {
   color: #94a3b8;
 }
 
-.node-sub {
+.badge-status-icon.owned {
+  color: #22c55e;
+  font-size: 10px;
+}
+
+.badge-status-icon.locked {
+  color: #ef4444;
   font-size: 9.5px;
+}
+
+.badge-status-icon.available {
   color: #38bdf8;
-  text-transform: uppercase;
+  font-size: 9.5px;
 }
 
-.node-reqs-label {
-  font-size: 8.5px;
-  color: #f87171;
-  display: block;
-  margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.node-actions-bar {
+.badge-node-actions {
   display: flex;
   gap: 4px;
+  margin-top: 4px;
   justify-content: center;
-  width: 100%;
 }
 
-.node-btn {
-  background: #151e24;
-  border: 1px solid #246975;
-  color: #cbd5e1;
+.badge-btn {
+  background: #1e293b;
+  border: 1px solid #475569;
+  color: #e2e8f0;
   border-radius: 3px;
-  padding: 2px 6px;
-  font-size: 9.5px;
+  padding: 1px 5px;
+  font-size: 9px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.1s ease;
 }
 
-.node-btn:hover {
+.badge-btn:hover {
   background: #246975;
   color: #FEEBB3;
   border-color: #FEEBB3;
 }
 
-.node-btn.select {
+.badge-btn.select {
   background: #246975;
   border-color: #FEEBB3;
   color: #FEEBB3;
   font-weight: 700;
 }
 
-.node-btn.select.disabled {
+.badge-btn.select.disabled {
   background: #1e293b;
   border-color: #334155;
   color: #64748b;
   cursor: not-allowed;
 }
+
+.badge-req-hint {
+  font-size: 8px;
+  color: #b91c1c;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
 
 /* ── Character Sheet Compact Talents Tab Launcher ─────────── */
 .sheet-tree-launcher-card {

@@ -8,9 +8,12 @@
 import {
   CANONICAL_TALENTS,
   CANONICAL_TRACK_PARENTS,
+  NORMALIZED_CANONICAL_TALENTS,
   SUBCLASS_TO_CLASS,
   DISCIPLINE_TO_MAGIC,
   SUBTRACK_TO_SPEC,
+  normalizeTalentName,
+  isDisallowedTalentItem,
 } from "./talent-canonical-map.mjs";
 
 /**
@@ -671,13 +674,28 @@ export function parseTalentData(item) {
  */
 export function checkTalentAvailability(talent, actorTalents = [], { effectiveLevel = null } = {}) {
   const data = parseTalentData(talent);
-  const ownedNames = new Set(
-    actorTalents.map(t => (typeof t === "string" ? t : t.name).toLowerCase().trim())
-  );
+  const ownedNames = new Set();
+  for (const t of actorTalents) {
+    const raw = typeof t === "string" ? t : t.name;
+    if (!raw) continue;
+    ownedNames.add(raw.toLowerCase().trim());
+    const norm = normalizeTalentName(raw);
+    ownedNames.add(norm);
+    const arabic = norm.replace(/\b(i|ii|iii|iv|v|vi|vii|viii|ix|x)\b/g, (m) => {
+      const rMap = { i: "1", ii: "2", iii: "3", iv: "4", v: "5", vi: "6", vii: "7", viii: "8", ix: "9", x: "10" };
+      return rMap[m] || m;
+    });
+    ownedNames.add(arabic);
+  }
 
   const missingPrereqs = [];
   for (const p of data.prerequisites) {
     const clean = p.toLowerCase().trim();
+    const norm = normalizeTalentName(p);
+    const arabic = norm.replace(/\b(i|ii|iii|iv|v|vi|vii|viii|ix|x)\b/g, (m) => {
+      const rMap = { i: "1", ii: "2", iii: "3", iv: "4", v: "5", vi: "6", vii: "7", viii: "8", ix: "9", x: "10" };
+      return rMap[m] || m;
+    });
 
     // Ignore descriptive/negative clause prerequisites like "no other class entry talents"
     if (/^(no\s+other|cannot\s+have|must\s+not|without)\b/i.test(clean)) {
@@ -701,7 +719,7 @@ export function checkTalentAvailability(talent, actorTalents = [], { effectiveLe
       }
     }
 
-    if (!ownedNames.has(clean)) {
+    if (!ownedNames.has(clean) && !ownedNames.has(norm) && !ownedNames.has(arabic)) {
       missingPrereqs.push(p);
     }
   }
@@ -709,7 +727,8 @@ export function checkTalentAvailability(talent, actorTalents = [], { effectiveLe
   const conflictingTalents = [];
   for (const inc of data.incompatibilities) {
     const clean = inc.toLowerCase().trim();
-    if (ownedNames.has(clean)) {
+    const norm = normalizeTalentName(inc);
+    if (ownedNames.has(clean) || ownedNames.has(norm)) {
       conflictingTalents.push(inc);
     }
   }
@@ -867,17 +886,28 @@ export const MYTHCRAFT_CANONICAL_MAGIC = [
 ];
 
 export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiveLevel = null } = {}) {
-  const ownedNames = new Set(
-    actorTalents.map(t => (typeof t === "string" ? t : t.name).toLowerCase().trim())
-  );
+  const ownedNames = new Set();
+  for (const t of actorTalents) {
+    const raw = typeof t === "string" ? t : t.name;
+    if (!raw) continue;
+    ownedNames.add(raw.toLowerCase().trim());
+    const norm = normalizeTalentName(raw);
+    ownedNames.add(norm);
+    const arabic = norm.replace(/\b(i|ii|iii|iv|v|vi|vii|viii|ix|x)\b/g, (m) => {
+      const rMap = { i: "1", ii: "2", iii: "3", iv: "4", v: "5", vi: "6", vii: "7", viii: "8", ix: "9", x: "10" };
+      return rMap[m] || m;
+    });
+    ownedNames.add(arabic);
+  }
 
   const rootTreeMap = new Map();
 
   for (const t of talentsList) {
-    const type = String(t.type || "").toLowerCase();
-    if (["disease", "condition", "curse", "spell", "gear", "weapon", "armor", "item", "consumable"].includes(type)) {
+    if (isDisallowedTalentItem(t)) {
       continue;
     }
+
+    const type = String(t.type || "").toLowerCase();
     if (type && type !== "talent" && type !== "feature") {
       continue;
     }
@@ -889,18 +919,12 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
         .replace(/\s*(track|stack|talents?)$/i, "")
         .trim()
     );
-    if (chain.some(f => /^(disease|condition|curse|spell|equipment|gear|items)s?$/i.test(f))) {
-      continue;
-    }
 
     const docName = String(t.name || "").toLowerCase().trim();
-    const docNameClean = docName.replace(/\s*(track|stack|talents?)$/i, "").trim();
+    const docNameClean = normalizeTalentName(docName);
     const docDesc = String(t.system?.description?.value || t.system?.description || "").toLowerCase();
     const docTags = (Array.isArray(t.system?.tags) ? t.system.tags : []).map(tag =>
-      String(tag?.name || tag?.label || tag)
-        .toLowerCase()
-        .replace(/\s*(track|stack|talents?)$/i, "")
-        .trim()
+      normalizeTalentName(tag?.name || tag?.label || tag)
     );
 
     let category = "specialization";
@@ -909,12 +933,12 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
     let isEntry = false;
 
     // 1. Direct canonical talent name lookup
-    if (CANONICAL_TALENTS?.[docName]) {
-      const c = CANONICAL_TALENTS[docName];
-      category = c.category;
-      rootName = c.parent;
-      trackName = c.track;
-      isEntry = c.isEntry;
+    const canonicalMatch = NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[docName];
+    if (canonicalMatch) {
+      category = canonicalMatch.category;
+      rootName = canonicalMatch.parent;
+      trackName = canonicalMatch.track;
+      isEntry = canonicalMatch.isEntry;
     } else {
       // 2. Check subclass name in SUBCLASS_TO_CLASS (Highest priority to avoid class leaking into spec)
       let matchedSubclass = null;
@@ -1053,7 +1077,12 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
     const parsed = parseTalentData(t);
     const id = t.id || t._id || t.name;
     const name = t.name.trim();
-    const isOwned = ownedNames.has(name.toLowerCase());
+    const norm = normalizeTalentName(name);
+    const arabic = norm.replace(/\b(i|ii|iii|iv|v|vi|vii|viii|ix|x)\b/g, (m) => {
+      const rMap = { i: "1", ii: "2", iii: "3", iv: "4", v: "5", vi: "6", vii: "7", viii: "8", ix: "9", x: "10" };
+      return rMap[m] || m;
+    });
+    const isOwned = ownedNames.has(name.toLowerCase().trim()) || ownedNames.has(norm) || ownedNames.has(arabic);
     const availability = checkTalentAvailability(t, actorTalents, { effectiveLevel });
 
     return {

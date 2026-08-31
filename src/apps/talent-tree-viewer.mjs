@@ -162,6 +162,8 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
         }
       }
     }
+    const classGroups = Array.from(classGroupMap.values()).sort((a, b) => a.className.localeCompare(b.className));
+
     // Group magic tracks by magic school for hierarchical display
     const magicGroupMap = new Map();
     for (const track of tracks) {

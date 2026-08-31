@@ -835,20 +835,46 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
   const trackGroups = new Map();
 
   for (const t of talentsList) {
-    const chain = t._folderChain || getDocumentFolderChain(t);
-    let trackName = "";
+    const chain = (t._folderChain || getDocumentFolderChain(t)).map(f => f.replace(/^\d+\.\s*/, "").trim());
+    const classIdx = chain.findIndex(f => /^classes?$/i.test(f));
+    const magicIdx = chain.findIndex(f => /^magic$/i.test(f));
+    const specIdx = chain.findIndex(f => /^specializations?$/i.test(f));
 
+    let category = t._compCategory || "specialization";
     let className = "";
-    // If folder chain has folders, use the most specific folder
-    if (chain.length > 0) {
-      const filtered = chain.filter(f => !/^(class|specialization|magic|talents|features|compendium)s?$/i.test(f.trim()));
-      if (filtered.length > 0) {
-        trackName = filtered[filtered.length - 1];
-        if (filtered.length >= 2) {
-          className = filtered[filtered.length - 2];
-        }
+    let trackName = "";
+    let isClassEntry = false;
+
+    if (classIdx !== -1 && classIdx + 1 < chain.length) {
+      category = "class";
+      className = chain[classIdx + 1];
+      if (classIdx + 2 < chain.length) {
+        trackName = chain[classIdx + 2];
+        isClassEntry = false;
       } else {
-        trackName = chain[chain.length - 1];
+        trackName = `${className} Entry`;
+        isClassEntry = true;
+      }
+    } else if (magicIdx !== -1 && magicIdx + 1 < chain.length) {
+      category = "magic";
+      className = chain[magicIdx + 1];
+      if (magicIdx + 2 < chain.length) {
+        trackName = chain[magicIdx + 2];
+      } else {
+        trackName = `${className} Magic`;
+      }
+    } else if (specIdx !== -1 && specIdx + 1 < chain.length) {
+      category = "specialization";
+      trackName = chain[chain.length - 1];
+    } else {
+      if (chain.length > 0) {
+        const filtered = chain.filter(f => !/^(class|specialization|magic|talents|features|compendium)s?$/i.test(f.trim()));
+        if (filtered.length > 0) {
+          trackName = filtered[filtered.length - 1];
+          if (filtered.length >= 2) className = filtered[filtered.length - 2];
+        } else {
+          trackName = chain[chain.length - 1];
+        }
       }
     }
 
@@ -865,12 +891,13 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
     trackName = trackName.replace(/\s+stack$/i, "").replace(/\s+track$/i, "").replace(/\s+talents$/i, "").trim();
     if (!trackName) trackName = "General";
 
-    const key = trackName.toLowerCase();
+    const key = `${category}-${className}-${trackName}`.toLowerCase();
     if (!trackGroups.has(key)) {
       trackGroups.set(key, {
         rawName: trackName,
         className,
-        category: t._compCategory || "specialization",
+        category,
+        isClassEntry,
         talents: [],
       });
     }
@@ -984,6 +1011,7 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
       trackTitle,
       className: group.className || "",
       category: group.category,
+      isClassEntry: Boolean(group.isClassEntry),
       root: rootNode,
       nodes: allNodes,
       tiers,

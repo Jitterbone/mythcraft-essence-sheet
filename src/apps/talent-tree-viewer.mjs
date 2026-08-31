@@ -158,11 +158,16 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
     const classGroupMap = new Map();
     for (const track of tracks) {
       if (track.category === "class") {
-        const groupName = track.className || track.trackTitle.replace(/ TRACK$/, "");
+        const groupName = track.className || track.trackTitle.replace(/ (TRACK|ENTRY)$/i, "");
         if (!classGroupMap.has(groupName)) {
-          classGroupMap.set(groupName, { className: groupName, tracks: [] });
+          classGroupMap.set(groupName, { className: groupName, entryTalents: [], tracks: [] });
         }
-        classGroupMap.get(groupName).tracks.push(track);
+        const cObj = classGroupMap.get(groupName);
+        if (track.isClassEntry) {
+          cObj.entryTalents.push(...track.nodes);
+        } else {
+          cObj.tracks.push(track);
+        }
       }
     }
     const classGroups = Array.from(classGroupMap.values()).sort((a, b) => a.className.localeCompare(b.className));

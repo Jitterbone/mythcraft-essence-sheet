@@ -32,7 +32,7 @@
   {{!-- Trees Canvas (Collapsible SRD Track Trees) --}}
   <div class="tree-canvas-container srd-style-canvas">
     {{#if (eq activeCategory 'class')}}
-      {{!-- Class Tracks: grouped by class name --}}
+      {{!-- Class Tracks: grouped hierarchically by class name --}}
       {{#if classGroups.length}}
         <div class="srd-tracks-viewport">
           {{#each classGroups as |group|}}
@@ -40,6 +40,57 @@
               <div class="class-group-header">
                 <i class="fas fa-shield"></i> {{group.className}}
               </div>
+
+              {{!-- Class Entry Talents (Outside subfolders) --}}
+              {{#if group.entryTalents.length}}
+                <div class="class-entry-talents-container">
+                  <div class="entry-talents-heading">
+                    <i class="fas fa-star"></i> Entry Talents
+                  </div>
+                  <div class="entry-talents-grid">
+                    {{#each group.entryTalents as |node|}}
+                      <div class="srd-node-box entry-node-box {{#if node.isOwned}}node-owned{{else if node.isAvailable}}node-available{{else}}node-locked{{/if}}"
+                           data-talent-id="{{node.id}}"
+                           {{#unless node.isAvailable}}data-tooltip="{{node.prereqTooltip}}"{{/unless}}>
+                        <div class="node-main-box" data-action="viewTalent" data-talent-id="{{node.id}}">
+                          <span class="node-title">{{node.name}}</span>
+                          {{#if node.isOwned}}
+                            <span class="srd-status-icon owned" title="Acquired"><i class="fas fa-check-circle"></i></span>
+                          {{else if (not node.isAvailable)}}
+                            <span class="srd-status-icon locked" title="{{node.prereqTooltip}}"><i class="fas fa-lock"></i></span>
+                          {{/if}}
+                        </div>
+                        <div class="srd-node-actions">
+                          <button type="button" class="srd-action-btn view" data-action="viewTalent" data-talent-id="{{node.id}}" title="Inspect Talent">
+                            <i class="fas fa-eye"></i>
+                          </button>
+                          <button type="button" class="srd-action-btn chat" data-action="postTalent" data-talent-id="{{node.id}}" title="Share to Chat">
+                            <i class="fas fa-comment-alt"></i>
+                          </button>
+                          {{#if @root.isPickerMode}}
+                            {{#if node.isAvailable}}
+                              <button type="button" class="srd-action-btn select" data-action="chooseTalent" data-talent-id="{{node.id}}" title="Select for Level Up">
+                                <i class="fas fa-plus"></i> Select
+                              </button>
+                            {{else}}
+                              <button type="button" class="srd-action-btn select disabled" disabled title="{{node.prereqTooltip}}">
+                                <i class="fas fa-lock"></i> Locked
+                              </button>
+                            {{/if}}
+                          {{/if}}
+                        </div>
+                        {{#if node.prerequisites.length}}
+                          <div class="srd-req-badge" title="Prerequisites: {{#each node.prerequisites}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}">
+                            Req: {{#each node.prerequisites}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}
+                          </div>
+                        {{/if}}
+                      </div>
+                    {{/each}}
+                  </div>
+                </div>
+              {{/if}}
+
+              {{!-- Class Subfolder Tracks --}}
               {{#each group.tracks as |tree|}}
                 <div class="srd-track-column {{#if tree.isStarted}}track-active{{/if}} {{#if tree.isExpanded}}expanded{{else}}collapsed{{/if}}"
                      data-track-title="{{tree.trackTitle}}">
@@ -97,7 +148,7 @@
                                   <button type="button" class="srd-action-btn chat" data-action="postTalent" data-talent-id="{{node.id}}" title="Share to Chat">
                                     <i class="fas fa-comment-alt"></i>
                                   </button>
-                                  {{#if ../../../../../../isPickerMode}}
+                                  {{#if @root.isPickerMode}}
                                     {{#if node.isAvailable}}
                                       <button type="button" class="srd-action-btn select" data-action="chooseTalent" data-talent-id="{{node.id}}" title="Select for Level Up">
                                         <i class="fas fa-plus"></i> Select
@@ -205,7 +256,7 @@
                               <button type="button" class="srd-action-btn chat" data-action="postTalent" data-talent-id="{{node.id}}" title="Share to Chat">
                                 <i class="fas fa-comment-alt"></i>
                               </button>
-                              {{#if ../../../../isPickerMode}}
+                              {{#if @root.isPickerMode}}
                                 {{#if node.isAvailable}}
                                   <button type="button" class="srd-action-btn select" data-action="chooseTalent" data-talent-id="{{node.id}}" title="Select for Level Up">
                                     <i class="fas fa-plus"></i> Select

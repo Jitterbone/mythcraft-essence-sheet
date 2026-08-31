@@ -14471,3 +14471,58 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
   margin-bottom: 10px;
 }
 
+/* Class Group Hierarchy & Entry Talents Container */
+.class-group-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 24px;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(36, 105, 117, 0.4);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.class-group-header {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: #FEEBB3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid rgba(254, 235, 179, 0.2);
+  padding-bottom: 6px;
+  text-shadow: 0 0 8px rgba(254, 235, 179, 0.25);
+}
+
+.class-entry-talents-container {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(254, 235, 179, 0.25);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+}
+
+.entry-talents-heading {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 12px;
+  color: #38bdf8;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.entry-talents-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.entry-node-box {
+  flex: 1 1 200px;
+  max-width: 280px;
+}
+

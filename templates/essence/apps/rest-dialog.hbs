@@ -1,0 +1,52 @@
+<div class="essence-rest-dialog-content">
+  <div class="dialog-header-banner">
+    <h3><i class="fas fa-bed"></i> Rest &amp; Recovery</h3>
+    <p class="dialog-subtitle">Choose a recovery action for <strong>{{actor.name}}</strong>.</p>
+  </div>
+
+  <div class="rest-status-summary">
+    <div class="status-badge hp-badge">
+      <span class="label">HP</span>
+      <span class="value">{{currentHp}} / {{maxHp}}</span>
+    </div>
+    <div class="status-badge sp-badge">
+      <span class="label">SP</span>
+      <span class="value">{{currentSp}} / {{maxSp}}</span>
+    </div>
+    <div class="status-badge lp-badge">
+      <span class="label">Luck</span>
+      <span class="value">{{currentLp}} / {{maxLp}}</span>
+    </div>
+    <div class="status-badge death-badge">
+      <span class="label">Death</span>
+      <span class="value">{{deathPoints}}</span>
+    </div>
+  </div>
+
+  <div class="rest-options-list">
+    <button type="button" class="rest-option-btn breath-btn" data-action="doBreath">
+      <div class="btn-icon"><i class="fas fa-wind"></i></div>
+      <div class="btn-info">
+        <span class="btn-title">Catch Breath (1 AP)</span>
+        <span class="btn-desc">Stabilize from 0 HP to 1 HP and end Bleeding.</span>
+      </div>
+    </button>
+
+    <button type="button" class="rest-option-btn recoup-btn" data-action="doRecoup">
+      <div class="btn-icon"><i class="fas fa-hourglass-half"></i></div>
+      <div class="btn-info">
+        <span class="btn-title">Recoup (1 Hour)</span>
+        <span class="btn-desc">Regain 1/2 Max HP + END, remove 1 Death Point, and end Bleeding.</span>
+      </div>
+    </button>
+
+    <button type="button" class="rest-option-btn fullrest-btn" data-action="doRest">
+      <div class="btn-icon"><i class="fas fa-campground"></i></div>
+      <div class="btn-info">
+        <span class="btn-title">Take a Rest (8 Hours)</span>
+        <span class="btn-desc">Restore all HP, SP, and Luck Points. Clear all Death Points and Fatigue.</span>
+      </div>
+    </button>
+  </div>
+</div>
+

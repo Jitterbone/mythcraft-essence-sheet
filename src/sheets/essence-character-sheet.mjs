@@ -17,6 +17,7 @@ import ConditionsDialog from "../apps/conditions-dialog.mjs";
 import LevelUpDialog from "../apps/level-up-dialog.mjs";
 import CharacterCreationWizard from "../apps/character-creation-wizard.mjs";
 import TalentTreeViewer from "../apps/talent-tree-viewer.mjs";
+import { RestDialog } from "../features/rest-automation.mjs";
 import { getEnduranceThreshold } from "../features/hp-automation.mjs";
 import WalletDialog, {
   getActiveCurrencies,
@@ -498,6 +499,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       editSenses: this.#editSenses,
       editConditions: this.#editConditions,
       openWalletDialog: this.#openWalletDialog,
+      openRestDialog: this.#openRestDialog,
       openLevelUpDialog: this.#openLevelUpDialog,
       openCharacterCreationWizard: this.#openCharacterCreationWizard,
       openTalentTreeViewer: this.#openTalentTreeViewer,
@@ -1317,6 +1319,12 @@ export default class EssenceCharacterSheet extends CharacterSheet {
   static async #openWalletDialog(event, target) {
     event.stopPropagation();
     new WalletDialog({ document: this.actor }).render(true);
+  }
+
+  static async #openRestDialog(event, target) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    new RestDialog({ document: this.actor }).render(true);
   }
 
   static async #openCharacterCreationWizard(event, target) {

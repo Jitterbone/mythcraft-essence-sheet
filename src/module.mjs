@@ -25,6 +25,11 @@ import { registerSettings } from "./settings.mjs";
 import { findTagDefinition, getActiveTagsLibrary } from "./data/tags-library.mjs";
 import { getEnrichedItemTags, getActorCritHit, getActorCritFail, rollItemDamage } from "./sheets/essence-character-sheet.mjs";
 import { getDefenseTargetConfig, renderDefenseTargetBadgeHTML, DEFENSE_TARGET_CONFIG } from "./data/defense-config.mjs";
+import { mcConditions as MythcraftConditions } from "./data/condition-data.mjs";
+import { initCombatAutomation, resetTurnMovementStride } from "./features/combat-automation.mjs";
+import { initConditionAutomation, purgeInvalidStatusEffects, isMythcraftCondition, suppressConditions, applyConditionDamage } from "./features/condition-automation.mjs";
+import { executeRest, RestDialog } from "./features/rest-automation.mjs";
+import { calculateItemAPC, calculateItemSP, checkAndEnforceAp, checkAndEnforceSp, deductAp, deductSp, executeUnifiedAction, refundSP } from "./features/sp-ap-rolls.mjs";
 
 const MODULE_ID  = "mythcraft-essence-sheet";
 
@@ -50,9 +55,14 @@ Hooks.once("init", () => {
   Handlebars.registerHelper("toUpperCase", (str) => typeof str === "string" ? str.toUpperCase() : String(str ?? ""));
   Handlebars.registerHelper("uppercase", (str) => typeof str === "string" ? str.toUpperCase() : String(str ?? ""));
 
+  // Populate core status effects with MythCraft condition definitions
+  CONFIG.statusEffects = MythcraftConditions;
+
   // Initialize Automation Engines
   initDamageAutomation();
   initEquipmentAutomation();
+  initCombatAutomation();
+  initConditionAutomation();
   patchSystemHpCalculation();
   syncHomebrewAttributesToSystem();
   patchAttributeSkillInput();
@@ -172,9 +182,6 @@ Hooks.once("init", () => {
       return args.join("");
     });
   }
-
-  // Initialize Damage Automation Engine
-  initDamageAutomation();
 
   // Expose Global & Module API early for other scripts and macros
   globalThis.mythcraftEssenceSheet = {
@@ -661,15 +668,23 @@ Hooks.once("init", () => {
 
 
 
+Hooks.on("setup", () => {
+  // Ensure MythCraft status conditions persist through setup phase
+  CONFIG.statusEffects = MythcraftConditions;
+});
+
 Hooks.once("ready", async () => {
   console.log(`${MODULE_ID} | Ready.`);
+  // Re-apply monkey-patches now that system classes are fully loaded.
+  // (initDamageAutomation is intentionally NOT repeated here — hooks
+  //  are already registered in the init hook above; calling it twice
+  //  would double-register preCreateChatMessage / createChatMessage listeners.)
   patchWeaponApcGetter();
-  initDamageAutomation();
   patchFeatureUsesMaxFormula();
   patchSystemHpCalculation();
   syncHomebrewAttributesToSystem();
   patchAttributeSkillInput();
-
+  await purgeInvalidStatusEffects();
 
   // Ensure Essence sheets are set as the default world sheets
   if (game.user.isGM) {
@@ -687,7 +702,6 @@ Hooks.once("ready", async () => {
       let changed = false;
       for (const [type, desiredSheet] of Object.entries(defaultActorMap)) {
         const current = coreSheets.Actor[type];
-        // If unset, or currently pointing to the default base mythcraft sheet, update to Essence sheet
         if (!current || current.startsWith("mythcraft.")) {
           coreSheets.Actor[type] = desiredSheet;
           changed = true;
@@ -708,7 +722,7 @@ Hooks.once("ready", async () => {
     }
   }
 
-  // Expose Tag, Defense & Damage API globally for external modules (e.g. MythCraft HUD) or macros
+  // Expose Tag, Defense, Damage, Combat, AP/SP & Rest API globally
   const moduleObj = game.modules.get(MODULE_ID);
   if (moduleObj) {
     moduleObj.api = globalThis.mythcraftEssenceSheet = {
@@ -721,42 +735,132 @@ Hooks.once("ready", async () => {
       getActorCritHit,
       getActorCritFail,
       rollItemDamage,
+      executeUnifiedAction,
+      executeRest,
+      RestDialog,
+      calculateItemAPC,
+      calculateItemSP,
+      deductAp,
+      deductSp,
+      refundSP,
+      mcConditions: MythcraftConditions,
     };
   }
-
 });
 
 /* ─────────────────────────────────────────────────────────────────────────────
- *  Global Chat Log Click Listener for Damage & Critical Damage Rolls
+ *  Global Chat Log & Document Click Listeners for Automations
  * ──────────────────────────────────────────────────────────────────────────── */
 
 document.addEventListener("click", async (event) => {
-  const btn = event.target.closest("[data-action='rollEssenceDamage'], .roll-damage");
-  if (!btn) return;
-  event.preventDefault();
-  event.stopPropagation();
+  // 1. Roll Damage from Chat Button
+  const damageBtn = event.target.closest("[data-action='rollEssenceDamage'], .roll-damage");
+  if (damageBtn) {
+    event.preventDefault();
+    event.stopPropagation();
 
-  const msgEl = btn.closest("[data-message-id]");
-  const message = msgEl ? game.messages.get(msgEl.dataset.messageId) : null;
-  const actorId = btn.dataset.actorId || message?.speaker?.actor;
-  const actor = actorId ? game.actors.get(actorId) : null;
-  const itemId = btn.dataset.itemId || message?.flags?.["mythcraft-essence-sheet"]?.itemId || msgEl?.querySelector("[data-item-id]")?.dataset.itemId;
+    const msgEl = damageBtn.closest("[data-message-id]");
+    const message = msgEl ? game.messages.get(msgEl.dataset.messageId) : null;
+    const actorId = damageBtn.dataset.actorId || message?.speaker?.actor;
+    const actor = actorId ? game.actors.get(actorId) : null;
+    const itemId = damageBtn.dataset.itemId || message?.flags?.["mythcraft-essence-sheet"]?.itemId || msgEl?.querySelector("[data-item-id]")?.dataset.itemId;
 
-  let item = actor?.items?.get(itemId);
-  if (!item && actor) {
-    const cardTitleEl = msgEl?.querySelector(".card-header h3, h3, .item-name, .card-title");
-    const title = cardTitleEl?.textContent?.split(/[(–—:]/)[0].trim().toLowerCase();
-    if (title) item = actor.items.find(i => i.name.toLowerCase() === title || title.includes(i.name.toLowerCase()));
+    let item = actor?.items?.get(itemId);
+    if (!item && actor) {
+      const cardTitleEl = msgEl?.querySelector(".card-header h3, h3, .item-name, .card-title");
+      const title = cardTitleEl?.textContent?.split(/[(–—:]/)[0].trim().toLowerCase();
+      if (title) item = actor.items.find(i => i.name.toLowerCase() === title || title.includes(i.name.toLowerCase()));
+    }
+
+    if (actor && item) {
+      const isCrit = damageBtn.dataset.isCrit === "true" || event.shiftKey;
+      let rollMode = message?.blind ? "blindroll" : (message?.whisper?.length ? "gmroll" : null);
+      if (!rollMode) {
+        rollMode = game.settings.settings.has("core.messageMode") 
+          ? game.settings.get("core", "messageMode") 
+          : game.settings.get("core", "rollMode");
+      }
+      await rollItemDamage(actor, item, { isCrit, rollMode });
+    }
+    return;
   }
 
-  if (!actor || !item) return;
-
-  const isCrit = btn.dataset.isCrit === "true" || event.shiftKey;
-  let rollMode = message?.blind ? "blindroll" : (message?.whisper?.length ? "gmroll" : null);
-  if (!rollMode) {
-    rollMode = game.settings.settings.has("core.messageMode") 
-      ? game.settings.get("core", "messageMode") 
-      : game.settings.get("core", "rollMode");
+  // 2. Open Rest Dialog from Button
+  const restBtn = event.target.closest("[data-action='openRestDialog'], .open-rest-dialog-btn");
+  if (restBtn) {
+    event.preventDefault();
+    event.stopPropagation();
+    const actorId = restBtn.dataset.actorId || restBtn.closest("[data-actor-id]")?.dataset.actorId;
+    const actor = actorId ? game.actors.get(actorId) : (canvas.tokens.controlled[0]?.actor || game.user.character);
+    if (actor) {
+      new RestDialog({ document: actor }).render(true);
+    } else {
+      ui.notifications.warn("Please select a character token or open a character sheet to rest.");
+    }
+    return;
   }
-  await rollItemDamage(actor, item, { isCrit, rollMode });
+
+  // 3. Refund SP from Chat Button
+  const refundBtn = event.target.closest("[data-action='refundSP'], .myth-hud-refund-btn");
+  if (refundBtn) {
+    event.preventDefault();
+    event.stopPropagation();
+    const actorId = refundBtn.dataset.actorId;
+    const amount = Number(refundBtn.dataset.amount || 1);
+    const actor = actorId ? game.actors.get(actorId) : null;
+    if (actor) {
+      await refundSP(actor, amount);
+    }
+    return;
+  }
+
+  // 4. Apply Damage to Selected Tokens
+  const applyDmgBtn = event.target.closest(".apply-damage-btn, [data-action='applyDamageToSelected']");
+  if (applyDmgBtn) {
+    event.preventDefault();
+    event.stopPropagation();
+    const amount = Number(applyDmgBtn.dataset.amount || applyDmgBtn.dataset.total || 0);
+    const damageType = applyDmgBtn.dataset.damageType || "damage";
+    const selectedTokens = canvas.tokens?.controlled || [];
+
+    if (selectedTokens.length === 0) {
+      ui.notifications.warn("Please select at least one token on the canvas to apply damage to.");
+      return;
+    }
+
+    for (const token of selectedTokens) {
+      const actor = token.actor;
+      if (!actor) continue;
+      const curHp = Number(actor.system?.hp?.value ?? 0);
+      const newHp = Math.max(0, curHp - amount);
+      await actor.update({ "system.hp.value": newHp });
+      ui.notifications.info(`Applied ${amount} ${damageType} damage to ${actor.name} (HP: ${curHp} → ${newHp}).`);
+    }
+    return;
+  }
+
+  // 5. Apply Healing to Selected Tokens
+  const applyHealBtn = event.target.closest(".apply-healing-btn, [data-action='applyHealingToSelected']");
+  if (applyHealBtn) {
+    event.preventDefault();
+    event.stopPropagation();
+    const amount = Number(applyHealBtn.dataset.amount || applyHealBtn.dataset.total || 0);
+    const selectedTokens = canvas.tokens?.controlled || [];
+
+    if (selectedTokens.length === 0) {
+      ui.notifications.warn("Please select at least one token on the canvas to apply healing to.");
+      return;
+    }
+
+    for (const token of selectedTokens) {
+      const actor = token.actor;
+      if (!actor) continue;
+      const curHp = Number(actor.system?.hp?.value ?? 0);
+      const maxHp = Number(actor.system?.hp?.max ?? curHp);
+      const newHp = Math.min(maxHp, curHp + amount);
+      await actor.update({ "system.hp.value": newHp });
+      ui.notifications.info(`Applied ${amount} healing to ${actor.name} (HP: ${curHp} → ${newHp}).`);
+    }
+    return;
+  }
 });

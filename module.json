@@ -25,7 +25,9 @@
         "id": "mythcraft",
         "type": "system",
         "compatibility": {}
-      },
+      }
+    ],
+    "recommends": [
       {
         "id": "mythcraft-hud",
         "type": "module",

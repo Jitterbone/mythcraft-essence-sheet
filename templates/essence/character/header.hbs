@@ -868,41 +868,59 @@
 
           </div>
 
-        {{!-- TALENTS TAB CONTENT (Only owned talents in progression order) --}}
+        {{!-- TALENTS TAB CONTENT (Flowchart Skill Tree in Side Drawer) --}}
         {{else if (eq sideDrawer.activeTab 'talents')}}
           {{#if sideDrawer.talents.followedTracks.length}}
             <div class="drawer-talents-container">
               {{#each sideDrawer.talents.followedTracks as |track|}}
-                <div class="drawer-track-group">
-                  <div class="drawer-track-header">
-                    <div class="drawer-track-title">
+                <div class="drawer-skill-tree-card">
+                  {{!-- Ornate Tree Header --}}
+                  <div class="drawer-tree-header">
+                    <div class="drawer-tree-title">
                       {{#if (eq track.category 'class')}}<i class="fas fa-shield track-cat-icon"></i>{{/if}}
                       {{#if (eq track.category 'magic')}}<i class="fas fa-wand-magic-sparkles track-cat-icon"></i>{{/if}}
                       {{#if (eq track.category 'specialization')}}<i class="fas fa-crosshairs track-cat-icon"></i>{{/if}}
                       <span>{{track.groupKey}}</span>
                     </div>
-                    <span class="drawer-track-count">{{track.talents.length}} Learned</span>
+                    <span class="drawer-tree-badge"><i class="fas fa-check"></i> {{track.talents.length}}</span>
                   </div>
-                  <ul class="drawer-items-list drawer-talents-list">
+
+                  {{!-- Branch Flow Canvas --}}
+                  <div class="drawer-tree-flow">
                     {{#each track.talents as |t|}}
-                      <li class="drawer-item-row drawer-talent-row" data-item-id="{{t.id}}">
-                        <img src="{{t.img}}" alt="{{t.name}}" class="drawer-item-img" data-action="viewDoc" data-item-id="{{t.id}}" />
-                        <div class="drawer-item-info" data-action="viewDoc" data-item-id="{{t.id}}">
-                          <span class="drawer-item-name">{{t.name}}</span>
+                      {{#unless @first}}
+                        <div class="drawer-flow-stem">
+                          <div class="stem-line"></div>
+                          <i class="fas fa-chevron-down stem-arrow"></i>
+                        </div>
+                      {{/unless}}
+
+                      <div class="drawer-tree-node {{#if t.isEntry}}entry-node{{/if}}" data-item-id="{{t.id}}">
+                        <div class="node-icon-frame" data-action="viewDoc" data-item-id="{{t.id}}" title="Inspect {{t.name}}">
+                          <img src="{{t.img}}" alt="{{t.name}}" class="drawer-node-img" />
+                          <span class="node-status-badge"><i class="fas fa-check"></i></span>
+                        </div>
+                        <div class="drawer-node-info" data-action="viewDoc" data-item-id="{{t.id}}">
+                          <span class="drawer-node-name">{{t.name}}</span>
+                          {{#if t.isEntry}}
+                            <span class="drawer-node-tag entry-tag">Entry Gateway</span>
+                          {{/if}}
                           {{#if t.essenceCost}}
-                            <span class="mini-ar-tag"><i class="fas fa-gem"></i> {{t.essenceCost}} EP</span>
+                            <span class="drawer-node-tag ep-tag"><i class="fas fa-gem"></i> {{t.essenceCost}} EP</span>
                           {{/if}}
                         </div>
-                        <button type="button" 
-                                class="drawer-item-unpack-btn" 
-                                data-action="postItemToChat" 
-                                data-item-id="{{t.id}}" 
-                                title="Share to Chat">
-                          <i class="fas fa-comment-alt"></i>
-                        </button>
-                      </li>
+                        <div class="drawer-node-actions">
+                          <button type="button" 
+                                  class="drawer-node-btn chat-btn" 
+                                  data-action="postItemToChat" 
+                                  data-item-id="{{t.id}}" 
+                                  title="Share to Chat">
+                            <i class="fas fa-comment-alt"></i>
+                          </button>
+                        </div>
+                      </div>
                     {{/each}}
-                  </ul>
+                  </div>
                 </div>
               {{/each}}
             </div>

@@ -115,7 +115,6 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       selectTalent: this.#onSelectTalent,
       toggleExtraTalent: this.#onToggleExtraTalent,
       toggleSpell: this.#onToggleSpell,
-      setMagicAttribute: this.#onSetMagicAttribute,
       toggleCardExpand: this.#toggleCardExpand,
       setSearch: this.#setSearch,
       viewTalent: this.#onViewTalent,

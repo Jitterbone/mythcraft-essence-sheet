@@ -14719,16 +14719,16 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
   box-shadow: 0 0 20px rgba(254, 235, 179, 0.18);
 }
 
-/* ── Distinctive MythCraft SRD Ornate Header Banner ──────── */
+/* ── Distinctive MythCraft Essence Track Header Banner ──────── */
 .srd-diagram-header-banner {
   position: relative;
   width: 100%;
-  max-width: 480px;
-  background: linear-gradient(180deg, #f4eee2 0%, #e2d7c3 100%);
-  border: 2px solid #8e734c;
-  border-radius: 3px;
+  max-width: 520px;
+  background: linear-gradient(180deg, #182e38 0%, #0e1c22 100%);
+  border: 1.5px solid #FEEBB3;
+  border-radius: 4px;
   padding: 8px 16px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4), inset 0 0 0 2px #d5c3a5;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), inset 0 0 0 1.5px rgba(36, 105, 117, 0.6);
   cursor: pointer;
   user-select: none;
   transition: all 0.2s ease;
@@ -14736,17 +14736,18 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
 }
 
 .srd-diagram-header-banner:hover {
-  border-color: #bfa16f;
-  box-shadow: 0 0 16px rgba(254, 235, 179, 0.6), inset 0 0 0 2px #e9ddc9;
+  background: linear-gradient(180deg, #22404e 0%, #132730 100%);
+  border-color: #FEEBB3;
+  box-shadow: 0 0 18px rgba(254, 235, 179, 0.4), inset 0 0 0 1.5px rgba(56, 189, 248, 0.7);
   transform: translateY(-1px);
 }
 
 .ornate-corner {
   position: absolute;
-  width: 6px;
-  height: 6px;
-  background: #6b5333;
-  border: 1px solid #d5c3a5;
+  width: 5px;
+  height: 5px;
+  background: #FEEBB3;
+  border: 1px solid #0e1c22;
 }
 
 .ornate-corner.top-left { top: 2px; left: 2px; }
@@ -14763,18 +14764,19 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
 
 .srd-diagram-track-title {
   margin: 0;
-  font-family: 'Cinzel', 'Trajan Pro', serif;
+  font-family: 'Cinzel', serif;
   font-weight: 700;
-  font-size: 15px;
-  color: #1a3840;
+  font-size: 14.5px;
+  color: #FEEBB3;
   text-transform: uppercase;
-  letter-spacing: 2px;
+  letter-spacing: 1.5px;
   text-align: center;
+  text-shadow: 0 0 8px rgba(254, 235, 179, 0.35);
   flex: 1;
 }
 
 .track-expand-chevron {
-  color: #5c4426;
+  color: #FEEBB3;
   font-size: 12px;
 }
 
@@ -14806,11 +14808,12 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
 .srd-flowchart-tier-stem .stem-line {
   width: 2px;
   height: 18px;
-  background: #7c684d;
+  background: linear-gradient(180deg, #246975 0%, #38bdf8 100%);
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.3);
 }
 
 .srd-flowchart-tier-stem .stem-arrow {
-  color: #7c684d;
+  color: #38bdf8;
   font-size: 10px;
   margin-top: -3px;
 }
@@ -14831,15 +14834,15 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
   max-width: 1200px;
 }
 
-/* ── SRD Badge Node (Exact Match to Rulebook Diagram) ─────── */
+/* ── SRD Badge Node (Essence Dark-Teal-Gold Theme) ────────── */
 .srd-badge-node {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: linear-gradient(180deg, #ecdcc8 0%, #d8c4ab 100%);
-  border: 1.5px solid #7c684d;
-  border-radius: 3px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  background: linear-gradient(180deg, #15242d 0%, #0d171d 100%);
+  border: 1.5px solid #246975;
+  border-radius: 4px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
   padding: 6px 12px;
   min-width: 110px;
   max-width: 180px;
@@ -14851,27 +14854,28 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
 }
 
 .srd-badge-node:hover:not(.node-locked) {
-  border-color: #246975;
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  background: linear-gradient(180deg, #1e3542 0%, #12232c 100%);
+  border-color: #38bdf8;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.45);
   transform: translateY(-2px);
   z-index: 5;
 }
 
 .srd-badge-node.node-owned {
-  background: linear-gradient(180deg, #1b3842 0%, #10242b 100%);
+  background: linear-gradient(180deg, #1b3a45 0%, #10242b 100%);
   border-color: #FEEBB3;
-  box-shadow: 0 0 12px rgba(254, 235, 179, 0.45);
+  box-shadow: 0 0 14px rgba(254, 235, 179, 0.4);
 }
 
 .srd-badge-node.node-available {
   border-color: #38bdf8;
-  box-shadow: 0 0 8px rgba(56, 189, 248, 0.35);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.3);
 }
 
 .srd-badge-node.node-locked {
-  background: linear-gradient(180deg, #242b30 0%, #151a1e 100%);
-  border-color: #3f4a52;
-  opacity: 0.6;
+  background: #090e12;
+  border-color: #1e293b;
+  opacity: 0.55;
 }
 
 .badge-node-body {
@@ -14884,21 +14888,21 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
 }
 
 .badge-node-title {
-  font-family: 'Cinzel', 'Times New Roman', serif;
+  font-family: 'Cinzel', serif;
   font-weight: 700;
   font-size: 11px;
-  color: #1a2730;
+  color: #FEEBB3;
   line-height: 1.25;
   letter-spacing: 0.3px;
 }
 
 .srd-badge-node.node-owned .badge-node-title {
   color: #FEEBB3;
-  text-shadow: 0 0 6px rgba(254, 235, 179, 0.4);
+  text-shadow: 0 0 8px rgba(254, 235, 179, 0.5);
 }
 
 .srd-badge-node.node-locked .badge-node-title {
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .badge-status-icon.owned {
@@ -14956,7 +14960,7 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
 
 .badge-req-hint {
   font-size: 8px;
-  color: #b91c1c;
+  color: #f87171;
   margin-top: 2px;
   white-space: nowrap;
   overflow: hidden;

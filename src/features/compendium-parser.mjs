@@ -984,15 +984,14 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
       }
 
       isEntry = /entry\b/i.test(docName) || trackName.toLowerCase().includes("entry");
-    } else {
+    } else if (NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[docName]) {
       // 1. Direct canonical talent name lookup
       const canonicalMatch = NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[docName];
-      if (canonicalMatch) {
-        category = canonicalMatch.category;
-        rootName = canonicalMatch.parent;
-        trackName = canonicalMatch.track;
-        isEntry = canonicalMatch.isEntry;
-      } else {
+      category = canonicalMatch.category;
+      rootName = canonicalMatch.parent;
+      trackName = canonicalMatch.track;
+      isEntry = canonicalMatch.isEntry;
+    } else {
       // 2. Check subclass name in SUBCLASS_TO_CLASS (Highest priority to avoid class leaking into spec)
       let matchedSubclass = null;
       for (const f of [...chain, ...docTags, docNameClean]) {

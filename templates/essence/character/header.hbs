@@ -428,13 +428,15 @@
       <span class="side-tab-badge">{{sideDrawer.weapons.count}}</span>
     </button>
 
-    {{!-- 5. Talent Trees Tab --}}
+    {{!-- 5. Followed Talents Tab --}}
     <button type="button" 
-            class="side-bookmark-tab talent-tree-tab"
-            data-action="openTalentTreeViewer"
-            data-tooltip="<strong>Talent Tracks &amp; Trees</strong><br>View character talent progression trees"
+            class="side-bookmark-tab talent-tree-tab {{#if (eq sideDrawer.activeTab 'talents')}}active{{/if}}"
+            data-action="toggleSideDrawer"
+            data-drawer-tab="talents"
+            data-tooltip="<strong>Followed Talents</strong><br>{{sideDrawer.talents.count}} acquired talents in {{sideDrawer.talents.tracksCount}} tracks"
             data-tooltip-direction="LEFT">
       <i class="fas fa-diagram-project tab-icon"></i>
+      <span class="side-tab-badge">{{sideDrawer.talents.count}}</span>
     </button>
 
   </aside>
@@ -458,6 +460,9 @@
           {{else if (eq sideDrawer.activeTab 'weapons')}}
             <i class="fas fa-crosshairs drawer-title-icon"></i>
             <span>EQUIPPED WEAPONS</span>
+          {{else if (eq sideDrawer.activeTab 'talents')}}
+            <i class="fas fa-diagram-project drawer-title-icon"></i>
+            <span>FOLLOWED TALENTS</span>
           {{/if}}
         </div>
         <button type="button" class="drawer-close-btn" data-action="closeSideDrawer" title="Close Drawer">
@@ -862,6 +867,48 @@
             </div>
 
           </div>
+
+        {{!-- TALENTS TAB CONTENT (Only owned talents in progression order) --}}
+        {{else if (eq sideDrawer.activeTab 'talents')}}
+          {{#if sideDrawer.talents.followedTracks.length}}
+            <div class="drawer-talents-container">
+              {{#each sideDrawer.talents.followedTracks as |track|}}
+                <div class="drawer-track-group">
+                  <div class="drawer-track-header">
+                    <div class="drawer-track-title">
+                      {{#if (eq track.category 'class')}}<i class="fas fa-shield track-cat-icon"></i>{{/if}}
+                      {{#if (eq track.category 'magic')}}<i class="fas fa-wand-magic-sparkles track-cat-icon"></i>{{/if}}
+                      {{#if (eq track.category 'specialization')}}<i class="fas fa-crosshairs track-cat-icon"></i>{{/if}}
+                      <span>{{track.groupKey}}</span>
+                    </div>
+                    <span class="drawer-track-count">{{track.talents.length}} Learned</span>
+                  </div>
+                  <ul class="drawer-items-list drawer-talents-list">
+                    {{#each track.talents as |t|}}
+                      <li class="drawer-item-row drawer-talent-row" data-item-id="{{t.id}}">
+                        <img src="{{t.img}}" alt="{{t.name}}" class="drawer-item-img" data-action="viewDoc" data-item-id="{{t.id}}" />
+                        <div class="drawer-item-info" data-action="viewDoc" data-item-id="{{t.id}}">
+                          <span class="drawer-item-name">{{t.name}}</span>
+                          {{#if t.essenceCost}}
+                            <span class="mini-ar-tag"><i class="fas fa-gem"></i> {{t.essenceCost}} EP</span>
+                          {{/if}}
+                        </div>
+                        <button type="button" 
+                                class="drawer-item-unpack-btn" 
+                                data-action="postItemToChat" 
+                                data-item-id="{{t.id}}" 
+                                title="Share to Chat">
+                          <i class="fas fa-comment-alt"></i>
+                        </button>
+                      </li>
+                    {{/each}}
+                  </ul>
+                </div>
+              {{/each}}
+            </div>
+          {{else}}
+            <p class="drawer-empty-msg">No talents acquired on this character yet.</p>
+          {{/if}}
 
         {{/if}}
 

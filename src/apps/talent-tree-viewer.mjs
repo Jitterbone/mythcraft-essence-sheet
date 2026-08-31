@@ -169,37 +169,72 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
       const ownedCount = tree.nodes.filter(n => n.isOwned).length;
       const availableCount = tree.nodes.filter(n => n.isAvailable && !n.isOwned).length;
 
-      const tracks = tree.tracks.map(track => {
-        const isTrackExpanded = this.activeCategory === "character"
-          ? (track.isStarted && !this.collapsedTrackTitles.has(track.trackTitle)) || this.expandedTrackTitles.has(track.trackTitle)
-          : !this.collapsedTrackTitles.has(track.trackTitle);
+      // When in Character view, only show tracks the character is following, and only the talents they own
+      let tracks = tree.tracks;
+      let entryTalents = tree.entryTalents;
 
-        const trackOwnedCount = track.nodes.filter(n => n.isOwned).length;
-        const trackAvailableCount = track.nodes.filter(n => n.isAvailable && !n.isOwned).length;
+      if (this.activeCategory === "character") {
+        tracks = tracks
+          .filter(track => track.isStarted)
+          .map(track => {
+            const filteredTiers = (track.tiers || [])
+              .map(tier => ({
+                ...tier,
+                nodes: tier.nodes.filter(n => n.isOwned),
+              }))
+              .filter(tier => tier.nodes.length > 0);
 
-        return {
-          ...track,
-          isExpanded: isTrackExpanded,
-          ownedCount: trackOwnedCount,
-          availableCount: trackAvailableCount,
-          totalNodesCount: track.nodes.length,
-        };
-      });
+            const isTrackExpanded = !this.collapsedTrackTitles.has(track.trackTitle);
+            const trackOwnedCount = track.nodes.filter(n => n.isOwned).length;
+
+            return {
+              ...track,
+              tiers: filteredTiers,
+              isExpanded: isTrackExpanded,
+              ownedCount: trackOwnedCount,
+              availableCount: 0,
+              totalNodesCount: trackOwnedCount,
+            };
+          })
+          .filter(track => track.tiers.length > 0);
+
+        entryTalents = (entryTalents || []).filter(n => n.isOwned);
+      } else {
+        tracks = tracks.map(track => {
+          const isTrackExpanded = !this.collapsedTrackTitles.has(track.trackTitle);
+          const trackOwnedCount = track.nodes.filter(n => n.isOwned).length;
+          const trackAvailableCount = track.nodes.filter(n => n.isAvailable && !n.isOwned).length;
+
+          return {
+            ...track,
+            isExpanded: isTrackExpanded,
+            ownedCount: trackOwnedCount,
+            availableCount: trackAvailableCount,
+            totalNodesCount: track.nodes.length,
+          };
+        });
+      }
 
       return {
         ...tree,
+        entryTalents,
         isExpanded,
         ownedCount,
         availableCount,
-        totalNodesCount: tree.nodes.length,
+        totalNodesCount: this.activeCategory === "character" ? ownedCount : tree.nodes.length,
         tracks,
       };
     });
 
+    // In character view, exclude any root tree that has no owned talents left
+    const finalTrees = this.activeCategory === "character"
+      ? rootTrees.filter(tree => tree.ownedCount > 0 && (tree.tracks.length > 0 || tree.entryTalents.length > 0))
+      : rootTrees;
+
     return {
       actor: this.actor,
       isPickerMode: this.isPickerMode,
-      trees: rootTrees,
+      trees: finalTrees,
       totalTreesCount: this.trees.length,
       startedTreesCount: startedTrees.length,
       hasStartedTrees: hasStarted,

@@ -2925,6 +2925,107 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       equippedHandList.push(formatted);
     }
 
+    // Build followed tracks for side drawer
+    const drawerTalentItems = (this.actor.items || []).filter(i => {
+      if (isDisallowedTalentItem(i)) return false;
+      if (i.type === "talent") return true;
+      if (i.type === "feature") {
+        const norm = normalizeTalentName(i.name);
+        return Boolean(NORMALIZED_CANONICAL_TALENTS[norm]);
+      }
+      return false;
+    });
+
+    const drawerTrackMap = new Map();
+    for (const item of drawerTalentItems) {
+      const rawName = String(item.name || "").trim();
+      const docNameClean = normalizeTalentName(rawName);
+      const chain = (item._folderChain || []).map(f => normalizeTalentName(f));
+      const docTags = (Array.isArray(item.system?.tags) ? item.system.tags : []).map(tag =>
+        normalizeTalentName(tag?.name || tag?.label || tag)
+      );
+
+      let category = "specialization";
+      let rootName = "General Specialization";
+      let trackName = "General";
+      let isEntry = false;
+
+      const canonicalMatch = NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[rawName.toLowerCase()];
+      if (canonicalMatch) {
+        category = canonicalMatch.category;
+        rootName = canonicalMatch.parent;
+        trackName = canonicalMatch.track;
+        isEntry = canonicalMatch.isEntry;
+      } else {
+        let matchedSubclass = null;
+        for (const f of [...chain, ...docTags, docNameClean]) {
+          if (SUBCLASS_TO_CLASS[f]) {
+            matchedSubclass = { cls: SUBCLASS_TO_CLASS[f], track: f };
+            break;
+          }
+        }
+        if (matchedSubclass) {
+          category = "class";
+          rootName = matchedSubclass.cls;
+          trackName = matchedSubclass.track;
+        } else {
+          let matchedDiscipline = null;
+          for (const f of [...chain, ...docTags, docNameClean]) {
+            if (DISCIPLINE_TO_MAGIC[f]) {
+              matchedDiscipline = { mag: DISCIPLINE_TO_MAGIC[f], track: f };
+              break;
+            }
+          }
+          if (matchedDiscipline) {
+            category = "magic";
+            rootName = matchedDiscipline.mag;
+            trackName = matchedDiscipline.track;
+          } else {
+            let matchedSpecSubtrack = null;
+            for (const f of [...chain, ...docTags, docNameClean]) {
+              if (SUBTRACK_TO_SPEC[f]) {
+                matchedSpecSubtrack = { spec: SUBTRACK_TO_SPEC[f], track: f };
+                break;
+              }
+            }
+            if (matchedSpecSubtrack) {
+              category = "specialization";
+              rootName = matchedSpecSubtrack.spec;
+              trackName = matchedSpecSubtrack.track;
+            }
+          }
+        }
+      }
+
+      const groupKey = `${rootName} — ${trackName}`.toUpperCase();
+      if (!drawerTrackMap.has(groupKey)) {
+        drawerTrackMap.set(groupKey, {
+          groupKey,
+          rootName: rootName.toUpperCase(),
+          trackName: trackName.toUpperCase(),
+          category,
+          talents: [],
+        });
+      }
+      drawerTrackMap.get(groupKey).talents.push({
+        id: item.id,
+        name: item.name,
+        img: item.img || "icons/svg/aura.svg",
+        essenceCost: Number(item.flags?.["mythcraft-essence-sheet"]?.essenceCost ?? item.system?.essenceCost ?? 0),
+        isEntry,
+      });
+    }
+
+    for (const group of drawerTrackMap.values()) {
+      group.talents.sort((a, b) => {
+        if (a.isEntry && !b.isEntry) return -1;
+        if (!a.isEntry && b.isEntry) return 1;
+        return a.name.localeCompare(b.name, undefined, { numeric: true });
+      });
+    }
+
+    const drawerFollowedTracks = Array.from(drawerTrackMap.values()).sort((a, b) => a.groupKey.localeCompare(b.groupKey));
+
     context.sideDrawer = {
       activeTab: this.activeSideDrawerTab || null,
       storage: {
@@ -2953,6 +3054,11 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         twoHanded: twoHandedWeapon,
         isTwoHanded: Boolean(twoHandedWeapon),
         hasAny: equippedHandList.length > 0,
+      },
+      talents: {
+        followedTracks: drawerFollowedTracks,
+        count: drawerTalentItems.length,
+        tracksCount: drawerFollowedTracks.length,
       },
     };
 

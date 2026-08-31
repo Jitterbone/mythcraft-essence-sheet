@@ -979,14 +979,20 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
   }
 
   /**
-   * Prompts the user to start Character Creation for a Level 0 character.
+   * Prompts the user to start Character Creation for a Level 0 or unbuilt character.
    * @param {Actor} actor
    * @param {Application} [sheet]
    */
   static async promptStartup(actor, sheet) {
     if (!actor || actor.type !== "character") return;
     const curLevel = Number(actor.system?.level ?? 0);
-    if (curLevel > 0) return;
+    const hasLineage = actor.items.some(i => i.type === "lineage" || String(i.name || "").toLowerCase().endsWith(" lineage"));
+    const isUnbuilt = curLevel === 0 || (!hasLineage && curLevel <= 1);
+    if (!isUnbuilt) return;
+
+    // Check if a wizard or startup dialog is already open for this actor
+    const openWizard = Object.values(ui.windows || {}).find(w => w instanceof CharacterCreationWizard && w.actor?.id === actor.id);
+    if (openWizard) return;
 
     new Dialog({
       title: "Start Character Creation?",
@@ -995,7 +1001,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
           <div class="ap-modal-banner">
             <div class="ap-modal-icon"><i class="fas fa-sparkles"></i></div>
             <div class="ap-modal-text">
-              <p class="ap-modal-actor"><strong>${actor.name}</strong> is currently a new <strong>Level 0</strong> character.</p>
+              <p class="ap-modal-actor"><strong>${actor.name}</strong> is currently a new <strong>${curLevel === 0 ? "Level 0" : "Unbuilt"}</strong> character.</p>
               <p style="margin: 4px 0 0; font-size: 12px; color: #94a3b8;">Would you like to step through the guided MythCraft Character Creation Wizard?</p>
             </div>
           </div>

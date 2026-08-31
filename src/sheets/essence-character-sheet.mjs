@@ -1814,13 +1814,17 @@ export default class EssenceCharacterSheet extends CharacterSheet {
   _onRender(context, options) {
     super._onRender(context, options);
 
-    // Auto-prompt Character Creation Wizard on Level 0 characters when the sheet is first opened
-    if (this.actor.type === "character" && Number(this.actor.system?.level ?? 0) === 0) {
+    // Auto-prompt Character Creation Wizard on Level 0 / unbuilt characters when the sheet is opened
+    const curLevel = Number(this.actor.system?.level ?? 0);
+    const hasLineage = this.actor.items.some(i => i.type === "lineage" || String(i.name || "").toLowerCase().endsWith(" lineage"));
+    const isUnbuilt = curLevel === 0 || (!hasLineage && curLevel <= 1);
+
+    if (this.actor.type === "character" && isUnbuilt) {
       if (!this._hasPromptedWizard) {
         this._hasPromptedWizard = true;
         setTimeout(() => {
           CharacterCreationWizard.promptStartup(this.actor, this);
-        }, 100);
+        }, 150);
       }
     }
 
@@ -1878,10 +1882,20 @@ export default class EssenceCharacterSheet extends CharacterSheet {
           event.preventDefault();
           event.stopPropagation();
           event.target.value = curLvl;
+          if (curLvl === 0) {
+            new CharacterCreationWizard(this.actor).render(true);
+            return;
+          }
           new LevelUpDialog(this.actor, { targetLevel: newLvl }).render(true);
         }
       });
     }
+
+  /** @inheritdoc */
+  async close(options = {}) {
+    this._hasPromptedWizard = false;
+    return super.close(options);
+  }
 
     // Endurance Threshold change detection: prompt HP recalculation
     const endInput = this.element.querySelector("input[name='system.attributes.end']");

@@ -3665,6 +3665,32 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     }
 
     if (partId === "talents") {
+      const customCompendiums = globalThis.game?.settings?.get("mythcraft-essence-sheet", "customTalentCompendiums") || [];
+      const customPackMap = new Map();
+      const customTalentMap = new Map();
+
+      for (const c of customCompendiums) {
+        if (!c.pack) continue;
+        const packKey = c.pack.toLowerCase().trim();
+        customPackMap.set(packKey, c);
+        const p = game.packs.get(c.pack) || game.packs.find(pack => (pack.metadata?.id || pack.collection || "").toLowerCase() === packKey || (pack.metadata?.label || pack.title || "").toLowerCase() === packKey);
+        if (p?.index) {
+          for (const entry of p.index) {
+            const norm = normalizeTalentName(entry.name);
+            const low = entry.name.toLowerCase().trim();
+            const info = {
+              category: c.category,
+              parentName: c.parentName,
+              trackName: c.trackName,
+              packTitle: p.metadata?.label || p.title,
+              packId: p.metadata?.id || p.collection,
+            };
+            customTalentMap.set(norm, info);
+            customTalentMap.set(low, info);
+          }
+        }
+      }
+
       context.talents = await Promise.all((this.actor.itemTypes.talent || []).map(async (item) => {
         const isFavorite = isItemFavorite(item);
         const expanded = this.collapsedItems.has(item.id)
@@ -3737,9 +3763,8 @@ export default class EssenceCharacterSheet extends CharacterSheet {
           rootName = matchedCustom.parentName || matchedCustom.parent || (chain.length > 0 ? chain[0] : (matchedCustom.packTitle || "Custom"));
           trackName = matchedCustom.trackName || matchedCustom.track || (chain.length > 1 ? chain[chain.length - 1] : (matchedCustom.category === "subclass" ? (matchedCustom.packTitle || "Subclass Track") : (matchedCustom.parentName ? `${matchedCustom.parentName} Track` : "General")));
           isEntry = /entry\b/i.test(docNameClean) || trackName.toLowerCase().includes("entry");
-        } else {
+        } else if (NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[rawName.toLowerCase()]) {
           const canonicalMatch = NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[rawName.toLowerCase()];
-        if (canonicalMatch) {
           category = canonicalMatch.category;
           rootName = canonicalMatch.parent;
           trackName = canonicalMatch.track;

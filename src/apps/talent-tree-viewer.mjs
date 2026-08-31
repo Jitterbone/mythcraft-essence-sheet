@@ -158,7 +158,7 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
       displayTrees = this.trees.filter(tree => tree.category === this.activeCategory);
     }
 
-    // Prepare presentation root trees with expansion state and stats
+      // Prepare presentation root trees with expansion state and stats
     const rootTrees = displayTrees.map(tree => {
       // In Character view: expanded by default unless explicitly collapsed
       // In Category views (Class, Spec, Magic, All): collapsed by default unless explicitly expanded
@@ -169,72 +169,38 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
       const ownedCount = tree.nodes.filter(n => n.isOwned).length;
       const availableCount = tree.nodes.filter(n => n.isAvailable && !n.isOwned).length;
 
-      // When in Character view, only show tracks the character is following, and only the talents they own
-      let tracks = tree.tracks;
-      let entryTalents = tree.entryTalents;
+      const tracks = tree.tracks.map(track => {
+        // In Character view: active followed tracks start expanded by default so player can pick next talents
+        const isTrackExpanded = this.activeCategory === "character"
+          ? (track.isStarted && !this.collapsedTrackTitles.has(track.trackTitle)) || this.expandedTrackTitles.has(track.trackTitle)
+          : !this.collapsedTrackTitles.has(track.trackTitle);
 
-      if (this.activeCategory === "character") {
-        tracks = tracks
-          .filter(track => track.isStarted)
-          .map(track => {
-            const filteredTiers = (track.tiers || [])
-              .map(tier => ({
-                ...tier,
-                nodes: tier.nodes.filter(n => n.isOwned),
-              }))
-              .filter(tier => tier.nodes.length > 0);
+        const trackOwnedCount = track.nodes.filter(n => n.isOwned).length;
+        const trackAvailableCount = track.nodes.filter(n => n.isAvailable && !n.isOwned).length;
 
-            const isTrackExpanded = !this.collapsedTrackTitles.has(track.trackTitle);
-            const trackOwnedCount = track.nodes.filter(n => n.isOwned).length;
-
-            return {
-              ...track,
-              tiers: filteredTiers,
-              isExpanded: isTrackExpanded,
-              ownedCount: trackOwnedCount,
-              availableCount: 0,
-              totalNodesCount: trackOwnedCount,
-            };
-          })
-          .filter(track => track.tiers.length > 0);
-
-        entryTalents = (entryTalents || []).filter(n => n.isOwned);
-      } else {
-        tracks = tracks.map(track => {
-          const isTrackExpanded = !this.collapsedTrackTitles.has(track.trackTitle);
-          const trackOwnedCount = track.nodes.filter(n => n.isOwned).length;
-          const trackAvailableCount = track.nodes.filter(n => n.isAvailable && !n.isOwned).length;
-
-          return {
-            ...track,
-            isExpanded: isTrackExpanded,
-            ownedCount: trackOwnedCount,
-            availableCount: trackAvailableCount,
-            totalNodesCount: track.nodes.length,
-          };
-        });
-      }
+        return {
+          ...track,
+          isExpanded: isTrackExpanded,
+          ownedCount: trackOwnedCount,
+          availableCount: trackAvailableCount,
+          totalNodesCount: track.nodes.length,
+        };
+      });
 
       return {
         ...tree,
-        entryTalents,
         isExpanded,
         ownedCount,
         availableCount,
-        totalNodesCount: this.activeCategory === "character" ? ownedCount : tree.nodes.length,
+        totalNodesCount: tree.nodes.length,
         tracks,
       };
     });
 
-    // In character view, exclude any root tree that has no owned talents left
-    const finalTrees = this.activeCategory === "character"
-      ? rootTrees.filter(tree => tree.ownedCount > 0 && (tree.tracks.length > 0 || tree.entryTalents.length > 0))
-      : rootTrees;
-
     return {
       actor: this.actor,
       isPickerMode: this.isPickerMode,
-      trees: finalTrees,
+      trees: rootTrees,
       totalTreesCount: this.trees.length,
       startedTreesCount: startedTrees.length,
       hasStartedTrees: hasStarted,

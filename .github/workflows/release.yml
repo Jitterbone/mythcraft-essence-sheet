@@ -60,15 +60,17 @@ jobs:
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ steps.release-meta.outputs.tag_name }}
           name: Version ${{ steps.release-meta.outputs.version_number }}
           prerelease: ${{ steps.prerelease-check.outputs.is_prerelease }}
-          make_latest: true
-          overwrite: true
+          generate_release_notes: true
+          fail_on_unmatched_files: true
           files: |
             ./mythcraft-essence-sheet.zip
             ./module.zip
             ./module.json
+
 

@@ -947,7 +947,6 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       if (rankOne) itemsToCreate.push(rankOne.toObject());
     }
 
-    const startingTalent = this.data.talents.find(t => t.id === this.data.selectedTalentId);
     if (startingTalent) itemsToCreate.push(startingTalent.toObject());
 
     for (const extraId of this.data.selectedExtraTalentIds) {

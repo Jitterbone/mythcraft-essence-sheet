@@ -49,6 +49,10 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 - **Level-Up Talent Picker Pop-Up**:
   - Displays full tree progression in the **"Your Character"** tab with acquired checkmarks (`✓`), active glowing `+ Select` buttons on available talents, and lock badges with prerequisite tooltips for locked tiers.
   - Allows players to inspect rules, explore future tiers, and choose their next talent directly during level up.
+- **Custom & Homebrew Talent Compendiums Manager**:
+  - Dedicated settings configuration menu (**Configure Talent Compendiums**) allowing GMs and players to register external or homebrew Item compendiums outside official packs.
+  - Flexible track categorization: map custom compendiums directly to **Classes**, **Subclasses** (with parent class mapping), **Specialization Talents** (with parent stack mapping), or **Magic Talents** (with discipline mapping).
+  - Custom tracks seamlessly integrate into the Talent Tree Viewer, Level-Up picker, and character sheet side drawer flyout.
 - **Quick-Access Widescreen Flyout Drawer (520px)**:
   - The 5th bookmark tab on the right edge of the character sheet expands a **520px widescreen side drawer flyout** (no floating popups).
   - Renders **ONLY the talents on the character's sheet** arranged in visual flowchart progression under their active followed tracks.
@@ -190,6 +194,10 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 ## 📝 Changelog
 
 ### v0.4.1-alpha
+- **Custom Talent Compendiums & Homebrew Tracks**:
+  - Added a dedicated settings menu (**Configure Talent Compendiums**) that allows users to register custom/homebrew Item compendiums outside official ones.
+  - Supports categorizing custom packs as **Classes**, **Subclasses** (with parent class mapping), **Specialization Talents** (with stack parent mapping), or **Magic Talents** (with discipline mapping).
+  - Custom compendiums are automatically discovered and rendered in the Talent Tree Viewer, Level-Up picker, and side drawer flyout.
 - **Monster Traits & Passive Features NPC Categorization**:
   - Resolved an issue on the NPC sheet where newly added features or imported passive traits were being incorrectly categorized as Tier 1 Actions due to default schema tier initialization. Explicit passive categories (`"passive"`, `"trait"`, `"traits"`, `"feature"`) and features without attack/damage properties now properly populate the **Monster Traits & Passive Features** section.
 - **GitHub Release Action CI Fix**:

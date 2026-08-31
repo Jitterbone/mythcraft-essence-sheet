@@ -2937,6 +2937,12 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       return false;
     });
 
+    const customCompendiums = globalThis.game?.settings?.get("mythcraft-essence-sheet", "customTalentCompendiums") || [];
+    const customPackMap = new Map();
+    for (const c of customCompendiums) {
+      if (c.pack) customPackMap.set(c.pack.toLowerCase().trim(), c);
+    }
+
     const drawerTrackMap = new Map();
     for (const item of drawerTalentItems) {
       const rawName = String(item.name || "").trim();
@@ -2951,13 +2957,29 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       let trackName = "General";
       let isEntry = false;
 
-      const canonicalMatch = NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[rawName.toLowerCase()];
-      if (canonicalMatch) {
-        category = canonicalMatch.category;
-        rootName = canonicalMatch.parent;
-        trackName = canonicalMatch.track;
-        isEntry = canonicalMatch.isEntry;
+      // Check if item originated from a configured custom compendium
+      const itemPack = (item.flags?.core?.sourceId || item._stats?.compendiumSource || item.pack || "").toLowerCase();
+      let matchedCustom = null;
+      for (const [packKey, customEntry] of customPackMap) {
+        if (itemPack.includes(packKey)) {
+          matchedCustom = customEntry;
+          break;
+        }
+      }
+
+      if (matchedCustom) {
+        category = matchedCustom.category === "subclass" ? "class" : matchedCustom.category;
+        rootName = matchedCustom.parentName || (chain.length > 0 ? chain[0] : "Custom");
+        trackName = matchedCustom.trackName || (chain.length > 1 ? chain[chain.length - 1] : (matchedCustom.category === "subclass" ? "Subclass Track" : "General"));
+        isEntry = /entry\b/i.test(docNameClean) || trackName.toLowerCase().includes("entry");
       } else {
+        const canonicalMatch = NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[rawName.toLowerCase()];
+        if (canonicalMatch) {
+          category = canonicalMatch.category;
+          rootName = canonicalMatch.parent;
+          trackName = canonicalMatch.track;
+          isEntry = canonicalMatch.isEntry;
+        } else {
         let matchedSubclass = null;
         for (const f of [...chain, ...docTags, docNameClean]) {
           if (SUBCLASS_TO_CLASS[f]) {

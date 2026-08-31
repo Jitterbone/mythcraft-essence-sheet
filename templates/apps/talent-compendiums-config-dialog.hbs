@@ -1,0 +1,122 @@
+﻿<div class="talent-compendiums-dialog-content">
+
+  {{!-- ── 1. Header Overview Card ───────────────────────────────── --}}
+  <div class="dialog-header-card">
+    <div class="header-icon-box">
+      <i class="fas fa-diagram-project"></i>
+    </div>
+    <div class="header-text-box">
+      <h2 class="dialog-title">Custom Talent Compendiums &amp; Tracks</h2>
+      <p class="dialog-subtitle">
+        Register external or homebrew Item compendiums and map them into Class Tracks, Subclasses, Specialization Stacks, or Magic Disciplines for automated skill tree generation.
+      </p>
+    </div>
+  </div>
+
+  {{!-- ── 2. Compendiums List Container ─────────────────────────── --}}
+  <div class="dialog-section-card">
+    <div class="section-title-row">
+      <div class="title-left">
+        <i class="fas fa-books"></i>
+        <span class="section-title">Configured Compendium Sources ({{totalConfigured}})</span>
+      </div>
+      <button type="button" class="add-comp-btn" data-action="addCustomCompendium">
+        <i class="fas fa-plus"></i> Add Compendium
+      </button>
+    </div>
+
+    <p class="section-desc">
+      Select an Item compendium from the dropdown or enter its package ID (e.g. <code>world.my-talents</code>). Choose whether it represents a Class, Subclass track, Specialization stack, or Magic discipline.
+    </p>
+
+    {{#if hasCustomCompendiums}}
+      <div class="compendiums-list">
+        {{#each customCompendiums as |comp|}}
+          <div class="compendium-config-card" data-index="{{comp.index}}">
+            
+            <div class="card-row-main">
+              
+              {{!-- Pack Selection --}}
+              <div class="field-group pack-group">
+                <label class="field-lbl"><i class="fas fa-box-archive"></i> Compendium Pack</label>
+                <select name="compendiums.{{comp.index}}.pack" class="comp-select">
+                  <option value="">-- Select Compendium --</option>
+                  {{#each ../availablePacks as |pack|}}
+                    <option value="{{pack.id}}" {{#if (eq comp.pack pack.id)}}selected{{/if}}>
+                      {{pack.title}} ({{pack.id}})
+                    </option>
+                  {{/each}}
+                </select>
+              </div>
+
+              {{!-- Category Selection --}}
+              <div class="field-group cat-group">
+                <label class="field-lbl"><i class="fas fa-layer-group"></i> Category</label>
+                <select name="compendiums.{{comp.index}}.category" class="cat-select">
+                  {{#each comp.categoryOptions as |cat|}}
+                    <option value="{{cat.key}}" {{#if cat.selected}}selected{{/if}}>
+                      {{cat.label}}
+                    </option>
+                  {{/each}}
+                </select>
+              </div>
+
+              {{!-- Delete Button --}}
+              <button type="button" 
+                      class="delete-comp-btn" 
+                      data-action="deleteCustomCompendium" 
+                      data-index="{{comp.index}}"
+                      title="Remove Compendium">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+
+            <div class="card-row-details">
+              {{!-- Parent Class / Stack / Discipline Name --}}
+              <div class="field-group parent-group">
+                <label class="field-lbl">
+                  <i class="fas fa-sitemap"></i>
+                  Parent Name (Class / Stack / Discipline)
+                </label>
+                <input type="text"
+                       name="compendiums.{{comp.index}}.parentName"
+                       value="{{comp.parentName}}"
+                       placeholder="e.g. Warrior, Combat, Arcane, or Custom Class..."
+                       title="Assigns this compendium's tracks under a parent class, specialization stack, or magic discipline" />
+              </div>
+
+              {{!-- Optional Track Name Override --}}
+              <div class="field-group track-group">
+                <label class="field-lbl">
+                  <i class="fas fa-route"></i>
+                  Custom Track Name (Optional)
+                </label>
+                <input type="text"
+                       name="compendiums.{{comp.index}}.trackName"
+                       value="{{comp.trackName}}"
+                       placeholder="Auto-detect from compendium folders"
+                       title="Optional: Force a specific track title instead of reading folder names" />
+              </div>
+            </div>
+
+          </div>
+        {{/each}}
+      </div>
+    {{else}}
+      <div class="empty-compendiums-state">
+        <i class="fas fa-folder-open"></i>
+        <h3>No Custom Compendiums Configured</h3>
+        <p>Click <strong>Add Compendium</strong> above to register homebrew or third-party talent packs into your skill trees.</p>
+      </div>
+    {{/if}}
+
+  </div>
+
+  {{!-- ── 3. Footer Action Strip ───────────────────────────────── --}}
+  <footer class="dialog-footer">
+    <button type="submit" class="submit-btn">
+      <i class="fas fa-save"></i> Save &amp; Apply Changes
+    </button>
+  </footer>
+
+</div>

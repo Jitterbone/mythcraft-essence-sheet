@@ -87,6 +87,15 @@ export function getAvailableCompendiums() {
 
   if (!globalThis.game?.packs) return grouped;
 
+  // Custom compendiums configured by user in settings
+  const customConfig = globalThis.game?.settings?.get("mythcraft-essence-sheet", "customTalentCompendiums") || [];
+  const customPackMap = new Map();
+  for (const entry of customConfig) {
+    if (entry.pack) {
+      customPackMap.set(entry.pack.toLowerCase().trim(), entry);
+    }
+  }
+
   for (const pack of game.packs.values()) {
     if (pack.documentName !== "Item") continue;
 
@@ -95,6 +104,24 @@ export function getAvailableCompendiums() {
 
     grouped.all.push(pack);
 
+    // 1. Check custom configured compendiums
+    const customEntry = customPackMap.get(packId) || customPackMap.get(packTitle);
+    if (customEntry) {
+      pack._customCategory = customEntry.category || "class";
+      pack._customParent = customEntry.parentName || "";
+      pack._customTrack = customEntry.trackName || "";
+
+      if (customEntry.category === "class" || customEntry.category === "subclass") {
+        grouped.classes.push(pack);
+      } else if (customEntry.category === "magic") {
+        grouped.magic.push(pack);
+      } else if (customEntry.category === "specialization") {
+        grouped.specTalents.push(pack);
+      }
+      continue;
+    }
+
+    // 2. Check official compendium naming rules
     if (OFFICIAL_PACK_NAMES.lineages.some(k => packId.includes(k) || packTitle.includes(k))) {
       grouped.lineages.push(pack);
     } else if (OFFICIAL_PACK_NAMES.bops.some(k => packId.includes(k) || packTitle.includes(k))) {
@@ -163,6 +190,9 @@ export async function loadPacksDocuments(packs, filter = {}) {
         if (filter.type && doc.type !== filter.type) continue;
         doc._folderChain = getDocumentFolderChain(doc, pack);
         doc._compendiumPack = pack;
+        doc._customCategory = pack._customCategory || null;
+        doc._customParent = pack._customParent || null;
+        doc._customTrack = pack._customTrack || null;
         documents.push(doc);
       }
     } catch (e) {
@@ -932,14 +962,37 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
     let trackName = "";
     let isEntry = false;
 
-    // 1. Direct canonical talent name lookup
-    const canonicalMatch = NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[docName];
-    if (canonicalMatch) {
-      category = canonicalMatch.category;
-      rootName = canonicalMatch.parent;
-      trackName = canonicalMatch.track;
-      isEntry = canonicalMatch.isEntry;
+    // 0. Check Custom Compendium Assignment
+    if (t._customCategory) {
+      category = t._customCategory === "subclass" ? "class" : t._customCategory;
+      if (t._customParent) {
+        rootName = t._customParent;
+      } else if (chain.length > 0) {
+        rootName = chain[0];
+      } else {
+        rootName = t._compendiumPack?.metadata?.label || t._compendiumPack?.title || "Custom";
+      }
+
+      if (t._customTrack) {
+        trackName = t._customTrack;
+      } else if (chain.length > 1) {
+        trackName = chain[chain.length - 1];
+      } else if (t._customCategory === "subclass") {
+        trackName = t._compendiumPack?.metadata?.label || t._compendiumPack?.title || "Subclass Track";
+      } else {
+        trackName = chain.length > 0 ? chain[chain.length - 1] : "General";
+      }
+
+      isEntry = /entry\b/i.test(docName) || trackName.toLowerCase().includes("entry");
     } else {
+      // 1. Direct canonical talent name lookup
+      const canonicalMatch = NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[docName];
+      if (canonicalMatch) {
+        category = canonicalMatch.category;
+        rootName = canonicalMatch.parent;
+        trackName = canonicalMatch.track;
+        isEntry = canonicalMatch.isEntry;
+      } else {
       // 2. Check subclass name in SUBCLASS_TO_CLASS (Highest priority to avoid class leaking into spec)
       let matchedSubclass = null;
       for (const f of [...chain, ...docTags, docNameClean]) {

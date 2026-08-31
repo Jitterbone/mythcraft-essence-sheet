@@ -8,6 +8,7 @@
 import CurrencyConfigDialog from "./apps/currency-config-dialog.mjs";
 import TagsManagementDialog from "./apps/tags-dialog.mjs";
 import HomebrewConfigDialog from "./apps/homebrew-config-dialog.mjs";
+import TalentCompendiumsConfigDialog from "./apps/talent-compendiums-config-dialog.mjs";
 import { DEFAULT_TAGS_LIBRARY } from "./data/tags-library.mjs";
 
 export const MODULE_ID = "mythcraft-essence-sheet";
@@ -78,6 +79,25 @@ export function registerSettings() {
 
   game.settings.register(MODULE_ID, "customSkills", {
     name: "Custom Skills",
+    scope: "world",
+    config: false,
+    type: Array,
+    default: [],
+  });
+
+  // ── TALENT TREES & COMPENDIUM SOURCES ─────────────────────────────────────
+
+  game.settings.registerMenu(MODULE_ID, "talentCompendiumsConfigMenu", {
+    name: "Custom Talent Compendiums & Tracks",
+    label: "Configure Talent Compendiums",
+    hint: "Register external or homebrew Item compendiums and map them into Class Tracks, Subclasses, Specialization Stacks, or Magic Disciplines.",
+    icon: "fas fa-diagram-project",
+    type: TalentCompendiumsConfigDialog,
+    restricted: true,
+  });
+
+  game.settings.register(MODULE_ID, "customTalentCompendiums", {
+    name: "Custom Talent Compendiums",
     scope: "world",
     config: false,
     type: Array,

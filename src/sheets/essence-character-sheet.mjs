@@ -2926,22 +2926,47 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       equippedHandList.push(formatted);
     }
 
+    // Build custom compendium maps for homebrew tracks
+    const customCompendiums = globalThis.game?.settings?.get("mythcraft-essence-sheet", "customTalentCompendiums") || [];
+    const customPackMap = new Map();
+    const customTalentMap = new Map();
+
+    for (const c of customCompendiums) {
+      if (!c.pack) continue;
+      const packKey = c.pack.toLowerCase().trim();
+      customPackMap.set(packKey, c);
+      const p = game.packs.get(c.pack) || game.packs.find(pack => (pack.metadata?.id || pack.collection || "").toLowerCase() === packKey || (pack.metadata?.label || pack.title || "").toLowerCase() === packKey);
+      if (p?.index) {
+        for (const entry of p.index) {
+          const norm = normalizeTalentName(entry.name);
+          const low = entry.name.toLowerCase().trim();
+          const info = {
+            category: c.category,
+            parentName: c.parentName,
+            trackName: c.trackName,
+            packTitle: p.metadata?.label || p.title,
+            packId: p.metadata?.id || p.collection,
+          };
+          customTalentMap.set(norm, info);
+          customTalentMap.set(low, info);
+        }
+      }
+    }
+
     // Build followed tracks for side drawer
     const drawerTalentItems = (this.actor.items || []).filter(i => {
       if (isDisallowedTalentItem(i)) return false;
       if (i.type === "talent") return true;
       if (i.type === "feature") {
-        const norm = normalizeTalentName(i.name);
-        return Boolean(NORMALIZED_CANONICAL_TALENTS[norm]);
+        const rawName = String(i.name || "").trim();
+        const norm = normalizeTalentName(rawName);
+        if (NORMALIZED_CANONICAL_TALENTS[norm] || CANONICAL_TALENTS[rawName.toLowerCase()]) return true;
+        if (customTalentMap.has(norm) || customTalentMap.has(rawName.toLowerCase())) return true;
+        const itemPack = (i.flags?.core?.sourceId || i._stats?.compendiumSource || i.pack || "").toLowerCase();
+        if (Array.from(customPackMap.keys()).some(k => itemPack.includes(k))) return true;
       }
       return false;
     });
-
-    const customCompendiums = globalThis.game?.settings?.get("mythcraft-essence-sheet", "customTalentCompendiums") || [];
-    const customPackMap = new Map();
-    for (const c of customCompendiums) {
-      if (c.pack) customPackMap.set(c.pack.toLowerCase().trim(), c);
-    }
 
     const drawerTrackMap = new Map();
     for (const item of drawerTalentItems) {
@@ -2957,20 +2982,25 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       let trackName = "General";
       let isEntry = false;
 
-      // Check if item originated from a configured custom compendium
+      // 1. Check custom talent map (matched by item name from custom compendium index)
+      const customMatch = customTalentMap.get(docNameClean) || customTalentMap.get(rawName.toLowerCase());
+      
+      // 2. Check custom compendium source
       const itemPack = (item.flags?.core?.sourceId || item._stats?.compendiumSource || item.pack || "").toLowerCase();
-      let matchedCustom = null;
-      for (const [packKey, customEntry] of customPackMap) {
-        if (itemPack.includes(packKey)) {
-          matchedCustom = customEntry;
-          break;
+      let matchedCustom = customMatch || null;
+      if (!matchedCustom) {
+        for (const [packKey, customEntry] of customPackMap) {
+          if (itemPack.includes(packKey)) {
+            matchedCustom = customEntry;
+            break;
+          }
         }
       }
 
       if (matchedCustom) {
-        category = matchedCustom.category === "subclass" ? "class" : matchedCustom.category;
-        rootName = matchedCustom.parentName || (chain.length > 0 ? chain[0] : "Custom");
-        trackName = matchedCustom.trackName || (chain.length > 1 ? chain[chain.length - 1] : (matchedCustom.category === "subclass" ? "Subclass Track" : "General"));
+        category = matchedCustom.category === "subclass" ? "class" : (matchedCustom.category || "specialization");
+        rootName = matchedCustom.parentName || matchedCustom.parent || (chain.length > 0 ? chain[0] : (matchedCustom.packTitle || "Custom"));
+        trackName = matchedCustom.trackName || matchedCustom.track || (chain.length > 1 ? chain[chain.length - 1] : (matchedCustom.category === "subclass" ? (matchedCustom.packTitle || "Subclass Track") : (matchedCustom.parentName ? `${matchedCustom.parentName} Track` : "General")));
         isEntry = /entry\b/i.test(docNameClean) || trackName.toLowerCase().includes("entry");
       } else {
         const canonicalMatch = NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[rawName.toLowerCase()];
@@ -3687,7 +3717,28 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         let trackName = "General";
         let isEntry = false;
 
-        const canonicalMatch = NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[rawName.toLowerCase()];
+        // 1. Check custom talent map (matched by item name from custom compendium index)
+        const customMatch = customTalentMap.get(docNameClean) || customTalentMap.get(rawName.toLowerCase());
+        
+        // 2. Check custom compendium source
+        const itemPack = (item.flags?.core?.sourceId || item._stats?.compendiumSource || item.pack || "").toLowerCase();
+        let matchedCustom = customMatch || null;
+        if (!matchedCustom) {
+          for (const [packKey, customEntry] of customPackMap) {
+            if (itemPack.includes(packKey)) {
+              matchedCustom = customEntry;
+              break;
+            }
+          }
+        }
+
+        if (matchedCustom) {
+          category = matchedCustom.category === "subclass" ? "class" : (matchedCustom.category || "specialization");
+          rootName = matchedCustom.parentName || matchedCustom.parent || (chain.length > 0 ? chain[0] : (matchedCustom.packTitle || "Custom"));
+          trackName = matchedCustom.trackName || matchedCustom.track || (chain.length > 1 ? chain[chain.length - 1] : (matchedCustom.category === "subclass" ? (matchedCustom.packTitle || "Subclass Track") : (matchedCustom.parentName ? `${matchedCustom.parentName} Track` : "General")));
+          isEntry = /entry\b/i.test(docNameClean) || trackName.toLowerCase().includes("entry");
+        } else {
+          const canonicalMatch = NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[rawName.toLowerCase()];
         if (canonicalMatch) {
           category = canonicalMatch.category;
           rootName = canonicalMatch.parent;

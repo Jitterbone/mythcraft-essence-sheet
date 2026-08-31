@@ -74,12 +74,28 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
     const packs = getAvailableCompendiums();
     const actorItems = this.actor.items.filter(i => !isDisallowedTalentItem(i));
 
-    // Actor talents: all item type 'talent', plus 'feature' items that match known canonical talents
+    // Build custom talent name index from configured custom compendiums
+    const customConfig = globalThis.game?.settings?.get("mythcraft-essence-sheet", "customTalentCompendiums") || [];
+    const customTalentNames = new Set();
+    for (const c of customConfig) {
+      if (!c.pack) continue;
+      const packKey = c.pack.toLowerCase().trim();
+      const p = game.packs.get(c.pack) || game.packs.find(pack => (pack.metadata?.id || pack.collection || "").toLowerCase() === packKey || (pack.metadata?.label || pack.title || "").toLowerCase() === packKey);
+      if (p?.index) {
+        for (const entry of p.index) {
+          customTalentNames.add(normalizeTalentName(entry.name));
+          customTalentNames.add(entry.name.toLowerCase().trim());
+        }
+      }
+    }
+
+    // Actor talents: all item type 'talent', plus 'feature' items that match known canonical or custom talents
     const actorTalents = actorItems.filter(i => {
       if (i.type === "talent") return true;
       if (i.type === "feature") {
-        const norm = normalizeTalentName(i.name);
-        return Boolean(NORMALIZED_CANONICAL_TALENTS[norm]);
+        const rawName = String(i.name || "").trim();
+        const norm = normalizeTalentName(rawName);
+        return Boolean(NORMALIZED_CANONICAL_TALENTS[norm] || CANONICAL_TALENTS[rawName.toLowerCase()] || customTalentNames.has(norm) || customTalentNames.has(rawName.toLowerCase()));
       }
       return false;
     });

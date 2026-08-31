@@ -1,4 +1,4 @@
-# MythCraft Essence Sheet (v0.4.0-alpha) 📜✨
+# MythCraft Essence Sheet (v0.4.1-alpha) 📜✨
 
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Development-FF5E5B?style=flat&logo=kofi&logoColor=white)](https://ko-fi.com/jitterbone)
 
@@ -188,6 +188,12 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 ---
 
 ## 📝 Changelog
+
+### v0.4.1-alpha
+- **Monster Traits & Passive Features NPC Categorization**:
+  - Resolved an issue on the NPC sheet where newly added features or imported passive traits were being incorrectly categorized as Tier 1 Actions due to default schema tier initialization. Explicit passive categories (`"passive"`, `"trait"`, `"traits"`, `"feature"`) and features without attack/damage properties now properly populate the **Monster Traits & Passive Features** section.
+- **GitHub Release Action CI Fix**:
+  - Updated `.github/workflows/release.yml` for `softprops/action-gh-release@v2` by removing the deprecated `overwrite` option that previously caused release asset upload failures with 404 deletion errors.
 
 ### v0.4.0-alpha
 - **Visual Flowchart Talent Trees**:

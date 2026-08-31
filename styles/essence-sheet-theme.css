@@ -14496,19 +14496,80 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
   text-shadow: 0 0 8px rgba(254, 235, 179, 0.25);
 }
 
+/* Root Tree Container & Sub-Tracks Hierarchy */
+.srd-root-tree-column {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 22px;
+}
+
+.srd-root-banner {
+  position: relative;
+  background: linear-gradient(135deg, rgba(20, 45, 50, 0.95), rgba(10, 25, 30, 0.95));
+  border: 1px solid rgba(254, 235, 179, 0.35);
+  border-radius: 6px;
+  padding: 10px 14px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  transition: all 0.2s ease;
+}
+
+.srd-root-banner:hover {
+  border-color: #FEEBB3;
+  box-shadow: 0 0 14px rgba(254, 235, 179, 0.25);
+}
+
+.srd-root-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: #FEEBB3;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-shadow: 0 0 8px rgba(254, 235, 179, 0.3);
+}
+
+.srd-root-body {
+  background: rgba(10, 20, 25, 0.5);
+  border: 1px solid rgba(36, 105, 117, 0.35);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.srd-subtracks-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.subtrack-banner {
+  background: linear-gradient(135deg, rgba(15, 30, 35, 0.9), rgba(5, 15, 20, 0.9));
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.subtrack-banner .srd-track-title {
+  font-size: 12.5px;
+  color: #38bdf8;
+}
+
 .class-entry-talents-container {
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(254, 235, 179, 0.25);
   border-radius: 6px;
   padding: 10px 12px;
-  margin-bottom: 4px;
 }
 
 .entry-talents-heading {
   font-family: 'Cinzel', serif;
   font-weight: 700;
   font-size: 12px;
-  color: #38bdf8;
+  color: #FEEBB3;
   margin-bottom: 8px;
   display: flex;
   align-items: center;
@@ -14526,10 +14587,5 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
   max-width: 280px;
 }
 
-.magic-group-header {
-  color: #c084fc;
-  border-bottom: 1px solid rgba(192, 132, 252, 0.25);
-  text-shadow: 0 0 8px rgba(192, 132, 252, 0.35);
-}
 
 

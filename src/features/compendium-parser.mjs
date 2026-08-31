@@ -832,8 +832,7 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
     actorTalents.map(t => (typeof t === "string" ? t : t.name).toLowerCase().trim())
   );
 
-  // 1. Group talents into tracks based on compendium folder structure / stack / category
-  const trackGroups = new Map();
+  const rootTreeMap = new Map();
 
   for (const t of talentsList) {
     const type = String(t.type || "").toLowerCase();
@@ -844,7 +843,7 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
       continue;
     }
 
-    const chain = (t._folderChain || getDocumentFolderChain(t)).map(f => f.replace(/^\d+\.\s*/, "").trim());
+    const chain = (t._folderChain || getDocumentFolderChain(t)).map(f => String(f).replace(/^\d+\.\s*/, "").replace(/\s*talents?$/i, "").trim());
     if (chain.some(f => /^(disease|condition|curse|spell|equipment|gear|items)s?$/i.test(f))) {
       continue;
     }
@@ -854,183 +853,199 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
     const specIdx = chain.findIndex(f => /^specializations?$/i.test(f));
 
     let category = t._compCategory || "specialization";
-    let className = "";
+    let rootName = "";
     let trackName = "";
-    let isClassEntry = false;
+    let isEntry = false;
 
     if (classIdx !== -1 && classIdx + 1 < chain.length) {
       category = "class";
-      className = chain[classIdx + 1];
+      rootName = chain[classIdx + 1];
       if (classIdx + 2 < chain.length) {
         trackName = chain[classIdx + 2];
-        isClassEntry = false;
+        isEntry = false;
       } else {
-        trackName = `${className} Entry`;
-        isClassEntry = true;
+        trackName = `${rootName} Entry`;
+        isEntry = true;
       }
     } else if (magicIdx !== -1 && magicIdx + 1 < chain.length) {
       category = "magic";
-      className = chain[magicIdx + 1];
+      rootName = chain[magicIdx + 1];
       if (magicIdx + 2 < chain.length) {
         trackName = chain[magicIdx + 2];
+        isEntry = false;
       } else {
-        trackName = `${className} Magic`;
+        trackName = `${rootName} Entry`;
+        isEntry = true;
       }
     } else if (specIdx !== -1 && specIdx + 1 < chain.length) {
       category = "specialization";
-      trackName = chain[chain.length - 1];
-    } else {
-      if (chain.length > 0) {
-        const filtered = chain.filter(f => !/^(class|specialization|magic|talents|features|compendium)s?$/i.test(f.trim()));
-        if (filtered.length > 0) {
-          trackName = filtered[filtered.length - 1];
-          if (filtered.length >= 2) className = filtered[filtered.length - 2];
+      rootName = chain[specIdx + 1];
+      if (specIdx + 2 < chain.length) {
+        trackName = chain[specIdx + 2];
+        isEntry = false;
+      } else {
+        if (/entry\b/i.test(t.name)) {
+          trackName = `${rootName} Entry`;
+          isEntry = true;
         } else {
-          trackName = chain[chain.length - 1];
+          trackName = rootName;
+          isEntry = false;
         }
+      }
+    } else {
+      if (chain.length >= 2) {
+        rootName = chain[chain.length - 2];
+        trackName = chain[chain.length - 1];
+      } else if (chain.length === 1) {
+        rootName = chain[0];
+        trackName = chain[0];
+      } else {
+        rootName = t.system?.category || "General";
+        trackName = "General";
       }
     }
 
-    if (!trackName && t.system?.category) {
-      trackName = String(t.system.category);
-    }
+    rootName = rootName.replace(/\s+stack$/i, "").replace(/\s+track$/i, "").replace(/\s+talents$/i, "").trim() || "General";
+    trackName = trackName.replace(/\s+stack$/i, "").replace(/\s+track$/i, "").replace(/\s+talents$/i, "").trim() || "General";
 
-    if (!trackName) {
-      const baseStem = t.name.replace(/\s+(I{1,3}|IV|V|VI|VII|VIII|IX|X|\d+)\b/i, "").trim();
-      trackName = baseStem;
-    }
-
-    // Clean up trackName formatting
-    trackName = trackName.replace(/\s+stack$/i, "").replace(/\s+track$/i, "").replace(/\s+talents$/i, "").trim();
-    if (!trackName) trackName = "General";
-
-    const key = `${category}-${className}-${trackName}`.toLowerCase();
-    if (!trackGroups.has(key)) {
-      trackGroups.set(key, {
-        rawName: trackName,
-        className,
+    const rootKey = `${category}:${rootName}`.toLowerCase();
+    if (!rootTreeMap.has(rootKey)) {
+      rootTreeMap.set(rootKey, {
+        id: rootKey,
+        title: rootName,
         category,
-        isClassEntry,
-        talents: [],
+        entryTalents: [],
+        trackGroups: new Map(),
       });
     }
-    trackGroups.get(key).talents.push(t);
+
+    const rootObj = rootTreeMap.get(rootKey);
+    if (isEntry || /entry\b/i.test(t.name) || (/class\b/i.test(t.name) && category === "class" && trackName.includes("Entry"))) {
+      rootObj.entryTalents.push(t);
+    } else {
+      const trackKey = trackName.toLowerCase();
+      if (!rootObj.trackGroups.has(trackKey)) {
+        rootObj.trackGroups.set(trackKey, {
+          trackName,
+          talents: [],
+        });
+      }
+      rootObj.trackGroups.get(trackKey).talents.push(t);
+    }
   }
 
-  // 2. Build structured tree graph for each track group
-  const trees = [];
+  function createNode(t) {
+    const parsed = parseTalentData(t);
+    const id = t.id || t._id || t.name;
+    const name = t.name.trim();
+    const isOwned = ownedNames.has(name.toLowerCase());
+    const availability = checkTalentAvailability(t, actorTalents, { effectiveLevel });
 
-  for (const group of trackGroups.values()) {
-    const nodeMap = new Map();
+    return {
+      id,
+      item: t,
+      name,
+      img: t.img || "icons/svg/aura.svg",
+      description: t.system?.description?.value ?? t.system?.description ?? "",
+      prerequisites: parsed.prerequisites,
+      incompatibilities: parsed.incompatibilities,
+      isOwned,
+      isAvailable: availability.isAvailable,
+      missingPrereqs: availability.missingPrereqs,
+      prereqTooltip: availability.prereqTooltip,
+      children: [],
+      parents: [],
+      tier: 1,
+    };
+  }
 
-    for (const t of group.talents) {
-      const parsed = parseTalentData(t);
-      const id = t.id || t._id || t.name;
-      const name = t.name.trim();
-      const isOwned = ownedNames.has(name.toLowerCase());
-      const availability = checkTalentAvailability(t, actorTalents, { effectiveLevel });
+  const rootTrees = [];
+  for (const root of rootTreeMap.values()) {
+    const entryNodes = root.entryTalents.map(createNode);
+    const tracks = [];
 
-      nodeMap.set(name.toLowerCase(), {
-        id,
-        item: t,
-        name,
-        img: t.img || "icons/svg/aura.svg",
-        description: t.system?.description?.value ?? t.system?.description ?? "",
-        prerequisites: parsed.prerequisites,
-        incompatibilities: parsed.incompatibilities,
-        isOwned,
-        isAvailable: availability.isAvailable,
-        missingPrereqs: availability.missingPrereqs,
-        prereqTooltip: availability.prereqTooltip,
-        children: [],
-        parents: [],
-        tier: 1,
-      });
-    }
-
-    // Connect parent-child links within the track
-    for (const node of nodeMap.values()) {
-      for (const prereq of node.prerequisites) {
-        const parentNode = nodeMap.get(prereq.toLowerCase().trim());
-        if (parentNode && parentNode !== node) {
-          parentNode.children.push(node);
-          node.parents.push(parentNode);
-        }
+    for (const group of root.trackGroups.values()) {
+      const nodeMap = new Map();
+      for (const t of group.talents) {
+        const node = createNode(t);
+        nodeMap.set(node.name.toLowerCase(), node);
       }
 
-      // Also check name-based roman numeral parent (e.g. "Clown II" requires "Clown")
-      if (node.parents.length === 0) {
-        const baseNameMatch = node.name.match(/^(.*?)\s+(II|III|IV|V|\d+)$/i);
-        if (baseNameMatch) {
-          const prevName = baseNameMatch[1].toLowerCase().trim();
-          const parentNode = nodeMap.get(prevName);
-          if (parentNode && parentNode !== node) {
-            parentNode.children.push(node);
-            node.parents.push(parentNode);
+      for (const node of nodeMap.values()) {
+        for (const prereq of node.prerequisites) {
+          const pNode = nodeMap.get(prereq.toLowerCase().trim());
+          if (pNode && pNode !== node) {
+            pNode.children.push(node);
+            node.parents.push(pNode);
           }
         }
       }
-    }
 
-    // Compute tier/depth within track
-    function computeTier(node, visited = new Set()) {
-      if (visited.has(node.id)) return node.tier;
-      visited.add(node.id);
-
-      if (node.parents.length === 0) {
-        node.tier = 1;
-      } else {
-        let maxParentTier = 0;
-        for (const p of node.parents) {
-          maxParentTier = Math.max(maxParentTier, computeTier(p, visited));
+      function computeTier(node, visited = new Set()) {
+        if (visited.has(node.id)) return node.tier;
+        visited.add(node.id);
+        if (node.parents.length === 0) {
+          node.tier = 1;
+        } else {
+          let maxParentTier = 0;
+          for (const p of node.parents) {
+            maxParentTier = Math.max(maxParentTier, computeTier(p, visited));
+          }
+          node.tier = maxParentTier + 1;
         }
-        node.tier = maxParentTier + 1;
+        if (/\bIII\b/i.test(node.name)) node.tier = Math.max(node.tier, 3);
+        else if (/\bII\b/i.test(node.name)) node.tier = Math.max(node.tier, 2);
+        return node.tier;
       }
 
-      // Name-based tier heuristic (e.g. III => tier 3+, II => tier 2+)
-      if (/\bIII\b/i.test(node.name)) node.tier = Math.max(node.tier, 3);
-      else if (/\bII\b/i.test(node.name)) node.tier = Math.max(node.tier, 2);
+      for (const node of nodeMap.values()) {
+        computeTier(node);
+      }
 
-      return node.tier;
+      const allNodes = Array.from(nodeMap.values());
+      const isStarted = allNodes.some(n => n.isOwned);
+
+      const tierMap = new Map();
+      for (const n of allNodes) {
+        const tNum = n.tier || 1;
+        if (!tierMap.has(tNum)) tierMap.set(tNum, []);
+        tierMap.get(tNum).push(n);
+      }
+
+      const tiers = Array.from(tierMap.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([tierNumber, nodes]) => ({
+          tierNumber,
+          label: `Tier ${tierNumber}`,
+          nodes,
+        }));
+
+      const trackTitle = `${group.trackName.toUpperCase()} TRACK`;
+      tracks.push({
+        trackTitle,
+        category: root.category,
+        rootTitle: root.title,
+        nodes: allNodes,
+        tiers,
+        isStarted,
+      });
     }
 
-    for (const node of nodeMap.values()) {
-      computeTier(node);
-    }
+    const allRootNodes = [...entryNodes, ...tracks.flatMap(tr => tr.nodes)];
+    const isRootStarted = allRootNodes.some(n => n.isOwned);
+    const categorySuffix = root.category === "class" ? "CLASS" : root.category === "magic" ? "MAGIC" : "SPECIALIZATION";
 
-    const allNodes = Array.from(nodeMap.values());
-    const isStarted = allNodes.some(n => n.isOwned);
-
-    // Group into Tiers
-    const tierMap = new Map();
-    for (const n of allNodes) {
-      const tNum = n.tier || 1;
-      if (!tierMap.has(tNum)) tierMap.set(tNum, []);
-      tierMap.get(tNum).push(n);
-    }
-
-    const tiers = Array.from(tierMap.entries())
-      .sort((a, b) => a[0] - b[0])
-      .map(([tierNumber, nodes]) => ({
-        tierNumber,
-        label: `Tier ${tierNumber}`,
-        nodes,
-      }));
-
-    const trackTitle = `${group.rawName.toUpperCase()} TRACK`;
-    const rootNode = allNodes.find(n => n.parents.length === 0) || allNodes[0];
-
-    trees.push({
-      trackTitle,
-      className: group.className || "",
-      category: group.category,
-      isClassEntry: Boolean(group.isClassEntry),
-      root: rootNode,
-      nodes: allNodes,
-      tiers,
-      isStarted,
+    rootTrees.push({
+      id: root.id,
+      title: root.title,
+      displayTitle: `${root.title.toUpperCase()} ${categorySuffix}`,
+      category: root.category,
+      entryTalents: entryNodes,
+      tracks: tracks.sort((a, b) => a.trackTitle.localeCompare(b.trackTitle)),
+      nodes: allRootNodes,
+      isStarted: isRootStarted,
     });
   }
 
-  return trees.sort((a, b) => a.trackTitle.localeCompare(b.trackTitle));
+  return rootTrees.sort((a, b) => a.title.localeCompare(b.title));
 }

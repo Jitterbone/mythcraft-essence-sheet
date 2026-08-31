@@ -25,6 +25,7 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
     this.trees = [];
     this.activeCategory = "character"; // "character" | "class" | "specialization" | "magic" | "all"
     this.searchTerm = "";
+    this.expandedRootIds = new Set();
     this.expandedTrackTitles = new Set();
   }
 
@@ -47,6 +48,7 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
       postTalent: this.#onPostTalent,
       chooseTalent: this.#onChooseTalent,
       filterCategory: this.#onFilterCategory,
+      toggleRootExpand: this.#onToggleRootExpand,
       toggleTrackExpand: this.#onToggleTrackExpand,
     },
   };
@@ -104,7 +106,6 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
             node.prereqTooltip = avail.prereqTooltip;
           }
         }
-        // Update isStarted since availability changed
         tree.isStarted = tree.nodes.some(n => n.isOwned);
       }
     }
@@ -127,15 +128,27 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
       displayTrees = this.trees.filter(tree => tree.category === this.activeCategory);
     }
 
-    // Prepare presentation tracks with expansion state
-    const tracks = displayTrees.map(tree => {
-      // In "Your Character" tab, started tracks are expanded by default unless explicitly collapsed
-      const isExpanded = (this.activeCategory === "character")
-        ? !this.expandedTrackTitles.has(`collapsed:${tree.trackTitle}`)
-        : this.expandedTrackTitles.has(tree.trackTitle);
+    // Prepare presentation root trees with expansion state and stats
+    const rootTrees = displayTrees.map(tree => {
+      // In category views, root trees are expanded by default unless collapsed
+      const isExpanded = !this.expandedRootIds.has(`collapsed:${tree.id}`);
 
       const ownedCount = tree.nodes.filter(n => n.isOwned).length;
       const availableCount = tree.nodes.filter(n => n.isAvailable && !n.isOwned).length;
+
+      const tracks = tree.tracks.map(track => {
+        const isTrackExpanded = !this.expandedTrackTitles.has(`collapsed:${track.trackTitle}`);
+        const trackOwnedCount = track.nodes.filter(n => n.isOwned).length;
+        const trackAvailableCount = track.nodes.filter(n => n.isAvailable && !n.isOwned).length;
+
+        return {
+          ...track,
+          isExpanded: isTrackExpanded,
+          ownedCount: trackOwnedCount,
+          availableCount: trackAvailableCount,
+          totalNodesCount: track.nodes.length,
+        };
+      });
 
       return {
         ...tree,
@@ -143,53 +156,16 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
         ownedCount,
         availableCount,
         totalNodesCount: tree.nodes.length,
+        tracks,
       };
     });
-
-    // Group class tracks by class name for hierarchical display
-    const classGroupMap = new Map();
-    for (const track of tracks) {
-      if (track.category === "class") {
-        const groupName = track.className || track.trackTitle.replace(/ (TRACK|ENTRY)$/i, "");
-        if (!classGroupMap.has(groupName)) {
-          classGroupMap.set(groupName, { className: groupName, entryTalents: [], tracks: [] });
-        }
-        const cObj = classGroupMap.get(groupName);
-        if (track.isClassEntry) {
-          cObj.entryTalents.push(...track.nodes);
-        } else {
-          cObj.tracks.push(track);
-        }
-      }
-    }
-    const classGroups = Array.from(classGroupMap.values()).sort((a, b) => a.className.localeCompare(b.className));
-
-    // Group magic tracks by magic school for hierarchical display
-    const magicGroupMap = new Map();
-    for (const track of tracks) {
-      if (track.category === "magic") {
-        const groupName = track.className || track.trackTitle.replace(/ (MAGIC|ENTRY|TRACK)$/i, "");
-        if (!magicGroupMap.has(groupName)) {
-          magicGroupMap.set(groupName, { schoolName: groupName, entryTalents: [], tracks: [] });
-        }
-        const mObj = magicGroupMap.get(groupName);
-        if (track.isClassEntry) {
-          mObj.entryTalents.push(...track.nodes);
-        } else {
-          mObj.tracks.push(track);
-        }
-      }
-    }
-    const magicGroups = Array.from(magicGroupMap.values()).sort((a, b) => a.schoolName.localeCompare(b.schoolName));
 
     return {
       actor: this.actor,
       isPickerMode: this.isPickerMode,
-      trees: tracks,
-      classGroups,
-      magicGroups,
-      totalTracksCount: this.trees.length,
-      startedTracksCount: startedTrees.length,
+      trees: rootTrees,
+      totalTreesCount: this.trees.length,
+      startedTreesCount: startedTrees.length,
       hasStartedTrees: hasStarted,
       activeCategory: this.activeCategory,
       searchTerm: this.searchTerm,
@@ -223,28 +199,16 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
 
       const performFilter = (term) => {
         const cleanTerm = (term || "").toLowerCase().trim();
-        const classSections = this.element.querySelectorAll(".class-group-section");
-        const trackColumns = this.element.querySelectorAll(".srd-track-column");
+        const rootSections = this.element.querySelectorAll(".srd-root-tree-column");
 
         if (!cleanTerm) {
-          classSections.forEach(el => (el.style.display = ""));
-          trackColumns.forEach(el => (el.style.display = ""));
+          rootSections.forEach(el => (el.style.display = ""));
           return;
         }
 
-        // Filter track columns
-        trackColumns.forEach(col => {
-          const text = (col.textContent || "").toLowerCase();
-          col.style.display = text.includes(cleanTerm) ? "" : "none";
-        });
-
-        // Filter class group sections
-        classSections.forEach(sec => {
-          const text = (sec.textContent || "").toLowerCase();
-          const visibleTracks = sec.querySelectorAll('.srd-track-column:not([style*="display: none"])');
-          const hasEntryMatch = Array.from(sec.querySelectorAll('.entry-node-box')).some(n => (n.textContent || "").toLowerCase().includes(cleanTerm));
-          const isVisible = hasEntryMatch || visibleTracks.length > 0 || text.includes(cleanTerm);
-          sec.style.display = isVisible ? "" : "none";
+        rootSections.forEach(root => {
+          const text = (root.textContent || "").toLowerCase();
+          root.style.display = text.includes(cleanTerm) ? "" : "none";
         });
       };
 
@@ -261,24 +225,30 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
    *  Action Handlers
    * ──────────────────────────────────────────────────────────────────────── */
 
+  static #onToggleRootExpand(event, target) {
+    event.preventDefault();
+    const rootId = target.dataset.rootId || target.closest("[data-root-id]")?.dataset.rootId;
+    if (!rootId) return;
+
+    const collapseKey = `collapsed:${rootId}`;
+    if (this.expandedRootIds.has(collapseKey)) {
+      this.expandedRootIds.delete(collapseKey);
+    } else {
+      this.expandedRootIds.add(collapseKey);
+    }
+    this.render();
+  }
+
   static #onToggleTrackExpand(event, target) {
     event.preventDefault();
     const trackTitle = target.dataset.trackTitle || target.closest(".srd-track-column")?.dataset.trackTitle;
     if (!trackTitle) return;
 
-    if (this.activeCategory === "character") {
-      const collapseKey = `collapsed:${trackTitle}`;
-      if (this.expandedTrackTitles.has(collapseKey)) {
-        this.expandedTrackTitles.delete(collapseKey);
-      } else {
-        this.expandedTrackTitles.add(collapseKey);
-      }
+    const collapseKey = `collapsed:${trackTitle}`;
+    if (this.expandedTrackTitles.has(collapseKey)) {
+      this.expandedTrackTitles.delete(collapseKey);
     } else {
-      if (this.expandedTrackTitles.has(trackTitle)) {
-        this.expandedTrackTitles.delete(trackTitle);
-      } else {
-        this.expandedTrackTitles.add(trackTitle);
-      }
+      this.expandedTrackTitles.add(collapseKey);
     }
     this.render();
   }

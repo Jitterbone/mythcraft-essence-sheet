@@ -2980,41 +2980,42 @@ export default class EssenceCharacterSheet extends CharacterSheet {
           trackName = canonicalMatch.track;
           isEntry = canonicalMatch.isEntry;
         } else {
-        let matchedSubclass = null;
-        for (const f of [...chain, ...docTags, docNameClean]) {
-          if (SUBCLASS_TO_CLASS[f]) {
-            matchedSubclass = { cls: SUBCLASS_TO_CLASS[f], track: f };
-            break;
-          }
-        }
-        if (matchedSubclass) {
-          category = "class";
-          rootName = matchedSubclass.cls;
-          trackName = matchedSubclass.track;
-        } else {
-          let matchedDiscipline = null;
+          let matchedSubclass = null;
           for (const f of [...chain, ...docTags, docNameClean]) {
-            if (DISCIPLINE_TO_MAGIC[f]) {
-              matchedDiscipline = { mag: DISCIPLINE_TO_MAGIC[f], track: f };
+            if (SUBCLASS_TO_CLASS[f]) {
+              matchedSubclass = { cls: SUBCLASS_TO_CLASS[f], track: f };
               break;
             }
           }
-          if (matchedDiscipline) {
-            category = "magic";
-            rootName = matchedDiscipline.mag;
-            trackName = matchedDiscipline.track;
+          if (matchedSubclass) {
+            category = "class";
+            rootName = matchedSubclass.cls;
+            trackName = matchedSubclass.track;
           } else {
-            let matchedSpecSubtrack = null;
+            let matchedDiscipline = null;
             for (const f of [...chain, ...docTags, docNameClean]) {
-              if (SUBTRACK_TO_SPEC[f]) {
-                matchedSpecSubtrack = { spec: SUBTRACK_TO_SPEC[f], track: f };
+              if (DISCIPLINE_TO_MAGIC[f]) {
+                matchedDiscipline = { mag: DISCIPLINE_TO_MAGIC[f], track: f };
                 break;
               }
             }
-            if (matchedSpecSubtrack) {
-              category = "specialization";
-              rootName = matchedSpecSubtrack.spec;
-              trackName = matchedSpecSubtrack.track;
+            if (matchedDiscipline) {
+              category = "magic";
+              rootName = matchedDiscipline.mag;
+              trackName = matchedDiscipline.track;
+            } else {
+              let matchedSpecSubtrack = null;
+              for (const f of [...chain, ...docTags, docNameClean]) {
+                if (SUBTRACK_TO_SPEC[f]) {
+                  matchedSpecSubtrack = { spec: SUBTRACK_TO_SPEC[f], track: f };
+                  break;
+                }
+              }
+              if (matchedSpecSubtrack) {
+                category = "specialization";
+                rootName = matchedSpecSubtrack.spec;
+                trackName = matchedSpecSubtrack.track;
+              }
             }
           }
         }

@@ -1891,12 +1891,6 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       });
     }
 
-  /** @inheritdoc */
-  async close(options = {}) {
-    this._hasPromptedWizard = false;
-    return super.close(options);
-  }
-
     // Endurance Threshold change detection: prompt HP recalculation
     const endInput = this.element.querySelector("input[name='system.attributes.end']");
     if (endInput) {
@@ -2149,6 +2143,12 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         debounce = setTimeout(saveBioInput, 600);
       });
     });
+  }
+
+  /** @inheritdoc */
+  async close(options = {}) {
+    this._hasPromptedWizard = false;
+    return super.close(options);
   }
 
   /** @inheritdoc */

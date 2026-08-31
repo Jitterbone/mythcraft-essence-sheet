@@ -26,22 +26,24 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
     this.activeCategory = "character"; // "character" | "class" | "specialization" | "magic" | "all"
     this.searchTerm = "";
     this.expandedRootIds = new Set();
+    this.collapsedRootIds = new Set();
     this.expandedTrackTitles = new Set();
+    this.collapsedTrackTitles = new Set();
   }
 
   /** @inheritdoc */
   static DEFAULT_OPTIONS = {
     id: "talent-tree-viewer",
-    classes: ["mythcraft", "essence-dialog", "talent-tree-viewer-dialog"],
+    classes: ["mythcraft", "essence-dialog", "talent-tree-viewer-dialog", "expansive-skill-tree-window"],
     tag: "div",
     window: {
-      title: "MythCraft — Talent Trees & Tracks",
+      title: "MythCraft — Visual Talent Trees & Tracks",
       icon: "fas fa-diagram-project",
       resizable: true,
     },
     position: {
-      width: 980,
-      height: 760,
+      width: 1400,
+      height: 900,
     },
     actions: {
       viewTalent: this.#onViewTalent,
@@ -143,14 +145,20 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
 
     // Prepare presentation root trees with expansion state and stats
     const rootTrees = displayTrees.map(tree => {
-      // In category views, root trees are expanded by default unless collapsed
-      const isExpanded = !this.expandedRootIds.has(`collapsed:${tree.id}`);
+      // In Character view: expanded by default unless explicitly collapsed
+      // In Category views (Class, Spec, Magic, All): collapsed by default unless explicitly expanded
+      const isExpanded = this.activeCategory === "character"
+        ? !this.collapsedRootIds.has(tree.id)
+        : this.expandedRootIds.has(tree.id);
 
       const ownedCount = tree.nodes.filter(n => n.isOwned).length;
       const availableCount = tree.nodes.filter(n => n.isAvailable && !n.isOwned).length;
 
       const tracks = tree.tracks.map(track => {
-        const isTrackExpanded = !this.expandedTrackTitles.has(`collapsed:${track.trackTitle}`);
+        const isTrackExpanded = this.activeCategory === "character"
+          ? (track.isStarted && !this.collapsedTrackTitles.has(track.trackTitle)) || this.expandedTrackTitles.has(track.trackTitle)
+          : !this.collapsedTrackTitles.has(track.trackTitle);
+
         const trackOwnedCount = track.nodes.filter(n => n.isOwned).length;
         const trackAvailableCount = track.nodes.filter(n => n.isAvailable && !n.isOwned).length;
 
@@ -219,15 +227,15 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
           return;
         }
 
-        rootSections.forEach(root => {
-          const text = (root.textContent || "").toLowerCase();
-          root.style.display = text.includes(cleanTerm) ? "" : "none";
+        rootSections.forEach(rootEl => {
+          const rootText = (rootEl.textContent || "").toLowerCase();
+          rootEl.style.display = rootText.includes(cleanTerm) ? "" : "none";
         });
       };
 
       if (this.searchTerm) performFilter(this.searchTerm);
 
-      searchInput.addEventListener("input", e => {
+      searchInput.addEventListener("input", (e) => {
         this.searchTerm = e.target.value;
         performFilter(this.searchTerm);
       });
@@ -240,14 +248,21 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
 
   static #onToggleRootExpand(event, target) {
     event.preventDefault();
-    const rootId = target.dataset.rootId || target.closest("[data-root-id]")?.dataset.rootId;
+    const rootId = target.dataset.rootId || target.closest(".srd-root-tree-column")?.dataset.rootId;
     if (!rootId) return;
 
-    const collapseKey = `collapsed:${rootId}`;
-    if (this.expandedRootIds.has(collapseKey)) {
-      this.expandedRootIds.delete(collapseKey);
+    if (this.activeCategory === "character") {
+      if (this.collapsedRootIds.has(rootId)) {
+        this.collapsedRootIds.delete(rootId);
+      } else {
+        this.collapsedRootIds.add(rootId);
+      }
     } else {
-      this.expandedRootIds.add(collapseKey);
+      if (this.expandedRootIds.has(rootId)) {
+        this.expandedRootIds.delete(rootId);
+      } else {
+        this.expandedRootIds.add(rootId);
+      }
     }
     this.render();
   }
@@ -257,11 +272,12 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
     const trackTitle = target.dataset.trackTitle || target.closest(".srd-track-column")?.dataset.trackTitle;
     if (!trackTitle) return;
 
-    const collapseKey = `collapsed:${trackTitle}`;
-    if (this.expandedTrackTitles.has(collapseKey)) {
-      this.expandedTrackTitles.delete(collapseKey);
+    if (this.collapsedTrackTitles.has(trackTitle)) {
+      this.collapsedTrackTitles.delete(trackTitle);
+      this.expandedTrackTitles.add(trackTitle);
     } else {
-      this.expandedTrackTitles.add(collapseKey);
+      this.collapsedTrackTitles.add(trackTitle);
+      this.expandedTrackTitles.delete(trackTitle);
     }
     this.render();
   }

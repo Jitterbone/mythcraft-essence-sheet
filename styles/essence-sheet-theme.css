@@ -14497,95 +14497,599 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
 }
 
 /* Root Tree Container & Sub-Tracks Hierarchy */
+/* ============================================================
+   MythCraft Essence Sheet — Expansive Visual Branching Skill Trees
+   ============================================================ */
+
+.expansive-skill-tree-window {
+  max-width: 98vw !important;
+  max-height: 94vh !important;
+}
+
+.talent-tree-viewer-dialog {
+  background: #070b0e !important;
+}
+
+.talent-tree-viewer-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 10px;
+  padding: 6px;
+  box-sizing: border-box;
+}
+
+.srd-style-canvas {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+  background: radial-gradient(circle at 50% 20%, #0f1922 0%, #06090d 100%);
+  border: 1.5px solid rgba(36, 105, 117, 0.4);
+  border-radius: 8px;
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.6);
+}
+
+.srd-tracks-viewport {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  padding-bottom: 24px;
+  box-sizing: border-box;
+}
+
 .srd-root-tree-column {
   display: flex;
   flex-direction: column;
-  margin-bottom: 22px;
-}
-
-.srd-root-banner {
-  position: relative;
-  background: linear-gradient(135deg, rgba(20, 45, 50, 0.95), rgba(10, 25, 30, 0.95));
-  border: 1px solid rgba(254, 235, 179, 0.35);
-  border-radius: 6px;
-  padding: 10px 14px;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  width: 100%;
   transition: all 0.2s ease;
 }
 
+/* ── Collapsible Ornate Root Tree Banner ──────────────────── */
+.srd-root-banner {
+  position: relative;
+  background: linear-gradient(135deg, rgba(22, 45, 52, 0.95) 0%, rgba(10, 24, 28, 0.95) 100%);
+  border: 1.5px solid rgba(254, 235, 179, 0.4);
+  border-radius: 6px;
+  padding: 12px 18px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
 .srd-root-banner:hover {
+  background: linear-gradient(135deg, rgba(30, 60, 70, 0.95) 0%, rgba(14, 32, 38, 0.95) 100%);
   border-color: #FEEBB3;
-  box-shadow: 0 0 14px rgba(254, 235, 179, 0.25);
+  box-shadow: 0 0 16px rgba(254, 235, 179, 0.35);
+}
+
+.srd-root-tree-column.root-active > .srd-root-banner {
+  border-color: #FEEBB3;
+  box-shadow: 0 0 16px rgba(254, 235, 179, 0.25);
+}
+
+.banner-content-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.root-crest-icon {
+  font-size: 26px;
+  color: #FEEBB3;
+  text-shadow: 0 0 12px rgba(254, 235, 179, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(254, 235, 179, 0.3);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.banner-title-wrap {
+  flex: 1;
 }
 
 .srd-root-title {
   font-family: 'Cinzel', serif;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
   color: #FEEBB3;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  margin: 0 0 4px 0;
+  letter-spacing: 0.8px;
   text-shadow: 0 0 8px rgba(254, 235, 179, 0.3);
 }
 
-.srd-root-body {
-  background: rgba(10, 20, 25, 0.5);
-  border: 1px solid rgba(36, 105, 117, 0.35);
+.root-expand-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #FEEBB3;
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(254, 235, 179, 0.3);
+  border-radius: 4px;
+  padding: 6px 12px;
+  transition: all 0.15s ease;
+}
+
+.srd-root-banner:hover .root-expand-action {
+  border-color: #FEEBB3;
+  background: rgba(42, 122, 127, 0.35);
+}
+
+/* ── Expanded Visual Skill Tree Canvas ────────────────────── */
+.visual-skill-tree-body {
+  background: rgba(8, 16, 22, 0.85);
+  border: 1.5px solid rgba(36, 105, 117, 0.4);
   border-top: none;
-  border-radius: 0 0 6px 6px;
-  padding: 14px;
+  border-radius: 0 0 8px 8px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+/* ── Central Gateway / Entry Talents Altar ─────────────────── */
+.gateway-altar-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 680px;
+  position: relative;
+}
+
+.gateway-altar-heading {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #FEEBB3;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-shadow: 0 0 10px rgba(254, 235, 179, 0.4);
+}
+
+.gateway-nodes-row {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  width: 100%;
+}
+
+.tree-trunk-fanning-connector {
+  position: relative;
+  width: 100%;
+  height: 28px;
+  display: flex;
+  justify-content: center;
+}
+
+.trunk-center-line {
+  width: 3px;
+  height: 100%;
+  background: linear-gradient(180deg, #FEEBB3 0%, #246975 100%);
+  box-shadow: 0 0 8px rgba(254, 235, 179, 0.5);
+}
+
+/* ── Visual Branch Columns Grid ───────────────────────────── */
+.visual-branches-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  width: 100%;
+  align-items: start;
+}
+
+.visual-branch-column {
+  background: rgba(14, 22, 28, 0.85);
+  border: 1px solid rgba(36, 105, 117, 0.5);
+  border-radius: 8px;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.visual-branch-column.track-active {
+  border-color: rgba(254, 235, 179, 0.6);
+  box-shadow: 0 0 18px rgba(254, 235, 179, 0.15);
+}
+
+.visual-branch-flow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.visual-tier-level {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  position: relative;
+}
+
+.visual-tier-connector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.visual-tier-connector .connector-stem {
+  width: 2px;
+  height: 16px;
+  background: linear-gradient(180deg, #246975 0%, #38bdf8 100%);
+}
+
+.visual-tier-connector .connector-arrow {
+  color: #38bdf8;
+  font-size: 10px;
+  margin-top: -3px;
+}
+
+.tier-badge-pill {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(71, 85, 105, 0.5);
+  border-radius: 10px;
+  padding: 2px 8px;
+  margin-bottom: 8px;
+}
+
+/* ── Tree Node Card (Authentic Branching Node) ────────────── */
+.tree-node-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: linear-gradient(180deg, #131e25 0%, #0c1419 100%);
+  border: 1.5px solid #246975;
+  border-radius: 6px;
+  padding: 8px 10px;
+  width: 100%;
+  max-width: 260px;
+  box-sizing: border-box;
+  text-align: center;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.tree-node-card:hover:not(.node-locked) {
+  border-color: #38bdf8;
+  background: linear-gradient(180deg, #182832 0%, #0e1a22 100%);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+}
+
+.tree-node-card.node-owned {
+  background: linear-gradient(180deg, #173038 0%, #0f2026 100%);
+  border-color: #FEEBB3;
+  box-shadow: 0 0 14px rgba(254, 235, 179, 0.4);
+}
+
+.tree-node-card.node-available {
+  border-color: #38bdf8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.25);
+}
+
+.tree-node-card.node-locked {
+  background: #090e12;
+  border-color: #1e293b;
+  opacity: 0.6;
+}
+
+.node-icon-frame {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid #246975;
+  padding: 2px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  background: #090e12;
+}
+
+.tree-node-card.node-owned .node-icon-frame {
+  border-color: #FEEBB3;
+  box-shadow: 0 0 10px rgba(254, 235, 179, 0.5);
+}
+
+.node-icon-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.node-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+}
+
+.node-badge.status-owned {
+  background: #22c55e;
+  color: #000;
+}
+
+.node-badge.status-locked {
+  background: #ef4444;
+  color: #fff;
+}
+
+.node-badge.status-available {
+  background: #38bdf8;
+  color: #000;
+}
+
+.node-info-block {
+  cursor: pointer;
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+.node-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 11.5px;
+  color: #FEEBB3;
+  display: block;
+  line-height: 1.2;
+}
+
+.tree-node-card.node-locked .node-title {
+  color: #94a3b8;
+}
+
+.node-sub {
+  font-size: 9.5px;
+  color: #38bdf8;
+  text-transform: uppercase;
+}
+
+.node-reqs-label {
+  font-size: 8.5px;
+  color: #f87171;
+  display: block;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.node-actions-bar {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  width: 100%;
+}
+
+.node-btn {
+  background: #151e24;
+  border: 1px solid #246975;
+  color: #cbd5e1;
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 9.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.node-btn:hover {
+  background: #246975;
+  color: #FEEBB3;
+  border-color: #FEEBB3;
+}
+
+.node-btn.select {
+  background: #246975;
+  border-color: #FEEBB3;
+  color: #FEEBB3;
+  font-weight: 700;
+}
+
+.node-btn.select.disabled {
+  background: #1e293b;
+  border-color: #334155;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+/* ── Character Sheet Compact Talents Tab Launcher ─────────── */
+.sheet-tree-launcher-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(20, 45, 52, 0.95) 0%, rgba(10, 24, 28, 0.95) 100%);
+  border: 1.5px solid #FEEBB3;
+  box-shadow: 0 0 14px rgba(254, 235, 179, 0.25);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.launcher-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.launcher-icon {
+  color: #FEEBB3;
+  font-size: 18px;
+  text-shadow: 0 0 8px rgba(254, 235, 179, 0.5);
+}
+
+.launcher-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: #FEEBB3;
+  margin: 0;
+  text-shadow: 0 0 8px rgba(254, 235, 179, 0.3);
+}
+
+.launcher-sub {
+  font-size: 11.5px;
+  color: #94a3b8;
+  margin: 0 0 6px 0;
+}
+
+.launcher-stats-row {
+  display: flex;
+  gap: 6px;
+}
+
+.launcher-pill {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.launcher-pill.talents-pill {
+  background: rgba(34, 197, 94, 0.2);
+  border: 1px solid #22c55e;
+  color: #86efac;
+}
+
+.launcher-pill.tracks-pill {
+  background: rgba(56, 189, 248, 0.2);
+  border: 1px solid #38bdf8;
+  color: #7dd3fc;
+}
+
+.open-tree-viewer-btn {
+  background: linear-gradient(180deg, #246975 0%, #153f47 100%);
+  border: 1.5px solid #FEEBB3;
+  color: #FEEBB3;
+  font-family: 'Cinzel', serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 0 10px rgba(254, 235, 179, 0.3);
+  transition: all 0.2s ease;
+}
+
+.open-tree-viewer-btn:hover {
+  background: linear-gradient(180deg, #2d8291 0%, #1c525c 100%);
+  box-shadow: 0 0 16px rgba(254, 235, 179, 0.5);
+  transform: translateY(-1px);
+}
+
+/* ── Followed Tracks on Sheet ─────────────────────────────── */
+.sheet-followed-tracks-container {
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-.srd-subtracks-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.subtrack-banner {
-  background: linear-gradient(135deg, rgba(15, 30, 35, 0.9), rgba(5, 15, 20, 0.9));
-  border-color: rgba(56, 189, 248, 0.3);
-}
-
-.subtrack-banner .srd-track-title {
-  font-size: 12.5px;
-  color: #38bdf8;
-}
-
-.class-entry-talents-container {
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(254, 235, 179, 0.25);
+.followed-track-group {
+  background: rgba(15, 23, 30, 0.6);
+  border: 1px solid rgba(36, 105, 117, 0.4);
   border-radius: 6px;
-  padding: 10px 12px;
+  overflow: hidden;
 }
 
-.entry-talents-heading {
+.followed-track-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: linear-gradient(90deg, rgba(22, 45, 52, 0.9) 0%, rgba(12, 25, 30, 0.9) 100%);
+  border-bottom: 1px solid rgba(36, 105, 117, 0.4);
+}
+
+.track-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.track-cat-icon {
+  color: #FEEBB3;
+  font-size: 12px;
+}
+
+.track-group-name {
   font-family: 'Cinzel', serif;
   font-weight: 700;
   font-size: 12px;
   color: #FEEBB3;
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  letter-spacing: 0.5px;
 }
 
-.entry-talents-grid {
+.track-group-count {
+  font-size: 10px;
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.empty-talents-prompt {
+  text-align: center;
+  padding: 30px 20px;
+  background: rgba(15, 23, 30, 0.5);
+  border: 1px dashed rgba(36, 105, 117, 0.5);
+  border-radius: 8px;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
   gap: 10px;
 }
 
-.entry-node-box {
-  flex: 1 1 200px;
-  max-width: 280px;
+.empty-prompt-icon {
+  font-size: 32px;
+  color: #246975;
 }
 
+.empty-talents-prompt h4 {
+  margin: 0;
+  font-family: 'Cinzel', serif;
+  color: #FEEBB3;
+  font-size: 15px;
+}
 
-
+.empty-talents-prompt p {
+  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
+  max-width: 400px;
+}

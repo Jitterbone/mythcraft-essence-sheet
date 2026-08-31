@@ -17,6 +17,15 @@ import ConditionsDialog from "../apps/conditions-dialog.mjs";
 import LevelUpDialog from "../apps/level-up-dialog.mjs";
 import CharacterCreationWizard from "../apps/character-creation-wizard.mjs";
 import TalentTreeViewer from "../apps/talent-tree-viewer.mjs";
+import {
+  CANONICAL_TALENTS,
+  SUBCLASS_TO_CLASS,
+  DISCIPLINE_TO_MAGIC,
+  SUBTRACK_TO_SPEC,
+  MYTHCRAFT_CANONICAL_CLASSES,
+  MYTHCRAFT_CANONICAL_SPECS,
+  MYTHCRAFT_CANONICAL_MAGIC,
+} from "../features/talent-canonical-map.mjs";
 import { RestDialog } from "../features/rest-automation.mjs";
 import { getEnduranceThreshold } from "../features/hp-automation.mjs";
 import WalletDialog, {
@@ -3481,6 +3490,103 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         if (!a.isFavorite && b.isFavorite) return 1;
         return a.item.name.localeCompare(b.item.name);
       });
+
+      // Group owned talents strictly into followed tracks
+      const trackGroups = new Map();
+      for (const tObj of context.talents) {
+        const item = tObj.item;
+        const docName = String(item.name || "").toLowerCase().trim();
+        const docNameClean = docName.replace(/\s*(track|stack|talents?)$/i, "").trim();
+        const chain = (item._folderChain || []).map(f =>
+          String(f)
+            .toLowerCase()
+            .replace(/^\d+\.\s*/, "")
+            .replace(/\s*(track|stack|talents?)$/i, "")
+            .trim()
+        );
+        const docTags = (Array.isArray(item.system?.tags) ? item.system.tags : []).map(tag =>
+          String(tag?.name || tag?.label || tag)
+            .toLowerCase()
+            .replace(/\s*(track|stack|talents?)$/i, "")
+            .trim()
+        );
+
+        let category = "specialization";
+        let rootName = "General Specialization";
+        let trackName = "General";
+
+        if (CANONICAL_TALENTS?.[docName]) {
+          const c = CANONICAL_TALENTS[docName];
+          category = c.category;
+          rootName = c.parent;
+          trackName = c.track;
+        } else {
+          let matchedSubclass = null;
+          for (const f of [...chain, ...docTags, docNameClean]) {
+            if (SUBCLASS_TO_CLASS[f]) {
+              matchedSubclass = { cls: SUBCLASS_TO_CLASS[f], track: f };
+              break;
+            }
+          }
+          if (matchedSubclass) {
+            category = "class";
+            rootName = matchedSubclass.cls;
+            trackName = matchedSubclass.track;
+          } else {
+            let matchedDiscipline = null;
+            for (const f of [...chain, ...docTags, docNameClean]) {
+              if (DISCIPLINE_TO_MAGIC[f]) {
+                matchedDiscipline = { mag: DISCIPLINE_TO_MAGIC[f], track: f };
+                break;
+              }
+            }
+            if (matchedDiscipline) {
+              category = "magic";
+              rootName = matchedDiscipline.mag;
+              trackName = matchedDiscipline.track;
+            } else {
+              let matchedSpecSubtrack = null;
+              for (const f of [...chain, ...docTags, docNameClean]) {
+                if (SUBTRACK_TO_SPEC[f]) {
+                  matchedSpecSubtrack = { spec: SUBTRACK_TO_SPEC[f], track: f };
+                  break;
+                }
+              }
+              if (matchedSpecSubtrack) {
+                category = "specialization";
+                rootName = matchedSpecSubtrack.spec;
+                trackName = matchedSpecSubtrack.track;
+              } else {
+                for (const cls of MYTHCRAFT_CANONICAL_CLASSES) {
+                  const cLow = cls.toLowerCase();
+                  if (chain.includes(cLow) || docName.startsWith(cLow) || docTags.includes(cLow)) {
+                    category = "class";
+                    rootName = cls;
+                    trackName = `${cls} Entry`;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        const groupKey = `${rootName} — ${trackName}`.toUpperCase();
+        if (!trackGroups.has(groupKey)) {
+          trackGroups.set(groupKey, {
+            groupKey,
+            rootName: rootName.toUpperCase(),
+            trackName: trackName.toUpperCase(),
+            category,
+            talents: [],
+          });
+        }
+        trackGroups.get(groupKey).talents.push(tObj);
+      }
+
+      context.followedTracks = Array.from(trackGroups.values()).sort((a, b) => a.groupKey.localeCompare(b.groupKey));
+      context.totalTalentsCount = context.talents.length;
+      context.activeTracksCount = context.followedTracks.length;
 
       // Sort features: Favorites pinned to top, then alphabetical
       context.features.sort((a, b) => {

@@ -873,54 +873,61 @@
           {{#if sideDrawer.talents.followedTracks.length}}
             <div class="drawer-talents-container">
               {{#each sideDrawer.talents.followedTracks as |track|}}
-                <div class="drawer-skill-tree-card">
-                  {{!-- Ornate Tree Header --}}
-                  <div class="drawer-tree-header">
-                    <div class="drawer-tree-title">
-                      {{#if (eq track.category 'class')}}<i class="fas fa-shield track-cat-icon"></i>{{/if}}
-                      {{#if (eq track.category 'magic')}}<i class="fas fa-wand-magic-sparkles track-cat-icon"></i>{{/if}}
-                      {{#if (eq track.category 'specialization')}}<i class="fas fa-crosshairs track-cat-icon"></i>{{/if}}
-                      <span>{{track.groupKey}}</span>
+                <div class="srd-flowchart-track-card drawer-track-flowchart">
+                  
+                  {{!-- Ornate SRD Track Banner (Exact Match to Pop-up) --}}
+                  <div class="srd-diagram-header-banner drawer-diagram-banner">
+                    <div class="ornate-corner top-left"></div>
+                    <div class="ornate-corner top-right"></div>
+                    <div class="ornate-corner bottom-left"></div>
+                    <div class="ornate-corner bottom-right"></div>
+                    
+                    <div class="banner-inner-content">
+                      <h4 class="srd-diagram-track-title">{{track.groupKey}}</h4>
+                      <div class="track-summary-pills">
+                        <span class="track-pill owned"><i class="fas fa-check"></i> {{track.talents.length}}</span>
+                      </div>
                     </div>
-                    <span class="drawer-tree-badge"><i class="fas fa-check"></i> {{track.talents.length}}</span>
                   </div>
 
-                  {{!-- Branch Flow Canvas --}}
-                  <div class="drawer-tree-flow">
-                    {{#each track.talents as |t|}}
-                      {{#unless @first}}
-                        <div class="drawer-flow-stem">
-                          <div class="stem-line"></div>
-                          <i class="fas fa-chevron-down stem-arrow"></i>
-                        </div>
-                      {{/unless}}
+                  {{!-- Flowchart Graph Canvas (Horizontal & Tiered Distribution) --}}
+                  <div class="srd-flowchart-canvas drawer-flowchart-canvas">
+                    {{#each track.tiers as |tier|}}
+                      <div class="srd-flowchart-tier-row" data-tier="{{tier.tierNumber}}">
+                        
+                        {{#unless @first}}
+                          <div class="srd-flowchart-tier-stem">
+                            <div class="stem-line"></div>
+                            <i class="fas fa-chevron-down stem-arrow"></i>
+                          </div>
+                        {{/unless}}
 
-                      <div class="drawer-tree-node {{#if t.isEntry}}entry-node{{/if}}" data-item-id="{{t.id}}">
-                        <div class="node-icon-frame" data-action="viewDoc" data-item-id="{{t.id}}" title="Inspect {{t.name}}">
-                          <img src="{{t.img}}" alt="{{t.name}}" class="drawer-node-img" />
-                          <span class="node-status-badge"><i class="fas fa-check"></i></span>
+                        <div class="srd-flowchart-nodes-cluster multi-branch-cluster">
+                          {{#each tier.nodes as |node|}}
+                            <div class="srd-badge-node node-owned drawer-badge-node"
+                                 data-talent-id="{{node.id}}">
+                              
+                              <div class="badge-node-body" data-action="viewDoc" data-item-id="{{node.id}}" title="Inspect {{node.name}}">
+                                <span class="badge-node-title">{{node.name}}</span>
+                                <span class="badge-status-icon owned" title="Acquired"><i class="fas fa-check-circle"></i></span>
+                              </div>
+
+                              <div class="badge-node-actions">
+                                <button type="button" class="badge-btn view" data-action="viewDoc" data-item-id="{{node.id}}" title="Inspect Rules">
+                                  <i class="fas fa-eye"></i>
+                                </button>
+                                <button type="button" class="badge-btn chat" data-action="postItemToChat" data-item-id="{{node.id}}" title="Share to Chat">
+                                  <i class="fas fa-comment-alt"></i>
+                                </button>
+                              </div>
+                            </div>
+                          {{/each}}
                         </div>
-                        <div class="drawer-node-info" data-action="viewDoc" data-item-id="{{t.id}}">
-                          <span class="drawer-node-name">{{t.name}}</span>
-                          {{#if t.isEntry}}
-                            <span class="drawer-node-tag entry-tag">Entry Gateway</span>
-                          {{/if}}
-                          {{#if t.essenceCost}}
-                            <span class="drawer-node-tag ep-tag"><i class="fas fa-gem"></i> {{t.essenceCost}} EP</span>
-                          {{/if}}
-                        </div>
-                        <div class="drawer-node-actions">
-                          <button type="button" 
-                                  class="drawer-node-btn chat-btn" 
-                                  data-action="postItemToChat" 
-                                  data-item-id="{{t.id}}" 
-                                  title="Share to Chat">
-                            <i class="fas fa-comment-alt"></i>
-                          </button>
-                        </div>
+
                       </div>
                     {{/each}}
                   </div>
+
                 </div>
               {{/each}}
             </div>

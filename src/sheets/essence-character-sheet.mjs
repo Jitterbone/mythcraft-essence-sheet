@@ -29,6 +29,7 @@ import {
   normalizeTalentName,
   isDisallowedTalentItem,
 } from "../features/talent-canonical-map.mjs";
+import { parseTalentData } from "../features/compendium-parser.mjs";
 import { RestDialog } from "../features/rest-automation.mjs";
 import { getEnduranceThreshold } from "../features/hp-automation.mjs";
 import WalletDialog, {
@@ -3009,6 +3010,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       }
       drawerTrackMap.get(groupKey).talents.push({
         id: item.id,
+        item,
         name: item.name,
         img: item.img || "icons/svg/aura.svg",
         essenceCost: Number(item.flags?.["mythcraft-essence-sheet"]?.essenceCost ?? item.system?.essenceCost ?? 0),
@@ -3016,12 +3018,65 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       });
     }
 
+    // Compute hierarchical flowchart tiers for each followed track in the drawer
     for (const group of drawerTrackMap.values()) {
-      group.talents.sort((a, b) => {
-        if (a.isEntry && !b.isEntry) return -1;
-        if (!a.isEntry && b.isEntry) return 1;
-        return a.name.localeCompare(b.name, undefined, { numeric: true });
-      });
+      const nodeMap = new Map();
+      for (const t of group.talents) {
+        const parsed = parseTalentData(t.item);
+        nodeMap.set(t.name.toLowerCase().trim(), {
+          ...t,
+          prerequisites: parsed.prerequisites || [],
+          parents: [],
+          children: [],
+          tier: 1,
+        });
+      }
+
+      for (const node of nodeMap.values()) {
+        for (const prereq of node.prerequisites) {
+          const pNode = nodeMap.get(prereq.toLowerCase().trim());
+          if (pNode && pNode !== node) {
+            pNode.children.push(node);
+            node.parents.push(pNode);
+          }
+        }
+      }
+
+      function computeTier(node, visited = new Set()) {
+        if (visited.has(node.id)) return node.tier;
+        visited.add(node.id);
+        if (node.parents.length === 0) {
+          node.tier = 1;
+        } else {
+          let maxParentTier = 0;
+          for (const p of node.parents) {
+            maxParentTier = Math.max(maxParentTier, computeTier(p, visited));
+          }
+          node.tier = maxParentTier + 1;
+        }
+        if (/\bIII\b/i.test(node.name)) node.tier = Math.max(node.tier, 3);
+        else if (/\bII\b/i.test(node.name)) node.tier = Math.max(node.tier, 2);
+        return node.tier;
+      }
+
+      for (const node of nodeMap.values()) {
+        computeTier(node);
+      }
+
+      const allNodes = Array.from(nodeMap.values());
+      const tierMap = new Map();
+      for (const n of allNodes) {
+        const tNum = n.tier || 1;
+        if (!tierMap.has(tNum)) tierMap.set(tNum, []);
+        tierMap.get(tNum).push(n);
+      }
+
+      group.tiers = Array.from(tierMap.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([tierNumber, nodes]) => ({
+          tierNumber,
+          nodes: nodes.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })),
+        }));
     }
 
     const drawerFollowedTracks = Array.from(drawerTrackMap.values()).sort((a, b) => a.groupKey.localeCompare(b.groupKey));

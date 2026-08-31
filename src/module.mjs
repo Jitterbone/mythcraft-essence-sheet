@@ -183,9 +183,6 @@ Hooks.once("init", () => {
     });
   }
 
-  // Initialize Damage Automation Engine
-  initDamageAutomation();
-
   // Expose Global & Module API early for other scripts and macros
   globalThis.mythcraftEssenceSheet = {
     getDefenseTargetConfig,
@@ -678,8 +675,11 @@ Hooks.on("setup", () => {
 
 Hooks.once("ready", async () => {
   console.log(`${MODULE_ID} | Ready.`);
+  // Re-apply monkey-patches now that system classes are fully loaded.
+  // (initDamageAutomation is intentionally NOT repeated here — hooks
+  //  are already registered in the init hook above; calling it twice
+  //  would double-register preCreateChatMessage / createChatMessage listeners.)
   patchWeaponApcGetter();
-  initDamageAutomation();
   patchFeatureUsesMaxFormula();
   patchSystemHpCalculation();
   syncHomebrewAttributesToSystem();
@@ -736,8 +736,6 @@ Hooks.once("ready", async () => {
       getActorCritFail,
       rollItemDamage,
       executeUnifiedAction,
-      executeAttackRoll,
-      executeSpellCast,
       executeRest,
       RestDialog,
       calculateItemAPC,

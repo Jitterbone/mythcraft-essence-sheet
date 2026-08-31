@@ -30,6 +30,10 @@ export const CANONICAL_SPEC_STACKS = {
   "Skill Stack": ["Skill", "Acrobatics", "Athleticism", "Crafting", "Influence", "Knowledge", "Observation", "Performance", "Stamina", "Subterfuge", "Survival", "Luck"],
 };
 
+export const MYTHCRAFT_CANONICAL_CLASSES = Object.keys(CANONICAL_CLASS_SUBCLASSES);
+export const MYTHCRAFT_CANONICAL_SPECS = Object.keys(CANONICAL_SPEC_STACKS);
+export const MYTHCRAFT_CANONICAL_MAGIC = Object.keys(CANONICAL_MAGIC_DISCIPLINES);
+
 // Fast lowercase reverse lookups
 export const SUBCLASS_TO_CLASS = {};
 for (const [cls, tracks] of Object.entries(CANONICAL_CLASS_SUBCLASSES)) {

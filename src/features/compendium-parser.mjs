@@ -882,14 +882,26 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
       continue;
     }
 
-    const chain = (t._folderChain || getDocumentFolderChain(t)).map(f => String(f).toLowerCase().replace(/^\d+\.\s*/, "").replace(/\s*talents?$/i, "").trim());
+    const chain = (t._folderChain || getDocumentFolderChain(t)).map(f =>
+      String(f)
+        .toLowerCase()
+        .replace(/^\d+\.\s*/, "")
+        .replace(/\s*(track|stack|talents?)$/i, "")
+        .trim()
+    );
     if (chain.some(f => /^(disease|condition|curse|spell|equipment|gear|items)s?$/i.test(f))) {
       continue;
     }
 
     const docName = String(t.name || "").toLowerCase().trim();
+    const docNameClean = docName.replace(/\s*(track|stack|talents?)$/i, "").trim();
     const docDesc = String(t.system?.description?.value || t.system?.description || "").toLowerCase();
-    const docTags = Array.isArray(t.system?.tags) ? t.system.tags.map(tag => String(tag?.name || tag?.label || tag).toLowerCase()) : [];
+    const docTags = (Array.isArray(t.system?.tags) ? t.system.tags : []).map(tag =>
+      String(tag?.name || tag?.label || tag)
+        .toLowerCase()
+        .replace(/\s*(track|stack|talents?)$/i, "")
+        .trim()
+    );
 
     let category = "specialization";
     let rootName = "";
@@ -904,20 +916,12 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
       trackName = c.track;
       isEntry = c.isEntry;
     } else {
-      // 2. Check subclass name in SUBCLASS_TO_CLASS (e.g. "Commander" -> "Warrior")
+      // 2. Check subclass name in SUBCLASS_TO_CLASS (Highest priority to avoid class leaking into spec)
       let matchedSubclass = null;
-      for (const folder of chain) {
-        if (SUBCLASS_TO_CLASS[folder]) {
-          matchedSubclass = { cls: SUBCLASS_TO_CLASS[folder], track: folder };
+      for (const f of [...chain, ...docTags, docNameClean]) {
+        if (SUBCLASS_TO_CLASS[f]) {
+          matchedSubclass = { cls: SUBCLASS_TO_CLASS[f], track: f };
           break;
-        }
-      }
-      if (!matchedSubclass) {
-        for (const tag of docTags) {
-          if (SUBCLASS_TO_CLASS[tag]) {
-            matchedSubclass = { cls: SUBCLASS_TO_CLASS[tag], track: tag };
-            break;
-          }
         }
       }
 
@@ -925,22 +929,14 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
         category = "class";
         rootName = matchedSubclass.cls;
         trackName = matchedSubclass.track;
-        isEntry = /entry\b/i.test(docName) || trackName.toLowerCase().includes("entry");
+        isEntry = /entry\b/i.test(docName) || trackName.includes("entry");
       } else {
         // 3. Check magic discipline in DISCIPLINE_TO_MAGIC (e.g. "Telepathy" -> "Psionic")
         let matchedDiscipline = null;
-        for (const folder of chain) {
-          if (DISCIPLINE_TO_MAGIC[folder]) {
-            matchedDiscipline = { mag: DISCIPLINE_TO_MAGIC[folder], track: folder };
+        for (const f of [...chain, ...docTags, docNameClean]) {
+          if (DISCIPLINE_TO_MAGIC[f]) {
+            matchedDiscipline = { mag: DISCIPLINE_TO_MAGIC[f], track: f };
             break;
-          }
-        }
-        if (!matchedDiscipline) {
-          for (const tag of docTags) {
-            if (DISCIPLINE_TO_MAGIC[tag]) {
-              matchedDiscipline = { mag: DISCIPLINE_TO_MAGIC[tag], track: tag };
-              break;
-            }
           }
         }
 
@@ -951,33 +947,25 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
           isEntry = /entry\b/i.test(docName) || /adept\b/i.test(docName);
         } else {
           // 4. Check specialization track in SUBTRACK_TO_SPEC (e.g. "Armor" -> "Defense Stack")
-          let matchedSubtrackSpec = null;
-          for (const folder of chain) {
-            if (SUBTRACK_TO_SPEC[folder]) {
-              matchedSubtrackSpec = { spec: SUBTRACK_TO_SPEC[folder], track: folder };
+          let matchedSpecSubtrack = null;
+          for (const f of [...chain, ...docTags, docNameClean]) {
+            if (SUBTRACK_TO_SPEC[f]) {
+              matchedSpecSubtrack = { spec: SUBTRACK_TO_SPEC[f], track: f };
               break;
             }
           }
-          if (!matchedSubtrackSpec) {
-            for (const tag of docTags) {
-              if (SUBTRACK_TO_SPEC[tag]) {
-                matchedSubtrackSpec = { spec: SUBTRACK_TO_SPEC[tag], track: tag };
-                break;
-              }
-            }
-          }
 
-          if (matchedSubtrackSpec) {
+          if (matchedSpecSubtrack) {
             category = "specialization";
-            rootName = matchedSubtrackSpec.spec;
-            trackName = matchedSubtrackSpec.track;
+            rootName = matchedSpecSubtrack.spec;
+            trackName = matchedSpecSubtrack.track;
             isEntry = /entry\b/i.test(docName);
           } else {
             // 5. Check Class match (13 Canonical MythCraft Classes)
             let matchedClass = null;
             for (const cls of MYTHCRAFT_CANONICAL_CLASSES) {
               const cLow = cls.toLowerCase();
-              if (chain.some(f => f.includes(cLow)) || docName.startsWith(cLow) || docTags.includes(cLow)) {
+              if (chain.includes(cLow) || docName.startsWith(cLow) || docTags.includes(cLow)) {
                 matchedClass = cls;
                 break;
               }
@@ -987,23 +975,15 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
               category = "class";
               rootName = matchedClass;
               const cLow = matchedClass.toLowerCase();
-              const classFolderIdx = chain.findIndex(f => f.includes(cLow));
-              let subTrack = "";
-              if (classFolderIdx !== -1 && classFolderIdx + 1 < chain.length) {
-                subTrack = chain[classFolderIdx + 1];
-              }
-              if (!subTrack) {
-                const otherFolders = chain.filter(f => !/^(classes|class|talents|features|compendium)s?$/i.test(f) && !f.includes(cLow));
-                if (otherFolders.length > 0) subTrack = otherFolders[otherFolders.length - 1];
-              }
-              isEntry = !subTrack || /entry\b/i.test(docName) || docName === `${cLow} class`;
-              trackName = isEntry ? `${matchedClass} Entry` : subTrack;
+              const otherFolders = chain.filter(f => !/^(classes|class|talents|features|compendium)s?$/i.test(f) && f !== cLow);
+              trackName = otherFolders.length > 0 ? otherFolders[otherFolders.length - 1] : `${matchedClass} Entry`;
+              isEntry = /entry\b/i.test(docName) || trackName.includes("entry") || docName === `${cLow} class`;
             } else {
               // 6. Check Magic match (5 Canonical MythCraft Magic Stacks)
               let matchedMagic = null;
               for (const mag of MYTHCRAFT_CANONICAL_MAGIC) {
                 const mLow = mag.toLowerCase();
-                if (chain.some(f => f.includes(mLow)) || docName.includes(mLow) || docTags.includes(mLow)) {
+                if (chain.includes(mLow) || docName.includes(mLow) || docTags.includes(mLow)) {
                   matchedMagic = mag;
                   break;
                 }
@@ -1013,24 +993,15 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
                 category = "magic";
                 rootName = matchedMagic;
                 const mLow = matchedMagic.toLowerCase();
-                const magFolderIdx = chain.findIndex(f => f.includes(mLow));
-                let subTrack = "";
-                if (magFolderIdx !== -1 && magFolderIdx + 1 < chain.length) {
-                  subTrack = chain[magFolderIdx + 1];
-                }
-                if (!subTrack) {
-                  const otherFolders = chain.filter(f => !/^(magic|talents|features|compendium)s?$/i.test(f) && !f.includes(mLow));
-                  if (otherFolders.length > 0) subTrack = otherFolders[otherFolders.length - 1];
-                }
-                isEntry = !subTrack || /entry\b/i.test(docName) || /adept\b/i.test(docName);
-                trackName = isEntry ? `${matchedMagic} Entry` : subTrack;
+                const otherFolders = chain.filter(f => !/^(magic|talents|features|compendium)s?$/i.test(f) && f !== mLow);
+                trackName = otherFolders.length > 0 ? otherFolders[otherFolders.length - 1] : `${matchedMagic} Entry`;
+                isEntry = /entry\b/i.test(docName) || /adept\b/i.test(docName);
               } else {
-                // 7. Check Specialization match (4 Canonical Specialization Stacks with exact word boundary)
+                // 7. Check Specialization match (4 Canonical Specialization Stacks)
                 let matchedSpec = null;
                 for (const spec of MYTHCRAFT_CANONICAL_SPECS) {
                   const sBase = spec.replace(/\s+stack$/i, "").toLowerCase();
-                  const wordBoundaryRegex = new RegExp(`\\b${sBase}\\b`, "i");
-                  if (chain.some(f => wordBoundaryRegex.test(f)) || wordBoundaryRegex.test(docDesc) || docTags.some(t => wordBoundaryRegex.test(t))) {
+                  if (chain.includes(sBase) || docTags.includes(sBase)) {
                     matchedSpec = spec;
                     break;
                   }
@@ -1039,17 +1010,9 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
                 category = "specialization";
                 rootName = matchedSpec || "Skill Stack";
                 const sBase = (matchedSpec || "Skill").replace(/\s+stack$/i, "").toLowerCase();
-                const specFolderIdx = chain.findIndex(f => new RegExp(`\\b${sBase}\\b`, "i").test(f));
-                let subTrack = "";
-                if (specFolderIdx !== -1 && specFolderIdx + 1 < chain.length) {
-                  subTrack = chain[specFolderIdx + 1];
-                }
-                if (!subTrack) {
-                  const otherFolders = chain.filter(f => !/^(specializations|specialization|spec|talents|features|compendium)s?$/i.test(f) && !f.includes(sBase));
-                  if (otherFolders.length > 0) subTrack = otherFolders[otherFolders.length - 1];
-                }
+                const otherFolders = chain.filter(f => !/^(specializations|specialization|spec|talents|features|compendium)s?$/i.test(f) && f !== sBase);
+                trackName = otherFolders.length > 0 ? otherFolders[otherFolders.length - 1] : "General";
                 isEntry = /entry\b/i.test(docName);
-                trackName = subTrack || chain[chain.length - 1] || "General Specialization";
               }
             }
           }

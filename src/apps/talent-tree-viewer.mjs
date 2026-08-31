@@ -14,6 +14,7 @@ import {
 import {
   isDisallowedTalentItem,
   normalizeTalentName,
+  CANONICAL_TALENTS,
   NORMALIZED_CANONICAL_TALENTS,
 } from "../features/talent-canonical-map.mjs";
 

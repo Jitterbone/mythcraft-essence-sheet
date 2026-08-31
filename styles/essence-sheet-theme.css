@@ -14526,3 +14526,10 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
   max-width: 280px;
 }
 
+.magic-group-header {
+  color: #c084fc;
+  border-bottom: 1px solid rgba(192, 132, 252, 0.25);
+  text-shadow: 0 0 8px rgba(192, 132, 252, 0.35);
+}
+
+

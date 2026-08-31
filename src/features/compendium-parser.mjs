@@ -12,7 +12,8 @@ export const OFFICIAL_PACK_NAMES = {
   lineages: ["lineages", "chapter-1-lineages", "lineage"],
   bops: ["bops", "chapter-2-bops", "backgrounds-and-professions", "backgrounds", "professions"],
   classes: ["classes", "chapter-3-classes", "class-talents"],
-  magic: ["magic", "chapter-4-magic", "magic-talents", "spells", "cantrips"],
+  magic: ["magic-talents", "chapter-4-magic", "magic"],
+  spells: ["spells", "cantrips"],
   specTalents: ["spec-talents", "specialization-talents", "chapter-5-specialization-talents"],
   equipment: ["equipment", "chapter-6-equipment", "items", "gear"],
 };
@@ -835,7 +836,19 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
   const trackGroups = new Map();
 
   for (const t of talentsList) {
+    const type = String(t.type || "").toLowerCase();
+    if (["disease", "condition", "curse", "spell", "gear", "weapon", "armor", "item", "consumable"].includes(type)) {
+      continue;
+    }
+    if (type && type !== "talent" && type !== "feature") {
+      continue;
+    }
+
     const chain = (t._folderChain || getDocumentFolderChain(t)).map(f => f.replace(/^\d+\.\s*/, "").trim());
+    if (chain.some(f => /^(disease|condition|curse|spell|equipment|gear|items)s?$/i.test(f))) {
+      continue;
+    }
+
     const classIdx = chain.findIndex(f => /^classes?$/i.test(f));
     const magicIdx = chain.findIndex(f => /^magic$/i.test(f));
     const specIdx = chain.findIndex(f => /^specializations?$/i.test(f));

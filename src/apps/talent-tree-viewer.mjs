@@ -73,19 +73,19 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
     const allTalents = [];
 
     for (const doc of classTalents) {
-      if (doc.type === "talent" || doc.type === "feature" || !doc.type) {
+      if (doc.type === "talent" || doc.type === "feature") {
         doc._compCategory = "class";
         allTalents.push(doc);
       }
     }
     for (const doc of specTalents) {
-      if (doc.type === "talent" || doc.type === "feature" || !doc.type) {
+      if (doc.type === "talent" || doc.type === "feature") {
         doc._compCategory = "specialization";
         allTalents.push(doc);
       }
     }
     for (const doc of magicTalents) {
-      if (doc.type === "talent" || doc.type === "feature" || !doc.type) {
+      if (doc.type === "talent" || doc.type === "feature") {
         doc._compCategory = "magic";
         allTalents.push(doc);
       }
@@ -116,7 +116,7 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
       await this.loadTrees();
     }
 
-    const startedTrees = this.trees.filter(t => t.isStarted);
+    const startedTrees = this.trees.filter(tree => tree.isStarted);
     const hasStarted = startedTrees.length > 0;
     let displayTrees = this.trees;
 
@@ -127,20 +127,12 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
       displayTrees = this.trees.filter(tree => tree.category === this.activeCategory);
     }
 
-    const query = (this.searchTerm || "").trim().toLowerCase();
-    if (query) {
-      displayTrees = displayTrees.filter(tree => {
-        const trackText = `${tree.trackTitle || ""} ${tree.root?.name || ""} ${tree.nodes?.map(n => n?.name || "").join(" ")}`.toLowerCase();
-        return trackText.includes(query);
-      });
-    }
-
     // Prepare presentation tracks with expansion state
     const tracks = displayTrees.map(tree => {
       // In "Your Character" tab, started tracks are expanded by default unless explicitly collapsed
       const isExpanded = (this.activeCategory === "character")
         ? !this.expandedTrackTitles.has(`collapsed:${tree.trackTitle}`)
-        : (Boolean(query) || this.expandedTrackTitles.has(tree.trackTitle));
+        : this.expandedTrackTitles.has(tree.trackTitle);
 
       const ownedCount = tree.nodes.filter(n => n.isOwned).length;
       const availableCount = tree.nodes.filter(n => n.isAvailable && !n.isOwned).length;
@@ -170,13 +162,30 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
         }
       }
     }
-    const classGroups = Array.from(classGroupMap.values()).sort((a, b) => a.className.localeCompare(b.className));
+    // Group magic tracks by magic school for hierarchical display
+    const magicGroupMap = new Map();
+    for (const track of tracks) {
+      if (track.category === "magic") {
+        const groupName = track.className || track.trackTitle.replace(/ (MAGIC|ENTRY|TRACK)$/i, "");
+        if (!magicGroupMap.has(groupName)) {
+          magicGroupMap.set(groupName, { schoolName: groupName, entryTalents: [], tracks: [] });
+        }
+        const mObj = magicGroupMap.get(groupName);
+        if (track.isClassEntry) {
+          mObj.entryTalents.push(...track.nodes);
+        } else {
+          mObj.tracks.push(track);
+        }
+      }
+    }
+    const magicGroups = Array.from(magicGroupMap.values()).sort((a, b) => a.schoolName.localeCompare(b.schoolName));
 
     return {
       actor: this.actor,
       isPickerMode: this.isPickerMode,
       trees: tracks,
       classGroups,
+      magicGroups,
       totalTracksCount: this.trees.length,
       startedTracksCount: startedTrees.length,
       hasStartedTrees: hasStarted,
@@ -205,20 +214,43 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
       if (canvas) canvas.scrollTop = this._savedScrollTop;
     }
 
-    // Setup live search listener with cursor and focus restoration
+    // Instant client-side DOM search filter (no focus-destroying re-renders while typing)
     const searchInput = this.element.querySelector("input.tree-search-input");
     if (searchInput) {
+      if (this.searchTerm) searchInput.value = this.searchTerm;
+
+      const performFilter = (term) => {
+        const cleanTerm = (term || "").toLowerCase().trim();
+        const classSections = this.element.querySelectorAll(".class-group-section");
+        const trackColumns = this.element.querySelectorAll(".srd-track-column");
+
+        if (!cleanTerm) {
+          classSections.forEach(el => (el.style.display = ""));
+          trackColumns.forEach(el => (el.style.display = ""));
+          return;
+        }
+
+        // Filter track columns
+        trackColumns.forEach(col => {
+          const text = (col.textContent || "").toLowerCase();
+          col.style.display = text.includes(cleanTerm) ? "" : "none";
+        });
+
+        // Filter class group sections
+        classSections.forEach(sec => {
+          const text = (sec.textContent || "").toLowerCase();
+          const visibleTracks = sec.querySelectorAll('.srd-track-column:not([style*="display: none"])');
+          const hasEntryMatch = Array.from(sec.querySelectorAll('.entry-node-box')).some(n => (n.textContent || "").toLowerCase().includes(cleanTerm));
+          const isVisible = hasEntryMatch || visibleTracks.length > 0 || text.includes(cleanTerm);
+          sec.style.display = isVisible ? "" : "none";
+        });
+      };
+
+      if (this.searchTerm) performFilter(this.searchTerm);
+
       searchInput.addEventListener("input", e => {
         this.searchTerm = e.target.value;
-        const cursorPos = e.target.selectionStart;
-        this.render();
-        setTimeout(() => {
-          const fresh = this.element.querySelector("input.tree-search-input");
-          if (fresh) {
-            fresh.focus();
-            try { fresh.setSelectionRange(cursorPos, cursorPos); } catch (_) {}
-          }
-        }, 20);
+        performFilter(this.searchTerm);
       });
     }
   }

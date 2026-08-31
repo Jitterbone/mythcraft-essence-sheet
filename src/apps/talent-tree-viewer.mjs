@@ -91,7 +91,7 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
       }
     }
 
-    this.trees = buildTalentTrees(allTalents, actorTalents);
+    this.trees = buildTalentTrees(allTalents, actorTalents, { effectiveLevel: this.targetLevel });
 
     // If opened from level-up with a targetLevel, re-evaluate availability using that level
     if (this.targetLevel !== null) {

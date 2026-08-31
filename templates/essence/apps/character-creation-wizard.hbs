@@ -646,7 +646,7 @@
 
         {{#if parsedTalent.isMagicEntry}}
           <div class="spells-picker-box">
-            <h4><i class="fas fa-wand-magic"></i> Select Known Spells &amp; Cantrips:</h4>
+            <h4><i class="fas fa-wand-magic"></i> Pick Spells:</h4>
             <div class="magic-attr-row">
               <label>Magic Attribute:</label>
               <select name="magicAttr" data-action="setMagicAttribute">
@@ -660,7 +660,7 @@
             <div class="spells-selection-grid">
               <div class="wizard-search-bar">
                 <i class="fas fa-search"></i>
-                <input class="wizard-search-input" type="search" data-search="spell" value="{{data.searches.spell}}" placeholder="Search spells and cantrips..." />
+                <input class="wizard-search-input" type="search" data-search="spell" value="{{data.searches.spell}}" placeholder="Search spells..." />
               </div>
               <div class="spells-cards-wrap">
                 {{#each filteredSpells as |spell|}}

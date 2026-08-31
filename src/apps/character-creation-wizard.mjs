@@ -409,8 +409,21 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     })).filter(group => group.stacks.length > 0);
 
     // Extra talents and spells for magic entry talents
+    const stackTag = (parsedTalent?.magicStackTag || "").toLowerCase().replace(/\s*magic\s*$/i, "").trim();
+    const isDocOfStack = (doc, tag) => {
+      if (!tag) return true;
+      const tName = (doc.name || "").toLowerCase();
+      const tDesc = (doc.system?.description?.value ?? doc.system?.description ?? "").toLowerCase();
+      const tSrc = String(doc.system?.magicSource || "").toLowerCase().replace(/^mythcraft\.(item|item)\.spell\.source\./i, "");
+      const tCat = String(doc.system?.category || "").toLowerCase();
+      const chain = doc._folderChain || [];
+      const inChain = chain.some(f => f.toLowerCase().includes(tag));
+      const inTags = this.#hasTag(doc.system?.tags, tag) || this.#hasTag(doc.system?.tag, tag);
+      return inChain || inTags || tSrc.includes(tag) || tCat.includes(tag) || tName.includes(tag) || tDesc.includes(`${tag} magic`) || tDesc.includes(`tag: ${tag}`) || tDesc.includes(`[${tag}]`);
+    };
+
     const extraTalentOptions = selectedTalent && parsedTalent?.extraStackTalents
-      ? this.data.talents.filter(t => t.id !== selectedTalent.id).map(t => {
+      ? this.data.talents.filter(t => t.id !== selectedTalent.id && isDocOfStack(t, stackTag)).map(t => {
           const avail = checkTalentAvailability(t, [...knownItemsForPrereq, selectedTalent]);
           return {
             id: t.id,
@@ -423,7 +436,9 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
         })
       : [];
 
-    const filteredSpells = this.data.availableSpells.filter(s => matchesSearch(s, this.data.searches.spell));
+    const filteredSpells = (parsedTalent?.isMagicEntry && stackTag)
+      ? this.data.availableSpells.filter(s => isDocOfStack(s, stackTag) && matchesSearch(s, this.data.searches.spell))
+      : this.data.availableSpells.filter(s => matchesSearch(s, this.data.searches.spell));
 
     // Background skill allocator calculations
     const backgroundSkillSpent = Object.values(this.data.allocatedSkills).reduce((sum, v) => sum + (Number(v) || 0), 0);
@@ -525,6 +540,14 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
         }, 20);
       });
     });
+
+    // Magic attribute select change listener
+    const magicAttrSelect = this.element.querySelector('select[name="magicAttr"]');
+    if (magicAttrSelect) {
+      magicAttrSelect.addEventListener("change", e => {
+        this.data.magicAttribute = e.target.value;
+      });
+    }
   }
 
   #hasTag(rawTags, target) {
@@ -741,10 +764,15 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       ui.notifications.warn(tooltip);
       return;
     }
+    const talent = this.data.talents.find(t => t.id === target.dataset.talentId);
+    const parsed = talent ? parseTalentData(talent) : null;
     this.data.selectedTalentId = target.dataset.talentId;
     this.data.expandedCardIds.add(target.dataset.cardId);
     this.data.selectedExtraTalentIds = [];
     this.data.selectedSpellIds = [];
+    if (parsed?.magicAttribute) {
+      this.data.magicAttribute = parsed.magicAttribute;
+    }
     this.render();
   }
 
@@ -874,6 +902,22 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       if (isEncouraged) {
         const bKey = parsedBg.encouragedProfessions.bonusSkill.toLowerCase().trim();
         skillUpdates[`system.skills.${bKey}.value`] = (this.actor.system?.skills?.[bKey]?.value || 0) + parsedBg.encouragedProfessions.bonusValue;
+      }
+    }
+
+    // 4. Magic Power Level, Spell Points & Magic Attribute
+    const startingTalent = this.data.talents.find(t => t.id === this.data.selectedTalentId);
+    const parsedStartingTalent = startingTalent ? parseTalentData(startingTalent) : null;
+    if (parsedStartingTalent?.isMagicEntry) {
+      const spAmount = parsedStartingTalent.spBonus || 10;
+      updates["system.sp.max"] = spAmount;
+      updates["system.sp.value"] = spAmount;
+      const stackTag = (parsedStartingTalent.magicStackTag || "").toLowerCase().replace(/\s*magic\s*$/i, "").trim();
+      if (stackTag) {
+        updates[`system.powerLevel.${stackTag}`] = parsedStartingTalent.magicPowerBonus || 1;
+      }
+      if (this.data.magicAttribute) {
+        updates["system.attributes.magic"] = this.data.magicAttribute;
       }
     }
 

@@ -571,13 +571,14 @@ export function parseTalentData(item) {
   let extraStackTalents = 0;
   let magicStackTag = "";
 
-  const spMatch = desc.match(/(?:gain|grants?)\s*\+?(\d+)\s*(?:spell\s*points?|sp)/i);
+  const spMatch = desc.match(/(?:gain|grants?)\s*\+?(\d+)\s*(?:spell|sell)?\s*(?:points?|sp)/i);
   if (spMatch) spBonus = parseInt(spMatch[1], 10);
+  if (isMagicEntry && !spBonus) spBonus = 10;
 
-  const powerMatch = desc.match(/(?:gain|grants?)\s*\+?(\d+)\s*([a-zA-Z]+)\s*power/i);
+  const powerMatch = desc.match(/(?:gain|grants?)\s*\+?(\d+)\s*([a-zA-Z]+)?\s*power/i);
   if (powerMatch) {
     magicPowerBonus = parseInt(powerMatch[1], 10);
-    magicStackTag = powerMatch[2].toLowerCase();
+    if (powerMatch[2]) magicStackTag = powerMatch[2].toLowerCase().replace(/\s*magic\s*$/i, "").trim();
   }
 
   const attrMatch = desc.match(/magic\s*attribute\s*is\s*([a-zA-Z]+)/i);
@@ -587,7 +588,7 @@ export function parseTalentData(item) {
   if (extraTalentsMatch) {
     const wordMap = { two: 2, three: 3, four: 4 };
     extraStackTalents = wordMap[extraTalentsMatch[1].toLowerCase()] || parseInt(extraTalentsMatch[1], 10) || 2;
-    magicStackTag = extraTalentsMatch[2].trim().toLowerCase();
+    magicStackTag = extraTalentsMatch[2].replace(/\s*magic\s*$/i, "").trim().toLowerCase();
   }
 
   return {
@@ -620,10 +621,15 @@ export function checkTalentAvailability(talent, actorTalents = [], { effectiveLe
   for (const p of data.prerequisites) {
     const clean = p.toLowerCase().trim();
 
-    // Check level prerequisites like "Level 2", "level 3"
-    const levelPrereqMatch = clean.match(/^level\s*(\d+)$/);
+    // Ignore descriptive/negative clause prerequisites like "no other class entry talents"
+    if (/^(no\s+other|cannot\s+have|must\s+not|without)\b/i.test(clean)) {
+      continue;
+    }
+
+    // Check level prerequisites (e.g. "Level 2", "Character Level 2", "2nd Level", "Level 2 or higher")
+    const levelPrereqMatch = clean.match(/(?:character\s*)?level\s*(\d+)|(\d+)(?:st|nd|rd|th)\s*level/i);
     if (levelPrereqMatch) {
-      const requiredLevel = parseInt(levelPrereqMatch[1], 10);
+      const requiredLevel = parseInt(levelPrereqMatch[1] || levelPrereqMatch[2], 10);
       const actorLevel = effectiveLevel ?? (
         typeof actorTalents[0] === "object" && actorTalents[0]?.parent?.system?.level
           ? Number(actorTalents[0].parent.system.level)
@@ -771,7 +777,7 @@ export function groupTalentsByStack(talentsList = []) {
  * @param {Array<Item|string>} [actorTalents=[]] - Owned talents on actor
  * @returns {Array<{ trackTitle: string, category: string, root: object, nodes: Array<object>, tiers: Array<{ tierNumber: number, label: string, nodes: Array<object> }>, isStarted: boolean }>}
  */
-export function buildTalentTrees(talentsList = [], actorTalents = []) {
+export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiveLevel = null } = {}) {
   const ownedNames = new Set(
     actorTalents.map(t => (typeof t === "string" ? t : t.name).toLowerCase().trim())
   );
@@ -833,7 +839,7 @@ export function buildTalentTrees(talentsList = [], actorTalents = []) {
       const id = t.id || t._id || t.name;
       const name = t.name.trim();
       const isOwned = ownedNames.has(name.toLowerCase());
-      const availability = checkTalentAvailability(t, actorTalents);
+      const availability = checkTalentAvailability(t, actorTalents, { effectiveLevel });
 
       nodeMap.set(name.toLowerCase(), {
         id,

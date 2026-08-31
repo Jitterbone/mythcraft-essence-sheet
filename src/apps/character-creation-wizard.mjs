@@ -8,6 +8,7 @@ import {
   getAvailableCompendiums,
   loadPacksDocuments,
   parseAttributeBonusPoints,
+  parseFeatureSkillPointBonus,
   parseLineageAttributeBonusSources,
   parseLineageMilestones,
   getAttributeLevelCap,
@@ -52,6 +53,8 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
         awr: 0,
         int: 0,
         cha: 0,
+        lck: 0,
+        cor: 0,
       },
 
       // Step 3: Stats
@@ -77,11 +80,6 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       selectedSpellIds: [],
       magicAttribute: "int",
     };
-
-    // Include Sanity if homebrew enabled
-    if (getSetting("enableSanityAttribute", false)) {
-      this.data.attributes.san = 0;
-    }
   }
 
   /** @inheritdoc */
@@ -144,6 +142,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       return (folderName && name === expectedName) || (!folderName && name.endsWith(" lineage"));
     });
     this.data.lineages = filteredLineages;
+    this.data.lineages.sort((a, b) => a.name.localeCompare(b.name));
 
     const bopsDocs = await loadPacksDocuments(packs.bops);
     this.data.allBopsDocs = bopsDocs;
@@ -169,8 +168,10 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       return String(rawTags).toLowerCase().includes(target);
     };
 
-    this.data.backgrounds = bopsDocs.filter(d => isDocOfCategory(d, "background") && !String(d.name || "").toLowerCase().includes(": rank"));
-    this.data.professions = bopsDocs.filter(d => String(d.name || "").trim().toLowerCase().endsWith(" profession"));
+    this.data.backgrounds = bopsDocs.filter(d => isDocOfCategory(d, "background") && !String(d.name || "").toLowerCase().includes(": rank"))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    this.data.professions = bopsDocs.filter(d => String(d.name || "").trim().toLowerCase().endsWith(" profession"))
+      .sort((a, b) => a.name.localeCompare(b.name));
 
     // Starting Talents: Specialization and Magic Entry talents (Level 1 characters cannot take Class talents)
     const specTalents = await loadPacksDocuments(packs.specTalents);
@@ -188,7 +189,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     }
 
     // 1. Detect and register Custom Attributes & Sanity
-    const coreKeys = new Set(["str", "dex", "end", "awr", "int", "cha"]);
+    const coreKeys = new Set(["str", "dex", "end", "awr", "int", "cha", "lck", "cor"]);
     const sanityEnabled = Boolean(getSetting("enableSanity", false));
     const validCustomKeys = new Set();
     if (sanityEnabled) {
@@ -202,7 +203,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     if (Array.isArray(customAttrsSetting)) {
       for (const ca of customAttrsSetting) {
         const key = (typeof ca === "string" ? ca : ca?.key || ca?.id || "").toLowerCase().trim();
-        if (key && !coreKeys.has(key) && key !== "lck") {
+        if (key && !coreKeys.has(key)) {
           validCustomKeys.add(key);
           if (this.data.attributes[key] === undefined) {
             this.data.attributes[key] = 0;
@@ -234,6 +235,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       int: "Intellect",
       cha: "Charisma",
       lck: "Luck",
+      cor: "Coordination",
       san: "Sanity",
     };
     const attributesList = Object.entries(this.data.attributes).map(([key, val]) => ({
@@ -299,8 +301,8 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       // 1. Tag in profession tags
       if (encouragedTag && (this.#hasTag(profession.system?.tags, encouragedTag) || this.#hasTag(profession.system?.tag, encouragedTag))) return true;
 
-      // 2. Tag in profession name or description
-      if (encouragedTag && (pName.includes(encouragedTag) || pDesc.includes(`tag: ${encouragedTag}`) || pDesc.includes(`tags: ${encouragedTag}`) || pDesc.includes(encouragedTag))) return true;
+      // 2. Tag in profession name only (not full description body — too broad)
+      if (encouragedTag && pName.includes(encouragedTag)) return true;
 
       // 3. Matched by explicit UUID or name in background description
       const rawUuids = parsedBackground?.encouragedProfessions?.rawProfessionUuids || [];
@@ -332,6 +334,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     const parsedProfession = selectedProfession ? parseProfessionData(selectedProfession) : null;
     const professionRankItems = selectedProfession
       ? (this.data.allBopsDocs || []).filter(item => String(item.name || "").toLowerCase().startsWith(`${selectedProfession.name.toLowerCase().replace(/ profession$/, "")}: rank`))
+          .sort((a, b) => a.name.localeCompare(b.name))
       : [];
 
     // Search filter helper
@@ -424,7 +427,12 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
     // Background skill allocator calculations
     const backgroundSkillSpent = Object.values(this.data.allocatedSkills).reduce((sum, v) => sum + (Number(v) || 0), 0);
-    const backgroundSkillPool = parsedBackground?.skillPoints ?? 12;
+    // Sum bonus skill points from lineage starting features and selected unique feature
+    const featureSkillBonus = [
+      ...(lineageStartingFeatures || []),
+      selectedFeature,
+    ].filter(Boolean).reduce((sum, f) => sum + parseFeatureSkillPointBonus(f), 0);
+    const backgroundSkillPool = (parsedBackground?.skillPoints ?? 12) + featureSkillBonus;
     const backgroundSkillRemaining = backgroundSkillPool - backgroundSkillSpent;
 
     const hpData = getEnduranceThreshold(this.data.attributes.end || 0);
@@ -544,8 +552,8 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
   }
 
   #getBaseAttributePool() {
-    const coreKeys = new Set(["str", "dex", "end", "awr", "int", "cha"]);
-    const customKeys = Object.keys(this.data.attributes).filter(k => !coreKeys.has(k.toLowerCase()) && k !== "lck");
+    const coreKeys = new Set(["str", "dex", "end", "awr", "int", "cha", "lck", "cor"]);
+    const customKeys = Object.keys(this.data.attributes).filter(k => !coreKeys.has(k.toLowerCase()));
     return 5 + customKeys.length;
   }
 
@@ -833,7 +841,9 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       });
     }
 
-    updates["system.currency.sc"] = (Number(this.actor.system?.currency?.sc) || 0) + startingWealth;
+    // Use the configured primary currency key (defaults to "scillings" in the MythCraft system)
+    const primaryCurrencyKey = getSetting("customCurrencyConfig", null)?.[1]?.key ?? "scillings";
+    updates[`system.currency.${primaryCurrencyKey}`] = (Number(this.actor.system?.currency?.[primaryCurrencyKey]) || 0) + startingWealth;
 
     // 3. Skills mapping
     const skillUpdates = {};

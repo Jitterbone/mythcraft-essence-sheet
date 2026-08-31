@@ -9,6 +9,7 @@ import {
   loadPacksDocuments,
   buildTalentTrees,
   parseTalentData,
+  checkTalentAvailability,
 } from "../features/compendium-parser.mjs";
 
 const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
@@ -19,6 +20,7 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
     super(options);
     this.actor = actor;
     this.isPickerMode = options.isPickerMode ?? false;
+    this.targetLevel = options.targetLevel ?? null;
     this.onSelectTalent = options.onSelectTalent ?? null;
     this.trees = [];
     this.activeCategory = "character"; // "character" | "class" | "specialization" | "magic" | "all"
@@ -90,6 +92,22 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
     }
 
     this.trees = buildTalentTrees(allTalents, actorTalents);
+
+    // If opened from level-up with a targetLevel, re-evaluate availability using that level
+    if (this.targetLevel !== null) {
+      for (const tree of this.trees) {
+        for (const node of tree.nodes) {
+          if (node.item) {
+            const avail = checkTalentAvailability(node.item, actorTalents, { effectiveLevel: this.targetLevel });
+            node.isAvailable = avail.isAvailable;
+            node.missingPrereqs = avail.missingPrereqs;
+            node.prereqTooltip = avail.prereqTooltip;
+          }
+        }
+        // Update isStarted since availability changed
+        tree.isStarted = tree.nodes.some(n => n.isOwned);
+      }
+    }
   }
 
   /** @inheritdoc */
@@ -136,10 +154,24 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
       };
     });
 
+    // Group class tracks by class name for hierarchical display
+    const classGroupMap = new Map();
+    for (const track of tracks) {
+      if (track.category === "class") {
+        const groupName = track.className || track.trackTitle.replace(/ TRACK$/, "");
+        if (!classGroupMap.has(groupName)) {
+          classGroupMap.set(groupName, { className: groupName, tracks: [] });
+        }
+        classGroupMap.get(groupName).tracks.push(track);
+      }
+    }
+    const classGroups = Array.from(classGroupMap.values()).sort((a, b) => a.className.localeCompare(b.className));
+
     return {
       actor: this.actor,
       isPickerMode: this.isPickerMode,
       trees: tracks,
+      classGroups,
       totalTracksCount: this.trees.length,
       startedTracksCount: startedTrees.length,
       hasStartedTrees: hasStarted,
@@ -149,8 +181,24 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
   }
 
   /** @inheritdoc */
+  _preRender(context, options) {
+    if (!this._savedScrollTop) this._savedScrollTop = 0;
+    if (this.element) {
+      const canvas = this.element.querySelector(".srd-tracks-viewport, .tree-canvas-container");
+      if (canvas) this._savedScrollTop = canvas.scrollTop;
+    }
+    return super._preRender?.(context, options);
+  }
+
+  /** @inheritdoc */
   _onRender(context, options) {
     super._onRender?.(context, options);
+
+    // Restore scroll position after re-render
+    if (this._savedScrollTop != null && this.element) {
+      const canvas = this.element.querySelector(".srd-tracks-viewport, .tree-canvas-container");
+      if (canvas) canvas.scrollTop = this._savedScrollTop;
+    }
 
     // Setup live search listener with cursor and focus restoration
     const searchInput = this.element.querySelector("input.tree-search-input");

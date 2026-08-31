@@ -87,14 +87,11 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
     this._chosenHpMethod = "set"; // "set" | "rolled"
 
     // Attribute point advancement (1 point per level gained)
-    this._attributeChanges = {
-      str: 0,
-      dex: 0,
-      end: 0,
-      awr: 0,
-      int: 0,
-      cha: 0,
-    };
+    // Build from actor's actual attribute keys to include LCK, COR, SAN if present
+    const actorAttrKeys = Object.keys(actor.system?.attributes ?? {});
+    const standardOrder = ["str", "dex", "end", "awr", "int", "cha", "lck", "cor", "san"];
+    const attrKeys = standardOrder.filter(k => actorAttrKeys.includes(k) || ["str","dex","end","awr","int","cha","lck","cor"].includes(k));
+    this._attributeChanges = Object.fromEntries(attrKeys.map(k => [k, 0]));
 
     // Profession Rank Up
     this._increaseProfessionRank = false;
@@ -172,13 +169,18 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       }
     }
 
-    // Attributes list with current and preview values
-    const attributesList = ["str", "dex", "end", "awr", "int", "cha"].map(key => {
+    // Attributes list — built from this._attributeChanges keys to include LCK, COR, SAN
+    const attrNameMap = {
+      str: "Strength", dex: "Dexterity", end: "Endurance", awr: "Awareness",
+      int: "Intellect", cha: "Charisma", lck: "Luck", cor: "Coordination", san: "Sanity",
+    };
+    const attributesList = Object.keys(this._attributeChanges).map(key => {
       const base = getAttributeValue(this.actor, key);
       const mod = this._attributeChanges[key] || 0;
       return {
         key,
         label: key.toUpperCase(),
+        name: attrNameMap[key] || key.toUpperCase(),
         base,
         mod,
         preview: base + mod,
@@ -287,6 +289,7 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
   static #onOpenTalentPicker(event, target) {
     const viewer = new TalentTreeViewer(this.actor, {
       isPickerMode: true,
+      targetLevel: this._targetLevel,
       onSelectTalent: (talent) => {
         this._selectedTalent = talent;
         this.render();
@@ -308,6 +311,7 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
     const tgtLvl = this._targetLevel;
     const curLvl = this._currentLevel;
     const isRecalculate = this._mode === "recalculate";
+    const isLevelUp = tgtLvl > curLvl && curLvl > 0;
     const levelsGained = Math.max(1, tgtLvl - (isRecalculate ? 0 : curLvl));
     const endVal = getAttributeValue(this.actor, "end") + (this._attributeChanges.end || 0);
     const activeTh = getEnduranceThreshold(endVal);
@@ -349,15 +353,26 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       }
     }
 
+    const curHpMax = Number(this.actor.system.hp?.max ?? 0);
+    const curHpVal = Number(this.actor.system.hp?.value ?? 0);
+    const finalMaxHp = Math.max(1, newMaxHp);
+    const hpGain = Math.max(0, finalMaxHp - curHpMax);
+    const finalCurrentHp = Math.min(curHpVal + hpGain, finalMaxHp);
     const updates = {
       "system.level": tgtLvl,
-      "system.hp.max": Math.max(1, newMaxHp),
+      "system.hp.max": finalMaxHp,
+      "system.hp.value": finalCurrentHp,
     };
 
     const attrPointsRemaining = Math.max(0, levelsGained - Object.values(this._attributeChanges).reduce((sum, value) => sum + value, 0));
     if (levelsGained > 0 && Object.values(this._attributeChanges).reduce((sum, value) => sum + value, 0) > levelsGained) {
       ui.notifications.warn(`Spend no more than ${levelsGained} attribute point${levelsGained === 1 ? "" : "s"}.`);
       return;
+    }
+
+    // Soft warning if leveling up without a talent selected
+    if (isLevelUp && !this._selectedTalent) {
+      ui.notifications.warn("No talent was selected for this level-up. You can choose one later from the Talent Trees.");
     }
 
     // Apply attribute advancements

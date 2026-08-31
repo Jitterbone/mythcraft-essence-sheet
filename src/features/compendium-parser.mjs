@@ -29,6 +29,36 @@ function descriptionText(item) {
 }
 
 /**
+ * Canonical MythCraft skill list used to validate parsed profession skill options.
+ * Keys are lowercase trimmed skill names (without * markers).
+ */
+export const MYTHCRAFT_SKILLS = new Set([
+  // STR
+  "applied force", "athletics", "menacing", "sprinting",
+  // DEX
+  "balancing", "contorting", "dancing", "sneaking", "tumbling",
+  // END
+  "distance running", "forced march",
+  // AWR
+  "animal handling", "eavesdropping", "foraging", "intuiting", "investigating",
+  "navigating", "perceiving", "sheltering", "tracking",
+  // INT
+  "alchemy", "appraising", "arcana", "art", "astrology", "astronomy",
+  "biology", "brewing", "calligraphy", "carpentry", "cartography",
+  "chemistry", "cobbling", "cooking", "disguising", "dungeoneering",
+  "economics", "engineering", "evading", "forging", "geography",
+  "glassblowing", "history", "jeweling", "law", "leatherworking",
+  "lockpicking", "masonry", "medicine", "military", "nature", "painting",
+  "politics", "pottery", "religion", "sleight of hand", "smithing",
+  "weaving", "woodcarving", "vehicles", "vehicles [land]", "vehicles [water]",
+  // CHA
+  "deceiving", "empathy", "entertaining", "gossiping", "instrument",
+  "intimidating", "leadership", "persuading", "savoir faire",
+  // LUCK
+  "fortuity", "scavenging",
+]);
+
+/**
  * Discovers and groups all available MythCraft compendiums.
  * @returns {Record<string, Array<CompendiumCollection>>}
  */
@@ -146,6 +176,22 @@ export function parseAttributeBonusPoints(itemOrText) {
     : String(itemOrText?.system?.description?.value ?? itemOrText?.system?.description ?? "");
 
   const match = text.match(/gain\s*\+?(\d+)\s*(?:additional\s*)?attribute\s*points?/i);
+  return match ? parseInt(match[1], 10) : 0;
+}
+
+/**
+ * Parses bonus skill points granted by lineage features or talents.
+ * (e.g. "Gain +4 Skill Points", "gain +2 additional skill points")
+ * @param {string|Item} itemOrText
+ * @returns {number}
+ */
+export function parseFeatureSkillPointBonus(itemOrText) {
+  const text = typeof itemOrText === "string"
+    ? itemOrText
+    : String(itemOrText?.system?.description?.value ?? itemOrText?.system?.description ?? "");
+
+  // Must contain "skill points" (not just "points" or "attribute points")
+  const match = text.match(/gain\s*\+?(\d+)\s*(?:additional\s*)?skill\s*points?/i);
   return match ? parseInt(match[1], 10) : 0;
 }
 
@@ -448,7 +494,7 @@ export function parseProfessionData(item) {
       if (!clean) continue;
       const parts = clean.split(":");
       const rawList = parts.length > 1 ? parts[1] : parts[0];
-      const skills = rawList.split(",").map(s => s.trim().replace(/\*$/, "").toLowerCase()).filter(Boolean);
+      const skills = rawList.split(",").map(s => s.trim().replace(/[\.\*]+$/, "").trim().toLowerCase()).filter(Boolean);
       choiceOptions.push(...skills);
     }
   }
@@ -465,13 +511,25 @@ export function parseProfessionData(item) {
     });
   }
 
+  // Filter choiceOptions against the canonical skill list to remove prose fragments
+  const validChoiceOptions = [];
+  for (const s of choiceOptions) {
+    const norm = s.toLowerCase().replace(/[\.\*]+$/, "").trim();
+    if (MYTHCRAFT_SKILLS.has(norm)) {
+      validChoiceOptions.push(norm);
+    } else {
+      const match = Array.from(MYTHCRAFT_SKILLS).find(k => norm.startsWith(k) || k.startsWith(norm.split("[")[0].trim()));
+      if (match) validChoiceOptions.push(match);
+    }
+  }
+
   return {
     startingGear,
     fixedSkills,
     choiceSkills: {
       count: choiceCount,
       value: choiceValue,
-      options: Array.from(new Set(choiceOptions)),
+      options: Array.from(new Set(validChoiceOptions)),
     },
     tenureUuids,
   };
@@ -548,9 +606,11 @@ export function parseTalentData(item) {
  * Checks whether an actor meets all prerequisites and has no incompatible talents for a given talent.
  * @param {Item} talent
  * @param {Array<Item|string>} actorTalents - Array of owned talent items or talent names
+ * @param {object} [options={}]
+ * @param {number|null} [options.effectiveLevel=null] - Target character level when advancing
  * @returns {{ isAvailable: boolean, missingPrereqs: Array<string>, conflictingTalents: Array<string> }}
  */
-export function checkTalentAvailability(talent, actorTalents = []) {
+export function checkTalentAvailability(talent, actorTalents = [], { effectiveLevel = null } = {}) {
   const data = parseTalentData(talent);
   const ownedNames = new Set(
     actorTalents.map(t => (typeof t === "string" ? t : t.name).toLowerCase().trim())
@@ -559,6 +619,24 @@ export function checkTalentAvailability(talent, actorTalents = []) {
   const missingPrereqs = [];
   for (const p of data.prerequisites) {
     const clean = p.toLowerCase().trim();
+
+    // Check level prerequisites like "Level 2", "level 3"
+    const levelPrereqMatch = clean.match(/^level\s*(\d+)$/);
+    if (levelPrereqMatch) {
+      const requiredLevel = parseInt(levelPrereqMatch[1], 10);
+      const actorLevel = effectiveLevel ?? (
+        typeof actorTalents[0] === "object" && actorTalents[0]?.parent?.system?.level
+          ? Number(actorTalents[0].parent.system.level)
+          : null
+      );
+      if (actorLevel !== null && actorLevel >= requiredLevel) {
+        continue; // Level requirement met
+      } else if (actorLevel !== null) {
+        missingPrereqs.push(p);
+        continue;
+      }
+    }
+
     if (!ownedNames.has(clean)) {
       missingPrereqs.push(p);
     }
@@ -705,11 +783,15 @@ export function buildTalentTrees(talentsList = [], actorTalents = []) {
     const chain = t._folderChain || getDocumentFolderChain(t);
     let trackName = "";
 
+    let className = "";
     // If folder chain has folders, use the most specific folder
     if (chain.length > 0) {
       const filtered = chain.filter(f => !/^(class|specialization|magic|talents|features|compendium)s?$/i.test(f.trim()));
       if (filtered.length > 0) {
         trackName = filtered[filtered.length - 1];
+        if (filtered.length >= 2) {
+          className = filtered[filtered.length - 2];
+        }
       } else {
         trackName = chain[chain.length - 1];
       }
@@ -732,6 +814,7 @@ export function buildTalentTrees(talentsList = [], actorTalents = []) {
     if (!trackGroups.has(key)) {
       trackGroups.set(key, {
         rawName: trackName,
+        className,
         category: t._compCategory || "specialization",
         talents: [],
       });
@@ -844,6 +927,7 @@ export function buildTalentTrees(talentsList = [], actorTalents = []) {
 
     trees.push({
       trackTitle,
+      className: group.className || "",
       category: group.category,
       root: rootNode,
       nodes: allNodes,

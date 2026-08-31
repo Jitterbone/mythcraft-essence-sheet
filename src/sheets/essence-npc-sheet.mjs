@@ -952,14 +952,19 @@ export default class EssenceNPCSheet extends NPCSheet {
         };
 
         const isWeapon = feat.type === "weapon";
-        const hasExplicitActionCategory = cat === "action";
-        const hasExplicitReactionCategory = cat === "reaction";
-        const hasTier = feat.system?.tier !== undefined && feat.system?.tier !== null;
+        const hasExplicitPassiveCategory = cat === "passive" || cat === "passives" || cat === "trait" || cat === "traits" || cat.includes("trait") || cat === "feature";
+        const hasExplicitReactionCategory = cat === "reaction" || cat === "reactions" || cat.includes("reaction");
+        const hasExplicitActionCategory = cat === "action" || cat === "actions" || cat === "active";
         const tier = Number(feat.system?.tier || 1);
 
-        if (hasExplicitReactionCategory) {
+        if (hasExplicitPassiveCategory) {
+          passives.push(entry);
+        } else if (hasExplicitReactionCategory) {
           reactions.push(entry);
-        } else if (hasExplicitActionCategory || isWeapon || hasTier || hasAttack || hasSave || hasDamage) {
+        } else if (hasExplicitActionCategory || isWeapon) {
+          if (tier === 2) rawTier2.push(entry);
+          else rawTier1.push(entry);
+        } else if (hasAttack || hasSave || hasDamage) {
           if (tier === 2) rawTier2.push(entry);
           else rawTier1.push(entry);
         } else {

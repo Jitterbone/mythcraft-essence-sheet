@@ -2560,7 +2560,11 @@ export default class EssenceCharacterSheet extends CharacterSheet {
             || allSkills[id.toLowerCase()]
             || allSkills[id.replace(/[^a-zA-Z0-9]/g, "")]
             || Object.entries(allSkills).find(([k]) => k.toLowerCase().replace(/[^a-z0-9]/g, "") === id.toLowerCase().replace(/[^a-z0-9]/g, ""))?.[1];
+          
+          if (!sData) continue;
           const bonus = typeof sData === "number" ? sData : (Number(sData?.bonus ?? sData?.value ?? 0));
+          if (bonus === 0) continue; // Only display trained skills with points allocated
+
           let rawLabel = id;
           if (cfg.specialized) {
             rawLabel = game.i18n.format(cfg.specialized, sData || {});

@@ -104,7 +104,7 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 
 ---
 
-### 🔮 6. Advanced Spells & Magic Power Scaling
+### � 6. Advanced Spells & Magic Power Scaling
 - **Magic Source Filtering & School Badges**:
   - Interactive filter buttons for Arcane, Divine, Occult, Primal, and Psionic magic with custom school colors.
 - **Intelligent Grouping & Sorting**:

@@ -9,6 +9,8 @@ import {
   loadPacksDocuments,
   parseAttributeBonusPoints,
   parseFeatureSkillPointBonus,
+  parseFeatureSkillData,
+  MYTHCRAFT_SKILL_CATEGORIES,
   parseLineageAttributeBonusSources,
   parseLineageMilestones,
   getAttributeLevelCap,
@@ -440,15 +442,38 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       ? this.data.availableSpells.filter(s => isDocOfStack(s, stackTag) && matchesSearch(s, this.data.searches.spell))
       : this.data.availableSpells.filter(s => matchesSearch(s, this.data.searches.spell));
 
-    // Background skill allocator calculations
-    const backgroundSkillSpent = Object.values(this.data.allocatedSkills).reduce((sum, v) => sum + (Number(v) || 0), 0);
-    // Sum bonus skill points from lineage starting features and selected unique feature
-    const featureSkillBonus = [
+    // Active lineage features for skill bonus parsing
+    const activeLineageFeatures = [
       ...(lineageStartingFeatures || []),
       selectedFeature,
-    ].filter(Boolean).reduce((sum, f) => sum + parseFeatureSkillPointBonus(f), 0);
+    ].filter(Boolean);
+
+    const parsedFeatureSkillData = activeLineageFeatures.map(f => parseFeatureSkillData(f));
+    const featureSkillBonus = parsedFeatureSkillData.reduce((sum, f) => sum + f.points, 0);
+    const featureSkillCapOverride = Math.max(0, ...parsedFeatureSkillData.map(f => f.perSkillCap || 0));
+    const featureSkillTags = new Set(parsedFeatureSkillData.map(f => f.tag).filter(Boolean));
+
+    // Background skill allocator calculations
+    const backgroundSkillSpent = Object.values(this.data.allocatedSkills).reduce((sum, v) => sum + (Number(v) || 0), 0);
     const backgroundSkillPool = (parsedBackground?.skillPoints ?? 12) + featureSkillBonus;
     const backgroundSkillRemaining = backgroundSkillPool - backgroundSkillSpent;
+    const effectivePerSkillCap = Math.max(parsedBackground?.perSkillCap ?? 4, featureSkillCapOverride);
+
+    // Decorate parsedBackground.skillCategories with feature bonus highlight flags
+    if (parsedBackground?.skillCategories) {
+      for (const cat of parsedBackground.skillCategories) {
+        const catKey = cat.category.toLowerCase().trim();
+        for (const sk of cat.skills) {
+          const skName = sk.name.replace(/\*/g, "").toLowerCase().trim();
+          const matchesTag = Array.from(featureSkillTags).some(t => {
+            if (t === catKey) return true;
+            if (MYTHCRAFT_SKILL_CATEGORIES[t]?.includes(skName)) return true;
+            return skName.includes(t) || t.includes(skName);
+          });
+          sk.isFeatureBonus = matchesTag;
+        }
+      }
+    }
 
     const hpData = getEnduranceThreshold(this.data.attributes.end || 0);
     const setHpValue = 10 + 1 + (1 * hpData.setHp);
@@ -476,6 +501,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       backgroundSkillSpent,
       backgroundSkillPool,
       backgroundSkillRemaining,
+      effectivePerSkillCap,
       availableProfessions,
       selectedProfession,
       parsedProfession,
@@ -697,19 +723,27 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     const cur = Number(this.data.allocatedSkills[skill] ?? 0);
     const next = Math.max(0, cur + delta);
 
+    const activeLineageFeatures = [
+      ...(this.data.lineageStartingFeatures || []),
+      this.data.allLineageDocs?.find(f => f.id === this.data.selectedFeatureId),
+    ].filter(Boolean);
+    const parsedFeatureSkillData = activeLineageFeatures.map(f => parseFeatureSkillData(f));
+    const featureSkillBonus = parsedFeatureSkillData.reduce((sum, f) => sum + f.points, 0);
+    const featureSkillCapOverride = Math.max(0, ...parsedFeatureSkillData.map(f => f.perSkillCap || 0));
+
     const bg = this.data.backgrounds.find(b => b.id === this.data.selectedBackgroundId);
     const parsed = bg ? parseBackgroundData(bg) : null;
-    const cap = parsed?.perSkillCap ?? 4;
-    const maxPool = parsed?.skillPoints ?? 12;
+    const cap = Math.max(parsed?.perSkillCap ?? 4, featureSkillCapOverride);
+    const maxPool = (parsed?.skillPoints ?? 12) + featureSkillBonus;
 
     if (delta > 0) {
       const currentSpent = Object.values(this.data.allocatedSkills).reduce((sum, v) => sum + (Number(v) || 0), 0);
       if (currentSpent >= maxPool) {
-        ui.notifications.warn(`You have already spent all ${maxPool} background skill points.`);
+        ui.notifications.warn(`You have already spent all ${maxPool} available skill points.`);
         return;
       }
       if (next > cap) {
-        ui.notifications.warn(`This background limits individual skills to +${cap}.`);
+        ui.notifications.warn(`Skills are limited to a maximum of +${cap}.`);
         return;
       }
     }
@@ -739,20 +773,20 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
   }
 
   static #onToggleProfessionSkill(event, target) {
-    const skill = target.dataset.skill;
+    const skillName = target.dataset.skill;
     const prof = this.data.professions.find(p => p.id === this.data.selectedProfessionId);
     const parsed = prof ? parseProfessionData(prof) : null;
-    const maxChoice = parsed?.choiceSkills?.count ?? 1;
+    const maxChoices = parsed?.choiceSkills?.count ?? 0;
 
-    const idx = this.data.selectedProfessionSkills.indexOf(skill);
+    const idx = this.data.selectedProfessionSkills.indexOf(skillName);
     if (idx >= 0) {
       this.data.selectedProfessionSkills.splice(idx, 1);
     } else {
-      if (this.data.selectedProfessionSkills.length >= maxChoice) {
-        ui.notifications.warn(`You may only select ${maxChoice} skill(s) from this profession.`);
+      if (this.data.selectedProfessionSkills.length >= maxChoices) {
+        ui.notifications.warn(`You may only select ${maxChoices} choice skills.`);
         return;
       }
-      this.data.selectedProfessionSkills.push(skill);
+      this.data.selectedProfessionSkills.push(skillName);
     }
     this.render();
   }
@@ -874,10 +908,26 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     updates[`system.currency.${primaryCurrencyKey}`] = (Number(this.actor.system?.currency?.[primaryCurrencyKey]) || 0) + startingWealth;
 
     // 3. Skills mapping
+    const skillListCfg = globalThis.mythcraft?.CONFIG?.skills?.list || CONFIG?.MYTHCRAFT?.skills?.list || {};
+    const findSkillKey = (rawName) => {
+      if (!rawName) return "";
+      const clean = rawName.replace(/\*/g, "").trim();
+      const lower = clean.toLowerCase();
+      const slug = lower.replace(/[^a-z0-9]/g, "");
+      for (const k of Object.keys(skillListCfg)) {
+        if (k.toLowerCase() === lower || k.toLowerCase().replace(/[^a-z0-9]/g, "") === slug) return k;
+      }
+      const camel = lower.replace(/[^a-zA-Z0-9]+(.)/g, (m, chr) => chr.toUpperCase());
+      return camel || lower;
+    };
+
     const skillUpdates = {};
-    for (const [sKey, pts] of Object.entries(this.data.allocatedSkills)) {
+    for (const [sName, pts] of Object.entries(this.data.allocatedSkills)) {
       if (pts > 0) {
-        skillUpdates[`system.skills.${sKey}.value`] = (this.actor.system?.skills?.[sKey]?.value || 0) + pts;
+        const key = findSkillKey(sName);
+        const curVal = Number(this.actor.system?.skills?.[key]?.value ?? this.actor.system?.skills?.[key]?.bonus ?? 0);
+        skillUpdates[`system.skills.${key}.value`] = curVal + pts;
+        skillUpdates[`system.skills.${key}.bonus`] = curVal + pts;
       }
     }
 
@@ -886,12 +936,16 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     const parsedProf = prof ? parseProfessionData(prof) : null;
     if (parsedProf) {
       for (const fSkill of parsedProf.fixedSkills) {
-        const key = fSkill.name.toLowerCase().trim();
-        skillUpdates[`system.skills.${key}.value`] = (this.actor.system?.skills?.[key]?.value || 0) + fSkill.value;
+        const key = findSkillKey(fSkill.name);
+        const curVal = Number(skillUpdates[`system.skills.${key}.value`] ?? this.actor.system?.skills?.[key]?.value ?? this.actor.system?.skills?.[key]?.bonus ?? 0);
+        skillUpdates[`system.skills.${key}.value`] = curVal + fSkill.value;
+        skillUpdates[`system.skills.${key}.bonus`] = curVal + fSkill.value;
       }
       for (const cSkill of this.data.selectedProfessionSkills) {
-        const key = cSkill.toLowerCase().trim();
-        skillUpdates[`system.skills.${key}.value`] = (this.actor.system?.skills?.[key]?.value || 0) + parsedProf.choiceSkills.value;
+        const key = findSkillKey(cSkill);
+        const curVal = Number(skillUpdates[`system.skills.${key}.value`] ?? this.actor.system?.skills?.[key]?.value ?? this.actor.system?.skills?.[key]?.bonus ?? 0);
+        skillUpdates[`system.skills.${key}.value`] = curVal + parsedProf.choiceSkills.value;
+        skillUpdates[`system.skills.${key}.bonus`] = curVal + parsedProf.choiceSkills.value;
       }
     }
 
@@ -900,8 +954,10 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       const tag = parsedBg.encouragedProfessions.tag;
       const isEncouraged = tag ? (this.#hasTag(prof.system?.tags, tag) || prof.name.toLowerCase().includes(tag)) : false;
       if (isEncouraged) {
-        const bKey = parsedBg.encouragedProfessions.bonusSkill.toLowerCase().trim();
-        skillUpdates[`system.skills.${bKey}.value`] = (this.actor.system?.skills?.[bKey]?.value || 0) + parsedBg.encouragedProfessions.bonusValue;
+        const bKey = findSkillKey(parsedBg.encouragedProfessions.bonusSkill);
+        const curVal = Number(skillUpdates[`system.skills.${bKey}.value`] ?? this.actor.system?.skills?.[bKey]?.value ?? this.actor.system?.skills?.[bKey]?.bonus ?? 0);
+        skillUpdates[`system.skills.${bKey}.value`] = curVal + parsedBg.encouragedProfessions.bonusValue;
+        skillUpdates[`system.skills.${bKey}.bonus`] = curVal + parsedBg.encouragedProfessions.bonusValue;
       }
     }
 

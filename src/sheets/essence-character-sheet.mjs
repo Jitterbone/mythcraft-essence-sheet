@@ -2555,11 +2555,15 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     const getSkillsForAttr = (attrKey) => {
       const list = [];
       for (const [id, cfg] of Object.entries(skillConfig)) {
-        if (cfg.attribute === attrKey && id in allSkills) {
-          const sData = allSkills[id];
+        if (cfg.attribute === attrKey) {
+          const sData = allSkills[id]
+            || allSkills[id.toLowerCase()]
+            || allSkills[id.replace(/[^a-zA-Z0-9]/g, "")]
+            || Object.entries(allSkills).find(([k]) => k.toLowerCase().replace(/[^a-z0-9]/g, "") === id.toLowerCase().replace(/[^a-z0-9]/g, ""))?.[1];
+          const bonus = typeof sData === "number" ? sData : (Number(sData?.bonus ?? sData?.value ?? 0));
           let rawLabel = id;
           if (cfg.specialized) {
-            rawLabel = game.i18n.format(cfg.specialized, sData);
+            rawLabel = game.i18n.format(cfg.specialized, sData || {});
           } else if (cfg.label) {
             const loc = game.i18n.localize(cfg.label);
             rawLabel = loc && !loc.startsWith("MYTHCRAFT.") ? loc : (cfg.label || id);
@@ -2567,8 +2571,8 @@ export default class EssenceCharacterSheet extends CharacterSheet {
           list.push({
             id,
             label: rawLabel || id,
-            bonus: sData.bonus ?? 0,
-            bonusDisplay: formatBonus(sData.bonus ?? 0),
+            bonus,
+            bonusDisplay: formatBonus(bonus),
           });
         }
       }

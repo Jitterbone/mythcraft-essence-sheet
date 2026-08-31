@@ -179,6 +179,61 @@ export function parseAttributeBonusPoints(itemOrText) {
   return match ? parseInt(match[1], 10) : 0;
 }
 
+export const MYTHCRAFT_SKILL_CATEGORIES = {
+  acrobatics: ["balancing", "contorting", "tumbling"],
+  athleticism: ["applied force", "athletics", "sprinting"],
+  crafting: [
+    "alchemy", "brewing", "calligraphy", "carpentry", "cartography",
+    "cobbling", "cooking", "glassblowing", "jeweling", "leatherworking",
+    "masonry", "painting", "pottery", "smithing", "weaving", "woodcarving"
+  ],
+  influence: ["deceiving", "empathy", "gossiping", "intimidating", "leadership", "persuading"],
+  knowledge: [
+    "arcana", "art", "astrology", "astronomy", "biology", "chemistry",
+    "economics", "engineering", "geography", "history", "law", "medicine",
+    "military", "politics", "religion", "vehicles [land]", "vehicles [water]", "vehicles"
+  ],
+  luck: ["fortuity", "scavenging"],
+  observation: ["appraising", "eavesdropping", "intuiting", "investigating", "perceiving"],
+  performance: ["dancing", "entertaining", "instrument", "savoir faire"],
+  stamina: ["distance running", "forced march", "menacing"],
+  subterfuge: ["disguising", "evading", "forging", "lockpicking", "sleight of hand"],
+  survival: [
+    "animal handling", "dungeoneering", "foraging", "nature", "navigating",
+    "sheltering", "sneaking", "tracking"
+  ]
+};
+
+/**
+ * Parses bonus skill points, matching tag, and individual per-skill cap increase from a feature.
+ * @param {string|Item} itemOrText
+ * @returns {{ points: number, tag: string, perSkillCap: number|null }}
+ */
+export function parseFeatureSkillData(itemOrText) {
+  const text = typeof itemOrText === "string"
+    ? itemOrText
+    : String(itemOrText?.system?.description?.value ?? itemOrText?.system?.description ?? "");
+
+  let points = 0;
+  let tag = "";
+  let perSkillCap = null;
+
+  const ptMatch = text.match(/gain\s*\+?(\d+)\s*(?:additional\s*)?skill\s*points?(?:\s*(?:to\s*spend\s*on|in|that\s*you\s*can\s*spend\s*on)\s*(?:any\s*skills?\s*(?:with\s*the\s*)?)?([a-zA-Z\s]+?)(?:\s*tag|\s*skills|\.|\n|$))?/i);
+  if (ptMatch) {
+    points = parseInt(ptMatch[1], 10);
+    if (ptMatch[2]) {
+      tag = ptMatch[2].trim().toLowerCase().replace(/^(skills?\s*with\s*the|with\s*the)\s*/i, "").trim();
+    }
+  }
+
+  const capMatch = text.match(/put\s*up\s*to\s*\+?(\d+)\s*points?\s*into\s*any\s*individual\s*skill/i);
+  if (capMatch) {
+    perSkillCap = parseInt(capMatch[1], 10);
+  }
+
+  return { points, tag, perSkillCap };
+}
+
 /**
  * Parses bonus skill points granted by lineage features or talents.
  * (e.g. "Gain +4 Skill Points", "gain +2 additional skill points")
@@ -186,13 +241,7 @@ export function parseAttributeBonusPoints(itemOrText) {
  * @returns {number}
  */
 export function parseFeatureSkillPointBonus(itemOrText) {
-  const text = typeof itemOrText === "string"
-    ? itemOrText
-    : String(itemOrText?.system?.description?.value ?? itemOrText?.system?.description ?? "");
-
-  // Must contain "skill points" (not just "points" or "attribute points")
-  const match = text.match(/gain\s*\+?(\d+)\s*(?:additional\s*)?skill\s*points?/i);
-  return match ? parseInt(match[1], 10) : 0;
+  return parseFeatureSkillData(itemOrText).points;
 }
 
 /**

@@ -13887,7 +13887,8 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
 /* Encouraged Gold Shimmer on Cards */
 .bops-item-card.encouraged-gold,
 .talent-choice-card.encouraged-gold,
-.wizard-selection-card.encouraged-gold {
+.wizard-selection-card.encouraged-gold,
+.skill-tile-card.encouraged-gold {
   position: relative !important;
   overflow: hidden !important;
   border: 1px solid var(--mc-gold, #FEEBB3) !important;
@@ -13897,7 +13898,8 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
 
 .bops-item-card.encouraged-gold::after,
 .talent-choice-card.encouraged-gold::after,
-.wizard-selection-card.encouraged-gold::after {
+.wizard-selection-card.encouraged-gold::after,
+.skill-tile-card.encouraged-gold::after {
   content: "" !important;
   position: absolute !important;
   top: -60% !important;

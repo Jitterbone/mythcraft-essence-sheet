@@ -1,38 +1,15 @@
 {{!-- ============================================================
-     MythCraft Essence Sheet — Talents Tab (Compact Followed Tracks View)
+     MythCraft Essence Sheet — Talents Tab (Followed Tracks View)
      Context: talents[], followedTracks[], features[], isEditable
      ============================================================ --}}
 <section class="tab {{tab.cssClass}}" data-group="primary" data-tab="talents">
-
-  {{!-- ── Visual Talent Trees Launcher Banner ──────────────── --}}
-  <div class="sheet-tree-launcher-card">
-    <div class="launcher-info-col">
-      <div class="launcher-title-row">
-        <i class="fas fa-diagram-project launcher-icon"></i>
-        <h3 class="launcher-title">Talent Trees & Tracks</h3>
-      </div>
-      <p class="launcher-sub">Explore full branching trees for classes, specializations, and magic.</p>
-      <div class="launcher-stats-row">
-        <span class="launcher-pill talents-pill"><i class="fas fa-award"></i> {{totalTalentsCount}} Talents Learned</span>
-        {{#if activeTracksCount}}
-          <span class="launcher-pill tracks-pill"><i class="fas fa-route"></i> {{activeTracksCount}} Active Tracks</span>
-        {{/if}}
-      </div>
-    </div>
-    <div class="launcher-action-col">
-      <button type="button" class="open-tree-viewer-btn" data-action="openTalentTreeViewer" title="Open Full Visual Talent Trees">
-        <i class="fas fa-sitemap"></i>
-        <span>Open Talent Trees</span>
-      </button>
-    </div>
-  </div>
 
   {{!-- ── Followed Tracks & Acquired Talents Section ───────── --}}
   <div class="talents-section">
     <div class="inventory-header">
       <h3 class="section-header">
         <i class="fas fa-award"></i>
-        <span>Acquired Talents {{#if talents.length}}({{talents.length}}){{/if}}</span>
+        <span>Followed Talent Tracks {{#if followedTracks.length}}({{followedTracks.length}}){{/if}}</span>
       </h3>
       <button type="button"
               class="create-item-btn"

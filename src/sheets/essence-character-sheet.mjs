@@ -19,12 +19,15 @@ import CharacterCreationWizard from "../apps/character-creation-wizard.mjs";
 import TalentTreeViewer from "../apps/talent-tree-viewer.mjs";
 import {
   CANONICAL_TALENTS,
+  NORMALIZED_CANONICAL_TALENTS,
   SUBCLASS_TO_CLASS,
   DISCIPLINE_TO_MAGIC,
   SUBTRACK_TO_SPEC,
   MYTHCRAFT_CANONICAL_CLASSES,
   MYTHCRAFT_CANONICAL_SPECS,
   MYTHCRAFT_CANONICAL_MAGIC,
+  normalizeTalentName,
+  isDisallowedTalentItem,
 } from "../features/talent-canonical-map.mjs";
 import { RestDialog } from "../features/rest-automation.mjs";
 import { getEnduranceThreshold } from "../features/hp-automation.mjs";
@@ -3484,42 +3487,28 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         };
       }));
 
-      // Sort talents: Favorites pinned to top, then alphabetical
-      context.talents.sort((a, b) => {
-        if (a.isFavorite && !b.isFavorite) return -1;
-        if (!a.isFavorite && b.isFavorite) return 1;
-        return a.item.name.localeCompare(b.item.name);
-      });
-
-      // Group owned talents strictly into followed tracks
+      // Group owned talents strictly into followed tracks with progression sorting
       const trackGroups = new Map();
       for (const tObj of context.talents) {
         const item = tObj.item;
-        const docName = String(item.name || "").toLowerCase().trim();
-        const docNameClean = docName.replace(/\s*(track|stack|talents?)$/i, "").trim();
-        const chain = (item._folderChain || []).map(f =>
-          String(f)
-            .toLowerCase()
-            .replace(/^\d+\.\s*/, "")
-            .replace(/\s*(track|stack|talents?)$/i, "")
-            .trim()
-        );
+        const rawName = String(item.name || "").trim();
+        const docNameClean = normalizeTalentName(rawName);
+        const chain = (item._folderChain || []).map(f => normalizeTalentName(f));
         const docTags = (Array.isArray(item.system?.tags) ? item.system.tags : []).map(tag =>
-          String(tag?.name || tag?.label || tag)
-            .toLowerCase()
-            .replace(/\s*(track|stack|talents?)$/i, "")
-            .trim()
+          normalizeTalentName(tag?.name || tag?.label || tag)
         );
 
         let category = "specialization";
         let rootName = "General Specialization";
         let trackName = "General";
+        let isEntry = false;
 
-        if (CANONICAL_TALENTS?.[docName]) {
-          const c = CANONICAL_TALENTS[docName];
-          category = c.category;
-          rootName = c.parent;
-          trackName = c.track;
+        const canonicalMatch = NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[rawName.toLowerCase()];
+        if (canonicalMatch) {
+          category = canonicalMatch.category;
+          rootName = canonicalMatch.parent;
+          trackName = canonicalMatch.track;
+          isEntry = canonicalMatch.isEntry;
         } else {
           let matchedSubclass = null;
           for (const f of [...chain, ...docTags, docNameClean]) {
@@ -3559,7 +3548,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
               } else {
                 for (const cls of MYTHCRAFT_CANONICAL_CLASSES) {
                   const cLow = cls.toLowerCase();
-                  if (chain.includes(cLow) || docName.startsWith(cLow) || docTags.includes(cLow)) {
+                  if (chain.includes(cLow) || docNameClean.startsWith(cLow) || docTags.includes(cLow)) {
                     category = "class";
                     rootName = cls;
                     trackName = `${cls} Entry`;
@@ -3581,7 +3570,19 @@ export default class EssenceCharacterSheet extends CharacterSheet {
             talents: [],
           });
         }
+        tObj.isEntry = isEntry;
         trackGroups.get(groupKey).talents.push(tObj);
+      }
+
+      // Sort talents within each track by progression order (entry first, then tier/number, then alphabetical)
+      for (const group of trackGroups.values()) {
+        group.talents.sort((a, b) => {
+          if (a.isFavorite && !b.isFavorite) return -1;
+          if (!a.isFavorite && b.isFavorite) return 1;
+          if (a.isEntry && !b.isEntry) return -1;
+          if (!a.isEntry && b.isEntry) return 1;
+          return a.item.name.localeCompare(b.item.name, undefined, { numeric: true });
+        });
       }
 
       context.followedTracks = Array.from(trackGroups.values()).sort((a, b) => a.groupKey.localeCompare(b.groupKey));

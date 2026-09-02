@@ -225,37 +225,5 @@ export default class EssenceItemSheet extends MythCraftItemSheet {
         detailsTab.appendChild(clothesCard);
       }
     }
-
-    // 4. Ensure all custom tags from library are available in string-tags, multi-select, and select elements
-    const tagElements = this.element.querySelectorAll("string-tags, multi-select, select[name*='tags'], [data-field*='tags']");
-    const library = getActiveTagsLibrary();
-
-    tagElements.forEach(tagEl => {
-      const existingValues = new Set(Array.from(tagEl.querySelectorAll("option")).map(opt => opt.value.toLowerCase()));
-      
-      for (const tag of library) {
-        const tagKey = tag.id || tag.name.toLowerCase().replace(/[^a-z0-9]/g, "");
-        const tagName = tag.name;
-        
-        if (!existingValues.has(tagKey.toLowerCase()) && !existingValues.has(tagName.toLowerCase())) {
-          const opt = document.createElement("option");
-          opt.value = tagKey;
-          opt.textContent = tagName;
-          tagEl.appendChild(opt);
-          existingValues.add(tagKey.toLowerCase());
-          existingValues.add(tagName.toLowerCase());
-        }
-      }
-
-      // If it has an internal options/choices object property
-      if (tagEl.options && typeof tagEl.options === "object" && !(tagEl.options instanceof HTMLOptionsCollection)) {
-        for (const tag of library) {
-          const tagKey = tag.id || tag.name.toLowerCase().replace(/[^a-z0-9]/g, "");
-          if (!tagEl.options[tagKey]) {
-            tagEl.options[tagKey] = tag.name;
-          }
-        }
-      }
-    });
   }
 }

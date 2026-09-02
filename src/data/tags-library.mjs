@@ -706,67 +706,58 @@ export function syncCustomTagsToSystem() {
   const library = getActiveTagsLibrary();
   if (!Array.isArray(library) || library.length === 0) return;
 
-  const targets = [];
-  if (globalThis.mythcraft?.CONFIG) targets.push(globalThis.mythcraft.CONFIG);
-  if (globalThis.CONFIG?.MYTHCRAFT) targets.push(globalThis.CONFIG.MYTHCRAFT);
-  if (globalThis.CONFIG?.mythcraft) targets.push(globalThis.CONFIG.mythcraft);
+  const configs = [];
+  if (globalThis.mythcraft?.CONFIG) configs.push(globalThis.mythcraft.CONFIG);
+  if (globalThis.CONFIG?.MYTHCRAFT) configs.push(globalThis.CONFIG.MYTHCRAFT);
 
-  for (const cfg of targets) {
-    if (!cfg.tags) cfg.tags = {};
-    if (!cfg.weapons) cfg.weapons = {};
-    if (!cfg.weapons.tags) cfg.weapons.tags = {};
-    if (!cfg.weapon) cfg.weapon = {};
+  for (const cfg of configs) {
+    if (!cfg.weapon) cfg.weapon = { tags: {} };
     if (!cfg.weapon.tags) cfg.weapon.tags = {};
-    if (!cfg.spells) cfg.spells = {};
+
+    if (!cfg.spells) cfg.spells = { tags: {} };
     if (!cfg.spells.tags) cfg.spells.tags = {};
-    if (!cfg.spell) cfg.spell = {};
-    if (!cfg.spell.tags) cfg.spell.tags = {};
-    if (!cfg.armor) cfg.armor = {};
-    if (!cfg.armor.tags) cfg.armor.tags = {};
-    if (!cfg.gear) cfg.gear = {};
-    if (!cfg.gear.tags) cfg.gear.tags = {};
-    if (!cfg.Item) cfg.Item = {};
-    if (!cfg.Item.tags) cfg.Item.tags = {};
-    if (!cfg.Item.weapon) cfg.Item.weapon = {};
-    if (!cfg.Item.weapon.tags) cfg.Item.weapon.tags = {};
-    if (!cfg.Item.spell) cfg.Item.spell = {};
-    if (!cfg.Item.spell.tags) cfg.Item.spell.tags = {};
-    if (!cfg.Item.armor) cfg.Item.armor = {};
-    if (!cfg.Item.armor.tags) cfg.Item.armor.tags = {};
-    if (!cfg.Item.gear) cfg.Item.gear = {};
-    if (!cfg.Item.gear.tags) cfg.Item.gear.tags = {};
+
+    if (!cfg.talents) cfg.talents = { tags: {} };
+    if (!cfg.talents.tags) cfg.talents.tags = {};
+
+    if (!cfg.monster) cfg.monster = { tags: {} };
+    if (!cfg.monster.tags) cfg.monster.tags = {};
 
     for (const tag of library) {
       const tagKey = tag.id || tag.name.toLowerCase().replace(/[^a-z0-9]/g, "");
-      const tagObj = {
+      const tagEntry = {
         label: tag.name,
         name: tag.name,
+        reference: "",
+        group: tag.categoryLabel || (tag.category ? (tag.category.charAt(0).toUpperCase() + tag.category.slice(1)) : "Custom"),
         description: tag.description || "",
-        category: tag.category || "custom",
       };
 
-      cfg.tags[tagKey] = tagObj;
-      cfg.Item.tags[tagKey] = tagObj;
-
+      // 1. Weapon & Critical & Custom tags
       if (tag.category === "weapon" || tag.category === "critical" || tag.category === "custom") {
-        cfg.weapons.tags[tagKey] = tagObj;
-        cfg.weapon.tags[tagKey] = tagObj;
-        cfg.Item.weapon.tags[tagKey] = tagObj;
+        cfg.weapon.tags[tagKey] = tagEntry;
       }
+
+      // 2. Spell tags
       if (tag.category === "arcane" || tag.category === "divine" || tag.category === "occult" || tag.category === "primal" || tag.category === "psionic" || tag.category === "custom") {
-        cfg.spells.tags[tagKey] = tagObj;
-        cfg.spell.tags[tagKey] = tagObj;
-        cfg.Item.spell.tags[tagKey] = tagObj;
+        cfg.spells.tags[tagKey] = {
+          ...tagEntry,
+          sources: null,
+        };
       }
-      if (tag.category === "armor" || tag.category === "custom") {
-        cfg.armor.tags[tagKey] = tagObj;
-        cfg.Item.armor.tags[tagKey] = tagObj;
-      }
-      if (tag.category === "custom") {
-        cfg.gear.tags[tagKey] = tagObj;
-        cfg.Item.gear.tags[tagKey] = tagObj;
+
+      // 3. Talent tags
+      cfg.talents.tags[tagKey] = tagEntry;
+
+      // 4. Monster / Trait tags
+      if (tag.category === "monster" || tag.category === "trait" || tag.category === "custom") {
+        cfg.monster.tags[tagKey] = {
+          ...tagEntry,
+          group: "special",
+        };
       }
     }
   }
 }
+
 

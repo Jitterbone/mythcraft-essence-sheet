@@ -15583,3 +15583,45 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
   box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
 }
 
+.talent-compendiums-dialog .detected-folders-panel {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 5px;
+  padding: 8px 10px;
+  margin-top: 8px;
+}
+
+.talent-compendiums-dialog .folders-header {
+  font-size: 11px;
+  font-weight: 700;
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.talent-compendiums-dialog .folders-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.talent-compendiums-dialog .folder-chip {
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #FEEBB3;
+  font-size: 10.5px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.talent-compendiums-dialog .folder-chip i {
+  color: #38bdf8;
+  font-size: 10px;
+}
+
+

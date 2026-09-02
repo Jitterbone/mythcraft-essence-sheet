@@ -123,6 +123,35 @@ export function getEnrichedItemTags(item) {
     tagNames.push(item.system.magicType);
   }
 
+  // Critical Effects & Custom Crits extraction
+  const extractCrit = (val) => {
+    if (!val) return null;
+    if (typeof val === "string" && val.trim()) {
+      const clean = val.trim();
+      return /^crit(?:ical)?\b/i.test(clean) ? clean : `Crit: ${clean}`;
+    }
+    if (typeof val === "object") {
+      const text = val.effect || val.description || val.desc || val.value || val.label || val.name;
+      if (text && typeof text === "string" && text.trim()) {
+        const clean = text.trim();
+        return /^crit(?:ical)?\b/i.test(clean) ? clean : `Crit: ${clean}`;
+      }
+    }
+    return null;
+  };
+
+  const critSource = extractCrit(item.system?.critical) ||
+                     extractCrit(item.system?.crit) ||
+                     extractCrit(item.system?.critEffect) ||
+                     extractCrit(item.system?.criticalEffect) ||
+                     extractCrit(item.flags?.["mythcraft-essence-sheet"]?.crit) ||
+                     extractCrit(item.flags?.["mythcraft-essence-sheet"]?.criticalEffect) ||
+                     extractCrit(item.flags?.["mythcraft"]?.crit) ||
+                     extractCrit(item.flags?.["mythcraft"]?.criticalEffect);
+  if (critSource) {
+    tagNames.push(critSource);
+  }
+
   const seen = new Set();
   const result = [];
 

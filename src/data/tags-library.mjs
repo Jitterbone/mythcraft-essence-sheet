@@ -33,6 +33,16 @@ export function formatTagTitle(str) {
   if (/^two\s*handed/i.test(clean)) return "Two-Handed";
   if (/^one\s*handed/i.test(clean)) return "One-Handed";
 
+  // Critical effect tag formatting
+  if (/^crit(?:ical)?[:\s\(-]/i.test(clean)) {
+    const after = clean.replace(/^crit(?:ical)?[:\s\(-]+/i, "").replace(/\)+$/, "").trim();
+    const formattedAfter = after
+      .split(" ")
+      .map(word => word ? (["and", "of", "the", "in", "a", "an"].includes(word.toLowerCase()) ? word.toLowerCase() : (word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())) : "")
+      .join(" ");
+    return `Crit: ${formattedAfter}`;
+  }
+
   return clean
     .split(" ")
     .map(word => {
@@ -588,16 +598,17 @@ export const DEFAULT_TAGS_LIBRARY = [
  * Category metadata for styling, icons, and colors matching the sheet's palette
  */
 export const TAG_CATEGORIES = {
-  weapon:  { label: "Weapon", icon: "fas fa-shield-halved", color: "#38bdf8", bg: "rgba(56, 189, 248, 0.15)", border: "rgba(56, 189, 248, 0.45)" },
-  armor:   { label: "Armor", icon: "fas fa-shield-alt", color: "#f59e0b", bg: "rgba(245, 158, 11, 0.18)", border: "rgba(245, 158, 11, 0.5)" },
-  arcane:  { label: "Arcane", icon: "fas fa-wand-magic-sparkles", color: "#aed6f1", bg: "rgba(93, 173, 226, 0.2)", border: "#5dade2" },
-  divine:  { label: "Divine", icon: "fas fa-sun", color: "#f9e79f", bg: "rgba(223, 177, 91, 0.2)", border: "#dfb15b" },
-  occult:  { label: "Occult", icon: "fas fa-skull", color: "#f5b7b1", bg: "rgba(201, 104, 104, 0.2)", border: "#c96868" },
-  primal:  { label: "Primal", icon: "fas fa-leaf", color: "#a9dfbf", bg: "rgba(95, 163, 122, 0.2)", border: "#5fa37a" },
-  psionic: { label: "Psionic", icon: "fas fa-brain", color: "#d7bde2", bg: "rgba(155, 114, 207, 0.2)", border: "#9b72cf" },
-  monster: { label: "Monster", icon: "fas fa-dragon", color: "#fb923c", bg: "rgba(251, 146, 60, 0.18)", border: "rgba(251, 146, 60, 0.5)" },
-  traits:  { label: "Traits", icon: "fas fa-bolt", color: "#ec4899", bg: "rgba(236, 72, 153, 0.18)", border: "rgba(236, 72, 153, 0.5)" },
-  custom:  { label: "Custom", icon: "fas fa-tag", color: "#2dd4bf", bg: "rgba(45, 212, 191, 0.18)", border: "rgba(45, 212, 191, 0.5)" },
+  weapon:   { label: "Weapon", icon: "fas fa-shield-halved", color: "#38bdf8", bg: "rgba(56, 189, 248, 0.15)", border: "rgba(56, 189, 248, 0.45)" },
+  critical: { label: "Critical Effect", icon: "fas fa-burst", color: "#f59e0b", bg: "rgba(245, 158, 11, 0.18)", border: "rgba(245, 158, 11, 0.5)" },
+  armor:    { label: "Armor", icon: "fas fa-shield-alt", color: "#f59e0b", bg: "rgba(245, 158, 11, 0.18)", border: "rgba(245, 158, 11, 0.5)" },
+  arcane:   { label: "Arcane", icon: "fas fa-wand-magic-sparkles", color: "#aed6f1", bg: "rgba(93, 173, 226, 0.2)", border: "#5dade2" },
+  divine:   { label: "Divine", icon: "fas fa-sun", color: "#f9e79f", bg: "rgba(223, 177, 91, 0.2)", border: "#dfb15b" },
+  occult:   { label: "Occult", icon: "fas fa-skull", color: "#f5b7b1", bg: "rgba(201, 104, 104, 0.2)", border: "#c96868" },
+  primal:   { label: "Primal", icon: "fas fa-leaf", color: "#a9dfbf", bg: "rgba(95, 163, 122, 0.2)", border: "#5fa37a" },
+  psionic:  { label: "Psionic", icon: "fas fa-brain", color: "#d7bde2", bg: "rgba(155, 114, 207, 0.2)", border: "#9b72cf" },
+  monster:  { label: "Monster", icon: "fas fa-dragon", color: "#fb923c", bg: "rgba(251, 146, 60, 0.18)", border: "rgba(251, 146, 60, 0.5)" },
+  traits:   { label: "Traits", icon: "fas fa-bolt", color: "#ec4899", bg: "rgba(236, 72, 153, 0.18)", border: "rgba(236, 72, 153, 0.5)" },
+  custom:   { label: "Custom", icon: "fas fa-tag", color: "#2dd4bf", bg: "rgba(45, 212, 191, 0.18)", border: "rgba(45, 212, 191, 0.5)" },
 };
 
 /**
@@ -653,7 +664,20 @@ export function findTagDefinition(tagInput) {
     return { ...found, name: formattedName, categoryMeta: cat };
   }
 
-  // 2. Partial/Prefix match (e.g. "Regen 5" -> "Regen")
+  // 2. Critical effect tags handler
+  if (/^crit(?:ical)?\b/i.test(rawClean)) {
+    const cat = TAG_CATEGORIES.critical;
+    return {
+      id: rawClean.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+      name: formattedName,
+      category: "critical",
+      categoryLabel: "Critical Effect",
+      description: `Critical Effect: Triggered when scoring a critical hit with this attack.`,
+      categoryMeta: cat,
+    };
+  }
+
+  // 3. Partial/Prefix match (e.g. "Regen 5" -> "Regen")
   found = library.find(t => {
     const tNameNorm = (t.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
     return clean.startsWith(tNameNorm);
@@ -663,7 +687,7 @@ export function findTagDefinition(tagInput) {
     return { ...found, name: formattedName, categoryMeta: cat };
   }
 
-  // 3. Fallback for uncatalogued custom tags
+  // 4. Fallback for uncatalogued custom tags
   return {
     id: rawClean.toLowerCase().replace(/\s+/g, "-"),
     name: formattedName,

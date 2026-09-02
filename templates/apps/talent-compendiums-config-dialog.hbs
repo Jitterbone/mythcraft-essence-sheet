@@ -1,4 +1,4 @@
-﻿<div class="talent-compendiums-dialog-content">
+<div class="talent-compendiums-dialog-content">
 
   {{!-- ── 1. Header Overview Card ───────────────────────────────── --}}
   <div class="dialog-header-card">
@@ -98,6 +98,20 @@
                        title="Optional: Force a specific track title instead of reading folder names" />
               </div>
             </div>
+
+            {{#if comp.hasFolders}}
+              <div class="detected-folders-panel">
+                <div class="folders-header">
+                  <i class="fas fa-folder-tree"></i>
+                  <span>Detected Compendium Folders ({{comp.folderCount}}):</span>
+                </div>
+                <div class="folders-tags-list">
+                  {{#each comp.detectedFolders as |folderName|}}
+                    <span class="folder-chip" title="Automatically mapped to Classes and Subclasses"><i class="fas fa-folder"></i> {{folderName}}</span>
+                  {{/each}}
+                </div>
+              </div>
+            {{/if}}
 
           </div>
         {{/each}}

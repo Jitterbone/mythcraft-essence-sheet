@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MythCraft Essence — Custom Talent Compendiums Config Dialog
  *
  * Enables GMs and players to register custom/homebrew compendiums
@@ -56,9 +56,12 @@ export default class TalentCompendiumsConfigDialog extends HandlebarsApplication
     if (globalThis.game?.packs) {
       for (const pack of game.packs.values()) {
         if (pack.documentName === "Item") {
+          const packId = pack.collection || pack.metadata?.id;
+          const packTitle = pack.metadata?.label || pack.title || pack.collection;
           availablePacks.push({
-            id: pack.metadata?.id || pack.collection,
-            title: pack.metadata?.label || pack.title || pack.collection,
+            id: packId,
+            collection: pack.collection,
+            title: packTitle,
             package: pack.metadata?.packageName || pack.metadata?.package || "world",
           });
         }
@@ -77,6 +80,23 @@ export default class TalentCompendiumsConfigDialog extends HandlebarsApplication
       const selectedCat = comp.category || "class";
       const catMeta = categoryOptions.find(c => c.key === selectedCat) || categoryOptions[0];
 
+      // Inspect compendium folders
+      const packKey = (comp.pack || "").toLowerCase().trim();
+      const pack = game.packs.get(comp.pack) || game.packs.find(p => 
+        (p.collection || "").toLowerCase() === packKey || 
+        (p.metadata?.id || "").toLowerCase() === packKey || 
+        (p.title || "").toLowerCase() === packKey ||
+        (p.metadata?.label || "").toLowerCase() === packKey
+      );
+
+      const detectedFolders = [];
+      if (pack?.folders) {
+        for (const f of pack.folders.values()) {
+          if (f.name) detectedFolders.push(f.name.trim());
+        }
+      }
+      detectedFolders.sort((a, b) => a.localeCompare(b));
+
       return {
         ...comp,
         index,
@@ -85,6 +105,9 @@ export default class TalentCompendiumsConfigDialog extends HandlebarsApplication
           ...cat,
           selected: cat.key === selectedCat,
         })),
+        detectedFolders,
+        hasFolders: detectedFolders.length > 0,
+        folderCount: detectedFolders.length,
         isSubclass: selectedCat === "subclass",
         isClass: selectedCat === "class",
         isSpecialization: selectedCat === "specialization",
@@ -98,6 +121,43 @@ export default class TalentCompendiumsConfigDialog extends HandlebarsApplication
       hasCustomCompendiums: compendiumsList.length > 0,
       totalConfigured: compendiumsList.length,
     };
+  }
+
+  /** @inheritdoc */
+  _onRender(context, options) {
+    super._onRender?.(context, options);
+
+    // Live update when user changes compendium pack select
+    const packSelects = this.element.querySelectorAll("select.comp-select");
+    packSelects.forEach(sel => {
+      sel.addEventListener("change", (event) => {
+        const idx = Number(event.currentTarget.closest(".compendium-config-card")?.dataset?.index);
+        if (!isNaN(idx) && this._customCompendiums[idx]) {
+          this._customCompendiums[idx].pack = event.currentTarget.value;
+          this.render();
+        }
+      });
+    });
+
+    // Sync input values to memory
+    const inputs = this.element.querySelectorAll("input, select");
+    inputs.forEach(el => {
+      el.addEventListener("input", (event) => {
+        const card = event.currentTarget.closest(".compendium-config-card");
+        if (!card) return;
+        const idx = Number(card.dataset.index);
+        if (isNaN(idx) || !this._customCompendiums[idx]) return;
+
+        const name = event.currentTarget.name;
+        if (name.includes(".parentName")) {
+          this._customCompendiums[idx].parentName = event.currentTarget.value;
+        } else if (name.includes(".trackName")) {
+          this._customCompendiums[idx].trackName = event.currentTarget.value;
+        } else if (name.includes(".category")) {
+          this._customCompendiums[idx].category = event.currentTarget.value;
+        }
+      });
+    });
   }
 
   /* ───────────────────────────────────────────────────────────────────────────

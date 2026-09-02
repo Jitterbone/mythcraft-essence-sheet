@@ -720,16 +720,26 @@ export function syncCustomTagsToSystem() {
     if (!cfg.talents) cfg.talents = { tags: {} };
     if (!cfg.talents.tags) cfg.talents.tags = {};
 
-    if (!cfg.monster) cfg.monster = { tags: {} };
+    if (!cfg.monster) cfg.monster = { tags: {}, tagGroups: {} };
     if (!cfg.monster.tags) cfg.monster.tags = {};
+    if (!cfg.monster.tagGroups) cfg.monster.tagGroups = {};
+
+    // Ensure fallback groupings exist
+    if (!cfg.monster.tagGroups.custom) cfg.monster.tagGroups.custom = { label: "Custom" };
+    if (!cfg.monster.tagGroups.mundane) cfg.monster.tagGroups.mundane = { label: "Mundane" };
+    if (!cfg.monster.tagGroups.magic) cfg.monster.tagGroups.magic = { label: "Magic" };
+    if (!cfg.monster.tagGroups.planar) cfg.monster.tagGroups.planar = { label: "Planar" };
+    if (!cfg.monster.tagGroups.modifying) cfg.monster.tagGroups.modifying = { label: "Modifying" };
 
     for (const tag of library) {
       const tagKey = tag.id || tag.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const groupLabel = tag.categoryLabel || (tag.category ? (tag.category.charAt(0).toUpperCase() + tag.category.slice(1)) : "Custom");
+      
       const tagEntry = {
         label: tag.name,
         name: tag.name,
         reference: "",
-        group: tag.categoryLabel || (tag.category ? (tag.category.charAt(0).toUpperCase() + tag.category.slice(1)) : "Custom"),
+        group: groupLabel,
         description: tag.description || "",
       };
 
@@ -742,18 +752,27 @@ export function syncCustomTagsToSystem() {
       if (tag.category === "arcane" || tag.category === "divine" || tag.category === "occult" || tag.category === "primal" || tag.category === "psionic" || tag.category === "custom") {
         cfg.spells.tags[tagKey] = {
           ...tagEntry,
+          group: groupLabel,
           sources: null,
         };
       }
 
       // 3. Talent tags
-      cfg.talents.tags[tagKey] = tagEntry;
+      cfg.talents.tags[tagKey] = {
+        ...tagEntry,
+        group: groupLabel,
+      };
 
-      // 4. Monster / Trait tags
+      // 4. Monster / Trait tags (group MUST exist in cfg.monster.tagGroups)
+      const monsterGroupKey = (tag.category && cfg.monster.tagGroups[tag.category]) ? tag.category : "custom";
+      if (!cfg.monster.tagGroups[monsterGroupKey]) {
+        cfg.monster.tagGroups[monsterGroupKey] = { label: groupLabel };
+      }
+
       if (tag.category === "monster" || tag.category === "trait" || tag.category === "custom") {
         cfg.monster.tags[tagKey] = {
           ...tagEntry,
-          group: "special",
+          group: monsterGroupKey,
         };
       }
     }

@@ -10,6 +10,7 @@ import {
   DEFAULT_TAGS_LIBRARY,
   TAG_CATEGORIES,
   getActiveTagsLibrary,
+  syncCustomTagsToSystem,
 } from "../data/tags-library.mjs";
 import { MODULE_ID } from "../settings.mjs";
 
@@ -203,6 +204,7 @@ export default class TagsManagementDialog extends HandlebarsApplicationMixin(App
     if (confirm) {
       this.tagsList = foundry.utils.deepClone(DEFAULT_TAGS_LIBRARY);
       await game.settings.set(MODULE_ID, "customTags", this.tagsList);
+      syncCustomTagsToSystem();
       ui.notifications.info("Restored default MythCraft Tag Library.");
       this.render();
     }
@@ -223,7 +225,16 @@ export default class TagsManagementDialog extends HandlebarsApplicationMixin(App
     });
 
     await game.settings.set(MODULE_ID, "customTags", this.tagsList);
+    syncCustomTagsToSystem();
     ui.notifications.info("MythCraft Tag & Keyword Library saved successfully.");
+
+    // Refresh open Item and Actor sheets
+    for (const app of Object.values(ui.windows)) {
+      if (app.documentName === "Item" || app.documentName === "Actor") {
+        app.render?.();
+      }
+    }
+
     this.close();
   }
 }

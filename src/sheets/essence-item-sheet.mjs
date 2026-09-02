@@ -9,6 +9,7 @@ import MythCraftItemSheet from "/systems/mythcraft/module/applications/sheets/it
 import { isItemContainer } from "../features/container-utils.mjs";
 import { isItemClothes } from "../features/equipment-automation.mjs";
 import { sanitizeGmOnlyFields } from "../features/permissions-fix.mjs";
+import { getActiveTagsLibrary, syncCustomTagsToSystem } from "../data/tags-library.mjs";
 
 export default class EssenceItemSheet extends MythCraftItemSheet {
 
@@ -43,14 +44,37 @@ export default class EssenceItemSheet extends MythCraftItemSheet {
 
   /* ─────────────────────────────────────────────────────────────────────────
    *  Context preparation
-   * ──────────────────────────────────────────────────────────────────────── */
+   * ───────────────────────────────────────────────────────────────────────── */
 
   /** @inheritdoc */
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
 
-    const essenceCost = Number(this.item.flags?.["mythcraft-essence-sheet"]?.essenceCost ?? this.item.system?.essenceCost ?? 0);
+    // Synchronize tags into CONFIG before building UI
+    syncCustomTagsToSystem();
+
+    const library = getActiveTagsLibrary();
     const itemType = this.item.type || "item";
+
+    // Inject custom tags into tagOptions if present
+    if (context.tagOptions && typeof context.tagOptions === "object") {
+      for (const tag of library) {
+        const key = tag.id || tag.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (!context.tagOptions[key]) {
+          context.tagOptions[key] = tag.name;
+        }
+      }
+    }
+    if (context.tags && typeof context.tags === "object" && !Array.isArray(context.tags)) {
+      for (const tag of library) {
+        const key = tag.id || tag.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (!context.tags[key]) {
+          context.tags[key] = tag.name;
+        }
+      }
+    }
+
+    const essenceCost = Number(this.item.flags?.["mythcraft-essence-sheet"]?.essenceCost ?? this.item.system?.essenceCost ?? 0);
     const isContainer = isItemContainer(this.item);
     const isClothes = isItemClothes(this.item);
 
@@ -201,5 +225,37 @@ export default class EssenceItemSheet extends MythCraftItemSheet {
         detailsTab.appendChild(clothesCard);
       }
     }
+
+    // 4. Ensure all custom tags from library are available in string-tags, multi-select, and select elements
+    const tagElements = this.element.querySelectorAll("string-tags, multi-select, select[name*='tags'], [data-field*='tags']");
+    const library = getActiveTagsLibrary();
+
+    tagElements.forEach(tagEl => {
+      const existingValues = new Set(Array.from(tagEl.querySelectorAll("option")).map(opt => opt.value.toLowerCase()));
+      
+      for (const tag of library) {
+        const tagKey = tag.id || tag.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const tagName = tag.name;
+        
+        if (!existingValues.has(tagKey.toLowerCase()) && !existingValues.has(tagName.toLowerCase())) {
+          const opt = document.createElement("option");
+          opt.value = tagKey;
+          opt.textContent = tagName;
+          tagEl.appendChild(opt);
+          existingValues.add(tagKey.toLowerCase());
+          existingValues.add(tagName.toLowerCase());
+        }
+      }
+
+      // If it has an internal options/choices object property
+      if (tagEl.options && typeof tagEl.options === "object" && !(tagEl.options instanceof HTMLOptionsCollection)) {
+        for (const tag of library) {
+          const tagKey = tag.id || tag.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+          if (!tagEl.options[tagKey]) {
+            tagEl.options[tagKey] = tag.name;
+          }
+        }
+      }
+    });
   }
 }

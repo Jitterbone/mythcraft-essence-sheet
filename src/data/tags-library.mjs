@@ -779,4 +779,53 @@ export function syncCustomTagsToSystem() {
   }
 }
 
+/**
+ * Monkey-patch system TagInputElement to unconditionally include all active custom tags
+ * in its internal suggestions list when connected.
+ */
+export function patchTagInputElement() {
+  const TagInput = customElements.get("tag-input") || globalThis.mythcraft?.applications?.ux?.TagInputElement;
+  if (!TagInput?.prototype) return;
+
+  if (TagInput.prototype._essencePatched) return;
+  TagInput.prototype._essencePatched = true;
+
+  const origConnected = TagInput.prototype.connectedCallback;
+
+  TagInput.prototype.connectedCallback = function () {
+    try {
+      const library = getActiveTagsLibrary();
+      let currentSuggestions = [];
+      try {
+        currentSuggestions = JSON.parse(this.dataset.suggestions ?? "[]");
+      } catch (e) {
+        currentSuggestions = [];
+      }
+
+      const existingKeys = new Set(currentSuggestions.map(s => String(s.value || "").toLowerCase()));
+      const existingLabels = new Set(currentSuggestions.map(s => String(s.label || "").toLowerCase()));
+
+      for (const tag of library) {
+        const tagKey = tag.id || tag.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const tagName = tag.name;
+        if (!existingKeys.has(tagKey.toLowerCase()) && !existingLabels.has(tagName.toLowerCase())) {
+          currentSuggestions.push({
+            value: tagKey,
+            label: tagName,
+          });
+          existingKeys.add(tagKey.toLowerCase());
+          existingLabels.add(tagName.toLowerCase());
+        }
+      }
+
+      this.dataset.suggestions = JSON.stringify(currentSuggestions);
+    } catch (err) {
+      console.warn("mythcraft-essence-sheet | Error patching tag-input suggestions:", err);
+    }
+
+    return origConnected.call(this);
+  };
+}
+
+
 

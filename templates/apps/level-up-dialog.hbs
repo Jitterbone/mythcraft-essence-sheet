@@ -150,9 +150,9 @@
         <div class="talent-choice-display">
           {{#if selectedTalent}}
             <div class="selected-talent-chip">
-              <img src="{{selectedTalent.img}}" alt="{{selectedTalent.name}}" />
-              <span><strong>{{selectedTalent.name}}</strong></span>
-              <button type="button" class="remove-btn" data-action="clearSelectedTalent"><i class="fas fa-times"></i></button>
+              <img class="selected-talent-img" src="{{selectedTalent.img}}" alt="{{selectedTalent.name}}" width="28" height="28" style="width: 28px; height: 28px; min-width: 28px; max-width: 28px; max-height: 28px; object-fit: contain;" />
+              <span class="selected-talent-name"><strong>{{selectedTalent.name}}</strong></span>
+              <button type="button" class="remove-btn" data-action="clearSelectedTalent" title="Clear Selected Talent"><i class="fas fa-times"></i></button>
             </div>
           {{else}}
             <span class="no-talent-selected">No talent selected for this level.</span>

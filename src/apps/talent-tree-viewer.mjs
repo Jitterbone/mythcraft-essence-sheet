@@ -110,22 +110,22 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
     const seenNames = new Set();
 
     for (const doc of classTalents) {
-      if (doc.type === "talent" || doc.type === "feature") {
-        doc._compCategory = "class";
+      if (doc.type === "talent" || doc.type === "feature" || doc._customCategory) {
+        if (!doc._compCategory) doc._compCategory = "class";
         allTalents.push(doc);
         seenNames.add(normalizeTalentName(doc.name));
       }
     }
     for (const doc of specTalents) {
-      if (doc.type === "talent" || doc.type === "feature") {
-        doc._compCategory = "specialization";
+      if (doc.type === "talent" || doc.type === "feature" || doc._customCategory) {
+        if (!doc._compCategory) doc._compCategory = "specialization";
         allTalents.push(doc);
         seenNames.add(normalizeTalentName(doc.name));
       }
     }
     for (const doc of magicTalents) {
-      if (doc.type === "talent" || doc.type === "feature") {
-        doc._compCategory = "magic";
+      if (doc.type === "talent" || doc.type === "feature" || doc._customCategory) {
+        if (!doc._compCategory) doc._compCategory = "magic";
         allTalents.push(doc);
         seenNames.add(normalizeTalentName(doc.name));
       }

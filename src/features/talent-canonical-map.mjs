@@ -74,6 +74,13 @@ export function normalizeTalentName(s) {
  */
 export function isDisallowedTalentItem(item) {
   if (!item) return true;
+  if (item._customCategory) {
+    const type = String(item.type || "").toLowerCase();
+    if (["weapon", "armor", "gear", "consumable", "disease", "condition", "curse"].includes(type)) {
+      return true;
+    }
+    return false;
+  }
   const type = String(item.type || "").toLowerCase();
   if (["profession", "background", "lineage", "ancestry", "disease", "condition", "curse", "spell", "weapon", "armor", "gear", "consumable"].includes(type)) {
     return true;

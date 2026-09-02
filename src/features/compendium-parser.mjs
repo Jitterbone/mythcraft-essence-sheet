@@ -92,20 +92,29 @@ export function getAvailableCompendiums() {
   const customPackMap = new Map();
   for (const entry of customConfig) {
     if (entry.pack) {
-      customPackMap.set(entry.pack.toLowerCase().trim(), entry);
+      const clean = entry.pack.toLowerCase().trim();
+      customPackMap.set(clean, entry);
+      if (clean.includes(".")) {
+        customPackMap.set(clean.split(".").pop(), entry);
+      }
     }
   }
 
   for (const pack of game.packs.values()) {
     if (pack.documentName !== "Item") continue;
 
-    const packId = (pack.metadata?.id || pack.collection || "").toLowerCase();
+    const collectionId = (pack.collection || "").toLowerCase();
+    const metadataId = (pack.metadata?.id || "").toLowerCase();
     const packTitle = (pack.metadata?.label || pack.title || "").toLowerCase();
 
     grouped.all.push(pack);
 
     // 1. Check custom configured compendiums
-    const customEntry = customPackMap.get(packId) || customPackMap.get(packTitle);
+    const customEntry = customPackMap.get(collectionId) || 
+                        customPackMap.get(metadataId) || 
+                        customPackMap.get(packTitle) ||
+                        Array.from(customPackMap.entries()).find(([k]) => collectionId.includes(k) || k.includes(collectionId) || packTitle.includes(k))?.[1];
+
     if (customEntry) {
       pack._customCategory = customEntry.category || "class";
       pack._customParent = customEntry.parentName || "";
@@ -122,17 +131,17 @@ export function getAvailableCompendiums() {
     }
 
     // 2. Check official compendium naming rules
-    if (OFFICIAL_PACK_NAMES.lineages.some(k => packId.includes(k) || packTitle.includes(k))) {
+    if (OFFICIAL_PACK_NAMES.lineages.some(k => collectionId.includes(k) || packTitle.includes(k))) {
       grouped.lineages.push(pack);
-    } else if (OFFICIAL_PACK_NAMES.bops.some(k => packId.includes(k) || packTitle.includes(k))) {
+    } else if (OFFICIAL_PACK_NAMES.bops.some(k => collectionId.includes(k) || packTitle.includes(k))) {
       grouped.bops.push(pack);
-    } else if (OFFICIAL_PACK_NAMES.classes.some(k => packId.includes(k) || packTitle.includes(k))) {
+    } else if (OFFICIAL_PACK_NAMES.classes.some(k => collectionId.includes(k) || packTitle.includes(k))) {
       grouped.classes.push(pack);
-    } else if (OFFICIAL_PACK_NAMES.magic.some(k => packId.includes(k) || packTitle.includes(k))) {
+    } else if (OFFICIAL_PACK_NAMES.magic.some(k => collectionId.includes(k) || packTitle.includes(k))) {
       grouped.magic.push(pack);
-    } else if (OFFICIAL_PACK_NAMES.specTalents.some(k => packId.includes(k) || packTitle.includes(k))) {
+    } else if (OFFICIAL_PACK_NAMES.specTalents.some(k => collectionId.includes(k) || packTitle.includes(k))) {
       grouped.specTalents.push(pack);
-    } else if (OFFICIAL_PACK_NAMES.equipment.some(k => packId.includes(k) || packTitle.includes(k))) {
+    } else if (OFFICIAL_PACK_NAMES.equipment.some(k => collectionId.includes(k) || packTitle.includes(k))) {
       grouped.equipment.push(pack);
     }
   }
@@ -150,26 +159,27 @@ export function getDocumentFolderChain(doc, pack = null) {
   const chain = [];
   if (!doc) return chain;
 
-  let folderId = typeof doc.folder === "string" ? doc.folder : (doc.folder?.id || doc.folder?._id);
-  const folderObj = typeof doc.folder === "object" ? doc.folder : null;
+  const targetPack = pack || (doc.pack && globalThis.game?.packs?.get(doc.pack));
+  const folderCollection = targetPack?.folders || globalThis.game?.folders;
 
-  if (folderObj?.name) {
-    let curr = folderObj;
-    while (curr) {
-      if (curr.name) chain.unshift(curr.name.trim());
-      curr = curr.parent || (pack?.folders ? pack.folders.get(curr.folder) : null);
-    }
-    return chain;
+  let folderId = typeof doc.folder === "string" 
+    ? doc.folder 
+    : (doc.folder?.id || doc.folder?._id);
+
+  if (!folderId && doc.folder && typeof doc.folder === "object" && doc.folder.name) {
+    chain.unshift(doc.folder.name.trim());
+    folderId = typeof doc.folder.folder === "string" ? doc.folder.folder : (doc.folder.folder?.id || doc.folder.folder?._id || doc.folder.parent?.id);
   }
 
-  // Lookup in pack.folders or game.folders
-  const folderCollection = pack?.folders || (doc.pack && globalThis.game?.packs?.get(doc.pack)?.folders) || globalThis.game?.folders;
-  while (folderId && folderCollection) {
+  const visited = new Set();
+  while (folderId && folderCollection && !visited.has(folderId)) {
+    visited.add(folderId);
     const f = folderCollection.get(folderId);
     if (!f) break;
     if (f.name) chain.unshift(f.name.trim());
-    folderId = f.folder || f.parent?.id || f._source?.folder;
+    folderId = typeof f.folder === "string" ? f.folder : (f.folder?.id || f.folder?._id || f.parent?.id || f._source?.folder);
   }
+
   return chain;
 }
 
@@ -965,22 +975,49 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
     // 0. Check Custom Compendium Assignment
     if (t._customCategory) {
       category = t._customCategory === "subclass" ? "class" : t._customCategory;
+      const meaningfulChain = chain.filter(f => !/^(classes|class|talents|features|compendiums?|items)$/i.test(f.trim()));
+
       if (t._customParent) {
         rootName = t._customParent;
-      } else if (chain.length > 0) {
-        rootName = chain[0];
+      } else if (meaningfulChain.length >= 2) {
+        rootName = meaningfulChain[0];
+      } else if (meaningfulChain.length === 1) {
+        if (t._customCategory === "subclass" && SUBCLASS_TO_CLASS[meaningfulChain[0]]) {
+          rootName = SUBCLASS_TO_CLASS[meaningfulChain[0]];
+        } else if (t._customCategory === "magic" && DISCIPLINE_TO_MAGIC[meaningfulChain[0]]) {
+          rootName = DISCIPLINE_TO_MAGIC[meaningfulChain[0]];
+        } else if (t._customCategory === "specialization" && SUBTRACK_TO_SPEC[meaningfulChain[0]]) {
+          rootName = SUBTRACK_TO_SPEC[meaningfulChain[0]];
+        } else {
+          rootName = meaningfulChain[0];
+        }
       } else {
-        rootName = t._compendiumPack?.metadata?.label || t._compendiumPack?.title || "Custom";
+        let matchedTagClass = null;
+        for (const tag of docTags) {
+          if (SUBCLASS_TO_CLASS[tag]) {
+            matchedTagClass = SUBCLASS_TO_CLASS[tag];
+            break;
+          }
+          if (MYTHCRAFT_CANONICAL_CLASSES.some(c => c.toLowerCase() === tag)) {
+            matchedTagClass = tag;
+            break;
+          }
+        }
+        rootName = matchedTagClass || t._compendiumPack?.metadata?.label || t._compendiumPack?.title || "Custom";
       }
 
       if (t._customTrack) {
         trackName = t._customTrack;
-      } else if (chain.length > 1) {
-        trackName = chain[chain.length - 1];
-      } else if (t._customCategory === "subclass") {
-        trackName = t._compendiumPack?.metadata?.label || t._compendiumPack?.title || "Subclass Track";
+      } else if (meaningfulChain.length >= 2) {
+        trackName = meaningfulChain[meaningfulChain.length - 1];
+      } else if (meaningfulChain.length === 1) {
+        if (rootName.toLowerCase() === meaningfulChain[0].toLowerCase()) {
+          trackName = /entry\b/i.test(docName) ? `${rootName} Entry` : "General";
+        } else {
+          trackName = meaningfulChain[0];
+        }
       } else {
-        trackName = chain.length > 0 ? chain[chain.length - 1] : "General";
+        trackName = /entry\b/i.test(docName) ? `${rootName} Entry` : (t._customCategory === "subclass" ? "Subclass Track" : "General");
       }
 
       isEntry = /entry\b/i.test(docName) || trackName.toLowerCase().includes("entry");

@@ -11,6 +11,7 @@ import enrichHTML from "/systems/mythcraft/module/utils/enrich-html.mjs";
 import { getDefenseTargetConfig, renderDefenseTargetBadgeHTML } from "../data/defense-config.mjs";
 import { rollItemDamage, getActorCritHit, getActorCritFail } from "./essence-character-sheet.mjs";
 import DamageModificationDialog from "../apps/damage-modification-dialog.mjs";
+import { applyMessageRollMode } from "../features/roll-privacy.mjs";
 
 const MODULE_PATH = (p) => `modules/mythcraft-essence-sheet/templates/essence/${p}`;
 
@@ -413,11 +414,6 @@ export default class EssenceSiegeWeaponSheet extends SiegeWeaponSheet {
       </div>
     `;
 
-    const defaultMode = game.settings.settings.has("core.messageMode") 
-      ? game.settings.get("core", "messageMode") 
-      : game.settings.get("core", "rollMode");
-    const activeRollMode = defaultMode || "publicroll";
-
     const msgData = {
       user: game.user.id,
       speaker: ChatMessage.getSpeaker({ actor: this.actor }),
@@ -438,7 +434,7 @@ export default class EssenceSiegeWeaponSheet extends SiegeWeaponSheet {
       },
     };
 
-    ChatMessage.applyRollMode(msgData, activeRollMode);
+    const activeRollMode = applyMessageRollMode(msgData);
     if (CONST.CHAT_MESSAGE_STYLES) msgData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
     return await ChatMessage.create(msgData, { rollMode: activeRollMode });
   }

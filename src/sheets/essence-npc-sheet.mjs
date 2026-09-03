@@ -18,6 +18,7 @@ import { findTagDefinition, formatTagTitle } from "../data/tags-library.mjs";
 import { enrichText, getEnrichedItemTags, rollItemDamage, rollSpellItem, getActorCritHit, getActorCritFail } from "./essence-character-sheet.mjs";
 import { getDefenseTargetConfig, renderDefenseTargetBadgeHTML } from "../data/defense-config.mjs";
 import { applyEffectiveArmorAndDefenses } from "../features/equipment-automation.mjs";
+import { applyMessageRollMode } from "../features/roll-privacy.mjs";
 
 
 
@@ -279,7 +280,8 @@ export default class EssenceNPCSheet extends NPCSheet {
       },
     };
 
-    return await ChatMessage.create(msgData);
+    const activeRollMode = applyMessageRollMode(msgData);
+    return await ChatMessage.create(msgData, { rollMode: activeRollMode });
   }
 
   static async #rollDamage(event, target) {

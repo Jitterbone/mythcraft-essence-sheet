@@ -76,6 +76,7 @@ import {
   moveItemToContainer,
   removeItemFromContainer,
 } from "../features/container-utils.mjs";
+import { applyMessageRollMode, getActiveRollMode } from "../features/roll-privacy.mjs";
 
 
 const MODULE_PATH = (p) => `modules/mythcraft-essence-sheet/templates/essence/character/${p}`;
@@ -335,11 +336,6 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
   if (isCrit && luckScore) notes.push(`+${luckScore} LUCK`);
   const flavorSuffix = notes.length ? ` (Includes ${notes.join(", ")})` : "";
 
-  const defaultMode = game.settings.settings.has("core.messageMode") 
-    ? game.settings.get("core", "messageMode") 
-    : game.settings.get("core", "rollMode");
-  const activeRollMode = rollMode || defaultMode || "publicroll";
-
   const messageData = {
     speaker: ChatMessage.getSpeaker({ actor }),
     rolls,
@@ -356,7 +352,7 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
     },
   };
 
-  ChatMessage.applyRollMode(messageData, activeRollMode);
+  const activeRollMode = applyMessageRollMode(messageData, rollMode);
   return ChatMessage.create(messageData, { rollMode: activeRollMode });
 }
 
@@ -440,11 +436,6 @@ export async function rollSpellItem(actor, item, { rollMode = null } = {}) {
     </div>
   `;
 
-  const defaultMode = game.settings.settings.has("core.messageMode") 
-    ? game.settings.get("core", "messageMode") 
-    : game.settings.get("core", "rollMode");
-  const activeRollMode = rollMode || defaultMode || "publicroll";
-
   const msgData = {
     user: game.user.id,
     speaker: ChatMessage.getSpeaker({ actor }),
@@ -465,7 +456,7 @@ export async function rollSpellItem(actor, item, { rollMode = null } = {}) {
     },
   };
 
-  ChatMessage.applyRollMode(msgData, activeRollMode);
+  const activeRollMode = applyMessageRollMode(msgData, rollMode);
 
   if (CONST.CHAT_MESSAGE_STYLES) {
     msgData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
@@ -816,11 +807,13 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       },
     };
 
+    const activeRollMode = applyMessageRollMode(msgData);
+
     if (CONST.CHAT_MESSAGE_STYLES) {
       msgData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
     }
 
-    return await ChatMessage.create(msgData);
+    return await ChatMessage.create(msgData, { rollMode: activeRollMode });
   }
 
 

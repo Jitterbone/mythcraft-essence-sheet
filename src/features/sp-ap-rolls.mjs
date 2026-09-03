@@ -7,6 +7,7 @@
 
 import { getSetting } from "../settings.mjs";
 import { getActorCritHit } from "./luck-points.mjs";
+import { applyMessageRollMode } from "./roll-privacy.mjs";
 
 /**
  * Evaluates an APC formula string (e.g. "8-STR, min 4", "5-DEX", "3")
@@ -331,7 +332,7 @@ export async function executeUnifiedAction(actor, item, options = {}) {
       </div>`;
   }
 
-  await roll.toMessage({
+  const messageData = {
     speaker: ChatMessage.getSpeaker({ actor }),
     flavor: `${item.name}`,
     content,
@@ -344,6 +345,10 @@ export async function executeUnifiedAction(actor, item, options = {}) {
         spCost,
       },
     },
-  });
+  };
+
+  const activeRollMode = applyMessageRollMode(messageData, options?.rollMode);
+  await roll.toMessage(messageData, { rollMode: activeRollMode });
 }
+
 

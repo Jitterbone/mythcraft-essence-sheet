@@ -1,9 +1,4 @@
-/**
- * MythCraft Essence — Homebrew & Custom Attributes System Bridge
- *
- * Bridges Sanity (SAN) and custom attributes into the core MythCraft
- * DataModel schemas, CONFIG tables, and AttributeSkillInput dialog.
- */
+import { applyMessageRollMode } from "./roll-privacy.mjs";
 
 const MODULE_ID = "mythcraft-essence-sheet";
 
@@ -287,7 +282,9 @@ export function patchAttributeSkillInput() {
           attribute,
           flavor: `${fullAttrName} Check`,
         });
-        return roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.parent }) }, { rollMode });
+        const messageData = { speaker: ChatMessage.getSpeaker({ actor: this.parent }) };
+        const activeRollMode = applyMessageRollMode(messageData, rollMode);
+        return roll.toMessage(messageData, { rollMode: activeRollMode });
       };
     }
 
@@ -326,7 +323,9 @@ export function patchAttributeSkillInput() {
           roll.terms[2].number = Math.ceil(roll.terms[2].number * specializationMultiplier);
           roll.resetFormula();
         }
-        return roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.parent }) }, { rollMode });
+        const messageData = { speaker: ChatMessage.getSpeaker({ actor: this.parent }) };
+        const activeRollMode = applyMessageRollMode(messageData, rollMode);
+        return roll.toMessage(messageData, { rollMode: activeRollMode });
       };
     }
 

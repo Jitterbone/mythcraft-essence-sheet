@@ -111,12 +111,44 @@ export function syncHomebrewAttributesToSystem() {
   }
 }
 
+export const CORE_ATTRIBUTE_NAME_MAP = {
+  str: "Strength",
+  dex: "Dexterity",
+  end: "Endurance",
+  awr: "Awareness",
+  int: "Intellect",
+  cha: "Charisma",
+  lck: "Luck",
+  cor: "Coordination",
+  san: "Sanity",
+};
+
+/**
+ * Returns the human-readable full name for an attribute key (e.g. "awr" -> "Awareness")
+ * @param {string} key
+ * @returns {string}
+ */
+export function getFullAttributeName(key) {
+  if (!key) return "";
+  const norm = String(key).toLowerCase().trim();
+  if (CORE_ATTRIBUTE_NAME_MAP[norm]) return CORE_ATTRIBUTE_NAME_MAP[norm];
+  
+  const customAttrs = game.settings?.get?.(MODULE_ID, "customAttributes") ?? [];
+  const found = customAttrs.find(a => (a.key && a.key.toLowerCase() === norm) || (a.abbr && a.abbr.toLowerCase() === norm));
+  if (found?.name) return found.name;
+  
+  return mythcraft.CONFIG?.attributes?.list?.[norm]?.name || 
+         mythcraft.CONFIG?.attributes?.list?.[norm]?.label || 
+         key.toUpperCase();
+}
+
 /**
  * Patches core MythCraft AttributeSkillInput and AttributeRoll to safely handle custom/homebrew attributes and skills
  */
 export function patchAttributeSkillInput() {
   if (typeof mythcraft === "undefined") return;
 
+  // 1. Patch AttributeSkillInput slider & context
   const AttributeSkillInput = mythcraft.applications?.apps?.AttributeSkillInput;
   if (AttributeSkillInput && !AttributeSkillInput._essencePatched) {
     const origPrepareContext = AttributeSkillInput.prototype._prepareContext;
@@ -187,22 +219,15 @@ export function patchAttributeSkillInput() {
     AttributeSkillInput._essencePatched = true;
   }
 
-  // Patch AttributeRollDialog for clean titles on Sanity, custom attributes, and custom skills
+  // 2. Patch AttributeRollDialog to resolve full attribute names for title and dropdowns
   const AttributeRollDialog = mythcraft.applications?.apps?.AttributeRollDialog;
   if (AttributeRollDialog && !AttributeRollDialog._essencePatched) {
     const descAttr = Object.getOwnPropertyDescriptor(AttributeRollDialog.prototype, "attributeLabel");
     if (descAttr && descAttr.get) {
-      const origGetter = descAttr.get;
       Object.defineProperty(AttributeRollDialog.prototype, "attributeLabel", {
         get() {
           const attrKey = this.options?.context?.attribute;
-          if (attrKey === "san") return "Sanity";
-          const customAttrs = game.settings?.get?.(MODULE_ID, "customAttributes") ?? [];
-          const found = customAttrs.find(a => a.key === attrKey);
-          if (found) return found.name;
-          const localized = origGetter.call(this);
-          if (localized && !localized.startsWith("MYTHCRAFT.")) return localized;
-          return mythcraft.CONFIG?.attributes?.list?.[attrKey]?.label || attrKey.toUpperCase();
+          return getFullAttributeName(attrKey);
         },
         configurable: true,
         enumerable: false,
@@ -232,20 +257,80 @@ export function patchAttributeSkillInput() {
     AttributeRollDialog._essencePatched = true;
   }
 
-  // Patch AttributeRoll class flavor generation
-  const AttributeRollClass = mythcraft.rolls?.AttributeRoll || CONFIG.Dice?.rolls?.find(r => r.name === "AttributeRoll");
-  if (AttributeRollClass && !AttributeRollClass._essencePatched) {
-    // Intercept BaseActorModel.prototype.rollAttribute / rollSkill to format flavor cleanly
-    const BaseActorModel = CONFIG.Actor?.dataModels?.character?.prototype?.__proto__;
-    if (BaseActorModel?.rollAttribute && !BaseActorModel._essenceFlavorPatched) {
-      const origRollAttribute = BaseActorModel.rollAttribute;
-      BaseActorModel.rollAttribute = async function(attribute) {
-        // Ensure i18n has translations set
+  // 2. Patch BaseActorModel.prototype.rollAttribute & rollSkill to output full attribute name in flavor
+  const BaseActorModel = CONFIG.Actor?.dataModels?.character?.prototype?.__proto__;
+  if (BaseActorModel && !BaseActorModel._essenceFlavorPatched) {
+    const origRollAttribute = BaseActorModel.rollAttribute;
+    const origRollSkill = BaseActorModel.rollSkill;
+
+    if (origRollAttribute) {
+      BaseActorModel.rollAttribute = async function (attribute) {
         syncHomebrewAttributesToSystem();
-        return origRollAttribute.call(this, attribute);
+        const AttributeRollClass = mythcraft.rolls?.AttributeRoll || CONFIG.Dice?.rolls?.find(r => r.name === "AttributeRoll");
+        const AttributeRollDialog = mythcraft.applications?.apps?.AttributeRollDialog;
+        if (!AttributeRollClass || !AttributeRollDialog) {
+          return origRollAttribute.call(this, attribute);
+        }
+
+        const formula = `1d20 + @attributes.${attribute} + @situationalBonus`;
+        const fd = await AttributeRollDialog.create({ context: { attribute, formula, rollModes: { ...this.rollModes } } });
+        if (!fd) throw new Error("Roll Dialog Cancelled");
+        const { situationalBonus, rollMode, situationalTA = 0, situationalTD = 0 } = fd;
+        const rollData = this.parent.getRollData();
+        rollData.situationalBonus = AttributeRollClass.replaceFormulaData(situationalBonus, rollData) || 0;
+        rollData.rollModes = { ...rollData.rollModes };
+        rollData.rollModes.ta += situationalTA;
+        rollData.rollModes.td += situationalTD;
+
+        const fullAttrName = getFullAttributeName(attribute);
+        const roll = new AttributeRollClass(formula, rollData, {
+          attribute,
+          flavor: `${fullAttrName} Check`,
+        });
+        return roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.parent }) }, { rollMode });
       };
-      BaseActorModel._essenceFlavorPatched = true;
     }
-    AttributeRollClass._essencePatched = true;
+
+    if (origRollSkill) {
+      BaseActorModel.rollSkill = async function (skill) {
+        syncHomebrewAttributesToSystem();
+        const AttributeRollClass = mythcraft.rolls?.AttributeRoll || CONFIG.Dice?.rolls?.find(r => r.name === "AttributeRoll");
+        const AttributeRollDialog = mythcraft.applications?.apps?.AttributeRollDialog;
+        if (!AttributeRollClass || !AttributeRollDialog) {
+          return origRollSkill.call(this, skill);
+        }
+
+        let formula = `1d20 + @skills.${skill}.bonus + @situationalBonus`;
+        const attribute = mythcraft.CONFIG.skills?.list?.[skill]?.attribute || "str";
+        const specialization = this.skills?.[skill]?.specialization ?? "";
+        const fd = await AttributeRollDialog.create({ context: { attribute, skill, formula, specialization, rollModes: { ...this.rollModes } } });
+        if (!fd) throw new Error("Roll Dialog Cancelled");
+        if (fd.attribute !== attribute) {
+          formula += ` -@attributes.${attribute} + @attributes.${fd.attribute}`;
+        }
+        const { situationalBonus, rollMode, specializationMultiplier, situationalTA = 0, situationalTD = 0 } = fd;
+        const rollData = this.parent.getRollData();
+        rollData.situationalBonus = AttributeRollClass.replaceFormulaData(situationalBonus, rollData) || 0;
+        rollData.rollModes = { ...rollData.rollModes };
+        rollData.rollModes.ta += situationalTA;
+        rollData.rollModes.td += situationalTD;
+
+        const fullAttrName = getFullAttributeName(fd.attribute || attribute);
+        const skillLabel = game.i18n.localize(mythcraft.CONFIG?.skills?.list?.[skill]?.label) || skill;
+        const roll = new AttributeRollClass(formula, rollData, {
+          attribute: fd.attribute,
+          skill,
+          flavor: `${fullAttrName} Check (${skillLabel})`,
+        });
+        if (Number.isNumeric(specializationMultiplier)) {
+          roll.terms[2].number = Math.ceil(roll.terms[2].number * specializationMultiplier);
+          roll.resetFormula();
+        }
+        return roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.parent }) }, { rollMode });
+      };
+    }
+
+    BaseActorModel._essenceFlavorPatched = true;
   }
 }
+

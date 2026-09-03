@@ -16,7 +16,7 @@ import {
 import { initDamageAutomation, patchFeatureUsesMaxFormula } from "./features/damage-automation.mjs";
 import { initEquipmentAutomation, patchWeaponApcGetter } from "./features/equipment-automation.mjs";
 import { patchSystemHpCalculation, getEnduranceThreshold } from "./features/hp-automation.mjs";
-import { syncHomebrewAttributesToSystem, patchAttributeSkillInput } from "./features/homebrew-attributes.mjs";
+import { syncHomebrewAttributesToSystem, patchAttributeSkillInput, getFullAttributeName } from "./features/homebrew-attributes.mjs";
 import { initLuckPointReroll } from "./features/luck-points.mjs";
 import { initPermissionsFix } from "./features/permissions-fix.mjs";
 import LevelUpDialog from "./apps/level-up-dialog.mjs";
@@ -226,20 +226,55 @@ Hooks.once("init", () => {
     }
     root.dataset.essenceEnriched = "true";
 
-    // 0. Clean unlocalized attribute/skill keys in flavor and title elements
-    const flavorEls = root.querySelectorAll(".flavor-text, .card-header h3, h3, .card-title, .message-header");
-    flavorEls.forEach(el => {
-      if (el.textContent && el.textContent.includes("MYTHCRAFT.Actor.base.FIELDS.attributes.")) {
-        let text = el.textContent;
-        text = text.replace(/MYTHCRAFT\.Actor\.base\.FIELDS\.attributes\.san\.label/g, "Sanity");
-        const customAttrs = game.settings?.get?.(MODULE_ID, "customAttributes") ?? [];
-        for (const ca of customAttrs) {
-          if (ca.key && ca.name) {
-            const re = new RegExp(`MYTHCRAFT\\.Actor\\.base\\.FIELDS\\.attributes\\.${ca.key}\\.label`, "g");
-            text = text.replace(re, ca.name);
+    // 0. Format attribute check titles & clean unlocalized keys in chat card headers
+    const formatAttributeCheckText = (raw) => {
+      if (!raw || typeof raw !== "string") return raw;
+      let text = raw;
+
+      // Replace core & homebrew localization paths
+      text = text.replace(/MYTHCRAFT\.Actor\.base\.FIELDS\.attributes\.([a-zA-Z0-9_-]+)\.label/g, (_, k) => getFullAttributeName(k));
+
+      // Replace abbreviation checks like "awr Check", "STR Check", "dex check" with "Awareness Check", "Strength Check", etc.
+      const abbrMap = {
+        str: "Strength",
+        dex: "Dexterity",
+        end: "Endurance",
+        awr: "Awareness",
+        int: "Intellect",
+        cha: "Charisma",
+        lck: "Luck",
+        cor: "Coordination",
+        san: "Sanity",
+      };
+
+      const customAttrs = game.settings?.get?.(MODULE_ID, "customAttributes") ?? [];
+      for (const ca of customAttrs) {
+        if (ca.key && ca.name) {
+          abbrMap[ca.key.toLowerCase()] = ca.name;
+          if (ca.abbr) abbrMap[ca.abbr.toLowerCase()] = ca.name;
+        }
+      }
+
+      for (const [abbr, fullName] of Object.entries(abbrMap)) {
+        const re = new RegExp(`^\\s*${abbr}\\s+check\\b`, "i");
+        text = text.replace(re, `${fullName} Check`);
+        const reMid = new RegExp(`\\b${abbr}\\s+check\\b`, "gi");
+        text = text.replace(reMid, `${fullName} Check`);
+      }
+
+      return text;
+    };
+
+    const headerEls = root.querySelectorAll(".flavor-text, .card-header h3, .card-header, h3, .card-title, .message-header, .dice-flavor, .title");
+    headerEls.forEach(el => {
+      if (el.childNodes.length === 1 && el.childNodes[0].nodeType === Node.TEXT_NODE) {
+        el.textContent = formatAttributeCheckText(el.textContent);
+      } else {
+        for (const child of el.childNodes) {
+          if (child.nodeType === Node.TEXT_NODE && child.nodeValue) {
+            child.nodeValue = formatAttributeCheckText(child.nodeValue);
           }
         }
-        el.textContent = text;
       }
     });
 

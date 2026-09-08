@@ -1,4 +1,4 @@
-# MythCraft Essence Sheet (v0.4.1-alpha) 📜✨
+# MythCraft Essence Sheet (v0.5.0-alpha) 📜✨
 
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Development-FF5E5B?style=flat&logo=kofi&logoColor=white)](https://ko-fi.com/jitterbone)
 
@@ -15,26 +15,29 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 - **Guided New Character Experience**:
   - Automatically prompts when opening a new **Level 0** character sheet or clicking the **Level** badge.
   - Interactive multi-step wizard styled in the signature Dark Teal & Gold Essence theme (`#0d1217` slate, gold Cinzel headings, glowing indicators).
-- **Step 1 — Lineage & Skill Trees**:
+- **Step 1 — Lineage, Sublineages & Choice Groups**:
   - Browse official and custom Lineages with instant keyword search.
-  - **SRD Talent Tree Integration**: Lineage unique milestone features are presented in an authentic vertical skill tree flow with branch connectors, lock states, and prerequisite tooltips.
-  - **Automatic Starting Features**: Free starting features (e.g. *Rapid Regeneration*, *Stoneform*) are cleanly integrated as compact tier 0 nodes.
-  - **Bonus Attribute Points & Skills**: Automatically detects bonus points and skill points granted by lineages and unique features (e.g., *Tenacious*).
+  - **Sublineage Selection**: Automatically surfaces sublineage dropdowns for multi-branch lineages (Dwarves, Elementals, Elves, Fiendbloods, Raedeen, Golems) and grants all associated sublineage features.
+  - **Choice Groups & Variants**: Configurable options for lineages with custom choices (e.g. Elemental energy types, Dragonborn breath affinities).
+  - **Selectable Unique Features**: Direct selection of unique lineage features discovered from `All [Lineage] Features` compendium folders with clickable previews and prerequisite checks.
+  - **Automatic Starting Features & Deduplication**: Free starting features are neatly integrated with deduplication protection across custom and core packs.
 - **Step 2 — Attribute Allocation**:
   - Dynamic starting attribute pool calculation: standard characters receive **5 points**, while each active custom attribute (or Sanity) dynamically grants an extra **+1 point**.
   - Includes core attributes (STR, DEX, END, AWR, INT, CHA) plus Luck (LCK), Coordination (COR), and Sanity (SAN) when enabled.
   - Enforces the official MythCraft Level 1 attribute cap (maximum **+2**).
-- **Step 3 — Stats & Health Progression**:
-  - Endurance Threshold calculation automatically determines starting HP die and Set HP values.
-  - Choose between **Take Set HP** or **Roll HP**.
+- **Step 3 — Stats, HP & AP Progression**:
+  - Endurance Threshold calculation automatically determines starting HP die and Set HP values. Choose between **Take Set HP** or **Roll HP**.
+  - **Action Points (AP) from Coordination**: Dynamically scales both maximum and starting Action Points using the official MythCraft formula ($\text{COR} \le -3 \rightarrow 1\text{ AP}$, $\text{COR} \le -1 \rightarrow 2\text{ AP}$, $\text{COR} \ge 0 \rightarrow 3 + \lfloor\text{COR} / 2\rfloor$).
 - **Step 4 — Backgrounds & Professions (BOPs)**:
   - Select background to unlock skill category points with real-time category pools and per-skill point caps.
+  - **Freeform Background Skills**: Allocates free skill pools for backgrounds like Urchin that do not require choosing a profession.
   - **Encouraged Profession Synergy**: Automatically highlights background-encouraged professions in shimmering gold with badge indicators (`★ +2 Medicine / Religion`).
-- **Step 5 — Starting Talents & Magic**:
-  - Select starting Specialization or Magic entry talents organized into cohesive talent stacks.
+- **Step 5 — Starting Talents & Magic Discipline Gating**:
+  - **Magic Entry Gating**: Strictly requires taking a discipline's Magic Entry talent (*Student of the Arcane*, *Disciple of the Divine*, *Initiate of the Occult*, *Warden of the Primal*, *Adept of the Psionic*) as the entry gateway before any other magic talents can be chosen.
+  - **Automatic Stack Choices**: Selecting a Magic Entry talent dynamically reveals the additional stack talent picker based on granted bonus picks.
   - Select starting spells/cantrips and assign primary spellcasting attributes.
 - **Step 6 — Finalize & Create**:
-  - Review complete character summary and automatically populate items, attributes, stats, and starting wealth.
+  - Review complete character summary and automatically populate items, attributes, stats, AP, and starting wealth.
 
 ---
 
@@ -192,6 +195,31 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 ---
 
 ## 📝 Changelog
+
+### v0.5.0-alpha
+- **Lineage Sublineages & Choice Groups Overhaul**:
+  - Added dedicated sublineage dropdowns for multi-branch lineages (Dwarves, Elementals, Elves, Fiendbloods, Raedeen, Golems) with automatic assignment of all corresponding sublineage features.
+  - Added choice group dropdowns for custom feature options (Elemental energy types, Dragonborn breath affinities).
+  - Cleaned up duplicate and triplicate feature entries across custom and official compendiums.
+  - Unique feature selection now dynamically reads from `All [Lineage] Features` compendium folders with live click-to-preview cards.
+  - Fixed dropdown interaction issues to prevent selection menus from prematurely closing.
+- **Backgrounds & Freeform Skill Points**:
+  - Added skill point allocator support for backgrounds that do not mandate choosing a profession (such as the Urchin background).
+  - Supports completing character creation with freeform background skill allocation and no selected profession.
+- **Magic Discipline Gating & Entry Talent Progression**:
+  - Enforced official MythCraft rule: the first magic talent taken in any discipline (Arcane, Divine, Occult, Primal, Psionic) must be that discipline's Magic Entry talent (*Student of the Arcane*, *Disciple of the Divine*, *Initiate of the Occult*, *Warden of the Primal*, *Adept of the Psionic*).
+  - Character Creation Wizard and Level-Up Progression display Magic Entry talents by default; selecting an entry talent dynamically reveals and requires allocating the granted bonus stack talents.
+  - Downstream magic talents are locked with clear prerequisite tooltips until the entry talent is learned.
+  - Compendiums, document loading, and magic stacks deduplicated so each entry talent appears exactly once.
+- **Coordination (COR) & Action Points (AP) Automation**:
+  - Implemented official MythCraft Action Point calculation ($\text{COR} \le -3 \rightarrow 1$, $\text{COR} \le -1 \rightarrow 2$, $\text{COR} \ge 0 \rightarrow 3 + \lfloor\text{COR} / 2\rfloor$).
+  - Increasing Coordination in Character Creation, Level-Up Progression, or directly on the character sheet automatically raises both maximum AP and current AP (`system.ap.value`).
+- **Roll Privacy & Chat Card Formatting**:
+  - Enforced active user/GM roll privacy mode across all checks, attacks, spells, and damage rolls initiated from the HUD and Essence sheet (respecting Public Roll, Private to GM, Blind GM Roll, and Self Roll).
+  - Chat cards for attribute and skill checks now display full friendly names (e.g. "Coordination Check" instead of "COR").
+- **Custom Tags & Weapon System Integration**:
+  - Synchronized custom tags cleanly into `CONFIG.weapon.tags` and `CONFIG.monster.tagGroups`.
+  - Re-styled native tag input elements and dropdown suggestions with the dark teal & gold Essence theme.
 
 ### v0.4.1-alpha
 - **Custom Talent Compendiums & Homebrew Tracks**:

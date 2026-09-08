@@ -485,6 +485,29 @@ export function parseBackgroundData(item) {
     }
   }
 
+  // If no restricted skill section was found, but the background grants skill points to spend on any skills (e.g. Urchin)
+  if (skillCategories.length === 0 && (skillPoints > 0 || /any\s*skills?\s*(?:of\s*your\s*choice)?/i.test(desc))) {
+    const starSkills = new Set([
+      "alchemy", "brewing", "calligraphy", "carpentry", "cartography",
+      "cobbling", "cooking", "glassblowing", "jeweling", "leatherworking",
+      "masonry", "painting", "pottery", "smithing", "weaving", "woodcarving",
+      "disguising", "forging", "lockpicking", "instrument", "vehicles", "vehicles [land]", "vehicles [water]"
+    ]);
+
+    for (const [catKey, skillNames] of Object.entries(MYTHCRAFT_SKILL_CATEGORIES)) {
+      const catName = catKey.charAt(0).toUpperCase() + catKey.slice(1);
+      const catSkills = skillNames.map(sk => {
+        const cleanName = sk.replace(/\*/g, "").trim();
+        const titleName = cleanName.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+        const key = cleanName.toLowerCase();
+        const hasStar = starSkills.has(key);
+        return { name: titleName, key, hasStar };
+      });
+      skillCategories.push({ category: catName, skills: catSkills });
+      eligibleSkills.push(...catSkills.map(s => s.name.toLowerCase()));
+    }
+  }
+
   // 3. Starting Wealth
   let wealthFormula = "5d20*2";
   let wealthAverage = 104;
@@ -516,7 +539,8 @@ export function parseBackgroundData(item) {
   if (bonusMatch) {
     const candidateVal = parseInt(bonusMatch[1], 10);
     const candidateSkill = bonusMatch[2].replace(/attribute|point|wealth|sc|silver/gi, "").trim();
-    if (candidateVal > 0 && candidateSkill && candidateSkill.length < 35) {
+    const isGenericPoints = /^(?:skill|attribute|bonus)?\s*s?\s*(?:that|you|to|of)?/i.test(candidateSkill) || !candidateSkill;
+    if (candidateVal > 0 && candidateSkill && candidateSkill.length < 35 && !isGenericPoints) {
       encouragedBonusValue = candidateVal;
       encouragedBonusSkill = candidateSkill;
     }
@@ -541,6 +565,8 @@ export function parseBackgroundData(item) {
     name: (m[2] || "").trim(),
   }));
 
+  const hasNoProfession = /do\s*not\s*get\s*to\s*select\s*a\s*profession/i.test(clean) || /no\s*professional\s*experience/i.test(clean);
+
   return {
     skillPoints,
     perSkillCap,
@@ -556,6 +582,7 @@ export function parseBackgroundData(item) {
       bonusValue: encouragedBonusValue,
       rawProfessionUuids: uuidMatches,
     },
+    hasNoProfession,
   };
 }
 

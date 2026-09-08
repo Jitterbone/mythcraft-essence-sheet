@@ -527,101 +527,113 @@
 
         {{!-- STAGE C: PROFESSION SELECTION (UNLOCKED AFTER BACKGROUND) --}}
         {{#if (and parsedBackground data.backgroundConfirmed)}}
-          <div class="bops-staged-section profession-stage">
-            <div class="stage-header">
-              <h4><i class="fas fa-hammer"></i> 3. Choose Profession</h4>
-              {{#if data.professionConfirmed}}
-                <span class="confirmed-badge"><i class="fas fa-check"></i> Confirmed: {{selectedProfession.name}}</span>
-              {{/if}}
-            </div>
-            <p class="choice-guidance">Professions highlighted in gold grant additional bonus skill points from your background.</p>
-
-            <div class="wizard-search-bar">
-              <i class="fas fa-search"></i>
-              <input class="wizard-search-input" type="search" data-search="profession" value="{{data.searches.profession}}" placeholder="Search professions..." />
-            </div>
-
-            <div class="bops-list-grid">
-              {{#each filteredProfessions as |prof|}}
-                <div class="bops-item-card {{#if (eq ../data.selectedProfessionId prof.id)}}selected{{/if}} {{#if prof.isEncouraged}}encouraged-gold{{/if}}"
-                     data-action="selectProfession"
-                     data-profession-id="{{prof.id}}"
-                     data-card-id="{{prof.id}}">
-                  <img src="{{prof.img}}" alt="{{prof.name}}" />
-                  <div class="bops-item-info">
-                    <h5>{{prof.name}}</h5>
-                    {{#if prof.isEncouraged}}
-                      <span class="encouraged-pill" data-tooltip="Grants background synergy bonus">
-                        <i class="fas fa-star"></i> +{{@root.parsedBackground.encouragedProfessions.bonusValue}} {{@root.parsedBackground.encouragedProfessions.bonusSkill}}
-                      </span>
-                    {{/if}}
-                  </div>
-                </div>
-              {{/each}}
-            </div>
-
-            {{#if selectedProfession}}
-              <div class="selection-confirm-row">
-                <button type="button" class="wizard-confirm-btn {{#if data.professionConfirmed}}confirmed{{/if}}" data-action="confirmProfession">
-                  <i class="fas {{#if data.professionConfirmed}}fa-check-double{{else}}fa-check{{/if}}"></i>
-                  {{#if data.professionConfirmed}}Profession Confirmed{{else}}Confirm Profession Selection{{/if}}
-                </button>
+          {{#if parsedBackground.hasNoProfession}}
+            <div class="bops-staged-section profession-stage no-profession-notice">
+              <div class="stage-header">
+                <h4><i class="fas fa-ban"></i> 3. No Professional Experience</h4>
+                <span class="confirmed-badge"><i class="fas fa-check"></i> Standard for {{selectedBackground.name}}</span>
               </div>
-            {{/if}}
-
-            {{#if (and parsedProfession data.professionConfirmed)}}
-              <div class="profession-detail-subpanel">
-                <div class="profession-summary-header">
-                  <h5>{{selectedProfession.name}} (Rank 1)</h5>
-                </div>
-
-                {{#if professionRankItems.length}}
-                  <div class="rank-features-box">
-                    <h6 class="box-sub"><i class="fas fa-award"></i> Profession Rank 1 Abilities:</h6>
-                    {{#each professionRankItems as |rank|}}
-                      <div class="profession-rank-row">
-                        <strong>{{rank.name}}</strong>
-                        <div>{{{rank.system.description.value}}}</div>
-                      </div>
-                    {{/each}}
-                  </div>
+              <p class="choice-guidance">
+                As an {{selectedBackground.name}}, you do not select a profession at level 1. Instead, you gained 24 Skill Points to allocate freely into any skills of your choice.
+              </p>
+            </div>
+          {{else}}
+            <div class="bops-staged-section profession-stage">
+              <div class="stage-header">
+                <h4><i class="fas fa-hammer"></i> 3. Choose Profession</h4>
+                {{#if data.professionConfirmed}}
+                  <span class="confirmed-badge"><i class="fas fa-check"></i> Confirmed: {{selectedProfession.name}}</span>
                 {{/if}}
+              </div>
+              <p class="choice-guidance">Professions highlighted in gold grant additional bonus skill points from your background.</p>
 
-                <div class="prof-skills-box">
-                  <h6 class="box-sub"><i class="fas fa-book"></i> Profession Skills:</h6>
-                  <div class="fixed-skills-row">
-                    {{#each parsedProfession.fixedSkills as |skill|}}
-                      <span class="prof-skill-pill fixed">+{{skill.value}} {{skill.name}}</span>
-                    {{/each}}
+              <div class="wizard-search-bar">
+                <i class="fas fa-search"></i>
+                <input class="wizard-search-input" type="search" data-search="profession" value="{{data.searches.profession}}" placeholder="Search professions..." />
+              </div>
+
+              <div class="bops-list-grid">
+                {{#each filteredProfessions as |prof|}}
+                  <div class="bops-item-card {{#if (eq ../data.selectedProfessionId prof.id)}}selected{{/if}} {{#if prof.isEncouraged}}encouraged-gold{{/if}}"
+                       data-action="selectProfession"
+                       data-profession-id="{{prof.id}}"
+                       data-card-id="{{prof.id}}">
+                    <img src="{{prof.img}}" alt="{{prof.name}}" />
+                    <div class="bops-item-info">
+                      <h5>{{prof.name}}</h5>
+                      {{#if prof.isEncouraged}}
+                        <span class="encouraged-pill" data-tooltip="Grants background synergy bonus">
+                          <i class="fas fa-star"></i> +{{@root.parsedBackground.encouragedProfessions.bonusValue}} {{@root.parsedBackground.encouragedProfessions.bonusSkill}}
+                        </span>
+                      {{/if}}
+                    </div>
+                  </div>
+                {{/each}}
+              </div>
+
+              {{#if selectedProfession}}
+                <div class="selection-confirm-row">
+                  <button type="button" class="wizard-confirm-btn {{#if data.professionConfirmed}}confirmed{{/if}}" data-action="confirmProfession">
+                    <i class="fas {{#if data.professionConfirmed}}fa-check-double{{else}}fa-check{{/if}}"></i>
+                    {{#if data.professionConfirmed}}Profession Confirmed{{else}}Confirm Profession Selection{{/if}}
+                  </button>
+                </div>
+              {{/if}}
+
+              {{#if (and parsedProfession data.professionConfirmed)}}
+                <div class="profession-detail-subpanel">
+                  <div class="profession-summary-header">
+                    <h5>{{selectedProfession.name}} (Rank 1)</h5>
                   </div>
 
-                  {{#if parsedProfession.choiceSkills.count}}
-                    <h6 class="box-sub">Choose {{parsedProfession.choiceSkills.count}} Choice Skills (+{{parsedProfession.choiceSkills.value}} each):</h6>
-                    <div class="choice-skills-wrap">
-                      {{#each parsedProfession.choiceSkills.options as |opt|}}
-                        <button type="button" class="choice-skill-pill {{#if (includes ../data.selectedProfessionSkills opt)}}active{{/if}}"
-                                data-action="toggleProfessionSkill"
-                                data-skill="{{opt}}">
-                          <i class="fas {{#if (includes ../data.selectedProfessionSkills opt)}}fa-check-square{{else}}fa-square{{/if}}"></i> {{opt}}
-                        </button>
+                  {{#if professionRankItems.length}}
+                    <div class="rank-features-box">
+                      <h6 class="box-sub"><i class="fas fa-award"></i> Profession Rank 1 Abilities:</h6>
+                      {{#each professionRankItems as |rank|}}
+                        <div class="profession-rank-row">
+                          <strong>{{rank.name}}</strong>
+                          <div>{{{rank.system.description.value}}}</div>
+                        </div>
                       {{/each}}
                     </div>
                   {{/if}}
-                </div>
 
-                {{#if parsedProfession.startingGear.length}}
-                  <div class="prof-gear-box">
-                    <h6 class="box-sub"><i class="fas fa-shield"></i> Starting Equipment:</h6>
-                    <div class="gear-preview-chips">
-                      {{#each parsedProfession.startingGear as |gear|}}
-                        <span class="gear-chip">{{gear.name}} {{#if (gt gear.quantity 1)}}&times;{{gear.quantity}}{{/if}}</span>
+                  <div class="prof-skills-box">
+                    <h6 class="box-sub"><i class="fas fa-book"></i> Profession Skills:</h6>
+                    <div class="fixed-skills-row">
+                      {{#each parsedProfession.fixedSkills as |skill|}}
+                        <span class="prof-skill-pill fixed">+{{skill.value}} {{skill.name}}</span>
                       {{/each}}
                     </div>
+
+                    {{#if parsedProfession.choiceSkills.count}}
+                      <h6 class="box-sub">Choose {{parsedProfession.choiceSkills.count}} Choice Skills (+{{parsedProfession.choiceSkills.value}} each):</h6>
+                      <div class="choice-skills-wrap">
+                        {{#each parsedProfession.choiceSkills.options as |opt|}}
+                          <label class="choice-skill-toggle {{#if (lookup ../data.selectedProfessionSkills opt)}}checked{{/if}}">
+                            <input type="checkbox" data-action="toggleProfessionSkill" data-skill="{{opt}}"
+                                   {{#if (lookup ../data.selectedProfessionSkills opt)}}checked{{/if}} />
+                            <span>{{opt}}</span>
+                          </label>
+                        {{/each}}
+                      </div>
+                    {{/if}}
                   </div>
-                {{/if}}
-              </div>
-            {{/if}}
-          </div>
+
+                  {{#if parsedProfession.startingGear.length}}
+                    <div class="prof-gear-box">
+                      <h6 class="box-sub"><i class="fas fa-shield"></i> Starting Equipment:</h6>
+                      <div class="gear-preview-chips">
+                        {{#each parsedProfession.startingGear as |gear|}}
+                          <span class="gear-chip">{{gear.name}} {{#if (gt gear.quantity 1)}}&times;{{gear.quantity}}{{/if}}</span>
+                        {{/each}}
+                      </div>
+                    </div>
+                  {{/if}}
+                </div>
+              {{/if}}
+            </div>
+          {{/if}}
         {{/if}}
       </div>
     {{/if}}

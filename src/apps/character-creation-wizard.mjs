@@ -342,6 +342,12 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     const parsedBackground = selectedBackground ? parseBackgroundData(selectedBackground) : null;
     const encouragedTag = (parsedBackground?.encouragedProfessions?.tag || "").trim().toLowerCase();
 
+    // Backgrounds with No Professional Experience (e.g. Urchin) do not choose a profession at level 1
+    if (parsedBackground?.hasNoProfession) {
+      this.data.selectedProfessionId = null;
+      this.data.professionConfirmed = true;
+    }
+
     // Helper to evaluate if profession is encouraged by background
     const isEncouragedProfession = (profession) => {
       if (!parsedBackground || !this.data.backgroundConfirmed) return false;
@@ -857,7 +863,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.data.selectedBackgroundId = target.dataset.backgroundId;
     this.data.expandedCardIds.add(target.dataset.cardId);
     this.data.allocatedSkills = {};
-    this.data.backgroundConfirmed = false;
+    this.data.backgroundConfirmed = true;
     this.data.selectedProfessionId = null;
     this.data.professionConfirmed = false;
     this.render();

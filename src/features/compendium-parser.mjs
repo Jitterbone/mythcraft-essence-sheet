@@ -689,6 +689,86 @@ export function parseProfessionData(item) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
+ *  Canonical Magic Entry Talents & Helpers
+ * ──────────────────────────────────────────────────────────────────────── */
+
+export const MAGIC_ENTRY_TALENTS = {
+  arcane: "Student of the Arcane",
+  divine: "Disciple of the Divine",
+  occult: "Initiate of the Occult",
+  primal: "Warden of the Primal",
+  psionic: "Adept of the Psionic",
+};
+
+export const MAGIC_ENTRY_BY_NAME = {
+  "student of the arcane": "arcane",
+  "disciple of the divine": "divine",
+  "initiate of the occult": "occult",
+  "warden of the primal": "primal",
+  "adept of the psionic": "psionic",
+};
+
+/**
+ * Determines the magic discipline for a talent item, if any.
+ * @param {Item|object} talent
+ * @returns {string|null} "arcane" | "divine" | "occult" | "primal" | "psionic" | null
+ */
+export function getMagicDiscipline(talent) {
+  if (!talent) return null;
+  const rawName = String(talent.name || "").trim().toLowerCase();
+  const normName = normalizeTalentName(rawName);
+
+  // 1. Check direct canonical magic entry talent names
+  if (MAGIC_ENTRY_BY_NAME[rawName] || MAGIC_ENTRY_BY_NAME[normName]) {
+    return MAGIC_ENTRY_BY_NAME[rawName] || MAGIC_ENTRY_BY_NAME[normName];
+  }
+
+  // 2. Check canonical talent lookup
+  const canonical = NORMALIZED_CANONICAL_TALENTS[normName] || CANONICAL_TALENTS[rawName];
+  if (canonical && canonical.category === "magic") {
+    return canonical.parent.toLowerCase();
+  }
+
+  // 3. Check folder chain
+  const chain = (talent._folderChain || getDocumentFolderChain(talent) || []).map(f => String(f).toLowerCase());
+  for (const f of chain) {
+    const clean = f.replace(/^\d+\.\s*/, "").replace(/\s*(track|stack|talents?)$/i, "").trim();
+    if (MAGIC_ENTRY_TALENTS[clean]) return clean;
+    if (DISCIPLINE_TO_MAGIC[clean]) return DISCIPLINE_TO_MAGIC[clean].toLowerCase();
+  }
+
+  // 4. Check tags
+  const tags = (Array.isArray(talent.system?.tags) ? talent.system.tags : []).map(t =>
+    String(t?.name || t?.label || t).toLowerCase()
+  );
+  for (const tag of tags) {
+    if (MAGIC_ENTRY_TALENTS[tag]) return tag;
+    if (DISCIPLINE_TO_MAGIC[tag]) return DISCIPLINE_TO_MAGIC[tag].toLowerCase();
+  }
+
+  // 5. Check magicSource or category
+  const src = String(talent.system?.magicSource || "").toLowerCase();
+  for (const mag of Object.keys(MAGIC_ENTRY_TALENTS)) {
+    if (src.includes(mag)) return mag;
+  }
+
+  // 6. Check custom category
+  if (talent._customCategory === "magic" && talent._customParent) {
+    const parent = talent._customParent.toLowerCase();
+    if (MAGIC_ENTRY_TALENTS[parent]) return parent;
+  }
+
+  // 7. Check compendium pack metadata or category
+  if (talent._compCategory === "magic") {
+    for (const mag of Object.keys(MAGIC_ENTRY_TALENTS)) {
+      if (chain.some(f => f.includes(mag)) || tags.some(t => t.includes(mag))) return mag;
+    }
+  }
+
+  return null;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
  *  Text Parsing: Talents, Prerequisites & Incompatibilities
  * ──────────────────────────────────────────────────────────────────────── */
 
@@ -699,6 +779,9 @@ export function parseProfessionData(item) {
  */
 export function parseTalentData(item) {
   const desc = descriptionText(item);
+  const itemName = String(item?.name || "").trim();
+  const itemNorm = normalizeTalentName(itemName);
+  const isCanonicalEntry = Boolean(MAGIC_ENTRY_BY_NAME[itemName.toLowerCase()] || MAGIC_ENTRY_BY_NAME[itemNorm]);
 
   // 1. Prerequisites
   const prerequisites = [];
@@ -717,7 +800,7 @@ export function parseTalentData(item) {
   }
 
   // 3. Magic Entry & Benefits
-  const isMagicEntry = /fundamental\s*wellspring|achieved\s*attunation|first\s*magic\s*entry\s*talent/i.test(desc);
+  const isMagicEntry = isCanonicalEntry || /fundamental\s*wellspring|achieved\s*attunation|first\s*magic\s*entry\s*talent/i.test(desc);
   let spBonus = 0;
   let magicPowerBonus = 0;
   let magicAttribute = "int";
@@ -733,6 +816,7 @@ export function parseTalentData(item) {
     magicPowerBonus = parseInt(powerMatch[1], 10);
     if (powerMatch[2]) magicStackTag = powerMatch[2].toLowerCase().replace(/\s*magic\s*$/i, "").trim();
   }
+  if (isMagicEntry && !magicPowerBonus) magicPowerBonus = 1;
 
   const attrMatch = desc.match(/magic\s*attribute\s*is\s*([a-zA-Z]+)/i);
   if (attrMatch) magicAttribute = attrMatch[1].toLowerCase();
@@ -742,6 +826,12 @@ export function parseTalentData(item) {
     const wordMap = { two: 2, three: 3, four: 4 };
     extraStackTalents = wordMap[extraTalentsMatch[1].toLowerCase()] || parseInt(extraTalentsMatch[1], 10) || 2;
     magicStackTag = extraTalentsMatch[2].replace(/\s*magic\s*$/i, "").trim().toLowerCase();
+  }
+  if (isMagicEntry && !extraStackTalents) {
+    extraStackTalents = 2;
+  }
+  if (isCanonicalEntry && !magicStackTag) {
+    magicStackTag = MAGIC_ENTRY_BY_NAME[itemName.toLowerCase()] || MAGIC_ENTRY_BY_NAME[itemNorm] || "";
   }
 
   return {
@@ -781,6 +871,21 @@ export function checkTalentAvailability(talent, actorTalents = [], { effectiveLe
   }
 
   const missingPrereqs = [];
+
+  // Magic Entry Prerequisite Check:
+  // Any talent in a magic discipline requires that discipline's Magic Entry talent unless it is the entry talent itself.
+  const magicDiscipline = getMagicDiscipline(talent);
+  if (magicDiscipline && !data.isMagicEntry) {
+    const requiredEntry = MAGIC_ENTRY_TALENTS[magicDiscipline];
+    if (requiredEntry) {
+      const entryClean = requiredEntry.toLowerCase().trim();
+      const entryNorm = normalizeTalentName(requiredEntry);
+      if (!ownedNames.has(entryClean) && !ownedNames.has(entryNorm)) {
+        missingPrereqs.push(requiredEntry);
+      }
+    }
+  }
+
   for (const p of data.prerequisites) {
     const clean = p.toLowerCase().trim();
     const norm = normalizeTalentName(p);
@@ -1319,7 +1424,8 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
     }
 
     const rootObj = rootTreeMap.get(rootKey);
-    if (isEntry || /entry\b/i.test(t.name) || (/class\b/i.test(t.name) && category === "class" && trackName.includes("Entry"))) {
+    const isMagicEntryDoc = category === "magic" && (parseTalentData(t).isMagicEntry || Boolean(MAGIC_ENTRY_BY_NAME[docName]) || Boolean(MAGIC_ENTRY_BY_NAME[docNameClean]));
+    if (isEntry || isMagicEntryDoc || /entry\b/i.test(t.name) || (/class\b/i.test(t.name) && category === "class" && trackName.includes("Entry"))) {
       rootObj.entryTalents.push(t);
     } else {
       const trackKey = trackName.toLowerCase();

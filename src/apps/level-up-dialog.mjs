@@ -20,6 +20,7 @@ import {
   getAvailableCompendiums,
   loadPacksDocuments,
   checkTalentAvailability,
+  parseTalentData,
   parseProfessionData,
 } from "../features/compendium-parser.mjs";
 import TalentTreeViewer from "./talent-tree-viewer.mjs";
@@ -61,6 +62,7 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       toggleProfessionRank: this.#onToggleProfessionRank,
       openTalentPicker: this.#onOpenTalentPicker,
       clearSelectedTalent: this.#onClearSelectedTalent,
+      toggleExtraTalent: this.#onToggleExtraTalent,
     },
   };
 
@@ -98,6 +100,8 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
 
     // Selected Talent for this level
     this._selectedTalent = null;
+    this._selectedExtraTalentIds = [];
+    this._cachedMagicTalents = null;
   }
 
   /* ───────────────────────────────────────────────────────────────────────────
@@ -188,6 +192,56 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       };
     });
 
+    // Magic Entry additional stack talents preparation
+    let extraTalents = null;
+    const parsedSelectedTalent = this._selectedTalent ? parseTalentData(this._selectedTalent) : null;
+    if (parsedSelectedTalent?.isMagicEntry && parsedSelectedTalent.extraStackTalents > 0) {
+      const stackTag = (parsedSelectedTalent.magicStackTag || "").toLowerCase().trim();
+      if (!this._cachedMagicTalents) {
+        const packs = getAvailableCompendiums();
+        this._cachedMagicTalents = await loadPacksDocuments(packs.magic);
+      }
+      const isDocOfStack = (doc, tag) => {
+        if (!tag) return true;
+        const tName = (doc.name || "").toLowerCase();
+        const tDesc = (doc.system?.description?.value ?? doc.system?.description ?? "").toLowerCase();
+        const tSrc = String(doc.system?.magicSource || "").toLowerCase();
+        const tCat = String(doc.system?.category || "").toLowerCase();
+        const chain = (doc._folderChain || []).map(f => String(f).toLowerCase());
+        const inChain = chain.some(f => f.includes(tag));
+        const tags = (Array.isArray(doc.system?.tags) ? doc.system.tags : []).map(t => String(t?.name || t?.label || t).toLowerCase());
+        const inTags = tags.some(t => t.includes(tag));
+        return inChain || inTags || tSrc.includes(tag) || tCat.includes(tag) || tName.includes(tag) || tDesc.includes(`${tag} magic`);
+      };
+
+      const actorTalents = this.actor.items.filter(i => i.type === "talent" || i.type === "feature");
+      const eligibleTalents = (this._cachedMagicTalents || [])
+        .filter(t => (t.id || t._id) !== (this._selectedTalent.id || this._selectedTalent._id) && isDocOfStack(t, stackTag))
+        .map(t => {
+          const tid = t.id || t._id;
+          const avail = checkTalentAvailability(t, [...actorTalents, this._selectedTalent], { effectiveLevel: this._targetLevel });
+          return {
+            id: tid,
+            name: t.name,
+            img: t.img || "icons/svg/aura.svg",
+            isAvailable: avail.isAvailable,
+            missingPrereqs: avail.missingPrereqs,
+            prereqTooltip: avail.prereqTooltip,
+            isSelected: this._selectedExtraTalentIds.includes(tid),
+          };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      extraTalents = {
+        count: parsedSelectedTalent.extraStackTalents,
+        selectedCount: this._selectedExtraTalentIds.length,
+        remainingCount: Math.max(0, parsedSelectedTalent.extraStackTalents - this._selectedExtraTalentIds.length),
+        discipline: stackTag ? stackTag.toUpperCase() : "MAGIC",
+        isComplete: this._selectedExtraTalentIds.length >= parsedSelectedTalent.extraStackTalents,
+        options: eligibleTalents,
+      };
+    }
+
     return {
       actor: this.actor,
       currentLevel: curLvl,
@@ -215,6 +269,7 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       chosenHpMethod: this._chosenHpMethod,
       previewMaxHp,
       previewGainText,
+      extraTalents,
     };
   }
 
@@ -292,6 +347,7 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       targetLevel: this._targetLevel,
       onSelectTalent: (talent) => {
         this._selectedTalent = talent;
+        this._selectedExtraTalentIds = [];
         this.render();
       },
     });
@@ -300,6 +356,36 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
 
   static #onClearSelectedTalent(event, target) {
     this._selectedTalent = null;
+    this._selectedExtraTalentIds = [];
+    this.render();
+  }
+
+  static #onToggleExtraTalent(event, target) {
+    const id = target.dataset.talentId;
+    if (!id || !this._selectedTalent) return;
+    const parsed = parseTalentData(this._selectedTalent);
+    const maxExtra = parsed?.extraStackTalents ?? 2;
+
+    const idx = this._selectedExtraTalentIds.indexOf(id);
+    if (idx >= 0) {
+      this._selectedExtraTalentIds.splice(idx, 1);
+    } else {
+      const extraItem = (this._cachedMagicTalents || []).find(t => (t.id || t._id) === id);
+      if (extraItem) {
+        const actorTalents = this.actor.items.filter(i => i.type === "talent" || i.type === "feature");
+        const avail = checkTalentAvailability(extraItem, [...actorTalents, this._selectedTalent], { effectiveLevel: this._targetLevel });
+        if (!avail.isAvailable) {
+          ui.notifications.warn(avail.prereqTooltip || "Prerequisites not met for this talent.");
+          return;
+        }
+      }
+
+      if (this._selectedExtraTalentIds.length >= maxExtra) {
+        ui.notifications.warn(`You may only select ${maxExtra} extra talents.`);
+        return;
+      }
+      this._selectedExtraTalentIds.push(id);
+    }
     this.render();
   }
 
@@ -387,12 +473,43 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       }
     }
 
-    await this.actor.update(updates);
-
-    // Apply selected talent
+    // Apply selected talent and extra talents
     if (this._selectedTalent) {
-      await this.actor.createEmbeddedDocuments("Item", [this._selectedTalent.toObject()]);
+      const parsed = parseTalentData(this._selectedTalent);
+      if (parsed?.isMagicEntry && parsed.extraStackTalents > 0) {
+        if (this._selectedExtraTalentIds.length < parsed.extraStackTalents) {
+          const stackLabel = (parsed.magicStackTag || "magic").toUpperCase();
+          ui.notifications.warn(`Please select ${parsed.extraStackTalents} additional talents from the ${stackLabel} stack before applying advancement (${this._selectedExtraTalentIds.length}/${parsed.extraStackTalents} selected).`);
+          return;
+        }
+      }
+
+      const itemsToCreate = [this._selectedTalent.toObject()];
+      for (const extraId of this._selectedExtraTalentIds) {
+        const extraItem = (this._cachedMagicTalents || []).find(t => (t.id || t._id) === extraId);
+        if (extraItem?.toObject) itemsToCreate.push(extraItem.toObject());
+      }
+      await this.actor.createEmbeddedDocuments("Item", itemsToCreate);
+
+      // Apply Magic Entry benefits if applicable
+      if (parsed?.isMagicEntry) {
+        const spAmount = parsed.spBonus || 10;
+        const currentSpMax = Number(this.actor.system?.sp?.max) || 0;
+        const currentSpVal = Number(this.actor.system?.sp?.value) || 0;
+        updates["system.sp.max"] = currentSpMax + spAmount;
+        updates["system.sp.value"] = currentSpVal + spAmount;
+
+        const stackTag = (parsed.magicStackTag || "").toLowerCase().replace(/\s*magic\s*$/i, "").trim();
+        if (stackTag && !this.actor.system?.powerLevel?.[stackTag]) {
+          updates[`system.powerLevel.${stackTag}`] = parsed.magicPowerBonus || 1;
+        }
+        if (parsed.magicAttribute && !this.actor.system?.attributes?.magic) {
+          updates["system.attributes.magic"] = parsed.magicAttribute;
+        }
+      }
     }
+
+    await this.actor.update(updates);
 
     ui.notifications.info(`${this.actor.name} advanced to Level ${tgtLvl}! (${hpGainDesc})`);
   }

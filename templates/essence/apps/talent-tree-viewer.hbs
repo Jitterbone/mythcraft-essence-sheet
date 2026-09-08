@@ -129,7 +129,12 @@
                 {{/if}}
 
                 {{!-- Subclass Flowchart Tracks Grid --}}
-                {{#if tree.tracks.length}}
+                {{#if tree.isDisciplineLocked}}
+                  <div class="locked-discipline-notice">
+                    <i class="fas fa-lock"></i>
+                    <span>Select <strong>{{#each tree.entryTalents}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}}</strong> above to unlock the {{tree.title}} Magic stack and its talents.</span>
+                  </div>
+                {{else if tree.tracks.length}}
                   <div class="srd-tracks-flowchart-grid">
                     {{#each tree.tracks as |track|}}
                       <div class="srd-flowchart-track-card {{#if track.isStarted}}track-active{{/if}} {{#if track.isExpanded}}expanded{{else}}collapsed{{/if}}"

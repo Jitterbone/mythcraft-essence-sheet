@@ -204,9 +204,12 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
         };
       });
 
+      const isDisciplineLocked = tree.category === "magic" && !tree.isStarted;
+
       return {
         ...tree,
         isExpanded,
+        isDisciplineLocked,
         ownedCount,
         availableCount,
         totalNodesCount: tree.nodes.length,

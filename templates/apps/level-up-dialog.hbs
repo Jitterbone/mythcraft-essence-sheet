@@ -162,6 +162,28 @@
           </button>
         </div>
 
+        {{#if extraTalents}}
+          <div class="extra-talents-box level-up-extra-box">
+            <h4>
+              <i class="fas fa-wand-magic-sparkles"></i> Choose {{extraTalents.count}} Additional Talents from the {{extraTalents.discipline}} Magic Stack:
+              <span class="extra-count-badge {{#if extraTalents.isComplete}}complete{{/if}}">
+                {{extraTalents.selectedCount}} / {{extraTalents.count}} Selected
+              </span>
+            </h4>
+            <div class="extra-talents-list">
+              {{#each extraTalents.options as |opt|}}
+                <button type="button"
+                        class="extra-talent-btn {{#if opt.isSelected}}active{{/if}} {{#unless opt.isAvailable}}disabled{{/unless}}"
+                        data-action="toggleExtraTalent"
+                        data-talent-id="{{opt.id}}"
+                        {{#unless opt.isAvailable}}disabled title="{{opt.prereqTooltip}}"{{/unless}}>
+                  {{opt.name}} {{#unless opt.isAvailable}}<i class="fas fa-lock"></i>{{/unless}}
+                </button>
+              {{/each}}
+            </div>
+          </div>
+        {{/if}}
+
         <div class="prof-rank-toggle">
           <label>
             <input type="checkbox" name="increaseProfessionRank" {{#if increaseProfessionRank}}checked{{/if}} data-action="toggleProfessionRank" />

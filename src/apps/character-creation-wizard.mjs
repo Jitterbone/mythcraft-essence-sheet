@@ -449,9 +449,15 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
         stacks: talentStacks.filter(s => !s.items.some(i => i.parsed?.isMagicEntry))
       },
       { 
-        label: "Magic Talents", 
+        label: "Magic Entry Talents", 
         key: "magic", 
-        stacks: talentStacks.filter(s => s.items.some(i => i.parsed?.isMagicEntry))
+        stacks: talentStacks
+          .filter(s => s.items.some(i => i.parsed?.isMagicEntry))
+          .map(s => ({
+            ...s,
+            items: s.items.filter(i => i.parsed?.isMagicEntry),
+          }))
+          .filter(s => s.items.length > 0),
       },
     ];
 
@@ -479,17 +485,20 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     };
 
     const extraTalentOptions = selectedTalent && parsedTalent?.extraStackTalents
-      ? this.data.talents.filter(t => t.id !== selectedTalent.id && isDocOfStack(t, stackTag)).map(t => {
-          const avail = checkTalentAvailability(t, [...knownItemsForPrereq, selectedTalent]);
-          return {
-            id: t.id,
-            name: t.name,
-            img: t.img,
-            isAvailable: avail.isAvailable,
-            missingPrereqs: avail.missingPrereqs,
-            prereqTooltip: avail.prereqTooltip,
-          };
-        })
+      ? this.data.talents
+          .filter(t => t.id !== selectedTalent.id && isDocOfStack(t, stackTag))
+          .map(t => {
+            const avail = checkTalentAvailability(t, [...knownItemsForPrereq, selectedTalent]);
+            return {
+              id: t.id,
+              name: t.name,
+              img: t.img,
+              isAvailable: avail.isAvailable,
+              missingPrereqs: avail.missingPrereqs,
+              prereqTooltip: avail.prereqTooltip,
+            };
+          })
+          .sort((a, b) => a.name.localeCompare(b.name))
       : [];
 
     const filteredSpells = (parsedTalent?.isMagicEntry && stackTag)
@@ -743,6 +752,23 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       }
     }
 
+    if (this.currentStep === 5) {
+      if (!this.data.selectedTalentId) {
+        ui.notifications.warn("Please select a starting talent before proceeding.");
+        return;
+      }
+      const talent = this.data.talents.find(t => t.id === this.data.selectedTalentId);
+      const parsed = talent ? parseTalentData(talent) : null;
+      if (parsed?.extraStackTalents > 0) {
+        const selectedCount = (this.data.selectedExtraTalentIds || []).length;
+        if (selectedCount < parsed.extraStackTalents) {
+          const stackLabel = (parsed.magicStackTag || "magic").toUpperCase();
+          ui.notifications.warn(`Please select ${parsed.extraStackTalents} additional talents from the ${stackLabel} stack before proceeding (${selectedCount}/${parsed.extraStackTalents} selected).`);
+          return;
+        }
+      }
+    }
+
     if (this.currentStep < 6) {
       this.currentStep++;
       this.render();
@@ -978,6 +1004,15 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     if (idx >= 0) {
       this.data.selectedExtraTalentIds.splice(idx, 1);
     } else {
+      const extraItem = this.data.talents.find(t => t.id === id);
+      if (extraItem && talent) {
+        const avail = checkTalentAvailability(extraItem, [talent]);
+        if (!avail.isAvailable) {
+          ui.notifications.warn(avail.prereqTooltip || "Prerequisites not met for this talent.");
+          return;
+        }
+      }
+
       if (this.data.selectedExtraTalentIds.length >= maxExtra) {
         ui.notifications.warn(`You may only select ${maxExtra} extra talents.`);
         return;

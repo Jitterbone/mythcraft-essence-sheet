@@ -77,3 +77,4 @@ export function applyMessageRollMode(messageData, explicitMode = null) {
   
   return activeMode;
 }
+

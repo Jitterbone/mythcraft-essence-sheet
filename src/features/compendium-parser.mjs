@@ -789,58 +789,177 @@ export function checkTalentAvailability(talent, actorTalents = [], { effectiveLe
 }
 
 /**
- * Resolves starting features and eligible unique features for a chosen lineage.
- * Uses folder chains, description UUIDs, item name matching, and fallback discovery.
+ * Resolves starting features, sublineages, choice groups, and eligible unique features for a chosen lineage.
+ * Uses structured description parsing (headings, @UUID links), folder chains, and document matching.
  * @param {Item} selectedLineage
  * @param {Array<Item>} allLineageDocs
- * @returns {{ startingFeatures: Array<Item>, uniqueFeatures: Array<Item> }}
+ * @returns {{
+ *   baseStartingFeatures: Array<Item>,
+ *   startingFeatures: Array<Item>,
+ *   sublineages: Array<{ name: string, description: string, features: Array<Item> }>,
+ *   choiceGroups: Array<{ name: string, key: string, choices: Array<{ id: string, name: string, item: Item }> }>,
+ *   uniqueFeatures: Array<Item>,
+ *   uniqueCount: number,
+ * }}
  */
 export function resolveLineageFeatures(selectedLineage, allLineageDocs = []) {
-  if (!selectedLineage) return { startingFeatures: [], uniqueFeatures: [] };
+  if (!selectedLineage) {
+    return {
+      baseStartingFeatures: [],
+      startingFeatures: [],
+      sublineages: [],
+      choiceGroups: [],
+      uniqueFeatures: [],
+      uniqueCount: 0,
+    };
+  }
 
   const rawDesc = String(selectedLineage.system?.description?.value ?? selectedLineage.system?.description ?? "");
   const baseName = selectedLineage.name.replace(/lineage/i, "").trim().toLowerCase();
 
-  // 1. Extract referenced UUIDs or item names from the description
-  const referencedIds = new Set();
-  const referencedNames = new Set();
-
-  const uuidMatches = rawDesc.matchAll(/@UUID\[(?:Compendium\.[^\]]+\.)?(?:Item\.)?([^\]]+)\](?:\{([^}]+)\})?/gi);
-  for (const m of uuidMatches) {
-    if (m[1]) referencedIds.add(m[1].toLowerCase());
-    if (m[2]) referencedNames.add(m[2].toLowerCase().trim());
-  }
-
-  // 2. Classify documents strictly by lineage affiliation
-  const startingFeatures = [];
-  const uniqueFeatures = [];
-  const candidates = allLineageDocs.filter(d => d.id !== selectedLineage.id);
+  // 1. Gather all documents belonging to this lineage
+  const candidates = allLineageDocs.filter(d => (d.id || d._id) !== (selectedLineage.id || selectedLineage._id));
+  const docMap = new Map();
 
   for (const doc of candidates) {
-    const chain = (doc._folderChain || getDocumentFolderChain(doc)).map(f => f.toLowerCase().trim());
-    const docName = doc.name.toLowerCase().trim();
     const docId = (doc.id || doc._id || "").toLowerCase();
+    const docName = String(doc.name || "").toLowerCase().trim();
+    if (docId) docMap.set(docId, doc);
+    if (docName) docMap.set(docName, doc);
+  }
 
-    // The feature MUST belong to this specific lineage by folder or description reference
-    const belongsToThisLineage = chain.some(f => f.includes(baseName)) || docName.includes(baseName) || referencedIds.has(docId) || referencedNames.has(docName);
-    if (!belongsToThisLineage) continue;
+  const resolveDoc = (uuidOrId, name) => {
+    if (uuidOrId) {
+      const cleanId = String(uuidOrId).replace(/^.*Item\./, "").replace(/^.*Compendium\.[^\.]+\./, "").toLowerCase();
+      if (docMap.has(cleanId)) return docMap.get(cleanId);
+      const byId = candidates.find(c => (c.id || c._id || "").toLowerCase() === cleanId);
+      if (byId) return byId;
+    }
+    if (name) {
+      const cleanName = String(name).toLowerCase().trim();
+      if (docMap.has(cleanName)) return docMap.get(cleanName);
+      const byName = candidates.find(c => String(c.name || "").toLowerCase().trim() === cleanName);
+      if (byName) return byName;
+    }
+    return null;
+  };
 
-    // Check if it's explicitly a starting feature
-    const isStartingFolder = chain.some(f => f.includes("starting features") || f.endsWith("starting features"));
-    const isExplicitlyReferencedStarting = referencedIds.has(docId) || referencedNames.has(docName);
-
-    if (isStartingFolder || isExplicitlyReferencedStarting) {
-      if (!startingFeatures.some(s => s.id === doc.id || s.name.toLowerCase().trim() === docName)) {
-        startingFeatures.push(doc);
-      }
-    } else {
-      if (!uniqueFeatures.some(u => u.id === doc.id || u.name.toLowerCase().trim() === docName)) {
-        uniqueFeatures.push(doc);
+  // 2. Base Starting Features (strictly under "Starting Features" heading)
+  const baseStartingFeatures = [];
+  const startingMatch = rawDesc.match(/<h[23][^>]*>[^<]*starting features[^<]*<\/h[23]>([\s\S]*?)(?=<h[23]|$)/i);
+  if (startingMatch) {
+    const stHtml = startingMatch[1];
+    // Stop before inline "Unique Feature" text (e.g. Bhrunai)
+    const beforeUnique = stHtml.split(/unique\s+features?/i)[0];
+    const matches = [...beforeUnique.matchAll(/@UUID\[([^\]]+)\](?:\{([^}]+)\})?/gi)];
+    for (const m of matches) {
+      const item = resolveDoc(m[1], m[2]);
+      if (item && !baseStartingFeatures.some(f => f.id === item.id || f.name === item.name)) {
+        baseStartingFeatures.push(item);
       }
     }
   }
 
-  return { startingFeatures, uniqueFeatures };
+  // 3. Sublineages (under "Sublineage" heading, divided by <h4>)
+  const sublineages = [];
+  const subMatch = rawDesc.match(/<h[23][^>]*>[^<]*sublineage[^<]*<\/h[23]>([\s\S]*?)(?=<h[23]|$)/i);
+  if (subMatch) {
+    const subHtml = subMatch[1];
+    const parts = subHtml.split(/<h4[^>]*>/i);
+    for (let i = 1; i < parts.length; i++) {
+      const part = parts[i];
+      const hEnd = part.indexOf("</h4>");
+      if (hEnd === -1) continue;
+      const subName = part.substring(0, hEnd).replace(/<[^>]+>/g, "").trim();
+      const content = part.substring(hEnd + 5);
+      const subDescMatch = content.match(/<p>([\s\S]*?)<\/p>/i);
+      const subDesc = subDescMatch ? subDescMatch[1].replace(/<[^>]+>/g, "").trim() : "";
+
+      const feats = [];
+      const matches = [...content.matchAll(/@UUID\[([^\]]+)\](?:\{([^}]+)\})?/gi)];
+      for (const m of matches) {
+        const item = resolveDoc(m[1], m[2]);
+        if (item && !feats.some(f => f.id === item.id || f.name === item.name)) {
+          feats.push(item);
+        }
+      }
+      sublineages.push({
+        name: subName,
+        description: subDesc,
+        features: feats,
+      });
+    }
+  }
+
+  // 4. Choice Groups (e.g. Golem "Primary Material" and "Life Source")
+  const choiceGroups = [];
+  const groupMatches = [...rawDesc.matchAll(/<h[34][^>]*>([^<]*(?:primary material|life source)[^<]*)<\/h[34]>([\s\S]*?)(?=<h[234]|$)/gi)];
+  for (const gm of groupMatches) {
+    const gName = gm[1].replace(/<[^>]+>/g, "").trim();
+    const gHtml = gm[2];
+    const choices = [];
+    const matches = [...gHtml.matchAll(/@UUID\[([^\]]+)\](?:\{([^}]+)\})?/gi)];
+    for (const m of matches) {
+      const item = resolveDoc(m[1], m[2]);
+      if (item && !choices.some(c => c.id === item.id)) {
+        choices.push({
+          id: item.id || item._id,
+          name: m[2] || item.name,
+          item,
+        });
+      }
+    }
+    if (choices.length > 0) {
+      choiceGroups.push({
+        name: gName,
+        key: gName.toLowerCase().replace(/[^a-z0-9]/g, "_"),
+        choices,
+      });
+    }
+  }
+
+  // 5. Unique Feature Count
+  let uniqueCount = 0;
+  if (/choose\s+(?:two|2)\s+(?:additional\s+)?options/i.test(rawDesc)) {
+    uniqueCount = 2;
+  } else if (/unique\s+features?/i.test(rawDesc) || /choose\s+(?:one|1)\s+(?:additional\s+)?(?:feature|option)/i.test(rawDesc)) {
+    uniqueCount = 1;
+  }
+
+  // 6. Unique Features Pool
+  const lineageFolderDocs = candidates.filter(doc => {
+    const chain = (doc._folderChain || getDocumentFolderChain(doc)).map(f => f.toLowerCase().trim());
+    const docName = String(doc.name || "").toLowerCase().trim();
+    return chain.some(f => f.includes(baseName)) || docName.includes(baseName);
+  });
+
+  const assignedIds = new Set([
+    ...baseStartingFeatures.map(f => (f.id || f._id || "").toLowerCase()),
+    ...baseStartingFeatures.map(f => String(f.name || "").toLowerCase().trim()),
+    ...sublineages.flatMap(s => s.features.flatMap(f => [(f.id || f._id || "").toLowerCase(), String(f.name || "").toLowerCase().trim()])),
+    ...choiceGroups.flatMap(g => g.choices.flatMap(c => [(c.id || "").toLowerCase(), String(c.name || "").toLowerCase().trim()])),
+  ]);
+
+  const uniqueFeatures = [];
+  for (const doc of lineageFolderDocs) {
+    const dId = (doc.id || doc._id || "").toLowerCase();
+    const dName = String(doc.name || "").toLowerCase().trim();
+    if (assignedIds.has(dId) || assignedIds.has(dName)) continue;
+    if (uniqueFeatures.some(u => (u.id || u._id) === (doc.id || doc._id) || String(u.name || "").toLowerCase().trim() === dName)) continue;
+    uniqueFeatures.push(doc);
+  }
+
+  // Sort unique features alphabetically
+  uniqueFeatures.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+
+  return {
+    baseStartingFeatures,
+    startingFeatures: baseStartingFeatures,
+    sublineages,
+    choiceGroups,
+    uniqueFeatures,
+    uniqueCount,
+  };
 }
 
 /**

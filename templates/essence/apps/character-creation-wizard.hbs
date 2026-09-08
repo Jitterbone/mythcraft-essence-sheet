@@ -86,112 +86,178 @@
               {{{selectedLineage.system.description.value}}}
             </div>
 
-            {{!-- Lineage Skill Tree (Includes Starting Features & Unique Choices) --}}
-            {{#if lineageTrees.length}}
-              <div class="feature-group-section lineage-tree-section">
-                <div class="srd-tracks-viewport lineage-skill-tree-viewport">
-                  {{#each lineageTrees as |tree|}}
-                    <div class="srd-track-column lineage-tree-track {{#if (or tree.isStarted @root.data.selectedFeatureId)}}track-active{{/if}}">
-                      
-                      {{!-- Ornate SRD Track Banner --}}
-                      <div class="srd-track-banner">
-                        <div class="banner-corner top-left"></div>
-                        <div class="banner-corner top-right"></div>
-                        <div class="banner-corner bottom-left"></div>
-                        <div class="banner-corner bottom-right"></div>
-                        
-                        <div class="banner-content-row">
-                          <div class="banner-title-wrap">
-                            <h3 class="srd-track-title">{{tree.trackTitle}}</h3>
-                            <div class="track-summary-pills">
-                              {{#if @root.lineageStartingFeatures.length}}
-                                <span class="track-pill owned"><i class="fas fa-gift"></i> {{@root.lineageStartingFeatures.length}} Starting</span>
-                              {{/if}}
-                              <span class="track-pill total">{{tree.nodes.length}} Selectable</span>
-                            </div>
-                          </div>
-                        </div>
+            {{!-- 1. Base Starting Features (Automatic) --}}
+            {{#if baseStartingFeatures.length}}
+              <div class="lineage-features-block base-starting-features-block">
+                <div class="lineage-section-title">
+                  <i class="fas fa-gift"></i> Base Starting Features <span class="auto-indicator">(Automatic)</span>
+                </div>
+                <div class="lineage-features-grid">
+                  {{#each baseStartingFeatures as |feature|}}
+                    <div class="lineage-feature-pill-card auto-granted" data-talent-id="{{feature.id}}">
+                      <div class="pill-left" data-action="viewTalent" data-talent-id="{{feature.id}}" title="Inspect Feature">
+                        <img class="pill-icon" src="{{feature.img}}" alt="{{feature.name}}" />
+                        <span class="pill-name">{{feature.name}}</span>
                       </div>
+                      <div class="pill-actions">
+                        <button type="button" class="srd-action-btn view" data-action="viewTalent" data-talent-id="{{feature.id}}" title="Inspect Feature">
+                          <i class="fas fa-eye"></i>
+                        </button>
+                        <span class="auto-badge"><i class="fas fa-check"></i> Auto</span>
+                      </div>
+                    </div>
+                  {{/each}}
+                </div>
+              </div>
+            {{/if}}
 
-                      {{!-- Vertical Tier Flow --}}
-                      <div class="srd-tree-flow">
-                        
-                        {{!-- Level 1 Starting Features (Free & Automatic) --}}
-                        {{#if @root.lineageStartingFeatures.length}}
-                          <div class="srd-tier-level starting-features-tier" data-tier="0">
-                            <div class="srd-starting-tier-label">
-                              <i class="fas fa-gift"></i> Starting Features (Automatic)
+            {{!-- 2. Sublineage Section (Required when lineage has sublineages) --}}
+            {{#if hasSublineages}}
+              <div class="lineage-features-block sublineage-selection-block">
+                <div class="lineage-section-title">
+                  <i class="fas fa-code-branch"></i> Sublineage <span class="required-indicator">* Required</span>
+                </div>
+                <div class="lineage-dropdown-row">
+                  <select class="wizard-select lineage-sublineage-select" data-action="selectSublineage">
+                    <option value="">-- Choose Sublineage --</option>
+                    {{#each sublineages as |sub|}}
+                      <option value="{{sub.name}}" {{#if sub.isSelected}}selected{{/if}}>{{sub.name}}</option>
+                    {{/each}}
+                  </select>
+                </div>
+                {{#if selectedSublineage}}
+                  {{#if selectedSublineage.description}}
+                    <div class="sublineage-flavor-desc">
+                      <p>{{selectedSublineage.description}}</p>
+                    </div>
+                  {{/if}}
+                  {{#if selectedSublineage.features.length}}
+                    <div class="sublineage-granted-features">
+                      <div class="sublineage-granted-label">
+                        <i class="fas fa-sparkles"></i> Granted by {{selectedSublineage.name}}:
+                      </div>
+                      <div class="lineage-features-grid">
+                        {{#each selectedSublineage.features as |feature|}}
+                          <div class="lineage-feature-pill-card auto-granted sublineage-feature" data-talent-id="{{feature.id}}">
+                            <div class="pill-left" data-action="viewTalent" data-talent-id="{{feature.id}}" title="Inspect Feature">
+                              <img class="pill-icon" src="{{feature.img}}" alt="{{feature.name}}" />
+                              <span class="pill-name">{{feature.name}}</span>
                             </div>
-                            <div class="srd-tier-nodes branching-row">
-                              {{#each @root.lineageStartingFeatures as |feature|}}
-                                <div class="srd-node-box node-owned starting-auto-node" data-talent-id="{{feature.id}}">
-                                  <div class="node-main-box" data-action="viewTalent" data-talent-id="{{feature.id}}" title="Inspect Starting Feature">
-                                    <span class="node-title">{{feature.name}}</span>
-                                    <span class="srd-status-icon owned" title="Free Starting Feature"><i class="fas fa-check-circle"></i></span>
-                                  </div>
-                                  <div class="srd-node-actions">
-                                    <button type="button" class="srd-action-btn view" data-action="viewTalent" data-talent-id="{{feature.id}}" title="Inspect Starting Feature">
-                                      <i class="fas fa-eye"></i>
-                                    </button>
-                                    <span class="srd-action-tag-badge">Automatic</span>
-                                  </div>
-                                </div>
-                              {{/each}}
-                            </div>
-                          </div>
-
-                          {{!-- Connector down arrow to Unique Choices --}}
-                          <div class="srd-tier-connector">
-                            <div class="connector-stem"></div>
-                            <i class="fas fa-chevron-down connector-arrow"></i>
-                          </div>
-                        {{/if}}
-
-                        {{#each tree.tiers as |tier|}}
-                          <div class="srd-tier-level" data-tier="{{tier.tierNumber}}">
-                            
-                            {{!-- Connector down arrow --}}
-                            {{#unless @first}}
-                              <div class="srd-tier-connector">
-                                <div class="connector-stem"></div>
-                                <i class="fas fa-chevron-down connector-arrow"></i>
-                              </div>
-                            {{/unless}}
-
-                            <div class="srd-tier-nodes {{#if (gt tier.nodes.length 1)}}branching-row{{/if}}">
-                              {{#each tier.nodes as |node|}}
-                                <div class="srd-node-box {{#if (or (eq @root.data.selectedFeatureId node.id) (eq @root.data.selectedFeatureId node.name))}}node-owned{{else if node.isAvailable}}node-available{{else}}node-locked{{/if}}"
-                                     data-talent-id="{{node.id}}"
-                                     {{#unless node.isAvailable}}data-tooltip="{{node.prereqTooltip}}"{{/unless}}>
-                                  
-                                  <div class="node-main-box" data-action="selectLineageFeature" data-feature-id="{{node.id}}" data-locked="{{#unless node.isAvailable}}true{{else}}false{{/unless}}">
-                                    <span class="node-title">{{node.name}}</span>
-                                    
-                                    {{#if (or (eq @root.data.selectedFeatureId node.id) (eq @root.data.selectedFeatureId node.name))}}
-                                      <span class="srd-status-icon owned" title="Selected"><i class="fas fa-check-circle"></i></span>
-                                    {{else if (not node.isAvailable)}}
-                                      <span class="srd-status-icon locked" title="{{node.prereqTooltip}}"><i class="fas fa-lock"></i></span>
-                                    {{/if}}
-                                  </div>
-
-                                  {{!-- Action Buttons --}}
-                                  <div class="srd-node-actions">
-                                    <button type="button" class="srd-action-btn view" data-action="viewTalent" data-talent-id="{{node.id}}" title="Inspect Feature">
-                                      <i class="fas fa-eye"></i>
-                                    </button>
-                                    <button type="button" class="srd-action-btn pick {{#if (or (eq @root.data.selectedFeatureId node.id) (eq @root.data.selectedFeatureId node.name))}}selected{{/if}}"
-                                            data-action="selectLineageFeature"
-                                            data-feature-id="{{node.id}}"
-                                            data-locked="{{#unless node.isAvailable}}true{{else}}false{{/unless}}"
-                                            title="Choose this feature">
-                                      <i class="fas {{#if (or (eq @root.data.selectedFeatureId node.id) (eq @root.data.selectedFeatureId node.name))}}fa-check{{else}}fa-plus{{/if}}"></i>
-                                    </button>
-                                  </div>
-                                </div>
-                              {{/each}}
+                            <div class="pill-actions">
+                              <button type="button" class="srd-action-btn view" data-action="viewTalent" data-talent-id="{{feature.id}}" title="Inspect Feature">
+                                <i class="fas fa-eye"></i>
+                              </button>
+                              <span class="auto-badge sublineage"><i class="fas fa-check"></i> Sublineage</span>
                             </div>
                           </div>
                         {{/each}}
+                      </div>
+                    </div>
+                  {{/if}}
+                {{else}}
+                  <div class="lineage-prompt-notice">
+                    <i class="fas fa-hand-pointer"></i> Please choose a sublineage above to assign your sublineage features.
+                  </div>
+                {{/if}}
+              </div>
+            {{/if}}
+
+            {{!-- 3. Choice Groups Section (e.g. Golem Primary Material & Life Source) --}}
+            {{#if hasChoiceGroups}}
+              {{#each choiceGroups as |group|}}
+                <div class="lineage-features-block choice-group-block" data-group-key="{{group.key}}">
+                  <div class="lineage-section-title">
+                    <i class="fas fa-list-check"></i> {{group.name}} <span class="required-indicator">* Required</span>
+                  </div>
+                  <div class="lineage-dropdown-row">
+                    <select class="wizard-select lineage-choice-select" data-action="selectLineageChoice" data-group-key="{{group.key}}">
+                      <option value="">-- Choose {{group.name}} --</option>
+                      {{#each group.choices as |choice|}}
+                        <option value="{{choice.id}}" {{#if choice.isSelected}}selected{{/if}}>{{choice.name}}</option>
+                      {{/each}}
+                    </select>
+                  </div>
+                  {{#if group.chosenOption}}
+                    <div class="lineage-features-grid single-choice-preview">
+                      <div class="lineage-feature-pill-card auto-granted choice-feature" data-talent-id="{{group.chosenOption.id}}">
+                        <div class="pill-left" data-action="viewTalent" data-talent-id="{{group.chosenOption.id}}" title="Inspect Feature">
+                          <img class="pill-icon" src="{{group.chosenOption.item.img}}" alt="{{group.chosenOption.name}}" />
+                          <span class="pill-name">{{group.chosenOption.name}}</span>
+                        </div>
+                        <div class="pill-actions">
+                          <button type="button" class="srd-action-btn view" data-action="viewTalent" data-talent-id="{{group.chosenOption.id}}" title="Inspect Feature">
+                            <i class="fas fa-eye"></i>
+                          </button>
+                          <span class="auto-badge choice"><i class="fas fa-check"></i> Selected</span>
+                        </div>
+                      </div>
+                    </div>
+                  {{/if}}
+                </div>
+              {{/each}}
+            {{/if}}
+
+            {{!-- 4. Unique Features Selection Section --}}
+            {{#if hasUniqueFeatures}}
+              <div class="lineage-features-block unique-features-block">
+                <div class="lineage-section-header-row">
+                  <div class="lineage-section-title">
+                    <i class="fas fa-star"></i> Unique Feature{{#if (gt uniqueCount 1)}}s{{/if}}
+                    {{#if uniqueCount}}
+                      <span class="required-indicator">* Choose {{uniqueCount}}</span>
+                    {{/if}}
+                  </div>
+                  {{#if uniqueCount}}
+                    <div class="selection-counter-badge {{#if (eq uniqueFeaturesRemaining 0)}}complete{{else}}pending{{/if}}">
+                      {{#if (eq uniqueFeaturesRemaining 0)}}
+                        <i class="fas fa-check-circle"></i> Complete ({{selectedUniqueFeatures.length}}/{{uniqueCount}})
+                      {{else}}
+                        <i class="fas fa-clock"></i> {{uniqueFeaturesRemaining}} remaining
+                      {{/if}}
+                    </div>
+                  {{/if}}
+                </div>
+                {{#if uniqueCount}}
+                  <p class="section-instruction-text">
+                    Choose {{uniqueCount}} unique feature{{#if (gt uniqueCount 1)}}s{{/if}} from your lineage options at level 1:
+                  </p>
+                {{/if}}
+                <div class="unique-features-grid">
+                  {{#each uniqueFeatures as |feature|}}
+                    <div class="unique-feature-card {{#if feature.isSelected}}selected{{/if}} {{#unless feature.isAvailable}}locked{{/unless}}"
+                         data-action="selectLineageFeature"
+                         data-feature-id="{{feature.id}}"
+                         data-max-count="{{@root.uniqueCount}}"
+                         data-locked="{{#unless feature.isAvailable}}true{{else}}false{{/unless}}"
+                         {{#unless feature.isAvailable}}data-tooltip="{{feature.prereqTooltip}}"{{/unless}}>
+                      <div class="card-icon-col">
+                        <img src="{{feature.img}}" alt="{{feature.name}}" />
+                      </div>
+                      <div class="card-content-col">
+                        <div class="card-header-row">
+                          <h5 class="feature-title">{{feature.name}}</h5>
+                          {{#if feature.isSelected}}
+                            <span class="status-pill selected"><i class="fas fa-check"></i> Selected</span>
+                          {{else if (not feature.isAvailable)}}
+                            <span class="status-pill locked" title="{{feature.prereqTooltip}}"><i class="fas fa-lock"></i> Locked</span>
+                          {{/if}}
+                        </div>
+                        {{#if feature.prereqTooltip}}
+                          <div class="prereq-note"><i class="fas fa-info-circle"></i> {{feature.prereqTooltip}}</div>
+                        {{/if}}
+                      </div>
+                      <div class="card-actions-col">
+                        <button type="button" class="srd-action-btn view" data-action="viewTalent" data-talent-id="{{feature.id}}" title="Inspect Feature">
+                          <i class="fas fa-eye"></i>
+                        </button>
+                        <button type="button" class="srd-action-btn pick {{#if feature.isSelected}}selected{{/if}}"
+                                data-action="selectLineageFeature"
+                                data-feature-id="{{feature.id}}"
+                                data-max-count="{{@root.uniqueCount}}"
+                                data-locked="{{#unless feature.isAvailable}}true{{else}}false{{/unless}}"
+                                title="{{#if feature.isSelected}}Deselect{{else}}Choose this feature{{/if}}">
+                          <i class="fas {{#if feature.isSelected}}fa-check{{else}}fa-plus{{/if}}"></i>
+                        </button>
                       </div>
                     </div>
                   {{/each}}

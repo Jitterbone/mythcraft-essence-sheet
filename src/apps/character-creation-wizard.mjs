@@ -40,6 +40,9 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       // Step 1: Lineage
       lineages: [],
       selectedLineageId: null,
+      selectedSublineageName: null,
+      selectedLineageChoices: {}, // { [groupKey]: choiceId }
+      selectedUniqueFeatureIds: [],
       selectedFeatureId: null,
       expandedCardIds: new Set(),
       searches: { lineage: "", background: "", profession: "", talent: "", spell: "" },
@@ -102,6 +105,8 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       nextStep: this.#onNextStep,
       prevStep: this.#onPrevStep,
       selectLineage: this.#onSelectLineage,
+      selectSublineage: this.#onSelectSublineage,
+      selectLineageChoice: this.#onSelectLineageChoice,
       selectLineageFeature: this.#onSelectLineageFeature,
       adjustAttribute: this.#onAdjustAttribute,
       setHpMode: this.#onSetHpMode,
@@ -252,35 +257,81 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     // Selected Lineage Data
     const selectedLineage = this.data.lineages.find(l => l.id === this.data.selectedLineageId);
 
-    // Resolve starting features and unique features strictly isolated to this lineage
-    const { startingFeatures: lineageStartingFeatures, uniqueFeatures: lineageUniqueFeaturesRaw } = 
-      resolveLineageFeatures(selectedLineage, this.data.allLineageDocs || []);
+    // Resolve starting features, sublineages, choice groups, and unique features
+    const lineageParsed = selectedLineage ? resolveLineageFeatures(selectedLineage, this.data.allLineageDocs || []) : {
+      baseStartingFeatures: [],
+      startingFeatures: [],
+      sublineages: [],
+      choiceGroups: [],
+      uniqueFeatures: [],
+      uniqueCount: 0,
+    };
 
-    const selectedFeature = lineageUniqueFeaturesRaw.find(feature => feature.id === this.data.selectedFeatureId);
+    // Sublineage resolution
+    const selectedSublineage = lineageParsed.sublineages.find(s => s.name === this.data.selectedSublineageName) || null;
+    const sublineageFeatures = selectedSublineage ? selectedSublineage.features : [];
 
-    // Build authentic Lineage Talent Tree for unique selectable features
-    const lineageTrees = buildTalentTrees(lineageUniqueFeaturesRaw, selectedFeature ? [{ name: selectedFeature.name }] : []);
-
-    // Evaluate prerequisites for unique lineage features list
-    const lineageUniqueFeatures = lineageUniqueFeaturesRaw.map(feature => {
-      const avail = checkTalentAvailability(feature, [selectedLineage, ...lineageStartingFeatures]);
+    // Choice groups resolution (e.g. Golem Primary Material & Life Source)
+    const selectedChoiceFeatures = [];
+    const choiceGroupsWithState = (lineageParsed.choiceGroups || []).map(group => {
+      const selectedId = this.data.selectedLineageChoices?.[group.key] || "";
+      const chosenOption = group.choices.find(c => c.id === selectedId);
+      if (chosenOption?.item) {
+        selectedChoiceFeatures.push(chosenOption.item);
+      }
       return {
-        id: feature.id,
+        ...group,
+        selectedId,
+        chosenOption,
+        choices: group.choices.map(c => ({
+          ...c,
+          isSelected: c.id === selectedId,
+        })),
+      };
+    });
+
+    // Active granted starting features (base + chosen sublineage + chosen choice groups)
+    const activeStartingFeatures = [
+      ...lineageParsed.baseStartingFeatures,
+      ...sublineageFeatures,
+      ...selectedChoiceFeatures,
+    ];
+    this.data.lineageStartingFeatures = activeStartingFeatures;
+
+    // Unique feature count
+    const uniqueCount = lineageParsed.uniqueCount;
+    this.data.lineageUniqueCount = uniqueCount;
+
+    // Ensure selectedUniqueFeatureIds is an array
+    if (!Array.isArray(this.data.selectedUniqueFeatureIds)) {
+      this.data.selectedUniqueFeatureIds = this.data.selectedFeatureId ? [this.data.selectedFeatureId] : [];
+    }
+
+    // Evaluate availability for unique lineage features list
+    const lineageUniqueFeatures = (lineageParsed.uniqueFeatures || []).map(feature => {
+      const avail = checkTalentAvailability(feature, [selectedLineage, ...activeStartingFeatures]);
+      const fId = feature.id || feature._id;
+      return {
+        id: fId,
         name: feature.name,
         img: feature.img || "icons/svg/aura.svg",
         description: feature.system?.description?.value ?? feature.system?.description ?? "",
         isAvailable: avail.isAvailable,
         missingPrereqs: avail.missingPrereqs,
         prereqTooltip: avail.prereqTooltip,
+        isSelected: this.data.selectedUniqueFeatureIds.includes(fId),
       };
     });
 
-    const eligibleUniqueFeatures = lineageUniqueFeatures.filter(f => f.isAvailable);
-    this.data.lineageStartingFeatures = lineageStartingFeatures;
-    this.data.eligibleUniqueFeatures = eligibleUniqueFeatures;
+    const selectedUniqueFeatures = this.data.selectedUniqueFeatureIds
+      .map(id => (this.data.allLineageDocs || []).find(d => (d.id || d._id) === id))
+      .filter(Boolean);
 
-    // Calculate attribute bonuses from lineage + starting features + selected unique feature
-    const lineageBonusData = parseLineageAttributeBonusSources(selectedLineage, lineageStartingFeatures, selectedFeature);
+    // Keep legacy single-selection property in sync
+    this.data.selectedFeatureId = this.data.selectedUniqueFeatureIds[0] || null;
+
+    // Calculate attribute bonuses from lineage + active starting features + selected unique features
+    const lineageBonusData = parseLineageAttributeBonusSources(selectedLineage, activeStartingFeatures, selectedUniqueFeatures[0]);
     this.data.bonusAttributePoints = lineageBonusData.total;
     this.data.bonusAttributeSources = lineageBonusData.sources;
     const bonusAttributeSourcesTooltip = lineageBonusData.sources.map(s => `${s.name} (+${s.points})`).join(", ");
@@ -443,8 +494,8 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
     // Active lineage features for skill bonus parsing
     const activeLineageFeatures = [
-      ...(lineageStartingFeatures || []),
-      selectedFeature,
+      ...(activeStartingFeatures || []),
+      ...selectedUniqueFeatures,
     ].filter(Boolean);
 
     const parsedFeatureSkillData = activeLineageFeatures.map(f => parseFeatureSkillData(f));
@@ -489,11 +540,26 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       filteredBackgrounds,
       filteredProfessions,
       selectedLineage,
-      lineageStartingFeatures,
+      lineageParsed,
+      baseStartingFeatures: lineageParsed.baseStartingFeatures || [],
+      sublineages: (lineageParsed.sublineages || []).map(s => ({
+        ...s,
+        isSelected: s.name === this.data.selectedSublineageName,
+      })),
+      selectedSublineage,
+      choiceGroups: choiceGroupsWithState,
+      selectedChoiceFeatures,
+      lineageStartingFeatures: activeStartingFeatures,
+      activeStartingFeatures,
       lineageUniqueFeatures,
-      eligibleUniqueFeatures,
-      selectedFeature,
-      lineageTrees,
+      eligibleUniqueFeatures: lineageUniqueFeatures.filter(f => f.isAvailable),
+      selectedUniqueFeatures,
+      selectedFeature: selectedUniqueFeatures[0] || null,
+      hasSublineages: (lineageParsed.sublineages || []).length > 0,
+      hasChoiceGroups: choiceGroupsWithState.length > 0,
+      hasUniqueFeatures: lineageUniqueFeatures.length > 0 && (uniqueCount > 0 || (lineageParsed.sublineages || []).length === 0),
+      uniqueCount,
+      uniqueFeaturesRemaining: Math.max(0, uniqueCount - (this.data.selectedUniqueFeatureIds || []).length),
       lineageMilestones,
       selectedBackground,
       parsedBackground,
@@ -611,9 +677,31 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
   static #onNextStep(event, target) {
     // Step validation checks
-    if (this.currentStep === 1 && !this.data.selectedLineageId) {
-      ui.notifications.warn("Please select a Lineage before proceeding.");
-      return;
+    if (this.currentStep === 1) {
+      if (!this.data.selectedLineageId) {
+        ui.notifications.warn("Please select a Lineage before proceeding.");
+        return;
+      }
+      const selectedLineage = this.data.lineages.find(l => l.id === this.data.selectedLineageId);
+      const lineageParsed = resolveLineageFeatures(selectedLineage, this.data.allLineageDocs || []);
+
+      if (lineageParsed.sublineages.length > 0 && !this.data.selectedSublineageName) {
+        ui.notifications.warn("Please choose a Sublineage before proceeding.");
+        return;
+      }
+      for (const group of lineageParsed.choiceGroups) {
+        if (!this.data.selectedLineageChoices?.[group.key]) {
+          ui.notifications.warn(`Please choose an option for ${group.name} before proceeding.`);
+          return;
+        }
+      }
+      if (lineageParsed.uniqueCount > 0) {
+        const selCount = (this.data.selectedUniqueFeatureIds || []).length;
+        if (selCount < lineageParsed.uniqueCount) {
+          ui.notifications.warn(`Please select ${lineageParsed.uniqueCount} Unique Feature${lineageParsed.uniqueCount > 1 ? "s" : ""} before proceeding.`);
+          return;
+        }
+      }
     }
 
     if (this.currentStep === 2) {
@@ -642,19 +730,60 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     const id = target.dataset.lineageId;
     this.data.selectedLineageId = id;
     this.data.expandedCardIds.add(id);
+    this.data.selectedSublineageName = null;
+    this.data.selectedLineageChoices = {};
+    this.data.selectedUniqueFeatureIds = [];
     this.data.selectedFeatureId = null;
     this.render();
   }
 
+  static #onSelectSublineage(event, target) {
+    const val = target.value ?? target.dataset.sublineage;
+    this.data.selectedSublineageName = val || null;
+    this.render();
+  }
+
+  static #onSelectLineageChoice(event, target) {
+    const groupKey = target.dataset.groupKey;
+    if (!groupKey) return;
+    const val = target.value ?? target.dataset.choiceId;
+    if (!this.data.selectedLineageChoices) this.data.selectedLineageChoices = {};
+    if (val) {
+      this.data.selectedLineageChoices[groupKey] = val;
+    } else {
+      delete this.data.selectedLineageChoices[groupKey];
+    }
+    this.render();
+  }
+
   static #onSelectLineageFeature(event, target) {
-    const id = target.dataset.featureId;
+    const id = target.dataset.featureId || target.value;
+    if (!id) return;
     const isLocked = target.classList.contains("locked") || target.dataset.locked === "true";
     if (isLocked) {
       const tooltip = target.dataset.tooltip || "Prerequisites not met";
       ui.notifications.warn(tooltip);
       return;
     }
-    this.data.selectedFeatureId = id;
+
+    const maxCount = Number(target.dataset.maxCount) || this.data.lineageUniqueCount || 1;
+    let current = Array.isArray(this.data.selectedUniqueFeatureIds) ? [...this.data.selectedUniqueFeatureIds] : [];
+    if (current.includes(id)) {
+      current = current.filter(x => x !== id);
+    } else {
+      if (current.length >= maxCount) {
+        if (maxCount === 1) {
+          current = [id];
+        } else {
+          ui.notifications.warn(`You may only select ${maxCount} unique feature${maxCount > 1 ? "s" : ""}.`);
+          return;
+        }
+      } else {
+        current.push(id);
+      }
+    }
+    this.data.selectedUniqueFeatureIds = current;
+    this.data.selectedFeatureId = current[0] || null;
     this.render();
   }
 
@@ -988,10 +1117,12 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       const l = this.data.lineages.find(item => item.id === this.data.selectedLineageId);
       if (l) itemsToCreate.push(l.toObject());
     }
-    for (const feature of this.data.lineageStartingFeatures || []) itemsToCreate.push(feature.toObject());
-    if (this.data.selectedFeatureId) {
-      const feature = this.data.allLineageDocs.find(item => item.id === this.data.selectedFeatureId);
-      if (feature) itemsToCreate.push(feature.toObject());
+    for (const feature of this.data.lineageStartingFeatures || []) {
+      if (feature?.toObject) itemsToCreate.push(feature.toObject());
+    }
+    for (const featureId of (this.data.selectedUniqueFeatureIds || [])) {
+      const feature = (this.data.allLineageDocs || []).find(item => item.id === featureId);
+      if (feature?.toObject) itemsToCreate.push(feature.toObject());
     }
 
     if (bg) itemsToCreate.push(bg.toObject());
@@ -1028,8 +1159,18 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       }
     }
 
-    if (itemsToCreate.length > 0) {
-      await this.actor.createEmbeddedDocuments("Item", itemsToCreate);
+    // Deduplicate itemsToCreate by normalized name to guarantee no duplicate items on the actor
+    const seenNames = new Set();
+    const uniqueItemsToCreate = [];
+    for (const itemData of itemsToCreate) {
+      const key = String(itemData.name || "").toLowerCase().trim();
+      if (seenNames.has(key)) continue;
+      seenNames.add(key);
+      uniqueItemsToCreate.push(itemData);
+    }
+
+    if (uniqueItemsToCreate.length > 0) {
+      await this.actor.createEmbeddedDocuments("Item", uniqueItemsToCreate);
     }
   }
 

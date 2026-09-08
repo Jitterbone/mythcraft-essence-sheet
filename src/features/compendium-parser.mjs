@@ -121,28 +121,28 @@ export function getAvailableCompendiums() {
       pack._customTrack = customEntry.trackName || "";
 
       if (customEntry.category === "class" || customEntry.category === "subclass") {
-        grouped.classes.push(pack);
+        if (!grouped.classes.includes(pack)) grouped.classes.push(pack);
       } else if (customEntry.category === "magic") {
-        grouped.magic.push(pack);
+        if (!grouped.magic.includes(pack)) grouped.magic.push(pack);
       } else if (customEntry.category === "specialization") {
-        grouped.specTalents.push(pack);
+        if (!grouped.specTalents.includes(pack)) grouped.specTalents.push(pack);
       }
       continue;
     }
 
     // 2. Check official compendium naming rules
     if (OFFICIAL_PACK_NAMES.lineages.some(k => collectionId.includes(k) || packTitle.includes(k))) {
-      grouped.lineages.push(pack);
+      if (!grouped.lineages.includes(pack)) grouped.lineages.push(pack);
     } else if (OFFICIAL_PACK_NAMES.bops.some(k => collectionId.includes(k) || packTitle.includes(k))) {
-      grouped.bops.push(pack);
+      if (!grouped.bops.includes(pack)) grouped.bops.push(pack);
     } else if (OFFICIAL_PACK_NAMES.classes.some(k => collectionId.includes(k) || packTitle.includes(k))) {
-      grouped.classes.push(pack);
+      if (!grouped.classes.includes(pack)) grouped.classes.push(pack);
     } else if (OFFICIAL_PACK_NAMES.magic.some(k => collectionId.includes(k) || packTitle.includes(k))) {
-      grouped.magic.push(pack);
+      if (!grouped.magic.includes(pack)) grouped.magic.push(pack);
     } else if (OFFICIAL_PACK_NAMES.specTalents.some(k => collectionId.includes(k) || packTitle.includes(k))) {
-      grouped.specTalents.push(pack);
+      if (!grouped.specTalents.includes(pack)) grouped.specTalents.push(pack);
     } else if (OFFICIAL_PACK_NAMES.equipment.some(k => collectionId.includes(k) || packTitle.includes(k))) {
-      grouped.equipment.push(pack);
+      if (!grouped.equipment.includes(pack)) grouped.equipment.push(pack);
     }
   }
 
@@ -218,11 +218,33 @@ export async function loadPacksDocuments(packs, filter = {}) {
   const documents = [];
   if (!Array.isArray(packs)) return documents;
 
+  // Deduplicate packs
+  const seenPackKeys = new Set();
+  const uniquePacks = [];
   for (const pack of packs) {
+    if (!pack) continue;
+    const pKey = (pack.collection || pack.metadata?.id || pack.title || String(pack)).toLowerCase();
+    if (!seenPackKeys.has(pKey)) {
+      seenPackKeys.add(pKey);
+      uniquePacks.push(pack);
+    }
+  }
+
+  const seenDocIds = new Set();
+  const seenDocNames = new Set();
+
+  for (const pack of uniquePacks) {
     try {
       const docs = await pack.getDocuments();
       for (const doc of docs) {
         if (filter.type && doc.type !== filter.type) continue;
+        const docId = doc.id || doc._id;
+        const normName = normalizeTalentName(doc.name);
+        if (docId && seenDocIds.has(docId)) continue;
+        if (filter.type === "talent" && normName && seenDocNames.has(normName)) continue;
+        if (docId) seenDocIds.add(docId);
+        if (normName) seenDocNames.add(normName);
+
         doc._folderChain = getDocumentFolderChain(doc, pack);
         doc._compendiumPack = pack;
         doc._customCategory = pack._customCategory || null;
@@ -1147,7 +1169,11 @@ export function groupTalentsByStack(talentsList = []) {
     if (!stackMap.has(key)) {
       stackMap.set(key, { stackName, stackKey: key, talents: [] });
     }
-    stackMap.get(key).talents.push(talent);
+    const stackTalents = stackMap.get(key).talents;
+    const tName = normalizeTalentName(talent.name);
+    if (!stackTalents.some(existing => normalizeTalentName(existing.name) === tName)) {
+      stackTalents.push(talent);
+    }
   }
 
   return Array.from(stackMap.values()).sort((a, b) => a.stackName.localeCompare(b.stackName));

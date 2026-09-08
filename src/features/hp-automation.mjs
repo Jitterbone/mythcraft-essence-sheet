@@ -140,6 +140,24 @@ export function calculateLevelUpSetHpGain(startLevel, targetLevel, endValue) {
 }
 
 /**
+ * Calculates Maximum Action Points (AP) from Coordination attribute (COR).
+ * Official formula:
+ * COR <= -3 -> 1 AP
+ * COR <= -1 -> 2 AP
+ * COR >= 0  -> 3 + floor(COR / 2) AP
+ * @param {number} cor - Coordination attribute value
+ * @param {number|null} [override=null] - AP override if set
+ * @returns {number}
+ */
+export function calculateApMax(cor, override = null) {
+  if (override !== null && override !== undefined) return Number(override);
+  const c = Number(cor) || 0;
+  if (c <= -3) return 1;
+  if (c <= -1) return 2;
+  return 3 + Math.floor(c / 2);
+}
+
+/**
  * Patches the core MythCraft character data model prepareDerivedData
  * to accurately respect user rolled/set HP instead of multiplying max die size.
  */

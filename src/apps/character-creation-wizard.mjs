@@ -24,7 +24,7 @@ import {
   buildTalentTrees,
 } from "../features/compendium-parser.mjs";
 import { getSetting } from "../settings.mjs";
-import { getEnduranceThreshold, ENDURANCE_THRESHOLDS } from "../features/hp-automation.mjs";
+import { getEnduranceThreshold, ENDURANCE_THRESHOLDS, calculateApMax } from "../features/hp-automation.mjs";
 
 const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
 
@@ -180,10 +180,28 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     // Starting Talents: Specialization and Magic Entry talents (Level 1 characters cannot take Class talents)
     const specTalents = await loadPacksDocuments(packs.specTalents);
     const magicTalents = await loadPacksDocuments(packs.magic, { type: "talent" });
-    this.data.talents = [...specTalents, ...magicTalents];
+    const rawTalents = [...specTalents, ...magicTalents];
+    const seenTalents = new Set();
+    this.data.talents = [];
+    for (const t of rawTalents) {
+      const norm = (t.name || "").toLowerCase().trim();
+      if (!seenTalents.has(norm)) {
+        seenTalents.add(norm);
+        this.data.talents.push(t);
+      }
+    }
 
     // Magic Spells & Cantrips
-    this.data.availableSpells = await loadPacksDocuments(packs.magic, { type: "spell" });
+    const rawSpells = await loadPacksDocuments(packs.magic, { type: "spell" });
+    const seenSpells = new Set();
+    this.data.availableSpells = [];
+    for (const s of rawSpells) {
+      const norm = (s.name || "").toLowerCase().trim();
+      if (!seenSpells.has(norm)) {
+        seenSpells.add(norm);
+        this.data.availableSpells.push(s);
+      }
+    }
   }
 
   /** @inheritdoc */
@@ -453,10 +471,21 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
         key: "magic", 
         stacks: talentStacks
           .filter(s => s.items.some(i => i.parsed?.isMagicEntry))
-          .map(s => ({
-            ...s,
-            items: s.items.filter(i => i.parsed?.isMagicEntry),
-          }))
+          .map(s => {
+            const seen = new Set();
+            const uniqueItems = [];
+            for (const item of s.items.filter(i => i.parsed?.isMagicEntry)) {
+              const norm = (item.name || "").toLowerCase().trim();
+              if (!seen.has(norm)) {
+                seen.add(norm);
+                uniqueItems.push(item);
+              }
+            }
+            return {
+              ...s,
+              items: uniqueItems,
+            };
+          })
           .filter(s => s.items.length > 0),
       },
     ];
@@ -1080,6 +1109,12 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
     updates["system.hp.max"] = finalHp;
     updates["system.hp.value"] = finalHp;
+
+    // 1b. Action Points (AP) calculation from Coordination (COR)
+    const corVal = Number(this.data.attributes.cor) || 0;
+    const maxAp = calculateApMax(corVal);
+    updates["system.ap.max"] = maxAp;
+    updates["system.ap.value"] = maxAp;
 
     // 2. Starting Wealth
     const bg = this.data.backgrounds.find(b => b.id === this.data.selectedBackgroundId);

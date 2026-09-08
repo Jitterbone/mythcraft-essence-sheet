@@ -15,7 +15,7 @@ import {
 } from "./sheets/_module.mjs";
 import { initDamageAutomation, patchFeatureUsesMaxFormula } from "./features/damage-automation.mjs";
 import { initEquipmentAutomation, patchWeaponApcGetter } from "./features/equipment-automation.mjs";
-import { patchSystemHpCalculation, getEnduranceThreshold } from "./features/hp-automation.mjs";
+import { patchSystemHpCalculation, getEnduranceThreshold, calculateApMax } from "./features/hp-automation.mjs";
 import { syncHomebrewAttributesToSystem, patchAttributeSkillInput, getFullAttributeName } from "./features/homebrew-attributes.mjs";
 import { initLuckPointReroll } from "./features/luck-points.mjs";
 import { initPermissionsFix } from "./features/permissions-fix.mjs";
@@ -672,10 +672,54 @@ Hooks.once("init", () => {
     }
   });
 
-  // Track previous Endurance before update to detect threshold shifts
+  // Track previous Endurance before update to detect threshold shifts,
+  // and ensure current AP raises when max AP or COR increases.
   Hooks.on("preUpdateActor", (actor, changed, options, userId) => {
-    if (actor.type === "character" && changed.system?.attributes?.end !== undefined) {
+    if (actor.type !== "character") return;
+
+    if (changed.system?.attributes?.end !== undefined) {
       options._essenceOldEnd = Number(actor.system.attributes?.end ?? 0);
+    }
+
+    // When COR is updated, calculate AP gain and increase current AP
+    const flat = foundry.utils.flattenObject(changed);
+    let rawNewCor = flat["system.attributes.cor.value"] ?? flat["system.attributes.cor"];
+    if (rawNewCor === undefined && changed.system?.attributes?.cor !== undefined) {
+      rawNewCor = changed.system.attributes.cor;
+    }
+    if (rawNewCor !== undefined && typeof rawNewCor === "object" && rawNewCor !== null && "value" in rawNewCor) {
+      rawNewCor = rawNewCor.value;
+    }
+
+    let corApGained = 0;
+    if (rawNewCor !== undefined) {
+      const newCorVal = Number(rawNewCor);
+      if (!isNaN(newCorVal)) {
+        const oldCorVal = Number(actor.system?.attributes?.cor?.value ?? actor.system?.attributes?.cor ?? 0);
+        const oldApMax = calculateApMax(oldCorVal, actor.system?.ap?.override);
+        const newApMax = calculateApMax(newCorVal, actor.system?.ap?.override);
+        if (newApMax > oldApMax) {
+          corApGained = newApMax - oldApMax;
+          const currentApVal = Number(flat["system.ap.value"] ?? changed.system?.ap?.value ?? actor.system?.ap?.value ?? 0);
+          const newApVal = Math.min(newApMax, currentApVal + corApGained);
+          foundry.utils.setProperty(changed, "system.ap.value", newApVal);
+        }
+      }
+    }
+
+    // When system.ap.max or system.ap.override is updated directly (and wasn't already handled by COR)
+    if (corApGained === 0) {
+      const rawNewMaxAp = flat["system.ap.max"] ?? changed.system?.ap?.max ?? flat["system.ap.override"] ?? changed.system?.ap?.override;
+      if (rawNewMaxAp !== undefined) {
+        const newMax = Number(rawNewMaxAp);
+        const oldMax = Number(actor.system?.ap?.max ?? 0);
+        if (!isNaN(newMax) && newMax > oldMax) {
+          const apGain = newMax - oldMax;
+          const currentApVal = Number(flat["system.ap.value"] ?? changed.system?.ap?.value ?? actor.system?.ap?.value ?? 0);
+          const newApVal = Math.min(newMax, currentApVal + apGain);
+          foundry.utils.setProperty(changed, "system.ap.value", newApVal);
+        }
+      }
     }
   });
 

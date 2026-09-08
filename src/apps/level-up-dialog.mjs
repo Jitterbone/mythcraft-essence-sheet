@@ -14,6 +14,7 @@ import {
   getEnduranceThreshold,
   calculateSetHpTotal,
   calculateLevelUpSetHpGain,
+  calculateApMax,
 } from "../features/hp-automation.mjs";
 import {
   getAttributeLevelCap,
@@ -470,6 +471,20 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
           ? `system.attributes.${key}.value`
           : `system.attributes.${key}`;
         updates[path] = base + mod;
+      }
+    }
+
+    // Coordination (COR) AP progression: increase current AP if max AP increases
+    const oldCor = getAttributeValue(this.actor, "cor");
+    const corMod = this._attributeChanges.cor || 0;
+    if (corMod > 0) {
+      const oldApMax = calculateApMax(oldCor, this.actor.system?.ap?.override);
+      const newApMax = calculateApMax(oldCor + corMod, this.actor.system?.ap?.override);
+      if (newApMax > oldApMax) {
+        const apGain = newApMax - oldApMax;
+        const curApVal = Number(this.actor.system?.ap?.value ?? 0);
+        updates["system.ap.value"] = Math.min(newApMax, curApVal + apGain);
+        updates["system.ap.max"] = newApMax;
       }
     }
 

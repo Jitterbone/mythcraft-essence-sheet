@@ -156,28 +156,53 @@ export function getAvailableCompendiums() {
  * @returns {Array<string>}
  */
 export function getDocumentFolderChain(doc, pack = null) {
+  if (doc?._folderChain && Array.isArray(doc._folderChain) && doc._folderChain.length > 0) {
+    return doc._folderChain;
+  }
   const chain = [];
   if (!doc) return chain;
 
-  const targetPack = pack || (doc.pack && globalThis.game?.packs?.get(doc.pack));
+  // 1. If doc.folder is a Folder document with getParentFolders() (standard Foundry Document)
+  if (doc.folder && typeof doc.folder === "object") {
+    if (typeof doc.folder.getParentFolders === "function") {
+      try {
+        const parents = doc.folder.getParentFolders();
+        const fullChain = [...parents.reverse(), doc.folder]
+          .map(f => String(f?.name || "").trim())
+          .filter(Boolean);
+        if (fullChain.length > 0) return fullChain;
+      } catch (e) {
+        // Fall through to manual traversal
+      }
+    }
+    // Object-based hierarchy traversal
+    let cur = doc.folder;
+    const visitedObjs = new Set();
+    while (cur && typeof cur === "object" && !visitedObjs.has(cur.id || cur._id || cur)) {
+      visitedObjs.add(cur.id || cur._id || cur);
+      if (cur.name) chain.unshift(String(cur.name).trim());
+      cur = cur.folder && typeof cur.folder === "object" ? cur.folder : null;
+    }
+    if (chain.length > 0) return chain;
+  }
+
+  // 2. Collection-based traversal using folder ID
+  const targetPack = pack || doc._compendiumPack || (doc.pack && globalThis.game?.packs?.get(doc.pack));
   const folderCollection = targetPack?.folders || globalThis.game?.folders;
 
   let folderId = typeof doc.folder === "string" 
     ? doc.folder 
-    : (doc.folder?.id || doc.folder?._id);
-
-  if (!folderId && doc.folder && typeof doc.folder === "object" && doc.folder.name) {
-    chain.unshift(doc.folder.name.trim());
-    folderId = typeof doc.folder.folder === "string" ? doc.folder.folder : (doc.folder.folder?.id || doc.folder.folder?._id || doc.folder.parent?.id);
-  }
+    : (doc.folder?.id || doc.folder?._id || doc._source?.folder);
 
   const visited = new Set();
-  while (folderId && folderCollection && !visited.has(folderId)) {
+  while (folderId && !visited.has(folderId)) {
     visited.add(folderId);
-    const f = folderCollection.get(folderId);
+    const f = folderCollection?.get?.(folderId) || (globalThis.game?.folders?.get?.(folderId));
     if (!f) break;
-    if (f.name) chain.unshift(f.name.trim());
-    folderId = typeof f.folder === "string" ? f.folder : (f.folder?.id || f.folder?._id || f.parent?.id || f._source?.folder);
+    if (f.name) chain.unshift(String(f.name).trim());
+    folderId = typeof f.folder === "string" 
+      ? f.folder 
+      : (f.folder?.id || f.folder?._id || f.parent?.id || f._source?.folder);
   }
 
   return chain;

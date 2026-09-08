@@ -549,13 +549,14 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       selectedChoiceFeatures,
       lineageStartingFeatures: activeStartingFeatures,
       activeStartingFeatures,
+      uniqueFeatures: lineageUniqueFeatures,
       lineageUniqueFeatures,
       eligibleUniqueFeatures: lineageUniqueFeatures.filter(f => f.isAvailable),
       selectedUniqueFeatures,
       selectedFeature: selectedUniqueFeatures[0] || null,
       hasSublineages: (lineageParsed.sublineages || []).length > 0,
       hasChoiceGroups: choiceGroupsWithState.length > 0,
-      hasUniqueFeatures: lineageUniqueFeatures.length > 0 && (uniqueCount > 0 || (lineageParsed.sublineages || []).length === 0),
+      hasUniqueFeatures: lineageUniqueFeatures.length > 0 && uniqueCount > 0,
       uniqueCount,
       uniqueFeaturesRemaining: Math.max(0, uniqueCount - (this.data.selectedUniqueFeatureIds || []).length),
       lineageMilestones,
@@ -1144,7 +1145,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       if (feature?.toObject) itemsToCreate.push(feature.toObject());
     }
     for (const featureId of (this.data.selectedUniqueFeatureIds || [])) {
-      const feature = (this.data.allLineageDocs || []).find(item => item.id === featureId);
+      const feature = (this.data.allLineageDocs || []).find(item => (item.id || item._id) === featureId);
       if (feature?.toObject) itemsToCreate.push(feature.toObject());
     }
 

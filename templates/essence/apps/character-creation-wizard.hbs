@@ -118,7 +118,7 @@
                   <i class="fas fa-code-branch"></i> Sublineage <span class="required-indicator">* Required</span>
                 </div>
                 <div class="lineage-dropdown-row">
-                  <select class="wizard-select lineage-sublineage-select" data-action="selectSublineage">
+                  <select class="wizard-select lineage-sublineage-select" name="selectedSublineage">
                     <option value="">-- Choose Sublineage --</option>
                     {{#each sublineages as |sub|}}
                       <option value="{{sub.name}}" {{#if sub.isSelected}}selected{{/if}}>{{sub.name}}</option>
@@ -170,7 +170,7 @@
                     <i class="fas fa-list-check"></i> {{group.name}} <span class="required-indicator">* Required</span>
                   </div>
                   <div class="lineage-dropdown-row">
-                    <select class="wizard-select lineage-choice-select" data-action="selectLineageChoice" data-group-key="{{group.key}}">
+                    <select class="wizard-select lineage-choice-select" name="lineageChoice_{{group.key}}" data-group-key="{{group.key}}">
                       <option value="">-- Choose {{group.name}} --</option>
                       {{#each group.choices as |choice|}}
                         <option value="{{choice.id}}" {{#if choice.isSelected}}selected{{/if}}>{{choice.name}}</option>

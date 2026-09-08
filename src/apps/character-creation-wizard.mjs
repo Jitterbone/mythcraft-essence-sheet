@@ -105,8 +105,6 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       nextStep: this.#onNextStep,
       prevStep: this.#onPrevStep,
       selectLineage: this.#onSelectLineage,
-      selectSublineage: this.#onSelectSublineage,
-      selectLineageChoice: this.#onSelectLineageChoice,
       selectLineageFeature: this.#onSelectLineageFeature,
       adjustAttribute: this.#onAdjustAttribute,
       setHpMode: this.#onSetHpMode,
@@ -629,6 +627,31 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
             try { freshInput.setSelectionRange(cursorPos, cursorPos); } catch (_) {}
           }
         }, 20);
+      });
+    });
+
+    // Sublineage select change listener
+    const sublineageSelect = this.element.querySelector(".lineage-sublineage-select");
+    if (sublineageSelect) {
+      sublineageSelect.addEventListener("change", e => {
+        this.data.selectedSublineageName = e.target.value || null;
+        this.render();
+      });
+    }
+
+    // Choice groups select change listeners (e.g. Golem Primary Material & Life Source)
+    const choiceSelects = this.element.querySelectorAll(".lineage-choice-select");
+    choiceSelects.forEach(select => {
+      select.addEventListener("change", e => {
+        const groupKey = select.dataset.groupKey;
+        if (!groupKey) return;
+        if (!this.data.selectedLineageChoices) this.data.selectedLineageChoices = {};
+        if (select.value) {
+          this.data.selectedLineageChoices[groupKey] = select.value;
+        } else {
+          delete this.data.selectedLineageChoices[groupKey];
+        }
+        this.render();
       });
     });
 

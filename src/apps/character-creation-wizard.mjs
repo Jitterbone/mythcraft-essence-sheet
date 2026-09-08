@@ -403,8 +403,8 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     // Known features/talents for prerequisite checking in Step 5
     const knownItemsForPrereq = [
       selectedLineage,
-      ...lineageStartingFeatures,
-      selectedFeature,
+      ...activeStartingFeatures,
+      ...selectedUniqueFeatures,
       selectedBackground,
       selectedProfession,
     ].filter(Boolean);

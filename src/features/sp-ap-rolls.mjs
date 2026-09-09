@@ -343,6 +343,8 @@ export async function executeUnifiedAction(actor, item, options = {}) {
         isCrit,
         apCost,
         spCost,
+        apDeducted: isCombat && apCost > 0 && attackMode !== "disabled",
+        spDeducted: spCost > 0 && spellMode !== "disabled",
       },
     },
   };

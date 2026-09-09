@@ -96,6 +96,60 @@ export function findItemFromChatMessage(message, actor) {
 }
 
 /**
+ * Detects if a chat message represents a damage roll, healing roll, or damage application.
+ * Damage rolls should NEVER deduct AP or SP.
+ * @param {ChatMessage} message
+ * @returns {boolean}
+ */
+export function isDamageChatMessage(message) {
+  if (!message) return false;
+
+  // 1. Module & system flags
+  const essenceFlags = message.flags?.["mythcraft-essence-sheet"];
+  if (essenceFlags?.isDamage || essenceFlags?.type === "damage" || essenceFlags?.isDamageRoll) return true;
+
+  const hudFlags = message.flags?.["mythcraft-hud"];
+  if (hudFlags?.isDamageRoll || hudFlags?.type === "damage" || hudFlags?.damageType || hudFlags?.processedAP) return true;
+
+  const sysFlags = message.flags?.mythcraft;
+  if (sysFlags?.type === "damage" || sysFlags?.isDamage) return true;
+
+  // 2. Rolls inspection
+  const rolls = message.rolls || [];
+  for (const r of rolls) {
+    if (r.constructor?.name === "DamageRoll") return true;
+    if (r.options?.isDamage || r.options?.damageType) return true;
+    const rType = String(r.options?.type || "").toLowerCase();
+    const VALID_DAMAGE_TYPES = new Set([
+      "sharp", "blunt", "cold", "fire", "corrosive", "lightning",
+      "toxic", "necrotic", "psychic", "radiant", "sonic", "pure", "direct", "damage"
+    ]);
+    if (VALID_DAMAGE_TYPES.has(rType)) return true;
+  }
+
+  // 3. Flavor checks
+  const flavor = (message.flavor || "").toLowerCase();
+  if (/\b(?:damage|dmg|heal|healing|critical damage|crit damage)\b/i.test(flavor)) return true;
+
+  // 4. Content checks
+  const content = (message.content || "").toLowerCase();
+  if (
+    content.includes("apply-damage-btn") ||
+    content.includes("apply-healing-btn") ||
+    content.includes('data-action="applydamage"') ||
+    content.includes("data-action='applydamage'") ||
+    content.includes('class="damage-total"') ||
+    content.includes("class='damage-total'") ||
+    content.includes("/damage") ||
+    content.includes("damage-result")
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Initializes combat, turn, AP, SP, and movement automation hooks
  */
 export function initCombatAutomation() {
@@ -249,6 +303,10 @@ export function initCombatAutomation() {
   Hooks.on("createChatMessage", async (message, options, userId) => {
     if (game.userId !== userId) return;
 
+    // NEVER deduct AP or SP for damage rolls, healing, or description posts
+    if (isDamageChatMessage(message)) return;
+    if (message.flags?.["mythcraft-essence-sheet"]?.isDescriptionPost) return;
+
     const actorId = message.speaker?.actor;
     const actor = actorId ? game.actors.get(actorId) : null;
     if (!actor || actor.type !== "character") return;
@@ -287,7 +345,7 @@ export function initCombatAutomation() {
       const apCost = calculateItemAPC(item, actor);
       const attackMode = getSetting("attackAPMode", "auto");
       if (apCost > 0 && attackMode !== "disabled") {
-        if (!message.flags?.["mythcraft-essence-sheet"]?.apDeducted) {
+        if (!message.flags?.["mythcraft-essence-sheet"]?.apDeducted && !message.flags?.["mythcraft-hud"]?.processedAP) {
           if (attackMode === "prompt") {
             new Dialog({
               title: `Action: ${item.name}`,

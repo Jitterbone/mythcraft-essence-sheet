@@ -346,8 +346,11 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
         itemId: item.id,
         itemUuid: item.uuid,
         itemName: item.name,
+        type: "damage",
         isCrit,
         isDamage: true,
+        isDamageRoll: true,
+        apDeducted: true,
       },
     },
   };

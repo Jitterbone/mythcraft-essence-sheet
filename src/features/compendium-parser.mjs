@@ -15,6 +15,7 @@ import {
   normalizeTalentName,
   isDisallowedTalentItem,
 } from "./talent-canonical-map.mjs";
+import { resolveItemIcon } from "./equipment-icons.mjs";
 
 /**
  * Recognized compendium titles and package IDs for official MythCraft content.
@@ -612,6 +613,98 @@ export function parseBackgroundData(item) {
  *  Text Parsing: Professions, Gear, Skills & Tenure
  * ──────────────────────────────────────────────────────────────────────── */
 
+const WORD_TO_QTY = {
+  one: 1, two: 2, three: 3, four: 4, five: 5,
+  six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+};
+
+/**
+ * Parses a starting gear description string into structured equipment items with resolved quantities.
+ * Handles nested parentheses, markdown links, compound containers, and word quantities.
+ * @param {string} gearText
+ * @returns {Array<{ name: string, quantity: number, raw: string }>}
+ */
+export function parseProfessionStartingGear(gearText) {
+  if (!gearText || typeof gearText !== "string") return [];
+
+  // 1. Strip markdown links: [label](url) -> label
+  const cleaned = gearText.replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1");
+
+  // 2. Tokenize respecting parentheses & brackets (do not split commas inside parens)
+  const tokens = [];
+  let current = "";
+  let parenDepth = 0;
+
+  for (let i = 0; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+    if (ch === "(" || ch === "[" || ch === "{") parenDepth++;
+    else if (ch === ")" || ch === "]" || ch === "}") parenDepth = Math.max(0, parenDepth - 1);
+
+    if ((ch === "," || ch === "\n" || ch === "\r") && parenDepth === 0) {
+      const trimmed = current.trim();
+      if (trimmed) tokens.push(trimmed);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  if (current.trim()) tokens.push(current.trim());
+
+  // 3. Process tokens into structured items
+  const startingGear = [];
+
+  for (const rawToken of tokens) {
+    const itemStr = rawToken.replace(/^[\*\-•]\s*/, "").replace(/[\.\*]+$/, "").trim();
+    if (!itemStr) continue;
+
+    // Check compound container entries like "Satchel and saddlebags" or "belt pouch and satchel"
+    const andMatch = itemStr.match(/^(satchel|belt pouch|pouch|saddlebags)\s+and\s+(satchel|belt pouch|pouch|saddlebags)$/i);
+    if (andMatch) {
+      startingGear.push(parseSingleGearToken(andMatch[1].trim(), rawToken));
+      startingGear.push(parseSingleGearToken(andMatch[2].trim(), rawToken));
+      continue;
+    }
+
+    startingGear.push(parseSingleGearToken(itemStr, rawToken));
+  }
+
+  return startingGear;
+}
+
+function parseSingleGearToken(itemStr, rawToken) {
+  let name = itemStr;
+  let quantity = 1;
+
+  // Pattern 1: "parchment (10)" or "rations (2)" or "candles (10)"
+  const parenQtyMatch = name.match(/^([^\(]+?)\s*\(\s*(\d+)\s*\)$/);
+  if (parenQtyMatch) {
+    name = parenQtyMatch[1].trim();
+    quantity = parseInt(parenQtyMatch[2], 10) || 1;
+    return { name, quantity, raw: rawToken };
+  }
+
+  // Pattern 2: "two sets of clothes (noble)" or "two sets of clothes"
+  const wordSetsMatch = name.match(/^(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s*sets?\s*of\s*(.+)$/i);
+  if (wordSetsMatch) {
+    const word = wordSetsMatch[1].toLowerCase();
+    quantity = WORD_TO_QTY[word] || parseInt(word, 10) || 1;
+    name = wordSetsMatch[2].trim();
+    return { name, quantity, raw: rawToken };
+  }
+
+  // Pattern 3: "50 ft rope" -> "Rope (50 ft)"
+  if (/^50\s*ft\s*rope$/i.test(name)) {
+    return { name: "Rope (50 ft)", quantity: 1, raw: rawToken };
+  }
+
+  // Pattern 4: "wood- splitting axe" -> "Wood Splitter"
+  if (/^wood[\-\s]+splitting\s*axe$/i.test(name)) {
+    return { name: "Wood Splitter", quantity: 1, raw: rawToken };
+  }
+
+  return { name, quantity, raw: rawToken };
+}
+
 /**
  * Parses profession items for starting gear, skills, and tenure rank items.
  * @param {Item} item
@@ -621,26 +714,10 @@ export function parseProfessionData(item) {
   const desc = descriptionText(item);
 
   // 1. Starting Gear List
-  const startingGear = [];
-  const gearMatch = desc.match(/gain\s*the\s*following\s*gear[^:]*:\s*([\s\S]*?)(?:Each\s*time|Tenure|When\s*you\s*become|$)/i);
+  let startingGear = [];
+  const gearMatch = desc.match(/gain\s*the\s*following\s*gear[^:]*:\s*([\s\S]*?)(?:Each\s*time|Tenure|When\s*you\s*become|Starting\s*Wealth|At\s*1st\s*Level|$)/i);
   if (gearMatch) {
-    const rawItems = gearMatch[1].split(/[\n\r,]+/).map(s => s.trim()).filter(Boolean);
-    for (const raw of rawItems) {
-      const qtyMatch = raw.match(/^([^\(]+)\s*\(\s*(\d+)\s*\)$/);
-      if (qtyMatch) {
-        startingGear.push({
-          name: qtyMatch[1].trim(),
-          quantity: parseInt(qtyMatch[2], 10),
-          raw,
-        });
-      } else {
-        startingGear.push({
-          name: raw,
-          quantity: 1,
-          raw,
-        });
-      }
-    }
+    startingGear = parseProfessionStartingGear(gearMatch[1]);
   }
 
   // 2. Fixed and Choice Skills
@@ -1481,7 +1558,7 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
       id,
       item: t,
       name,
-      img: t.img || "icons/svg/aura.svg",
+      img: resolveItemIcon(t, t.img, "talent"),
       description: t.system?.description?.value ?? t.system?.description ?? "",
       prerequisites: parsed.prerequisites,
       incompatibilities: parsed.incompatibilities,

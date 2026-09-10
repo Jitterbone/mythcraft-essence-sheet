@@ -24,6 +24,7 @@ import {
   parseTalentData,
   parseProfessionData,
 } from "../features/compendium-parser.mjs";
+import { resolveItemIcon, isDefaultIcon } from "../features/equipment-icons.mjs";
 import TalentTreeViewer from "./talent-tree-viewer.mjs";
 
 const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
@@ -224,7 +225,7 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
           return {
             id: tid,
             name: t.name,
-            img: t.img || "icons/svg/aura.svg",
+            img: resolveItemIcon(t, t.img, "talent"),
             isAvailable: avail.isAvailable,
             missingPrereqs: avail.missingPrereqs,
             prereqTooltip: avail.prereqTooltip,
@@ -503,6 +504,11 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       for (const extraId of this._selectedExtraTalentIds) {
         const extraItem = (this._cachedMagicTalents || []).find(t => (t.id || t._id) === extraId);
         if (extraItem?.toObject) itemsToCreate.push(extraItem.toObject());
+      }
+      for (const it of itemsToCreate) {
+        if (isDefaultIcon(it.img)) {
+          it.img = resolveItemIcon(it, it.img, it.type || "talent");
+        }
       }
       await this.actor.createEmbeddedDocuments("Item", itemsToCreate);
 

@@ -2,7 +2,8 @@
  * mythcraft-essence-sheet | src/features/equipment-icons.mjs
  *
  * Comprehensive Foundry VTT Default Icon Mapping Engine for MythCraft Equipment,
- * Starting Gear, Weapons, Armor, Tools, Musical Instruments, Consumables & Sundries.
+ * Starting Gear, Weapons, Armor, Tools, Musical Instruments, Consumables,
+ * Talents, Features & Spells.
  */
 
 /**
@@ -26,8 +27,10 @@ export function isDefaultIcon(img) {
     clean === "icons/svg/chest.svg" ||
     clean === "icons/svg/upgrade.svg" ||
     clean === "icons/svg/anchor.svg" ||
+    clean === "icons/svg/combat.svg" ||
     clean.endsWith("/item-bag.svg") ||
-    clean.endsWith("/mystery-man.svg")
+    clean.endsWith("/mystery-man.svg") ||
+    clean.endsWith("/aura.svg")
   );
 }
 
@@ -53,7 +56,7 @@ export const EXACT_EQUIPMENT_ICONS = {
   "knife": "icons/weapons/daggers/dagger-black.webp",
   "kunai": "icons/weapons/daggers/dagger-straight-blue.webp",
   "fire blade": "icons/weapons/swords/sword-flanged-lightning.webp",
-  "improvised small blade": "icons/weapons/daggers/dagger-bone-black.webp",
+  "improvised small blade": "icons/weapons/daggers/dagger-black.webp",
   "improvised large blade": "icons/weapons/swords/sword-broad-worn.webp",
   "battle axe": "icons/weapons/axes/axe-battle-black.webp",
   "greataxe": "icons/weapons/axes/axe-broad-crescent-gray.webp",
@@ -68,11 +71,11 @@ export const EXACT_EQUIPMENT_ICONS = {
   "hammer": "icons/tools/hand/hammer-and-nail.webp",
   "lucerne hammer": "icons/weapons/polearms/halberd-crescent-steel.webp",
   "wood splitter": "icons/weapons/axes/axe-battle-black.webp",
-  "spear": "icons/weapons/polearms/spear-barbed-silver.webp",
+  "spear": "icons/weapons/polearms/halberd-crescent-engraved-steel.webp",
   "pike": "icons/weapons/polearms/halberd-crescent-steel.webp",
   "javelin": "icons/weapons/polearms/javelin-flared.webp",
   "lance": "icons/weapons/polearms/spear-barbed-silver.webp",
-  "halberd": "icons/weapons/polearms/halberd-crescent-steel.webp",
+  "halberd": "icons/weapons/polearms/halberd-crescent-engraved-steel.webp",
   "glaive": "icons/weapons/polearms/glaive-simple-hooked.webp",
   "glaive guisarme": "icons/weapons/polearms/glaive-hooked-steel.webp",
   "poleaxe": "icons/weapons/polearms/halberd-crescent-engraved-steel.webp",
@@ -102,7 +105,7 @@ export const EXACT_EQUIPMENT_ICONS = {
   "morningstar": "icons/weapons/maces/flail-morning-star.webp",
   "flail": "icons/weapons/maces/flail-spiked-grey.webp",
   "tetsubo": "icons/weapons/clubs/club-banded-barbed-black.webp",
-  "brass knuckles": "icons/weapons/fist/brass-knuckles-spiked.webp",
+  "brass knuckles": "icons/weapons/fist/claw-leather-brown.webp",
   "cestus": "icons/weapons/fist/claw-leather-brown.webp",
   "nunchucks": "icons/weapons/misc/nunchaku.webp",
   "tonfa": "icons/weapons/clubs/baton-night-stick-truncheon.webp",
@@ -199,13 +202,13 @@ export const EXACT_EQUIPMENT_ICONS = {
   "tambourine": "icons/tools/instruments/drum-hand-tan.webp",
   "whistle": "icons/tools/instruments/whistle-copper.webp",
   "backpack": "icons/containers/bags/pack-leather-strapped-tan.webp",
-  "traveler's pack": "icons/containers/bags/pack-leather-black-brown.webp",
+  "traveler's pack": "icons/containers/bags/pack-leather-strapped-tan.webp",
   "bedroll": "icons/sundries/survival/bedroll-blue-red.webp",
   "blanket": "icons/sundries/survival/bedroll-grey.webp",
   "cargo bags": "icons/containers/bags/sack-cloth-tan.webp",
   "cargo bags (hidden pockets)": "icons/containers/bags/pouch-leather-brown-green.webp",
   "scroll case": "icons/containers/bags/case-scroll-leather-tan.webp",
-  "saddlebags": "icons/containers/bags/case-embossed-leather-tan.webp",
+  "saddlebags": "icons/containers/bags/pouch-leather-brown-green.webp",
   "glass bottle": "icons/consumables/drinks/alcohol-spirits-bottle-green.webp",
   "glass vial": "icons/tools/laboratory/vials-blue-pink.webp",
   "engraved flask": "icons/containers/kitchenware/bowl-clay-brown.webp",
@@ -215,13 +218,13 @@ export const EXACT_EQUIPMENT_ICONS = {
   "torch": "icons/sundries/lights/torch-brown-lit.webp",
   "lantern": "icons/sundries/lights/lantern-iron-yellow.webp",
   "flint & steel": "icons/tools/smithing/pincers.webp",
-  "tinderbox": "icons/tools/smithing/crucible-round.webp",
+  "tinderbox": "icons/tools/smithing/pincers.webp",
   "rope (50 ft)": "icons/sundries/survival/rope-braided-yellow.webp",
   "rope ladder (10 ft)": "icons/sundries/survival/rope-braided-yellow.webp",
   "wire (50 ft)": "icons/tools/fasteners/chain-steel-grey.webp",
   "chain (10 ft)": "icons/tools/fasteners/chain-steel-blue.webp",
   "chain (heavy, 10 ft)": "icons/tools/fasteners/chain-steel-grey.webp",
-  "crowbar": "icons/tools/hand/wrench-adjustable-toothed.webp",
+  "crowbar": "icons/tools/hand/hammer-and-nail.webp",
   "grappling hook": "icons/tools/nautical/anchor-blue-orange.webp",
   "pitons": "icons/tools/fasteners/pin-spiked.webp",
   "shovel": "icons/tools/hand/shovel-steel.webp",
@@ -239,7 +242,7 @@ export const EXACT_EQUIPMENT_ICONS = {
   "hourglass": "icons/tools/navigation/hourglass-yellow.webp",
   "sundial": "icons/tools/navigation/watch-simple-blue.webp",
   "scale": "icons/tools/hand/trowel.webp",
-  "tent (small)": "icons/environment/settlement/tent-flag.webp",
+  "tent (small)": "icons/environment/settlement/house-wooden-fence.webp",
   "tent (large)": "icons/environment/settlement/tent-flag.webp",
   "tent (pavilion)": "icons/environment/settlement/tent-flag.webp",
   "camping kit": "icons/sundries/survival/bedroll-blue-red.webp",
@@ -340,11 +343,84 @@ export const EXACT_EQUIPMENT_ICONS = {
   "room (two beds)": "icons/sundries/survival/bedroll-blue-red.webp",
   "room (four beds)": "icons/sundries/survival/bedroll-blue-red.webp",
   "room (hostel with lockers)": "icons/containers/chest/chest-reinforced-box-brown.webp",
-  "room (hostel without lockers)": "icons/sundries/survival/bedroll-blue-red.webp"
+  "room (hostel without lockers)": "icons/sundries/survival/bedroll-blue-red.webp",
+  "satchel": "icons/containers/bags/pouch-leather-brown-green.webp",
+  "gambeson armor": "icons/equipment/chest/breastplate-quilted-brown.webp",
+  "tool or kit": "icons/tools/hand/hammer-and-nail.webp",
+  "hooded lantern": "icons/sundries/lights/lantern-iron-yellow.webp",
+  "hanging lantern rod": "icons/sundries/lights/lantern-iron-yellow.webp",
+  "lamp": "icons/sundries/lights/lantern-battery-steel.webp",
+  "robes": "icons/equipment/chest/robe-layered-blue.webp",
+  "clothes (simple)": "icons/equipment/chest/breastplate-quilted-brown.webp",
+  "clothes (noble)": "icons/equipment/chest/robe-layered-blue.webp",
+  "flask of oil": "icons/consumables/potions/bottle-bulb-corked-labeled-blue.webp",
+  "flask": "icons/consumables/drinks/alcohol-beer-mug-yellow.webp",
+  "oil": "icons/consumables/potions/bottle-bulb-corked-labeled-blue.webp",
+  "small collection of books and scrolls": "icons/sundries/books/book-backed-blue-gold.webp",
+  "small collection of scrolls": "icons/sundries/documents/parchment-plain-tan.webp",
+  "books of any topic fiction or nonfiction": "icons/sundries/books/book-backed-blue-gold.webp",
+  "book of laws": "icons/sundries/books/book-backed-blue-gold.webp",
+  "blank journal": "icons/sundries/books/book-embossed-bound-brown.webp",
+  "medicinal tome": "icons/sundries/books/book-backed-blue-gold.webp",
+  "gavel": "icons/tools/hand/hammer-and-nail.webp",
+  "rations": "icons/consumables/food/cooked-drumstick-chicken-turkey-brown.webp",
+  "inkpot": "icons/tools/scribal/ink-quill-pink.webp",
+  "ink": "icons/tools/scribal/ink-quill-pink.webp",
+  "quill pen": "icons/tools/scribal/ink-quill-pink.webp",
+  "quill": "icons/tools/scribal/ink-quill-pink.webp",
+  "wineskin": "icons/sundries/survival/waterskin-leather-brown.webp",
+  "rucksack": "icons/containers/bags/pack-leather-strapped-tan.webp",
+  "traveler’s pack": "icons/containers/bags/pack-leather-strapped-tan.webp",
+  "belt pouch": "icons/containers/bags/pouch-leather-brown-green.webp",
+  "belt pouches": "icons/containers/bags/pouch-leather-brown-green.webp",
+  "various pouches and bottles": "icons/containers/bags/pouch-leather-brown-green.webp",
+  "pocketed cloak": "icons/equipment/chest/robe-layered-blue.webp",
+  "hooded cloak": "icons/equipment/chest/robe-layered-blue.webp",
+  "embroidered hooded cloak": "icons/equipment/chest/robe-layered-blue.webp",
+  "con gear": "icons/dice/d20black.svg",
+  "gear to run your con of choice": "icons/dice/d20black.svg",
+  "gear to run your con of choice (choose one: marked cards, weighted dice, defunct goods, fake antiques, or false gems/gold)": "icons/dice/d20black.svg",
+  "small hand cart or prop-up stand": "icons/environment/settlement/wagon-black.webp",
+  "candles": "icons/sundries/lights/candle-lit-angelic.webp",
+  "religious icon": "icons/magic/holy/angel-winged-humanoid-blue.webp",
+  "incense": "icons/magic/symbols/runes-star-pentagon-orange-purple.webp",
+  "instruments": "icons/tools/instruments/lute-gold-brown.webp",
+  "makeup": "icons/tools/hand/awl-steel-tan.webp",
+  "costumes/disguises": "icons/equipment/chest/robe-collared-blue.webp",
+  "props such as juggling balls or a book of songs": "icons/tools/instruments/lute-gold-brown.webp",
+  "a spear or a halberd": "icons/weapons/polearms/halberd-crescent-engraved-steel.webp",
+  "spear or halberd": "icons/weapons/polearms/halberd-crescent-engraved-steel.webp",
+  "chainmail": "icons/equipment/chest/breastplate-banded-steel-grey.webp",
+  "chainmail armor": "icons/equipment/chest/breastplate-banded-steel-grey.webp",
+  "leather armor": "icons/equipment/chest/breastplate-banded-leather-brown.webp",
+  "brigandine armor": "icons/equipment/chest/breastplate-layered-leather-black.webp",
+  "torches": "icons/sundries/lights/torch-brown-lit.webp",
+  "deck of cards": "icons/dice/d20black.svg",
+  "cards": "icons/dice/d20black.svg",
+  "insignia of rank": "icons/commodities/treasure/token-engraved-pickaxe-pink.webp",
+  "insignia of rank (banner, patch, pin, etc.)": "icons/commodities/treasure/token-engraved-pickaxe-pink.webp",
+  "signet ring": "icons/equipment/finger/ring-ball-gold-pink.webp",
+  "mess kit": "icons/tools/cooking/pot-camping-iron-black.webp",
+  "bowl": "icons/tools/cooking/pot-camping-iron-black.webp",
+  "one large blade": "icons/weapons/swords/greatsword-crossguard-steel.webp",
+  "large blade": "icons/weapons/swords/greatsword-crossguard-steel.webp",
+  "50 ft rope": "icons/sundries/survival/rope-braided-yellow.webp",
+  "rope": "icons/sundries/survival/rope-braided-yellow.webp",
+  "bandages": "icons/tools/medical/medkit-heavy.webp",
+  "wood- splitting axe": "icons/weapons/axes/axe-battle-black.webp",
+  "wood-splitting axe": "icons/weapons/axes/axe-battle-black.webp",
+  "two-person tent": "icons/environment/settlement/house-wooden-fence.webp",
+  "tent": "icons/environment/settlement/house-wooden-fence.webp",
+  "folding chair": "icons/environment/settlement/house-wooden-fence.webp",
+  "scales": "icons/tools/hand/trowel.webp",
+  "magnifying lens": "icons/tools/scribal/magnifying-glass.webp",
+  "bolt of fabric (silk)": "icons/commodities/cloth/cloth-bolt-purple.webp",
+  "daggers or knives": "icons/weapons/daggers/dagger-black.webp",
+  "cestus or brass knuckles": "icons/weapons/fist/claw-leather-brown.webp"
 };
 
 /**
- * Category & Keyword Fallback Rules (evaluated in top-down order).
+ * Category & Keyword Fallback Rules for Equipment (evaluated in top-down order).
  */
 export const KEYWORD_ICON_RULES = [
   { regex: /\b(?:greatsword|claymore|nodachi|zweihander)\b/i, icon: "icons/weapons/swords/greatsword-blue.webp" },
@@ -355,7 +431,7 @@ export const KEYWORD_ICON_RULES = [
   { regex: /\b(?:dagger|dirk|stiletto|poniard|knife|kunai|blade)\b/i, icon: "icons/weapons/daggers/dagger-black.webp" },
   { regex: /\b(?:sword|broadsword|longsword|bastard sword)\b/i, icon: "icons/weapons/swords/greatsword-crossguard-steel.webp" },
   { regex: /\b(?:greataxe|battleaxe|battle axe|war axe|hatchet|handaxe|axe)\b/i, icon: "icons/weapons/axes/axe-battle-black.webp" },
-  { regex: /\b(?:warhammer|maul|hammer|sledgehammer|mallet)\b/i, icon: "icons/weapons/hammers/hammer-double-engraved-gold.webp" },
+  { regex: /\b(?:warhammer|maul|hammer|sledgehammer|mallet|gavel)\b/i, icon: "icons/weapons/hammers/hammer-double-engraved-gold.webp" },
   { regex: /\b(?:pick|war pick|pickaxe)\b/i, icon: "icons/weapons/axes/pickaxe-bone-black.webp" },
   { regex: /\b(?:quarterstaff|staff|walking stick|cane|rod)\b/i, icon: "icons/weapons/staves/staff-simple-blue.webp" },
   { regex: /\b(?:spear|pike|javelin|lance|halberd|glaive|poleaxe|bardiche|trident|scythe|yari)\b/i, icon: "icons/weapons/polearms/halberd-crescent-engraved-steel.webp" },
@@ -380,7 +456,7 @@ export const KEYWORD_ICON_RULES = [
   { regex: /\b(?:ring|band|signet)\b/i, icon: "icons/equipment/finger/ring-ball-gold-pink.webp" },
   { regex: /\b(?:amulet|necklace|pendant|medallion|periapt|talisman|choker)\b/i, icon: "icons/equipment/neck/amulet-carved-runed-othila-fehu-grey.webp" },
   { regex: /\b(?:alchem|herbal|poisoner|lab|flask|vial|mortar|pestle|apothecary)\b/i, icon: "icons/tools/laboratory/alembic-glass-ball-blue.webp" },
-  { regex: /\b(?:healer|medic|first aid|surgeon|surgery|bandage|splint|scalpel)\b/i, icon: "icons/tools/medical/medkit-heavy.webp" },
+  { regex: /\b(?:healer|medic|first aid|surgeon|surgery|bandage|bandages|splint|scalpel)\b/i, icon: "icons/tools/medical/medkit-heavy.webp" },
   { regex: /\b(?:thief|thieves|lockpick|skulduggery|burglar|pickpocket|crowbar)\b/i, icon: "icons/tools/hand/lockpicks-steel-grey.webp" },
   { regex: /\b(?:navigator|cartograph|compass|sextant|spyglass|telescope|astrolabe|map)\b/i, icon: "icons/tools/navigation/compass-brass-blue-red.webp" },
   { regex: /\b(?:trapper|trap|snare)\b/i, icon: "icons/environment/traps/cage-grey-steel.webp" },
@@ -390,9 +466,9 @@ export const KEYWORD_ICON_RULES = [
   { regex: /\b(?:leatherworker|leatherworking|cobbler|shoemaker|awl)\b/i, icon: "icons/tools/hand/awl-steel-tan.webp" },
   { regex: /\b(?:mason|masonry|trowel|brick)\b/i, icon: "icons/tools/hand/trowel.webp" },
   { regex: /\b(?:jewel|jeweler|gem|gemstone)\b/i, icon: "icons/commodities/treasure/box-jade-tassel.webp" },
-  { regex: /\b(?:cook|cooking|culinary|chef|pot|pan|utensil|skillet|cauldron)\b/i, icon: "icons/tools/cooking/pot-camping-iron-black.webp" },
+  { regex: /\b(?:cook|cooking|culinary|chef|pot|pan|utensil|utensils|skillet|cauldron|bowl)\b/i, icon: "icons/tools/cooking/pot-camping-iron-black.webp" },
   { regex: /\b(?:brewer|brewing|distill|distilling|ferment|fermenting)\b/i, icon: "icons/tools/cooking/cauldron-empty.webp" },
-  { regex: /\b(?:scribe|scribal|calligraph|ink|quill|pen|vellum)\b/i, icon: "icons/tools/scribal/ink-quill-pink.webp" },
+  { regex: /\b(?:scribe|scribal|calligraph|ink|quill|pen|vellum|parchment)\b/i, icon: "icons/tools/scribal/ink-quill-pink.webp" },
   { regex: /\b(?:painter|painting|artist|easel|canvas|palette|brush)\b/i, icon: "icons/tools/hand/brush-paint-brown-tan.webp" },
   { regex: /\b(?:weaver|tailor|sewing|thread|needle|loom|spindle)\b/i, icon: "icons/commodities/cloth/thread-and-needle.webp" },
   { regex: /\b(?:barber|shave|razor|scissors|shears)\b/i, icon: "icons/tools/hand/shears.webp" },
@@ -403,10 +479,10 @@ export const KEYWORD_ICON_RULES = [
   { regex: /\b(?:horn|trumpet|bugle|cornet|trombone|tuba|sackbut|shofar)\b/i, icon: "icons/tools/instruments/horn-flared-wood.webp" },
   { regex: /\b(?:violin|fiddle|viol|viola|cello|bass)\b/i, icon: "icons/tools/instruments/lute-gold-brown.webp" },
   { regex: /\b(?:bagpipes|bagpipe)\b/i, icon: "icons/tools/instruments/bell-brass-brown.webp" },
-  { regex: /\b(?:instrument|music|song)\b/i, icon: "icons/tools/instruments/lute-gold-brown.webp" },
+  { regex: /\b(?:instrument|instruments|music|song)\b/i, icon: "icons/tools/instruments/lute-gold-brown.webp" },
   { regex: /\b(?:backpack|rucksack|knapsack|pack)\b/i, icon: "icons/containers/bags/pack-leather-strapped-tan.webp" },
-  { regex: /\b(?:pouch|purse|coin purse|money pouch)\b/i, icon: "icons/containers/bags/pouch-leather-brown-green.webp" },
-  { regex: /\b(?:sack|bag|cargo bag|duffel|tote)\b/i, icon: "icons/containers/bags/sack-cloth-tan.webp" },
+  { regex: /\b(?:pouch|pouches|purse|coin purse|money pouch)\b/i, icon: "icons/containers/bags/pouch-leather-brown-green.webp" },
+  { regex: /\b(?:sack|bag|bags|cargo bag|duffel|tote|satchel)\b/i, icon: "icons/containers/bags/sack-cloth-tan.webp" },
   { regex: /\b(?:saddlebag|saddlebags|haversack)\b/i, icon: "icons/containers/bags/case-embossed-leather-tan.webp" },
   { regex: /\b(?:chest|trunk|locker|box|coffer|crate|casket)\b/i, icon: "icons/containers/chest/chest-reinforced-box-brown.webp" },
   { regex: /\b(?:scroll case|case|quiver|holster|scabbard|sheath)\b/i, icon: "icons/containers/bags/case-scroll-leather-tan.webp" },
@@ -420,23 +496,54 @@ export const KEYWORD_ICON_RULES = [
   { regex: /\b(?:rope|cord|twine|string|cable|hemp)\b/i, icon: "icons/sundries/survival/rope-braided-yellow.webp" },
   { regex: /\b(?:chain|manacles|shackles|cuffs|fetters)\b/i, icon: "icons/tools/fasteners/chain-steel-blue.webp" },
   { regex: /\b(?:piton|pitons|grappling hook|grapple|spike|spikes|crampons)\b/i, icon: "icons/tools/fasteners/pin-spiked.webp" },
-  { regex: /\b(?:waterskin|canteen|flask|jug|bottle)\b/i, icon: "icons/sundries/survival/waterskin-leather-brown.webp" },
+  { regex: /\b(?:waterskin|wineskin|canteen|flask|jug|bottle)\b/i, icon: "icons/sundries/survival/waterskin-leather-brown.webp" },
   { regex: /\b(?:shovel|spade)\b/i, icon: "icons/tools/hand/shovel-steel.webp" },
-  { regex: /\b(?:holy symbol|relic|sacred symbol|talisman|ankh|crucifix)\b/i, icon: "icons/magic/holy/angel-winged-humanoid-blue.webp" },
+  { regex: /\b(?:holy symbol|religious icon|relic|sacred symbol|talisman|ankh|crucifix)\b/i, icon: "icons/magic/holy/angel-winged-humanoid-blue.webp" },
   { regex: /\b(?:writ|document|contract|deed|letter|warrant|charter|decree)\b/i, icon: "icons/sundries/documents/document-writing-brown.webp" },
-  { regex: /\b(?:parchment|paper|scroll)\b/i, icon: "icons/sundries/documents/parchment-plain-tan.webp" },
-  { regex: /\b(?:book|tome|grimoire|journal|diary|ledger)\b/i, icon: "icons/sundries/books/book-backed-blue-gold.webp" },
-  { regex: /\b(?:dice|cards|deck|game|chess)\b/i, icon: "icons/dice/d20black.svg" },
+  { regex: /\b(?:parchment|paper|scroll|scrolls)\b/i, icon: "icons/sundries/documents/parchment-plain-tan.webp" },
+  { regex: /\b(?:book|books|tome|grimoire|journal|diary|ledger)\b/i, icon: "icons/sundries/books/book-backed-blue-gold.webp" },
+  { regex: /\b(?:dice|cards|deck|game|chess|con gear)\b/i, icon: "icons/dice/d20black.svg" },
   { regex: /\b(?:ration|rations|meal|meat|stew|bread|food|cheese)\b/i, icon: "icons/consumables/food/cooked-drumstick-chicken-turkey-brown.webp" },
   { regex: /\b(?:ale|beer|wine|cider|spirits|liquor|whiskey|mead|rum)\b/i, icon: "icons/consumables/drinks/alcohol-beer-mug-yellow.webp" },
   { regex: /\b(?:healing potion|healing elixir|cure|antidote)\b/i, icon: "icons/consumables/potions/bottle-bulb-corked-glowing-red.webp" },
   { regex: /\b(?:herb|herbs|plants|leaves|roots)\b/i, icon: "icons/tools/laboratory/bowl-herbs-green.webp" },
-  { regex: /\b(?:spice|spices|seasoning)\b/i, icon: "icons/tools/cooking/mortar-herbs-yellow.webp" },
+  { regex: /\b(?:spice|spices|seasoning|incense)\b/i, icon: "icons/tools/cooking/mortar-herbs-yellow.webp" },
   { regex: /\b(?:horse|mount|steed|mare|stallion|pony|donkey|mule)\b/i, icon: "icons/environment/creatures/horse-brown.webp" },
   { regex: /\b(?:hound|dog|wolf)\b/i, icon: "icons/commodities/treasure/figurine-dog.webp" },
   { regex: /\b(?:ox|bull|cow|cattle)\b/i, icon: "icons/environment/creatures/horse-brown.webp" },
   { regex: /\b(?:cart|wagon|carriage)\b/i, icon: "icons/environment/settlement/wagon-black.webp" },
   { regex: /\b(?:boat|ship|vessel|galley|canoe|raft)\b/i, icon: "icons/environment/vehicles/boat-fishing-masted.webp" },
+];
+
+/**
+ * Category & Keyword Rules for Talents & Features (evaluated in top-down order).
+ */
+export const TALENT_ICON_RULES = [
+  { regex: /\b(?:strike|slash|cleave|thrust|smash|bash|crush|flurry|whirlwind|rend|gore|bite|claw|brawler|grapple|charge|assault|overpower|execute)\b/i, icon: "icons/skills/melee/strike-blade-blood-red.webp" },
+  { regex: /\b(?:parry|riposte|feint|counter|disarm|trip|sweep|maneuver|stance|footwork|flourish|duel|fencing)\b/i, icon: "icons/skills/melee/hand-grip-axe-strike-orange.webp" },
+  { regex: /\b(?:punch|kick|fist|unarmed|martial|iron fist|drunken|pugilist)\b/i, icon: "icons/skills/melee/unarmed-punch-fist-blue.webp" },
+  { regex: /\b(?:berserk|rage|frenzy|bloodlust|reckless|rampage|juggernaut|unbridled)\b/i, icon: "icons/skills/wounds/injury-face-impact-orange.webp" },
+  { regex: /\b(?:shot|snipe|aim|deadeye|bullseye|volley|barrage|recurve|arrow|bolt|marksman|marksmanship|ricochet)\b/i, icon: "icons/skills/ranged/target-bullseye-archer-orange.webp" },
+  { regex: /\b(?:shield|block|bulwark|bastion|wall|deflect|guard|protect|fortress|defend)\b/i, icon: "icons/magic/defensive/shield-barrier-blue.webp" },
+  { regex: /\b(?:armor|plate|iron skin|stone skin|unyielding|indomitable|toughness|resilience|fortitude|endure|tenacity|hardened|thick hide)\b/i, icon: "icons/equipment/chest/breastplate-banded-blue.webp" },
+  { regex: /\b(?:stride|sprint|dash|leap|jump|fly|flight|wings|acrobat|tumble|vault|evade|dodge|blink|teleport|shadowstep|vanish|nimble|fleet|swift)\b/i, icon: "icons/skills/movement/arrow-upward-blue.webp" },
+  { regex: /\b(?:sneak|stealth|shadow|hide|assassin|backstab|ambush|infiltrate|cutpurse|pickpocket|lockpick|trap|poison|toxin|venom|disguise|impersonate)\b/i, icon: "icons/weapons/daggers/dagger-black.webp" },
+  { regex: /\b(?:command|leader|rally|tactics|strategy|orders|formation|coordinate|inspire|warlord|banner|herald|marshal)\b/i, icon: "icons/skills/social/diplomacy-handshake-blue.webp" },
+  { regex: /\b(?:song|sing|melody|chant|ballad|hymn|rhapsody|sonata|virtuoso|minstrel|skald|jester|mockery|taunt|charm|allure|fascinate)\b/i, icon: "icons/tools/instruments/lute-gold-brown.webp" },
+  { regex: /\b(?:heal|healing|cure|restoration|mend|rejuvenat|revive|resurrect|lay on hands|salve)\b/i, icon: "icons/magic/life/heart-hand-gold-green-light.webp" },
+  { regex: /\b(?:holy|divine|sacred|radiance|radiant|bless|blessing|prayer|sanctuary|smite|exorcism|angel|templar|crusader|inquisitor|piety|zealot)\b/i, icon: "icons/magic/holy/angel-winged-humanoid-blue.webp" },
+  { regex: /\b(?:fire|flame|pyro|burn|blaze|inferno|combustion|scorch|fireball|ignite)\b/i, icon: "icons/magic/fire/beam-jet-stream-blue.webp" },
+  { regex: /\b(?:ice|frost|cold|freeze|glacial|chill|blizzard|icicle|crystal)\b/i, icon: "icons/magic/water/barrier-ice-shield.webp" },
+  { regex: /\b(?:lightning|shock|thunder|storm|volt|electric|spark|tempest|plasma)\b/i, icon: "icons/magic/lightning/bolt-strike-blue-white.webp" },
+  { regex: /\b(?:earth|stone|rock|boulder|terran|quake|fissure|geomancy)\b/i, icon: "icons/magic/earth/strike-fist-stone-light.webp" },
+  { regex: /\b(?:wind|air|gust|cyclone|gale|tornado|aeromancy)\b/i, icon: "icons/magic/air/fog-gas-smoke-dense-gray.webp" },
+  { regex: /\b(?:acid|corrosive|caustic|ooze|slime|dissolve)\b/i, icon: "icons/magic/acid/dissolve-arm-flesh.webp" },
+  { regex: /\b(?:death|necro|corpse|undead|bone|skull|grave|soul|reaper|drain|wither|decay)\b/i, icon: "icons/magic/death/grave-tombstone-glow-tan.webp" },
+  { regex: /\b(?:curse|hex|voodoo|jinx|witch|coven|blood|bleed|hemomancy|darkness|abyss|void|nether|torment)\b/i, icon: "icons/magic/unholy/silhouette-robe-evil-glow.webp" },
+  { regex: /\b(?:nature|plant|vine|tree|thorn|leaf|druid|flora|entangle|growth|sprout|roots)\b/i, icon: "icons/magic/nature/beam-hand-leaves-green.webp" },
+  { regex: /\b(?:beast|animal|predator|pack|wolf|bear|hawk|companion|familiar|wild|primal|hunt|tracker)\b/i, icon: "icons/magic/nature/elemental-plant-humanoid.webp" },
+  { regex: /\b(?:psionic|telepath|telekinesis|mind|psychic|brain|thought|mental|sensor|scry|clairvoyance|prophecy|seer|oracle|augury|fortune|fate|time|chronomancy)\b/i, icon: "icons/magic/perception/eye-ringed-glow-angry-teal.webp" },
+  { regex: /\b(?:tinker|engineer|clockwork|gadget|artificer|gunsmith|explosive|bomb|grenade|craft|smith|forge|alchem|potion|elixir|brew)\b/i, icon: "icons/tools/smithing/anvil.webp" },
 ];
 
 /**
@@ -460,6 +567,7 @@ export function resolveEquipmentIcon(rawName, currentImg = null, itemType = "gea
 
   // Normalize name: strip quantity indicators like "(2)", leading bullets, trailing punctuation
   const clean = rawName
+    .replace(/\[[^\]]+\]\([^\)]+\)/g, "$1") // markdown links [label](url) -> label
     .replace(/\(\s*\d+\s*\)/g, "")
     .replace(/^[•\-\*]\s*/, "")
     .replace(/[\.\*]+$/, "")
@@ -474,7 +582,7 @@ export function resolveEquipmentIcon(rawName, currentImg = null, itemType = "gea
     return EXACT_EQUIPMENT_ICONS[clean];
   }
 
-  // 1b. Check if clean name matches without bracketed/parenthetical text (e.g. Rope (50 ft) -> Rope)
+  // 1b. Check without parenthetical/bracket text (e.g. "Rope (50 ft)" -> "Rope")
   const baseName = clean.replace(/\([^\)]+\)/g, "").replace(/\[[^\]]+\]/g, "").trim();
   if (baseName && EXACT_EQUIPMENT_ICONS[baseName]) {
     return EXACT_EQUIPMENT_ICONS[baseName];
@@ -492,6 +600,91 @@ export function resolveEquipmentIcon(rawName, currentImg = null, itemType = "gea
 }
 
 /**
+ * Resolves an icon for a talent, feature, or action document.
+ * @param {string} rawName - The name of the talent or feature
+ * @param {string|null} [currentImg=null] - Current image path
+ * @param {string} [categoryOrTrack=""] - Optional category, discipline, or track hint
+ * @returns {string} The resolved icon path
+ */
+export function resolveTalentIcon(rawName, currentImg = null, categoryOrTrack = "") {
+  if (currentImg && !isDefaultIcon(currentImg)) {
+    return currentImg;
+  }
+
+  if (!rawName || typeof rawName !== "string") {
+    return "icons/skills/melee/strike-blade-blood-red.webp";
+  }
+
+  const clean = rawName.trim().toLowerCase();
+
+  // 1. Check talent rules against name + category/track
+  const combinedText = clean + " " + String(categoryOrTrack || "").toLowerCase();
+  for (const rule of TALENT_ICON_RULES) {
+    if (rule.regex.test(combinedText)) {
+      return rule.icon;
+    }
+  }
+
+  // 2. Fallback based on category
+  const cat = String(categoryOrTrack || "").toLowerCase();
+  if (cat.includes("magic") || cat.includes("spell") || cat.includes("arcane")) {
+    return "magic/symbols/runes-star-pentagon-orange-purple.webp";
+  }
+  if (cat.includes("divine") || cat.includes("holy")) {
+    return "icons/magic/holy/angel-winged-humanoid-blue.webp";
+  }
+  if (cat.includes("nature") || cat.includes("primal")) {
+    return "icons/magic/nature/beam-hand-leaves-green.webp";
+  }
+  if (cat.includes("defense") || cat.includes("armor")) {
+    return "icons/magic/defensive/shield-barrier-blue.webp";
+  }
+  if (cat.includes("ranged") || cat.includes("archery")) {
+    return "icons/skills/ranged/target.webp";
+  }
+
+  return "icons/skills/melee/strike-blade-blood-red.webp";
+}
+
+/**
+ * Universal icon resolver for any item or talent document/data.
+ * @param {object|string} docOrName - Document object or name string
+ * @param {string|null} [currentImg=null]
+ * @param {string} [itemType="gear"]
+ * @returns {string}
+ */
+export function resolveItemIcon(docOrName, currentImg = null, itemType = "gear") {
+  let name = "";
+  let img = currentImg;
+  let type = itemType;
+  let category = "";
+
+  if (typeof docOrName === "object" && docOrName !== null) {
+    name = docOrName.name || "";
+    img = docOrName.img || currentImg;
+    type = docOrName.type || itemType;
+    category = docOrName.system?.category || docOrName._compCategory || "";
+  } else if (typeof docOrName === "string") {
+    name = docOrName;
+  }
+
+  if (img && !isDefaultIcon(img)) return img;
+
+  const lowerType = String(type || "").toLowerCase();
+  if (lowerType === "talent" || lowerType === "feature" || lowerType === "action") {
+    return resolveTalentIcon(name, img, category);
+  }
+  if (lowerType === "spell") {
+    for (const rule of TALENT_ICON_RULES) {
+      if (rule.regex.test(name)) return rule.icon;
+    }
+    return "icons/magic/symbols/runes-star-pentagon-orange-purple.webp";
+  }
+
+  return resolveEquipmentIcon(name, img, type);
+}
+
+/**
  * Returns default icon by item type.
  * @param {string} itemType
  * @returns {string}
@@ -506,7 +699,7 @@ export function getDefaultTypeIcon(itemType) {
       return "icons/magic/symbols/runes-star-pentagon-orange-purple.webp";
     case "talent":
     case "feature":
-      return "icons/svg/aura.svg";
+      return "icons/skills/melee/strike-blade-blood-red.webp";
     case "gear":
     default:
       return "icons/containers/bags/pack-leather-strapped-tan.webp";
@@ -526,10 +719,11 @@ export function applyDefaultEquipmentIcon(itemData) {
   const type = itemData.type || "gear";
 
   if (isDefaultIcon(currentImg)) {
-    const resolved = resolveEquipmentIcon(name, currentImg, type);
+    const resolved = resolveItemIcon(itemData, currentImg, type);
     if (resolved && resolved !== currentImg) {
       itemData.img = resolved;
     }
   }
   return itemData;
 }
+export const applyDefaultItemIcon = applyDefaultEquipmentIcon;

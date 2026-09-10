@@ -25,7 +25,10 @@ import {
 } from "../features/compendium-parser.mjs";
 import {
   resolveEquipmentIcon,
+  resolveTalentIcon,
+  resolveItemIcon,
   applyDefaultEquipmentIcon,
+  applyDefaultItemIcon,
   isDefaultIcon,
 } from "../features/equipment-icons.mjs";
 import { getSetting } from "../settings.mjs";
@@ -339,7 +342,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       return {
         id: fId,
         name: feature.name,
-        img: feature.img || "icons/svg/aura.svg",
+        img: resolveItemIcon(feature, feature.img, "feature"),
         description: feature.system?.description?.value ?? feature.system?.description ?? "",
         isAvailable: avail.isAvailable,
         missingPrereqs: avail.missingPrereqs,
@@ -463,7 +466,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
         return {
           id: t.id,
           name: t.name,
-          img: t.img || "icons/svg/aura.svg",
+          img: resolveItemIcon(t, t.img, "talent"),
           description: descRaw,
           shortDesc,
           isAvailable: avail.isAvailable,
@@ -474,42 +477,29 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       }),
     }));
 
+    // Group talent stacks into categories: Specialization and Magic
     const talentGroups = [
-      { 
-        label: "Specialization Talents", 
-        key: "specialization", 
-        stacks: talentStacks.filter(s => !s.items.some(i => i.parsed?.isMagicEntry))
+      {
+        categoryKey: "specialization",
+        categoryTitle: "Specialization Stacks",
+        categoryIcon: "fas fa-shield-halved",
+        stacks: talentStacks.filter(s => !s.stackKey.includes("magic")),
       },
-      { 
-        label: "Magic Entry Talents", 
-        key: "magic", 
-        stacks: talentStacks
-          .filter(s => s.items.some(i => i.parsed?.isMagicEntry))
-          .map(s => {
-            const seen = new Set();
-            const uniqueItems = [];
-            for (const item of s.items.filter(i => i.parsed?.isMagicEntry)) {
-              const norm = (item.name || "").toLowerCase().trim();
-              if (!seen.has(norm)) {
-                seen.add(norm);
-                uniqueItems.push(item);
-              }
-            }
-            return {
-              ...s,
-              items: uniqueItems,
-            };
-          })
-          .filter(s => s.items.length > 0),
+      {
+        categoryKey: "magic",
+        categoryTitle: "Magic Stacks",
+        categoryIcon: "fas fa-wand-magic-sparkles",
+        stacks: talentStacks.filter(s => s.stackKey.includes("magic")),
       },
-    ];
+    ].filter(g => g.stacks.length > 0);
 
-    // Filter talent groups by search
+    // Apply live search filtering to talent groups
+    const talentQuery = this.data.searches.talent.toLowerCase().trim();
     const filteredTalentGroups = talentGroups.map(group => ({
       ...group,
       stacks: group.stacks.map(stack => ({
         ...stack,
-        items: stack.items.filter(item => matchesSearch(item, this.data.searches.talent)),
+        items: stack.items.filter(item => matchesSearch(item, talentQuery)),
       })).filter(stack => stack.items.length > 0),
     })).filter(group => group.stacks.length > 0);
 
@@ -535,7 +525,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
             return {
               id: t.id,
               name: t.name,
-              img: t.img,
+              img: resolveItemIcon(t, t.img, "talent"),
               isAvailable: avail.isAvailable,
               missingPrereqs: avail.missingPrereqs,
               prereqTooltip: avail.prereqTooltip,
@@ -544,9 +534,14 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
           .sort((a, b) => a.name.localeCompare(b.name))
       : [];
 
-    const filteredSpells = (parsedTalent?.isMagicEntry && stackTag)
+    const rawFilteredSpells = (parsedTalent?.isMagicEntry && stackTag)
       ? this.data.availableSpells.filter(s => isDocOfStack(s, stackTag) && matchesSearch(s, this.data.searches.spell))
       : this.data.availableSpells.filter(s => matchesSearch(s, this.data.searches.spell));
+
+    const filteredSpells = rawFilteredSpells.map(s => ({
+      ...s,
+      img: resolveItemIcon(s, s.img, "spell"),
+    }));
 
     // Active lineage features for skill bonus parsing
     const activeLineageFeatures = [
@@ -1264,24 +1259,42 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       const allEquip = this.data.allEquipmentDocs || [];
       for (const gear of parsedProf.startingGear) {
         const cleanName = (gear.name || "").trim().toLowerCase();
-        const baseName = cleanName.replace(/\([^)]+\)/g, "").replace(/\[[^\]]+\]/g, "").trim();
+        const baseName = cleanName
+          .replace(/\([^)]+\)/g, "")
+          .replace(/\[[^\]]+\]/g, "")
+          .replace(/^(a|an|the)\s+/i, "")
+          .trim();
 
         // Match compendium document
         const match = allEquip.find(d => {
           const dName = (d.name || "").trim().toLowerCase();
-          return dName === cleanName || dName === baseName;
+          const dBase = dName
+            .replace(/\([^)]+\)/g, "")
+            .replace(/\[[^\]]+\]/g, "")
+            .replace(/^(a|an|the)\s+/i, "")
+            .trim();
+          return dName === cleanName || dBase === baseName || (baseName && (dName.includes(baseName) || baseName.includes(dName)));
         });
 
         if (match && typeof match.toObject === "function") {
           const obj = match.toObject();
           foundry.utils.setProperty(obj, "system.quantity", Number(gear.quantity) || 1);
-          obj.img = resolveEquipmentIcon(obj.name, obj.img, obj.type);
+          obj.img = resolveItemIcon(obj, obj.img, obj.type);
           itemsToCreate.push(obj);
         } else {
+          // Detect appropriate item type
+          const lowerName = gear.name.toLowerCase();
+          let itemType = "gear";
+          if (/(?:sword|blade|dagger|axe|bow|crossbow|halberd|spear|knife|quarterstaff|hammer|mace|flail|club|cestus|knuckles)/i.test(lowerName)) {
+            itemType = "weapon";
+          } else if (/(?:armor|mail|gambeson|brigandine|leather|plate|cuirass|robes?|shield)/i.test(lowerName)) {
+            itemType = "armor";
+          }
+
           itemsToCreate.push({
             name: gear.name,
-            type: "gear",
-            img: resolveEquipmentIcon(gear.name, null, "gear"),
+            type: itemType,
+            img: resolveItemIcon(gear.name, null, itemType),
             system: {
               quantity: Number(gear.quantity) || 1,
               description: { value: "<p>Acquired from profession starting equipment.</p>" },
@@ -1298,6 +1311,12 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       const key = String(itemData.name || "").toLowerCase().trim();
       if (seenNames.has(key)) continue;
       seenNames.add(key);
+
+      // Ensure every item adopts a resolved icon if it currently has a generic default
+      if (isDefaultIcon(itemData.img)) {
+        itemData.img = resolveItemIcon(itemData, itemData.img, itemData.type);
+      }
+
       uniqueItemsToCreate.push(itemData);
     }
 

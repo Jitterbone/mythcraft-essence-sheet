@@ -1,4 +1,4 @@
-# MythCraft Essence Sheet (v0.5.1) 📜✨
+# MythCraft Essence Sheet (v0.6.0-beta) 📜✨
 
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Development-FF5E5B?style=flat&logo=kofi&logoColor=white)](https://ko-fi.com/jitterbone)
 
@@ -196,7 +196,7 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 
 ## 📝 Changelog
 
-### v0.5.1
+### v0.6.0-beta
 - **Target Defense Chat Badges**:
   - Registered `renderChatMessage` & `renderChatMessageHTML` hooks to ensure attack and spell roll chat cards dynamically display prominent, high-contrast target defense badges (`[vs AR]`, `[vs REF]`, `[vs FORT]`, `[vs ANT]`, `[vs LOG]`, `[vs WILL]`) in the top-right corner of the teal-and-gold card banner.
   - Automatically deduplicates and cleans up duplicate subtitle/flavor elements across chat rolls.

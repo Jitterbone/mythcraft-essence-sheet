@@ -1,10 +1,9 @@
 {
   "files.watcherExclude": {
-    "**/.git/objects/**": true,
-    "**/.git/subtree-cache/**": true,
-    "**/.git/index.lock": true,
-    "**/.git/index": true
+    "**/.git/**": true
   },
+  "git.autorefresh": false,
+  "git.autofetch": false,
   "git.detectSubmodules": false,
   "git.inputValidation": "off",
   "git.statusLimit": 1000,

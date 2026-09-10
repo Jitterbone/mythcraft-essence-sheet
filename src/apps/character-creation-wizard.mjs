@@ -416,7 +416,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
           return {
             id: profession.id,
             name: profession.name,
-            img: profession.img || "icons/svg/item-bag.svg",
+            img: resolveItemIcon(profession, profession.img, "profession"),
             system: profession.system,
             isEncouraged,
           };
@@ -463,7 +463,12 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     };
 
     const filteredLineages = this.data.lineages.filter(item => matchesSearch(item, this.data.searches.lineage));
-    const filteredBackgrounds = this.data.backgrounds.filter(item => matchesSearch(item, this.data.searches.background));
+    const filteredBackgrounds = this.data.backgrounds
+      .map(bg => ({
+        ...bg,
+        img: resolveItemIcon(bg, bg.img, "background"),
+      }))
+      .filter(item => matchesSearch(item, this.data.searches.background));
     const filteredProfessions = availableProfessions.filter(item => matchesSearch(item, this.data.searches.profession));
 
     // Known features/talents for prerequisite checking in Step 5

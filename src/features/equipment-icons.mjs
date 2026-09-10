@@ -516,34 +516,266 @@ export const KEYWORD_ICON_RULES = [
 ];
 
 /**
+ * Exact name lookup mapping for Backgrounds and Professions to canonical Foundry core icons.
+ */
+export const EXACT_BOP_ICONS = {
+  // Backgrounds
+  "acolyte": "icons/magic/holy/prayer-hands-glowing-yellow-white.webp",
+  "academic": "icons/skills/trades/academics-study-reading-book.webp",
+  "archivist": "icons/sundries/books/book-embossed-gold-green.webp",
+  "aristocrat": "icons/commodities/treasure/token-engraved-pickaxe-pink.webp",
+  "artisan": "icons/tools/smithing/anvil.webp",
+  "barrister": "icons/sundries/documents/document-writing-brown.webp",
+  "charlatan": "icons/magic/symbols/clover-luck-white-green.webp",
+  "clergy": "icons/magic/holy/angel-winged-humanoid-blue.webp",
+  "courtesan": "icons/commodities/treasure/token-engraved-pickaxe-pink.webp",
+  "criminal": "icons/weapons/daggers/dagger-black.webp",
+  "cultist": "icons/magic/unholy/silhouette-robe-evil-glow.webp",
+  "drifter": "icons/environment/people/commoner.webp",
+  "entertainer": "icons/tools/instruments/lute-gold-brown.webp",
+  "farmer": "icons/environment/settlement/house-wooden-fence.webp",
+  "gladiator": "icons/skills/melee/weapons-crossed-swords-yellow.webp",
+  "guild artisan": "icons/tools/smithing/anvil.webp",
+  "herbalist": "icons/tools/laboratory/bowl-herbs-green.webp",
+  "hermit": "icons/magic/nature/elemental-plant-humanoid.webp",
+  "highborn": "icons/commodities/treasure/token-engraved-pickaxe-pink.webp",
+  "hunter": "icons/skills/ranged/target-bullseye-archer-orange.webp",
+  "inquisitor": "icons/magic/holy/angel-winged-humanoid-blue.webp",
+  "knight": "icons/equipment/chest/breastplate-layered-steel-black.webp",
+  "knave": "icons/magic/symbols/clover-luck-white-green.webp",
+  "laborer": "icons/tools/hand/hammer-and-nail.webp",
+  "lawyer": "icons/sundries/documents/document-writing-brown.webp",
+  "merchant": "icons/containers/bags/pouch-leather-brown-green.webp",
+  "miner": "icons/tools/hand/pickaxe-simple-stone-brown.webp",
+  "minstrel": "icons/tools/instruments/lute-gold-brown.webp",
+  "noble": "icons/commodities/treasure/token-engraved-pickaxe-pink.webp",
+  "nomad": "icons/environment/vehicles/boat-fishing-masted.webp",
+  "outlander": "icons/skills/movement/feet-winged-boots-blue.webp",
+  "pauper": "icons/environment/people/commoner.webp",
+  "peasant": "icons/environment/people/commoner.webp",
+  "performer": "icons/tools/instruments/lute-gold-brown.webp",
+  "physician": "icons/tools/medical/medkit-heavy.webp",
+  "pioneer": "icons/tools/navigation/compass-brass-blue-red.webp",
+  "pirate": "icons/environment/vehicles/boat-fishing-masted.webp",
+  "priest": "icons/magic/holy/angel-winged-humanoid-blue.webp",
+  "scholar": "icons/skills/trades/academics-study-reading-book.webp",
+  "scout": "icons/tools/navigation/compass-brass-blue-red.webp",
+  "scribe": "icons/tools/scribal/ink-quill-pink.webp",
+  "servant": "icons/environment/people/commoner.webp",
+  "shaman": "icons/magic/nature/beam-hand-leaves-green.webp",
+  "smuggler": "icons/containers/bags/pouch-leather-brown-green.webp",
+  "soldier": "icons/equipment/head/helm-armored-tech-heavy.webp",
+  "spy": "icons/weapons/daggers/dagger-black.webp",
+  "student": "icons/skills/trades/academics-study-reading-book.webp",
+  "thief": "icons/tools/hand/lockpicks-steel-grey.webp",
+  "tinker": "icons/tools/hand/wrench-adjustable-toothed.webp",
+  "trader": "icons/containers/bags/pouch-leather-brown-green.webp",
+  "urchin": "icons/skills/movement/feet-winged-boots-blue.webp",
+  "vagabond": "icons/environment/people/commoner.webp",
+  "veteran": "icons/skills/melee/weapons-crossed-swords-yellow.webp",
+  "villager": "icons/environment/settlement/house-wooden-fence.webp",
+
+  // Professions
+  "alchemist profession": "icons/tools/laboratory/alembic-glass-ball-blue.webp",
+  "apothecary profession": "icons/tools/laboratory/bowl-herbs-green.webp",
+  "archaeologist profession": "icons/sundries/books/book-embossed-gold-green.webp",
+  "archer profession": "icons/skills/ranged/target-bullseye-archer-orange.webp",
+  "architect profession": "icons/sundries/documents/blueprints.webp",
+  "armorer profession": "icons/equipment/chest/breastplate-layered-steel-black.webp",
+  "artisan profession": "icons/tools/smithing/anvil.webp",
+  "assassin profession": "icons/weapons/daggers/dagger-black.webp",
+  "astrologer profession": "icons/magic/perception/eye-ringed-glow-angry-teal.webp",
+  "bandit profession": "icons/weapons/daggers/dagger-black.webp",
+  "bard profession": "icons/tools/instruments/lute-gold-brown.webp",
+  "barrister profession": "icons/sundries/documents/document-writing-brown.webp",
+  "beastmaster profession": "icons/magic/nature/elemental-plant-humanoid.webp",
+  "blacksmith profession": "icons/tools/smithing/anvil.webp",
+  "bounty hunter profession": "icons/skills/targeting/crosshair-arrowhead-blue.webp",
+  "brawler profession": "icons/skills/melee/unarmed-punch-fist-blue.webp",
+  "brewer profession": "icons/tools/cooking/cauldron-empty.webp",
+  "burglar profession": "icons/tools/hand/lockpicks-steel-grey.webp",
+  "carpenter profession": "icons/tools/hand/hammer-and-nail.webp",
+  "cartographer profession": "icons/tools/navigation/map-chart-tan.webp",
+  "champion profession": "icons/skills/melee/weapons-crossed-swords-yellow.webp",
+  "charlatan profession": "icons/magic/symbols/clover-luck-white-green.webp",
+  "chef profession": "icons/tools/cooking/pot-camping-iron-black.webp",
+  "chronicler profession": "icons/sundries/books/book-backed-blue-gold.webp",
+  "clergy profession": "icons/magic/holy/angel-winged-humanoid-blue.webp",
+  "clerk profession": "icons/tools/scribal/ink-quill-pink.webp",
+  "cobbler profession": "icons/tools/hand/awl-steel-tan.webp",
+  "commander profession": "icons/skills/social/diplomacy-handshake-blue.webp",
+  "cook profession": "icons/tools/cooking/pot-camping-iron-black.webp",
+  "courier profession": "icons/skills/movement/figure-running-gray.webp",
+  "criminal profession": "icons/weapons/daggers/dagger-black.webp",
+  "detective profession": "icons/tools/scribal/magnifying-glass.webp",
+  "diplomat profession": "icons/skills/social/diplomacy-peace-alliance.webp",
+  "doctor profession": "icons/tools/medical/medkit-heavy.webp",
+  "druid profession": "icons/magic/nature/beam-hand-leaves-green.webp",
+  "duelist profession": "icons/skills/melee/hand-grip-sword-strike-orange.webp",
+  "enchanter profession": "icons/magic/symbols/runes-star-pentagon-orange-purple.webp",
+  "engineer profession": "icons/tools/hand/wrench-adjustable-toothed.webp",
+  "entertainer profession": "icons/tools/instruments/lute-gold-brown.webp",
+  "explorer profession": "icons/tools/navigation/compass-brass-blue-red.webp",
+  "farmer profession": "icons/environment/settlement/house-wooden-fence.webp",
+  "fighter profession": "icons/skills/melee/weapons-crossed-swords-yellow.webp",
+  "fisherman profession": "icons/tools/fishing/basket-blue-tan.webp",
+  "forester profession": "icons/magic/nature/beam-hand-leaves-green.webp",
+  "gladiator profession": "icons/skills/melee/weapons-crossed-swords-yellow.webp",
+  "guard profession": "icons/equipment/head/helm-armored-tech-heavy.webp",
+  "healer profession": "icons/magic/life/cross-flared-green.webp",
+  "herbalist profession": "icons/tools/laboratory/bowl-herbs-green.webp",
+  "hunter profession": "icons/skills/ranged/target-bullseye-archer-orange.webp",
+  "innkeeper profession": "icons/consumables/drinks/alcohol-beer-mug-yellow.webp",
+  "inquisitor profession": "icons/magic/holy/angel-winged-humanoid-blue.webp",
+  "jeweler profession": "icons/commodities/treasure/box-jade-tassel.webp",
+  "judge profession": "icons/sundries/documents/document-writing-brown.webp",
+  "knight profession": "icons/equipment/chest/breastplate-layered-steel-black.webp",
+  "leatherworker profession": "icons/tools/hand/awl-steel-tan.webp",
+  "mage profession": "icons/magic/symbols/runes-star-pentagon-orange-purple.webp",
+  "mariner profession": "icons/environment/vehicles/boat-fishing-masted.webp",
+  "mason profession": "icons/tools/hand/trowel.webp",
+  "mercenary profession": "icons/skills/melee/weapons-crossed-swords-yellow.webp",
+  "merchant profession": "icons/containers/bags/pouch-leather-brown-green.webp",
+  "miner profession": "icons/tools/hand/pickaxe-simple-stone-brown.webp",
+  "minstrel profession": "icons/tools/instruments/lute-gold-brown.webp",
+  "monk profession": "icons/magic/holy/meditation-chi-focus-blue.webp",
+  "navigator profession": "icons/tools/navigation/compass-brass-blue-red.webp",
+  "noble profession": "icons/commodities/treasure/token-engraved-pickaxe-pink.webp",
+  "nomad profession": "icons/environment/vehicles/boat-fishing-masted.webp",
+  "officer profession": "icons/skills/social/diplomacy-handshake-blue.webp",
+  "painter profession": "icons/tools/hand/brush-paint-brown-tan.webp",
+  "paladin profession": "icons/magic/holy/angel-winged-humanoid-blue.webp",
+  "performer profession": "icons/tools/instruments/lute-gold-brown.webp",
+  "physician profession": "icons/tools/medical/medkit-heavy.webp",
+  "pioneer profession": "icons/tools/navigation/compass-brass-blue-red.webp",
+  "pirate profession": "icons/environment/vehicles/boat-fishing-masted.webp",
+  "priest profession": "icons/magic/holy/angel-winged-humanoid-blue.webp",
+  "ranger profession": "icons/skills/ranged/target-bullseye-archer-orange.webp",
+  "rogue profession": "icons/weapons/daggers/dagger-black.webp",
+  "sailor profession": "icons/environment/vehicles/boat-fishing-masted.webp",
+  "scholar profession": "icons/skills/trades/academics-study-reading-book.webp",
+  "scout profession": "icons/tools/navigation/compass-brass-blue-red.webp",
+  "scribe profession": "icons/tools/scribal/ink-quill-pink.webp",
+  "shaman profession": "icons/magic/nature/beam-hand-leaves-green.webp",
+  "soldier profession": "icons/equipment/head/helm-armored-tech-heavy.webp",
+  "sorcerer profession": "icons/magic/fire/beam-jet-stream-blue.webp",
+  "spy profession": "icons/weapons/daggers/dagger-black.webp",
+  "tailor profession": "icons/commodities/cloth/thread-and-needle.webp",
+  "thief profession": "icons/tools/hand/lockpicks-steel-grey.webp",
+  "tinker profession": "icons/tools/hand/wrench-adjustable-toothed.webp",
+  "tracker profession": "icons/skills/targeting/crosshair-arrowhead-blue.webp",
+  "trader profession": "icons/containers/bags/pouch-leather-brown-green.webp",
+  "urchin profession": "icons/skills/movement/feet-winged-boots-blue.webp",
+  "veteran profession": "icons/skills/melee/weapons-crossed-swords-yellow.webp",
+  "warden profession": "icons/magic/defensive/armor-shield-barrier-steel.webp",
+  "warrior profession": "icons/skills/melee/weapons-crossed-swords-yellow.webp",
+  "watchman profession": "icons/equipment/head/helm-armored-tech-heavy.webp",
+  "wizard profession": "icons/magic/symbols/runes-star-pentagon-orange-purple.webp",
+};
+
+/**
+ * Keyword Rules for Backgrounds and Professions.
+ */
+export const BOP_KEYWORD_RULES = [
+  { regex: /\b(?:clerg|priest|acolyte|bishop|chaplain|devout|pastor|preacher)\b/i, icon: "icons/magic/holy/angel-winged-humanoid-blue.webp" },
+  { regex: /\b(?:inquisit|zealot|crusad)\b/i, icon: "icons/magic/holy/angel-winged-humanoid-blue.webp" },
+  { regex: /\b(?:knight|paladin|cavalier|chivalr)\b/i, icon: "icons/equipment/chest/breastplate-layered-steel-black.webp" },
+  { regex: /\b(?:soldier|guard|watchman|sentry|infantry|legionnaire|mercenary|militia|enforcer)\b/i, icon: "icons/equipment/head/helm-armored-tech-heavy.webp" },
+  { regex: /\b(?:warrior|fighter|champion|gladiator|brawler|duelist|slayer)\b/i, icon: "icons/skills/melee/weapons-crossed-swords-yellow.webp" },
+  { regex: /\b(?:thief|burglar|pickpocket|cutpurse|outlaw|bandit|highwayman|rogue|scoundrel)\b/i, icon: "icons/tools/hand/lockpicks-steel-grey.webp" },
+  { regex: /\b(?:criminal|assassin|spy|infiltrator|hitman)\b/i, icon: "icons/weapons/daggers/dagger-black.webp" },
+  { regex: /\b(?:charlatan|con artist|trickster|gambler|swindler|knave)\b/i, icon: "icons/magic/symbols/clover-luck-white-green.webp" },
+  { regex: /\b(?:noble|aristocrat|highborn|lord|lady|duke|baron|prince|royal|courtier)\b/i, icon: "icons/commodities/treasure/token-engraved-pickaxe-pink.webp" },
+  { regex: /\b(?:merchant|trader|peddler|shopkeeper|vendor|banker|money)\b/i, icon: "icons/containers/bags/pouch-leather-brown-green.webp" },
+  { regex: /\b(?:barrister|lawyer|judge|magistrate|advocate|solicitor|clerk)\b/i, icon: "icons/sundries/documents/document-writing-brown.webp" },
+  { regex: /\b(?:archivist|scholar|historian|philosopher|chronicler|academic|student)\b/i, icon: "icons/sundries/books/book-embossed-gold-green.webp" },
+  { regex: /\b(?:scribe|calligrapher|author|writer|poet)\b/i, icon: "icons/tools/scribal/ink-quill-pink.webp" },
+  { regex: /\b(?:physician|doctor|healer|medic|surgeon|apothecary|nurse)\b/i, icon: "icons/tools/medical/medkit-heavy.webp" },
+  { regex: /\b(?:alchemist|brewer|distiller|chemist)\b/i, icon: "icons/tools/laboratory/alembic-glass-ball-blue.webp" },
+  { regex: /\b(?:blacksmith|smith|armorer|weaponsmith|metalsmith|forge)\b/i, icon: "icons/tools/smithing/anvil.webp" },
+  { regex: /\b(?:carpenter|woodcarver|stonemason|mason|builder|craftsman|artisan|whittler)\b/i, icon: "icons/tools/hand/hammer-and-nail.webp" },
+  { regex: /\b(?:tinker|engineer|architect|inventor|machinist|clockmaker)\b/i, icon: "icons/tools/hand/wrench-adjustable-toothed.webp" },
+  { regex: /\b(?:cobbler|leatherworker|tanner|tailor|weaver|seamstress)\b/i, icon: "icons/tools/hand/awl-steel-tan.webp" },
+  { regex: /\b(?:jeweler|gemcutter|lapidary|goldsmith|silversmith)\b/i, icon: "icons/commodities/treasure/box-jade-tassel.webp" },
+  { regex: /\b(?:cook|chef|baker|innkeeper|tavernkeeper)\b/i, icon: "icons/tools/cooking/pot-camping-iron-black.webp" },
+  { regex: /\b(?:entertainer|bard|minstrel|troubadour|performer|actor|musician|singer|skald|jester)\b/i, icon: "icons/tools/instruments/lute-gold-brown.webp" },
+  { regex: /\b(?:artist|painter|sculptor|illustrator)\b/i, icon: "icons/tools/hand/brush-paint-brown-tan.webp" },
+  { regex: /\b(?:sailor|mariner|pirate|seaman|captain|navigator|pilot|explorer)\b/i, icon: "icons/environment/vehicles/boat-fishing-masted.webp" },
+  { regex: /\b(?:pioneer|scout|tracker|cartographer|surveyor|ranger|guide)\b/i, icon: "icons/tools/navigation/compass-brass-blue-red.webp" },
+  { regex: /\b(?:hunter|archer|marksman|bowman|fletcher|poacher|trapper)\b/i, icon: "icons/skills/ranged/target-bullseye-archer-orange.webp" },
+  { regex: /\b(?:fisherman|angler)\b/i, icon: "icons/tools/fishing/basket-blue-tan.webp" },
+  { regex: /\b(?:farmer|peasant|herder|shepherd|gardener|forester|woodcutter|logger|laborer|villager|drifter|pauper|urchin|servant)\b/i, icon: "icons/environment/settlement/house-wooden-fence.webp" },
+  { regex: /\b(?:miner|quarryman|prospector|excavator)\b/i, icon: "icons/tools/hand/pickaxe-simple-stone-brown.webp" },
+  { regex: /\b(?:shaman|druid|witch doctor|hermit|herbalist)\b/i, icon: "icons/magic/nature/beam-hand-leaves-green.webp" },
+  { regex: /\b(?:mage|wizard|sorcerer|warlock|enchanter|necromancer|elementalist|illusionist)\b/i, icon: "icons/magic/symbols/runes-star-pentagon-orange-purple.webp" },
+];
+
+/**
  * Category & Keyword Rules for Talents & Features (evaluated in top-down order).
  */
 export const TALENT_ICON_RULES = [
-  { regex: /\b(?:strike|slash|cleave|thrust|smash|bash|crush|flurry|whirlwind|rend|gore|bite|claw|brawler|grapple|charge|assault|overpower|execute)\b/i, icon: "icons/skills/melee/strike-blade-blood-red.webp" },
-  { regex: /\b(?:parry|riposte|feint|counter|disarm|trip|sweep|maneuver|stance|footwork|flourish|duel|fencing)\b/i, icon: "icons/skills/melee/hand-grip-axe-strike-orange.webp" },
-  { regex: /\b(?:punch|kick|fist|unarmed|martial|iron fist|drunken|pugilist)\b/i, icon: "icons/skills/melee/unarmed-punch-fist-blue.webp" },
-  { regex: /\b(?:berserk|rage|frenzy|bloodlust|reckless|rampage|juggernaut|unbridled)\b/i, icon: "icons/skills/wounds/injury-face-impact-orange.webp" },
-  { regex: /\b(?:shot|snipe|aim|deadeye|bullseye|volley|barrage|recurve|arrow|bolt|marksman|marksmanship|ricochet)\b/i, icon: "icons/skills/ranged/target-bullseye-archer-orange.webp" },
-  { regex: /\b(?:shield|block|bulwark|bastion|wall|deflect|guard|protect|fortress|defend)\b/i, icon: "icons/magic/defensive/shield-barrier-blue.webp" },
-  { regex: /\b(?:armor|plate|iron skin|stone skin|unyielding|indomitable|toughness|resilience|fortitude|endure|tenacity|hardened|thick hide)\b/i, icon: "icons/equipment/chest/breastplate-banded-blue.webp" },
-  { regex: /\b(?:stride|sprint|dash|leap|jump|fly|flight|wings|acrobat|tumble|vault|evade|dodge|blink|teleport|shadowstep|vanish|nimble|fleet|swift)\b/i, icon: "icons/skills/movement/arrow-upward-blue.webp" },
-  { regex: /\b(?:sneak|stealth|shadow|hide|assassin|backstab|ambush|infiltrate|cutpurse|pickpocket|lockpick|trap|poison|toxin|venom|disguise|impersonate)\b/i, icon: "icons/weapons/daggers/dagger-black.webp" },
-  { regex: /\b(?:command|leader|rally|tactics|strategy|orders|formation|coordinate|inspire|warlord|banner|herald|marshal)\b/i, icon: "icons/skills/social/diplomacy-handshake-blue.webp" },
-  { regex: /\b(?:song|sing|melody|chant|ballad|hymn|rhapsody|sonata|virtuoso|minstrel|skald|jester|mockery|taunt|charm|allure|fascinate)\b/i, icon: "icons/tools/instruments/lute-gold-brown.webp" },
-  { regex: /\b(?:heal|healing|cure|restoration|mend|rejuvenat|revive|resurrect|lay on hands|salve)\b/i, icon: "icons/magic/life/heart-hand-gold-green-light.webp" },
-  { regex: /\b(?:holy|divine|sacred|radiance|radiant|bless|blessing|prayer|sanctuary|smite|exorcism|angel|templar|crusader|inquisitor|piety|zealot)\b/i, icon: "icons/magic/holy/angel-winged-humanoid-blue.webp" },
-  { regex: /\b(?:fire|flame|pyro|burn|blaze|inferno|combustion|scorch|fireball|ignite)\b/i, icon: "icons/magic/fire/beam-jet-stream-blue.webp" },
-  { regex: /\b(?:ice|frost|cold|freeze|glacial|chill|blizzard|icicle|crystal)\b/i, icon: "icons/magic/water/barrier-ice-shield.webp" },
-  { regex: /\b(?:lightning|shock|thunder|storm|volt|electric|spark|tempest|plasma)\b/i, icon: "icons/magic/lightning/bolt-strike-blue-white.webp" },
-  { regex: /\b(?:earth|stone|rock|boulder|terran|quake|fissure|geomancy)\b/i, icon: "icons/magic/earth/strike-fist-stone-light.webp" },
-  { regex: /\b(?:wind|air|gust|cyclone|gale|tornado|aeromancy)\b/i, icon: "icons/magic/air/fog-gas-smoke-dense-gray.webp" },
-  { regex: /\b(?:acid|corrosive|caustic|ooze|slime|dissolve)\b/i, icon: "icons/magic/acid/dissolve-arm-flesh.webp" },
-  { regex: /\b(?:death|necro|corpse|undead|bone|skull|grave|soul|reaper|drain|wither|decay)\b/i, icon: "icons/magic/death/grave-tombstone-glow-tan.webp" },
-  { regex: /\b(?:curse|hex|voodoo|jinx|witch|coven|blood|bleed|hemomancy|darkness|abyss|void|nether|torment)\b/i, icon: "icons/magic/unholy/silhouette-robe-evil-glow.webp" },
-  { regex: /\b(?:nature|plant|vine|tree|thorn|leaf|druid|flora|entangle|growth|sprout|roots)\b/i, icon: "icons/magic/nature/beam-hand-leaves-green.webp" },
-  { regex: /\b(?:beast|animal|predator|pack|wolf|bear|hawk|companion|familiar|wild|primal|hunt|tracker)\b/i, icon: "icons/magic/nature/elemental-plant-humanoid.webp" },
-  { regex: /\b(?:psionic|telepath|telekinesis|mind|psychic|brain|thought|mental|sensor|scry|clairvoyance|prophecy|seer|oracle|augury|fortune|fate|time|chronomancy)\b/i, icon: "icons/magic/perception/eye-ringed-glow-angry-teal.webp" },
-  { regex: /\b(?:tinker|engineer|clockwork|gadget|artificer|gunsmith|explosive|bomb|grenade|craft|smith|forge|alchem|potion|elixir|brew)\b/i, icon: "icons/tools/smithing/anvil.webp" },
+  // 1. Specific combat maneuvers and weapon strikes
+  { regex: /\b(?:pierc|thrust|stab|lunge|skewer|impale|rapier|estoc|spear strike|bayonet|pinpoint strike)\b/i, icon: "icons/skills/melee/hand-grip-sword-strike-orange.webp" },
+  { regex: /\b(?:slash|cleave|whirlwind|flurry|blade dance|sword storm|dual wield|twin strike|dual strike|mow down|scything strike|reap|reaper|sever)\b/i, icon: "icons/skills/melee/weapons-crossed-swords-yellow.webp" },
+  { regex: /\b(?:crush|smash|bludgeon|heavy hit|shatter|concussion|hammer blow|ground slam|impact|sledge|demolish)\b/i, icon: "icons/skills/melee/unarmed-punch-fist-yellow-red.webp" },
+  { regex: /\b(?:punch|kick|fist|unarmed|brawler|pugilist|martial art|iron fist|drunken|knuckle|grapple|tackle|throw|wrestle|body slam|choke|headbutt|trip|takedown|sweep)\b/i, icon: "icons/skills/melee/unarmed-punch-fist-blue.webp" },
+  { regex: /\b(?:parry|riposte|deflect|counter|reactive stance|defensive stance|blade blocker|weapon guard|disarm|feint|maneuver|footwork|flourish)\b/i, icon: "icons/skills/melee/hand-grip-staff-teal.webp" },
+  { regex: /\b(?:tower shield|medium shield|shield train|shield wall|shield block|shield bash|shield slam|bulwark|phalanx)\b/i, icon: "icons/magic/defensive/armor-shield-barrier-steel.webp" },
+  { regex: /\b(?:shield|block|bastion|wall of defense|defend|cover|intervene|bodyguard|protect)\b/i, icon: "icons/magic/defensive/shield-barrier-blue.webp" },
+
+  // 2. Wounds, Bleed, Fury, Berserk
+  { regex: /\b(?:rend|great rend|bleed|blood|hemomancy|lacerate|gash|deep wound|hemorrhage|mutilat|sever artery|open wound|gore|butcher)\b/i, icon: "icons/skills/wounds/blood-drip-droplet-red.webp" },
+  { regex: /\b(?:berserk|rage|frenzy|bloodlust|reckless|rampage|juggernaut|unbridled|wrath|furious|outrage|death wish)\b/i, icon: "icons/skills/wounds/injury-face-impact-orange.webp" },
+  { regex: /\b(?:take a punch|hardy|toughness|resilience|thick hide|iron skin|stone skin|endure|fortitude|tenacity|unyielding|indomitable|grit|stamina|survivalist)\b/i, icon: "icons/magic/defensive/armor-stone-skin.webp" },
+  { regex: /\b(?:armor|plate|mail|cuirass|hardened|reinforced|adamantine|heavy armor|dwarven craft|armored)\b/i, icon: "icons/equipment/chest/breastplate-banded-blue.webp" },
+
+  // 3. Ranged & Targeting
+  { regex: /\b(?:aim|aimed shot|deadeye|bullseye|volley|barrage|recurve|arrow|bolt|marksman|marksmanship|snipe|sniper|ricochet|trick shot|long shot|rapid fire|double shot)\b/i, icon: "icons/skills/ranged/target-bullseye-archer-orange.webp" },
+  { regex: /\b(?:focus|precision|keen eye|eagle eye|critical|weak point|vital spot|exploit weakness|target|pinpoint|trueshot|hunter's mark|quarry|seek)\b/i, icon: "icons/skills/targeting/crosshair-arrowhead-blue.webp" },
+
+  // 4. Movement, Speed, Acrobatics & Evasion
+  { regex: /\b(?:sprint|dash|speed|haste|fast|quick|rapid|fleet|swift|stride|cavalry|charge|rush|pursuit|overrun)\b/i, icon: "icons/skills/movement/figure-running-gray.webp" },
+  { regex: /\b(?:acrobat|tumbler|vault|leap|jump|spring|high jump|bound|nimble|evade|evasion|dodge|roll|sidestep|elusive|shadowstep|blink|teleport|vanish|displace)\b/i, icon: "icons/skills/movement/feet-winged-boots-blue.webp" },
+  { regex: /\b(?:swim|swimmer|dive|aquatic|waterborn|amphibious|tide)\b/i, icon: "icons/magic/water/barrier-ice-shield.webp" },
+  { regex: /\b(?:climb|climber|scale|mountaineer|wall runner)\b/i, icon: "icons/skills/movement/arrow-upward-blue.webp" },
+  { regex: /\b(?:fly|flight|wings|aerial|glide|soar|feather fall|hover)\b/i, icon: "icons/magic/control/buff-flight-wings-blue.webp" },
+
+  // 5. Stealth, Roguery & Toxins
+  { regex: /\b(?:sneak|stealth|shadow|shadows|hide|infiltrat|silent|ghost|veil|unseen|camo|ambush|backstab|assassin|cutthroat|surprise attack)\b/i, icon: "icons/weapons/daggers/dagger-black.webp" },
+  { regex: /\b(?:lockpick|trap|burglar|pickpocket|skulduggery|cutpurse|sleight|pilfer|thievery|disarm trap)\b/i, icon: "icons/tools/hand/lockpicks-steel-grey.webp" },
+  { regex: /\b(?:poison|venom|toxin|envenom|toxic|vial|bane|pollute|pestilence|corrupt|noxious|gas bomb|smoke bomb)\b/i, icon: "icons/skills/toxins/poison-bottle-corked-fire-green.webp" },
+
+  // 6. Social, Leadership, Orders, Minstrelsy
+  { regex: /\b(?:command|leader|leadership|order|rally|tactics|strategy|formation|coordinate|inspire|warlord|banner|standard|herald|marshal|captain|officer)\b/i, icon: "icons/skills/social/diplomacy-handshake-blue.webp" },
+  { regex: /\b(?:diplomacy|persua|deceiv|intimida|reputation|charm|allure|fascinate|enthrall|taunt|mockery|silver tongue|gossip|negotiat|barter|pact)\b/i, icon: "icons/skills/social/diplomacy-peace-alliance.webp" },
+  { regex: /\b(?:music|musician|song|sing|melody|chant|ballad|hymn|rhapsody|sonata|virtuoso|minstrel|skald|jester|troubadour|instrument|lute|flute|drum|horn|rhythm)\b/i, icon: "icons/skills/trades/music-notes-sound-blue.webp" },
+
+  // 7. Senses, Mind, Intuition, Perception & Luck
+  { regex: /\b(?:apprais|careful appraiser|by feel|evaluate|examine|inspect|lore|knowledge|study|scholar|academic|reading|research|chronicler|historian|book|grimoire|tome)\b/i, icon: "icons/skills/trades/academics-study-reading-book.webp" },
+  { regex: /\b(?:intuition|intuitive|awareness|unarmored awareness|sense|detect|perceive|alert|vigilant|sixth sense|instinct|prescience|foresee|prophecy|seer|oracle|vision|mind spike|telepath|psychic|psionic|mental)\b/i, icon: "icons/magic/perception/eye-ringed-glow-angry-teal.webp" },
+  { regex: /\b(?:luck|lucky|lucky placement|fortune|fortuity|chance|gamble|fate|serendipity|blessing of luck|jackpot)\b/i, icon: "icons/magic/control/buff-luck-fortune-clover-green.webp" },
+
+  // 8. Trades & Crafting
+  { regex: /\b(?:whittler|carpenter|woodcarver|potter|jeweler|artistic|artisan|craft|smith|forge|anvil|mason|leatherwork|cobbler|tailor|tinker|inventor|alchemist|brew)\b/i, icon: "icons/tools/smithing/anvil.webp" },
+
+  // 9. Life, Healing, Holy & Divine
+  { regex: /\b(?:medic|heal|healing|burst of healing|cure|salve|mend|restoration|rejuvenat|revive|resurrect|divine hands|lay on hands|first aid|doctor|physician|recovery)\b/i, icon: "icons/magic/life/cross-flared-green.webp" },
+  { regex: /\b(?:holy|divine|prayer|prayers|sacred|radiance|radiant|bless|blessing|sanctuary|smite|exorcism|angel|templar|crusader|inquisitor|piety|zealot|zealot's resolve|force of belief|sword for justice)\b/i, icon: "icons/magic/holy/prayer-hands-glowing-yellow-white.webp" },
+  { regex: /\b(?:meditation|chi|ki|zen|inner peace|spirit focus|attunement|shibmar attunement|aura|aura of aggression|combined aura|soul|bond soul)\b/i, icon: "icons/magic/holy/meditation-chi-focus-blue.webp" },
+
+  // 10. Elemental & Magic Schools
+  { regex: /\b(?:fire|wave of fire|flame|pyro|burn|blaze|inferno|combustion|scorch|fireball|ignite|heat|ember|cinder)\b/i, icon: "icons/magic/fire/beam-jet-stream-blue.webp" },
+  { regex: /\b(?:ice|frost|frost beam|ice fan|cold|freeze|glacial|chill|blizzard|icicle|crystal|snow|shatter ice)\b/i, icon: "icons/magic/water/barrier-ice-shield.webp" },
+  { regex: /\b(?:lightning|shock|thunder|storm|volt|electric|spark|tempest|plasma|zap|chain lightning)\b/i, icon: "icons/magic/lightning/bolt-strike-blue-white.webp" },
+  { regex: /\b(?:earth|stone|rock|boulder|terran|quake|fissure|geomancy|mud|sand|landslide)\b/i, icon: "icons/magic/earth/strike-fist-stone-light.webp" },
+  { regex: /\b(?:wind|air|gust|cyclone|gale|tornado|aeromancy|breeze|squall|fog|mist|smoke)\b/i, icon: "icons/magic/air/fog-gas-smoke-dense-gray.webp" },
+  { regex: /\b(?:acid|corrosive|caustic|ooze|slime|dissolve|melt|vitriol)\b/i, icon: "icons/magic/acid/dissolve-arm-flesh.webp" },
+  { regex: /\b(?:nature|primal|aspect|primal aspect|plant|plants|animate plants|briars|wall of briars|brambles|tangle of brambles|vine|tree|thorn|leaf|druid|flora|entangle|growth|sprout|roots|forest|woods)\b/i, icon: "icons/magic/nature/beam-hand-leaves-green.webp" },
+  { regex: /\b(?:beast|beast form|animal|familiar|flock of familiars|predator|pack|wolf|bear|hawk|companion|avianism|wild|hunt|tracker|creature|charm creature|polymorph|giant)\b/i, icon: "icons/magic/nature/elemental-plant-humanoid.webp" },
+  { regex: /\b(?:death|necro|corpse|undead|bone|skull|grave|soul|decay|wither|drain|reaper|crypt|tomb|mortal|rot|ghoul|zombie|skeleton)\b/i, icon: "icons/magic/death/grave-tombstone-glow-tan.webp" },
+  { regex: /\b(?:curse|hex|voodoo|jinx|witch|coven|darkness|abyss|void|nether|torment|shadow magic|evil|demon|fiend|devil|infernal)\b/i, icon: "icons/magic/unholy/silhouette-robe-evil-glow.webp" },
+  { regex: /\b(?:time|chrono|hasten|haste|slow|rewind|temporal|precognition|future|delay|dreamwalker|last wish)\b/i, icon: "icons/magic/time/hourglass-tilted-glowing-gold.webp" },
+  { regex: /\b(?:arcane|metacreative|enchant|enchanting|mage|spell|signature|unveiling|elemental mastery|summon|summon fae|summon elemental|magic)\b/i, icon: "icons/magic/symbols/runes-star-pentagon-orange-purple.webp" },
 ];
 
 /**
@@ -600,6 +832,70 @@ export function resolveEquipmentIcon(rawName, currentImg = null, itemType = "gea
 }
 
 /**
+ * Resolves an icon for a Background or Profession document/name.
+ * @param {string} rawName
+ * @param {string|null} [currentImg=null]
+ * @param {string} [type="background"]
+ * @returns {string}
+ */
+export function resolveBopIcon(rawName, currentImg = null, type = "background") {
+  if (currentImg && !isDefaultIcon(currentImg)) {
+    return currentImg;
+  }
+
+  if (!rawName || typeof rawName !== "string") {
+    return getDefaultTypeIcon(type);
+  }
+
+  const clean = rawName
+    .replace(/\[[^\]]+\]\([^\)]+\)/g, "$1")
+    .replace(/\(\s*\d+\s*\)/g, "")
+    .replace(/^[•\-\*]\s*/, "")
+    .replace(/[\.\*]+$/, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+  if (!clean) return getDefaultTypeIcon(type);
+
+  // 1. Exact match in EXACT_BOP_ICONS
+  if (EXACT_BOP_ICONS[clean]) {
+    return EXACT_BOP_ICONS[clean];
+  }
+
+  // 1b. Check without "profession" suffix (e.g. "Knight Profession" -> "Knight")
+  const baseName = clean.replace(/\s*profession$/i, "").replace(/:\s*rank\s*\d.*$/i, "").trim();
+  if (baseName && EXACT_BOP_ICONS[baseName]) {
+    return EXACT_BOP_ICONS[baseName];
+  }
+  if (baseName && EXACT_BOP_ICONS[`${baseName} profession`]) {
+    return EXACT_BOP_ICONS[`${baseName} profession`];
+  }
+
+  // 2. Keyword rules
+  for (const rule of BOP_KEYWORD_RULES) {
+    if (rule.regex.test(clean)) {
+      return rule.icon;
+    }
+  }
+
+  // 3. Fallback based on type
+  return getDefaultTypeIcon(type);
+}
+
+/**
+ * Deterministic diverse palette for talents that don't match specific keyword rules.
+ */
+const TALENT_FALLBACK_PALETTE = [
+  "icons/skills/melee/weapons-crossed-swords-yellow.webp",
+  "icons/skills/targeting/crosshair-arrowhead-blue.webp",
+  "icons/magic/defensive/armor-shield-barrier-steel.webp",
+  "icons/skills/movement/feet-winged-boots-blue.webp",
+  "icons/magic/symbols/elements-air-earth-fire-water.webp",
+  "icons/skills/social/diplomacy-handshake-blue.webp",
+];
+
+/**
  * Resolves an icon for a talent, feature, or action document.
  * @param {string} rawName - The name of the talent or feature
  * @param {string|null} [currentImg=null] - Current image path
@@ -612,7 +908,7 @@ export function resolveTalentIcon(rawName, currentImg = null, categoryOrTrack = 
   }
 
   if (!rawName || typeof rawName !== "string") {
-    return "icons/skills/melee/strike-blade-blood-red.webp";
+    return "icons/skills/melee/weapons-crossed-swords-yellow.webp";
   }
 
   const clean = rawName.trim().toLowerCase();
@@ -628,7 +924,7 @@ export function resolveTalentIcon(rawName, currentImg = null, categoryOrTrack = 
   // 2. Fallback based on category
   const cat = String(categoryOrTrack || "").toLowerCase();
   if (cat.includes("magic") || cat.includes("spell") || cat.includes("arcane")) {
-    return "magic/symbols/runes-star-pentagon-orange-purple.webp";
+    return "icons/magic/symbols/runes-star-pentagon-orange-purple.webp";
   }
   if (cat.includes("divine") || cat.includes("holy")) {
     return "icons/magic/holy/angel-winged-humanoid-blue.webp";
@@ -637,17 +933,25 @@ export function resolveTalentIcon(rawName, currentImg = null, categoryOrTrack = 
     return "icons/magic/nature/beam-hand-leaves-green.webp";
   }
   if (cat.includes("defense") || cat.includes("armor")) {
-    return "icons/magic/defensive/shield-barrier-blue.webp";
+    return "icons/magic/defensive/armor-shield-barrier-steel.webp";
   }
   if (cat.includes("ranged") || cat.includes("archery")) {
-    return "icons/skills/ranged/target.webp";
+    return "icons/skills/ranged/target-bullseye-archer-orange.webp";
+  }
+  if (cat.includes("movement") || cat.includes("speed")) {
+    return "icons/skills/movement/figure-running-gray.webp";
   }
 
-  return "icons/skills/melee/strike-blade-blood-red.webp";
+  // 3. Deterministic hash palette fallback to provide colorful variety (never scythes)
+  let hash = 0;
+  for (let i = 0; i < clean.length; i++) {
+    hash = (hash << 5) - hash + clean.charCodeAt(i);
+  }
+  return TALENT_FALLBACK_PALETTE[Math.abs(hash) % TALENT_FALLBACK_PALETTE.length];
 }
 
 /**
- * Universal icon resolver for any item or talent document/data.
+ * Universal icon resolver for any item, background, profession, or talent document/data.
  * @param {object|string} docOrName - Document object or name string
  * @param {string|null} [currentImg=null]
  * @param {string} [itemType="gear"]
@@ -671,6 +975,24 @@ export function resolveItemIcon(docOrName, currentImg = null, itemType = "gear")
   if (img && !isDefaultIcon(img)) return img;
 
   const lowerType = String(type || "").toLowerCase();
+  const lowerName = String(name || "").toLowerCase();
+  const lowerCat = String(category || "").toLowerCase();
+
+  // Background / Profession / Lineage detection
+  if (
+    lowerType === "background" ||
+    lowerType === "profession" ||
+    lowerType === "lineage" ||
+    lowerCat.includes("background") ||
+    lowerCat.includes("profession") ||
+    lowerCat.includes("lineage") ||
+    lowerName.endsWith(" profession") ||
+    lowerName.endsWith(" lineage") ||
+    lowerName.includes(": rank ")
+  ) {
+    return resolveBopIcon(name, img, lowerType);
+  }
+
   if (lowerType === "talent" || lowerType === "feature" || lowerType === "action") {
     return resolveTalentIcon(name, img, category);
   }
@@ -697,9 +1019,16 @@ export function getDefaultTypeIcon(itemType) {
       return "icons/equipment/chest/breastplate-banded-leather-brown.webp";
     case "spell":
       return "icons/magic/symbols/runes-star-pentagon-orange-purple.webp";
+    case "background":
+      return "icons/commodities/treasure/token-engraved-pickaxe-pink.webp";
+    case "profession":
+      return "icons/tools/hand/hammer-and-nail.webp";
+    case "lineage":
+      return "icons/magic/symbols/elements-air-earth-fire-water.webp";
     case "talent":
     case "feature":
-      return "icons/skills/melee/strike-blade-blood-red.webp";
+    case "action":
+      return "icons/skills/melee/weapons-crossed-swords-yellow.webp";
     case "gear":
     default:
       return "icons/containers/bags/pack-leather-strapped-tan.webp";

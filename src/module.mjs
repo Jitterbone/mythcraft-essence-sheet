@@ -83,13 +83,15 @@ Hooks.once("init", () => {
           types: [type],
           label,
         });
+        return;
       } catch (e) {
         console.warn(`${MODULE_ID} | DocumentSheetConfig.registerSheet for ${type} failed:`, e);
       }
     }
-    if (globalThis.Actors?.registerSheet) {
+    const actorsCollection = foundry.documents?.collections?.Actors || globalThis.Actors;
+    if (actorsCollection?.registerSheet) {
       try {
-        globalThis.Actors.registerSheet(MODULE_ID, cls, {
+        actorsCollection.registerSheet(MODULE_ID, cls, {
           makeDefault: true,
           types: [type],
           label,
@@ -105,21 +107,26 @@ Hooks.once("init", () => {
   registerActorSheet(EssenceSiegeWeaponSheet, "siege", "MythCraft Essence: Siege Weapon Sheet");
 
   const itemDoc = globalThis.Item || foundry.documents?.BaseItem || foundry.documents?.Item;
+  let itemRegistered = false;
   if (itemDoc && foundry.applications?.apps?.DocumentSheetConfig?.registerSheet) {
     try {
       foundry.applications.apps.DocumentSheetConfig.registerSheet(itemDoc, MODULE_ID, EssenceItemSheet, {
         makeDefault: true,
         label: "MythCraft Essence: Item Sheet",
       });
+      itemRegistered = true;
     } catch (e) {}
   }
-  if (globalThis.Items?.registerSheet) {
-    try {
-      globalThis.Items.registerSheet(MODULE_ID, EssenceItemSheet, {
-        makeDefault: true,
-        label: "MythCraft Essence: Item Sheet",
-      });
-    } catch (e) {}
+  if (!itemRegistered) {
+    const itemsCollection = foundry.documents?.collections?.Items || globalThis.Items;
+    if (itemsCollection?.registerSheet) {
+      try {
+        itemsCollection.registerSheet(MODULE_ID, EssenceItemSheet, {
+          makeDefault: true,
+          label: "MythCraft Essence: Item Sheet",
+        });
+      } catch (e) {}
+    }
   }
 
   // ── CONFIG overrides ───────────────────────────────────────────────────────

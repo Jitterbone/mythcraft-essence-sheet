@@ -545,33 +545,51 @@ export function parseBackgroundData(item) {
   let encouragedBonusSkill = "";
   let encouragedBonusValue = 0;
 
+  // Check official MythCraft BackgroundModel schema (system.occupation)
+  if (item?.system?.occupation?.tag) {
+    encouragedTag = String(item.system.occupation.tag).trim().toLowerCase();
+  }
+  if (item?.system?.occupation?.skill) {
+    encouragedBonusSkill = String(item.system.occupation.skill).trim();
+  }
+  if (item?.system?.occupation?.bonus !== undefined) {
+    encouragedBonusValue = Number(item.system.occupation.bonus) || 2;
+  }
+
   const rawDesc = String(item?.system?.description?.value ?? item?.system?.description ?? "");
   const clean = descriptionText(item);
 
-  // Tag extraction (e.g. "with the sacred tag", "profession with the militant tag", "religious tag")
-  const tagMatch = clean.match(/(?:professions?\s*with\s*the|with\s*the|taking\s*a\s*profession\s*with\s*the)\s*([a-zA-Z0-9_\-]+)\s*tag/i)
-    || clean.match(/tag[:\s]+([a-zA-Z0-9_\-]+)/i);
-  if (tagMatch) {
-    encouragedTag = tagMatch[1].trim().toLowerCase();
+  // Tag extraction fallback from description (e.g. "with the sacred tag", "profession with the militant tag", "religious tag")
+  if (!encouragedTag) {
+    const tagMatch = clean.match(/(?:professions?\s*with\s*the|with\s*the|taking\s*a\s*profession\s*with\s*the)\s*([a-zA-Z0-9_\-]+)\s*tag/i)
+      || clean.match(/tag[:\s]+([a-zA-Z0-9_\-]+)/i)
+      || clean.match(/([a-zA-Z0-9_\-]+)\s*tag/i);
+    if (tagMatch) {
+      encouragedTag = tagMatch[1].trim().toLowerCase();
+    }
   }
 
-  // Bonus extraction (e.g. "gain +2 Religion", "you gain +2 to Religion", "gain 2 points in Medicine", "gain +2 to your Forced March skill")
-  const bonusMatch = clean.match(/(?:gain|receive)\s*(?:\+)?(\d+)\s*(?:points?\s*(?:in|to)?|to|in)?\s*([a-zA-Z\s]+?)(?:\s*skill|\s*\(|\.|\n|$)/i)
-    || clean.match(/\+(\d+)\s*([a-zA-Z\s]+?)(?:\s*skill|\.|\n|$)/i);
+  // Bonus extraction
+  if (!encouragedBonusValue || !encouragedBonusSkill) {
+    const bonusMatch = clean.match(/(?:gain|receive)\s*(?:\+)?(\d+)\s*(?:points?\s*(?:in|to)?|to|in)?\s*([a-zA-Z\s]+?)(?:\s*skill|\s*\(|\.|\n|$)/i)
+      || clean.match(/\+(\d+)\s*([a-zA-Z\s]+?)(?:\s*skill|\.|\n|$)/i);
 
-  if (bonusMatch) {
-    const candidateVal = parseInt(bonusMatch[1], 10);
-    const candidateSkill = bonusMatch[2].replace(/attribute|point|wealth|sc|silver/gi, "").trim();
-    const isGenericPoints = /^(?:skill|attribute|bonus)?\s*s?\s*(?:that|you|to|of)?/i.test(candidateSkill) || !candidateSkill;
-    if (candidateVal > 0 && candidateSkill && candidateSkill.length < 35 && !isGenericPoints) {
-      encouragedBonusValue = candidateVal;
-      encouragedBonusSkill = candidateSkill;
+    if (bonusMatch) {
+      const candidateVal = parseInt(bonusMatch[1], 10);
+      const candidateSkill = bonusMatch[2].replace(/attribute|point|wealth|sc|silver/gi, "").trim();
+      const isGenericPoints = /^(?:skill|attribute|bonus)?\s*s?\s*(?:that|you|to|of)?/i.test(candidateSkill) || !candidateSkill;
+      if (candidateVal > 0 && candidateSkill && candidateSkill.length < 35 && !isGenericPoints) {
+        if (!encouragedBonusValue) encouragedBonusValue = candidateVal;
+        if (!encouragedBonusSkill) encouragedBonusSkill = candidateSkill;
+      }
     }
   }
 
   // Fallback: If background mentions professions or tags, ensure standard +2 bonus value
   if (!encouragedBonusValue && (encouragedTag || rawDesc.includes("@UUID") || clean.toLowerCase().includes("profession"))) {
     encouragedBonusValue = 2;
+  }
+  if (!encouragedBonusSkill && (encouragedTag || rawDesc.includes("@UUID") || clean.toLowerCase().includes("profession"))) {
     // Try to find the associated skill
     const knownSkills = ["Religion", "Medicine", "Insight", "Investigation", "Persuasion", "Deception", "History", "Arcana", "Athletics", "Stealth", "Perception", "Awareness", "Survival", "Forced March", "Intimidation", "Streetwise", "Performance", "Crafting"];
     for (const sk of knownSkills) {

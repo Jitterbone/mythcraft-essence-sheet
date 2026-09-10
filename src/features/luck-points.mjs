@@ -95,37 +95,41 @@ export function initLuckPointReroll() {
     // Avoid duplicate entry registration
     if (entryOptions.some(e => e.name === "Use Luck Point (Reroll)" || e.name === "Use Luck Point")) return;
 
+    const conditionFn = (li) => {
+      try {
+        const message = getMessageFromElement(li);
+        if (!message) return false;
+
+        // Must contain at least one roll
+        const hasRolls = Boolean(
+          message.isRoll || 
+          (Array.isArray(message.rolls) && message.rolls.length > 0) ||
+          message.flags?.["mythcraft-essence-sheet"]?.isAttack ||
+          message.flags?.["mythcraft-essence-sheet"]?.isSpell ||
+          message.flags?.["mythcraft-hud"]?.hudAction
+        );
+        if (!hasRolls) return false;
+
+        // Must belong to a character actor
+        const actor = getMessageActor(message);
+        if (!actor || actor.type !== "character") return false;
+
+        // User must own the actor or be GM
+        if (!actor.isOwner && !game.user.isGM) return false;
+
+        return true;
+      } catch (err) {
+        console.error("mythcraft-essence-sheet | Error in Luck Point condition:", err);
+        return false;
+      }
+    };
+
     entryOptions.push({
       name: "Use Luck Point (Reroll)",
+      label: "Use Luck Point (Reroll)",
       icon: '<i class="fas fa-clover" style="color: #16a34a; font-weight: 900;"></i>',
-      condition: (li) => {
-        try {
-          const message = getMessageFromElement(li);
-          if (!message) return false;
-
-          // Must contain at least one roll
-          const hasRolls = Boolean(
-            message.isRoll || 
-            (Array.isArray(message.rolls) && message.rolls.length > 0) ||
-            message.flags?.["mythcraft-essence-sheet"]?.isAttack ||
-            message.flags?.["mythcraft-essence-sheet"]?.isSpell ||
-            message.flags?.["mythcraft-hud"]?.hudAction
-          );
-          if (!hasRolls) return false;
-
-          // Must belong to a character actor
-          const actor = getMessageActor(message);
-          if (!actor || actor.type !== "character") return false;
-
-          // User must own the actor or be GM
-          if (!actor.isOwner && !game.user.isGM) return false;
-
-          return true;
-        } catch (err) {
-          console.error("mythcraft-essence-sheet | Error in Luck Point condition:", err);
-          return false;
-        }
-      },
+      condition: conditionFn,
+      visible: conditionFn,
       callback: async (li) => {
         const message = getMessageFromElement(li);
         if (!message) return;

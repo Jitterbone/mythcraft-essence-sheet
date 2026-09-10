@@ -655,7 +655,6 @@ Hooks.once("init", () => {
   };
 
   Hooks.on("renderChatMessageHTML", handleChatMessageRender);
-  Hooks.on("renderChatMessage", handleChatMessageRender);
 
   patchFeatureUsesMaxFormula();
 

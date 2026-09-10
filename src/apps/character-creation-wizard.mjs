@@ -394,24 +394,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     // Helper to evaluate if profession is encouraged by background
     const isEncouragedProfession = (profession) => {
       if (!parsedBackground || !this.data.backgroundConfirmed) return false;
-      const pName = (profession.name || "").toLowerCase().replace(/ profession$/i, "").trim();
-      const pDesc = String(profession.system?.description?.value ?? profession.system?.description ?? "").toLowerCase();
-
-      // 1. Tag in profession tags
-      if (encouragedTag && (this._hasTag(profession.system?.tags, encouragedTag) || this._hasTag(profession.system?.tag, encouragedTag))) return true;
-
-      // 2. Tag in profession name only (not full description body — too broad)
-      if (encouragedTag && pName.includes(encouragedTag)) return true;
-
-      // 3. Matched by explicit UUID or name in background description
-      const rawUuids = parsedBackground?.encouragedProfessions?.rawProfessionUuids || [];
-      for (const ref of rawUuids) {
-        const refName = (ref.name || "").toLowerCase().replace(/ profession$/i, "").trim();
-        if (refName && (refName === pName || pName.includes(refName) || refName.includes(pName))) return true;
-        if (ref.uuid && (ref.uuid.includes(profession.id) || (profession._id && ref.uuid.includes(profession._id)))) return true;
-      }
-
-      return false;
+      return this._isProfessionEncouraged(profession, parsedBackground);
     };
 
     // Professions sorted: encouraged professions with bonus in gold at the top
@@ -786,6 +769,44 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       if (typeof tag === "string") return tag.toLowerCase().trim() === tgt;
       return String(tag?.name || tag?.label || tag?.id || tag?.value || tag).toLowerCase().trim() === tgt;
     });
+  }
+
+  _isProfessionEncouraged(profession, parsedBackground) {
+    if (!profession || !parsedBackground) return false;
+    const tag = (parsedBackground?.encouragedProfessions?.tag || "").trim().toLowerCase();
+    const pName = (profession.name || "").toLowerCase().replace(/ profession$/i, "").trim();
+    const pDesc = String(profession.system?.description?.value ?? profession.system?.description ?? "").toLowerCase();
+
+    // 1. Tag match in system fields
+    if (tag) {
+      if (this._hasTag(profession.system?.tags, tag) ||
+          this._hasTag(profession.system?.tag, tag) ||
+          this._hasTag(profession.system?.occupationTag, tag) ||
+          this._hasTag(profession.system?.occupation?.tag, tag)) {
+        return true;
+      }
+
+      // 2. Tag match in name or description
+      if (pName.includes(tag)) return true;
+      if (pDesc.includes(`tag: ${tag}`) || pDesc.includes(`tags: ${tag}`) ||
+          pDesc.includes(`[${tag}]`) || pDesc.includes(`${tag} tag`) ||
+          pDesc.includes(`<strong>${tag}</strong>`) ||
+          pDesc.includes(`tag</strong>: ${tag}`) ||
+          pDesc.includes(`tag:</strong> ${tag}`) ||
+          pDesc.includes(`tag: <em>${tag}</em>`)) {
+        return true;
+      }
+    }
+
+    // 3. Explicit UUID or name matches in background description
+    const rawUuids = parsedBackground?.encouragedProfessions?.rawProfessionUuids || [];
+    for (const ref of rawUuids) {
+      const refName = (ref.name || "").toLowerCase().replace(/ profession$/i, "").trim();
+      if (refName && (refName === pName || pName.includes(refName) || refName.includes(pName))) return true;
+      if (ref.uuid && (ref.uuid.includes(profession.id) || (profession._id && ref.uuid.includes(profession._id)))) return true;
+    }
+
+    return false;
   }
 
   _getBaseAttributePool() {
@@ -1334,15 +1355,29 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       }
     }
 
-    // Background bonus skill for encouraged professions
-    if (parsedBg?.encouragedProfessions?.bonusSkill && prof) {
-      const tag = parsedBg.encouragedProfessions.tag;
-      const isEncouraged = tag ? (this._hasTag(prof.system?.tags, tag) || prof.name.toLowerCase().includes(tag)) : false;
-      if (isEncouraged) {
-        const bKey = findSkillKey(parsedBg.encouragedProfessions.bonusSkill);
-        const curVal = Number(skillUpdates[`system.skills.${bKey}.value`] ?? this.actor.system?.skills?.[bKey]?.value ?? this.actor.system?.skills?.[bKey]?.bonus ?? 0);
-        skillUpdates[`system.skills.${bKey}.value`] = curVal + parsedBg.encouragedProfessions.bonusValue;
-        skillUpdates[`system.skills.${bKey}.bonus`] = curVal + parsedBg.encouragedProfessions.bonusValue;
+    // Background bonus skill for encouraged professions (first and/or second profession)
+    if (parsedBg?.encouragedProfessions?.bonusSkill) {
+      const bonusSkillName = parsedBg.encouragedProfessions.bonusSkill;
+      const bonusVal = Number(parsedBg.encouragedProfessions.bonusValue) || 2;
+      let bonusApplied = false;
+
+      if (prof && this._isProfessionEncouraged(prof, parsedBg)) {
+        const bKey = findSkillKey(bonusSkillName);
+        if (bKey) {
+          const curVal = Number(skillUpdates[`system.skills.${bKey}.value`] ?? this.actor.system?.skills?.[bKey]?.value ?? this.actor.system?.skills?.[bKey]?.bonus ?? 0);
+          skillUpdates[`system.skills.${bKey}.value`] = curVal + bonusVal;
+          skillUpdates[`system.skills.${bKey}.bonus`] = curVal + bonusVal;
+          bonusApplied = true;
+        }
+      }
+
+      if (!bonusApplied && prof2 && this._isProfessionEncouraged(prof2, parsedBg)) {
+        const bKey = findSkillKey(bonusSkillName);
+        if (bKey) {
+          const curVal = Number(skillUpdates[`system.skills.${bKey}.value`] ?? this.actor.system?.skills?.[bKey]?.value ?? this.actor.system?.skills?.[bKey]?.bonus ?? 0);
+          skillUpdates[`system.skills.${bKey}.value`] = curVal + bonusVal;
+          skillUpdates[`system.skills.${bKey}.bonus`] = curVal + bonusVal;
+        }
       }
     }
 
@@ -1480,6 +1515,21 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
       if (isDefaultIcon(itemData.img)) {
         itemData.img = resolveItemIcon(itemData, itemData.img, itemData.type);
+      }
+
+      // Initialize pseudo-document advancement flags so system's prepareDerivedData won't log undefined selection error
+      if (itemData.system?.advancements) {
+        const advs = Array.isArray(itemData.system.advancements)
+          ? itemData.system.advancements
+          : typeof itemData.system.advancements === "object"
+            ? Object.values(itemData.system.advancements)
+            : [];
+        for (const adv of advs) {
+          const advId = adv.id || adv._id;
+          if (advId) {
+            foundry.utils.setProperty(itemData, `flags.mythcraft.advancement.${advId}.selected`, {});
+          }
+        }
       }
 
       uniqueItemsToCreate.push(itemData);

@@ -395,7 +395,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       const pDesc = String(profession.system?.description?.value ?? profession.system?.description ?? "").toLowerCase();
 
       // 1. Tag in profession tags
-      if (encouragedTag && (this.#hasTag(profession.system?.tags, encouragedTag) || this.#hasTag(profession.system?.tag, encouragedTag))) return true;
+      if (encouragedTag && (this._hasTag(profession.system?.tags, encouragedTag) || this._hasTag(profession.system?.tag, encouragedTag))) return true;
 
       // 2. Tag in profession name only (not full description body — too broad)
       if (encouragedTag && pName.includes(encouragedTag)) return true;
@@ -547,7 +547,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       const tCat = String(doc.system?.category || "").toLowerCase();
       const chain = doc._folderChain || [];
       const inChain = chain.some(f => f.toLowerCase().includes(tag));
-      const inTags = this.#hasTag(doc.system?.tags, tag) || this.#hasTag(doc.system?.tag, tag);
+      const inTags = this._hasTag(doc.system?.tags, tag) || this._hasTag(doc.system?.tag, tag);
       return inChain || inTags || tSrc.includes(tag) || tCat.includes(tag) || tName.includes(tag) || tDesc.includes(`${tag} magic`) || tDesc.includes(`tag: ${tag}`) || tDesc.includes(`[${tag}]`);
     };
 
@@ -757,13 +757,13 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     }
   }
 
-  #hasTag(rawTags, target) {
+  _hasTag(rawTags, target) {
     if (!rawTags || !target) return false;
     const values = Array.isArray(rawTags) ? rawTags : rawTags instanceof Set ? Array.from(rawTags) : Object.values(rawTags);
     return values.some(tag => String(tag?.name || tag?.label || tag?.id || tag).toLowerCase() === target.toLowerCase());
   }
 
-  #getBaseAttributePool() {
+  _getBaseAttributePool() {
     const coreKeys = new Set(["str", "dex", "end", "awr", "int", "cha", "lck", "cor"]);
     const customKeys = Object.keys(this.data.attributes).filter(k => !coreKeys.has(k.toLowerCase()));
     return 5 + customKeys.length;
@@ -785,12 +785,6 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     if (!key) return;
     this.data.searches[key] = target.value || "";
     this.render();
-  }
-
-  static _getBaseAttributePool(attributes = {}) {
-    const coreKeys = new Set(["str", "dex", "end", "awr", "int", "cha", "lck", "cor"]);
-    const customKeys = Object.keys(attributes).filter(k => !coreKeys.has(k.toLowerCase()));
-    return 5 + customKeys.length;
   }
 
   /* ─────────────────────────────────────────────────────────────────────────
@@ -827,7 +821,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     }
 
     if (this.currentStep === 2) {
-      const basePool = CharacterCreationWizard.#getBaseAttributePool(this.data.attributes);
+      const basePool = this._getBaseAttributePool();
       const pool = calculateAttributePool(this.data.attributes, this.data.bonusAttributePoints, basePool);
       if (pool.remaining < 0) {
         ui.notifications.warn("You have allocated more attribute points than available. Please adjust before proceeding.");
@@ -963,7 +957,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
     const next = cur + delta;
     if (delta > 0) {
-      const basePool = CharacterCreationWizard._getBaseAttributePool(this.data.attributes);
+      const basePool = this._getBaseAttributePool();
       const pool = calculateAttributePool(this.data.attributes, this.data.bonusAttributePoints, basePool);
       if (pool.remaining <= 0) {
         ui.notifications.warn("No remaining attribute points to spend.");
@@ -1183,7 +1177,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
   }
 
   static async _onFinalize(event, target) {
-    const basePool = CharacterCreationWizard._getBaseAttributePool(this.data.attributes);
+    const basePool = this._getBaseAttributePool();
     const pool = calculateAttributePool(this.data.attributes, this.data.bonusAttributePoints, basePool);
     if (pool.remaining < 0) {
       ui.notifications.error("Attribute points are over-allocated. Please correct before completing.");
@@ -1313,7 +1307,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     // Background bonus skill for encouraged professions
     if (parsedBg?.encouragedProfessions?.bonusSkill && prof) {
       const tag = parsedBg.encouragedProfessions.tag;
-      const isEncouraged = tag ? (this.#hasTag(prof.system?.tags, tag) || prof.name.toLowerCase().includes(tag)) : false;
+      const isEncouraged = tag ? (this._hasTag(prof.system?.tags, tag) || prof.name.toLowerCase().includes(tag)) : false;
       if (isEncouraged) {
         const bKey = findSkillKey(parsedBg.encouragedProfessions.bonusSkill);
         const curVal = Number(skillUpdates[`system.skills.${bKey}.value`] ?? this.actor.system?.skills?.[bKey]?.value ?? this.actor.system?.skills?.[bKey]?.bonus ?? 0);

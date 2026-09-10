@@ -23,6 +23,11 @@ import {
   groupTalentsByStack,
   buildTalentTrees,
 } from "../features/compendium-parser.mjs";
+import {
+  resolveEquipmentIcon,
+  applyDefaultEquipmentIcon,
+  isDefaultIcon,
+} from "../features/equipment-icons.mjs";
 import { getSetting } from "../settings.mjs";
 import { getEnduranceThreshold, ENDURANCE_THRESHOLDS, calculateApMax } from "../features/hp-automation.mjs";
 
@@ -202,6 +207,10 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
         this.data.availableSpells.push(s);
       }
     }
+
+    // Equipment Compendium for Starting Gear Cloning & Stats
+    const allEquipmentDocs = await loadPacksDocuments(packs.equipment);
+    this.data.allEquipmentDocs = allEquipmentDocs;
   }
 
   /** @inheritdoc */
@@ -406,6 +415,11 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     // Selected Profession Data
     const selectedProfession = this.data.professions.find(p => p.id === this.data.selectedProfessionId);
     const parsedProfession = selectedProfession ? parseProfessionData(selectedProfession) : null;
+    if (parsedProfession?.startingGear) {
+      for (const gear of parsedProfession.startingGear) {
+        gear.img = resolveEquipmentIcon(gear.name, null, "gear");
+      }
+    }
     const professionRankItems = selectedProfession
       ? (this.data.allBopsDocs || []).filter(item => String(item.name || "").toLowerCase().startsWith(`${selectedProfession.name.toLowerCase().replace(/ profession$/, "")}: rank`))
           .sort((a, b) => a.name.localeCompare(b.name))
@@ -1245,17 +1259,35 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       if (sp) itemsToCreate.push(sp.toObject());
     }
 
-    // Starting gear
+    // Starting gear - match with compendium equipment when possible to retain full formulas, icons & stats
     if (parsedProf?.startingGear) {
+      const allEquip = this.data.allEquipmentDocs || [];
       for (const gear of parsedProf.startingGear) {
-        itemsToCreate.push({
-          name: gear.name,
-          type: "gear",
-          system: {
-            quantity: gear.quantity,
-            description: { value: "<p>Acquired from profession.</p>" },
-          },
+        const cleanName = (gear.name || "").trim().toLowerCase();
+        const baseName = cleanName.replace(/\([^)]+\)/g, "").replace(/\[[^\]]+\]/g, "").trim();
+
+        // Match compendium document
+        const match = allEquip.find(d => {
+          const dName = (d.name || "").trim().toLowerCase();
+          return dName === cleanName || dName === baseName;
         });
+
+        if (match && typeof match.toObject === "function") {
+          const obj = match.toObject();
+          foundry.utils.setProperty(obj, "system.quantity", Number(gear.quantity) || 1);
+          obj.img = resolveEquipmentIcon(obj.name, obj.img, obj.type);
+          itemsToCreate.push(obj);
+        } else {
+          itemsToCreate.push({
+            name: gear.name,
+            type: "gear",
+            img: resolveEquipmentIcon(gear.name, null, "gear"),
+            system: {
+              quantity: Number(gear.quantity) || 1,
+              description: { value: "<p>Acquired from profession starting equipment.</p>" },
+            },
+          });
+        }
       }
     }
 

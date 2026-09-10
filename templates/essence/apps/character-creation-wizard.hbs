@@ -625,7 +625,11 @@
                       <h6 class="box-sub"><i class="fas fa-shield"></i> Starting Equipment:</h6>
                       <div class="gear-preview-chips">
                         {{#each parsedProfession.startingGear as |gear|}}
-                          <span class="gear-chip">{{gear.name}} {{#if (gt gear.quantity 1)}}&times;{{gear.quantity}}{{/if}}</span>
+                          <span class="gear-chip">
+                            {{#if gear.img}}<img src="{{gear.img}}" class="gear-chip-img" alt="{{gear.name}}" />{{/if}}
+                            <span class="gear-chip-name">{{gear.name}}</span>
+                            {{#if (gt gear.quantity 1)}}<span class="gear-chip-qty">&times;{{gear.quantity}}</span>{{/if}}
+                          </span>
                         {{/each}}
                       </div>
                     </div>

@@ -13,6 +13,7 @@
  */
 
 import { getSetting } from "../settings.mjs";
+import { isDefaultIcon, resolveEquipmentIcon, applyDefaultEquipmentIcon } from "./equipment-icons.mjs";
 
 /**
  * Safely parse a signed or unsigned number from string or number inputs.
@@ -721,9 +722,30 @@ export function initEquipmentAutomation() {
       original?.call(this);
       if (this.type === "character" || this.type === "npc") {
         applyEffectiveArmorAndDefenses(this);
+        // Ensure starting & equipment items have mapped icons instead of default placeholders
+        if (this.items) {
+          for (const item of this.items) {
+            if (isDefaultIcon(item.img)) {
+              const resolved = resolveEquipmentIcon(item.name, item.img, item.type);
+              if (resolved && resolved !== item.img) {
+                item.img = resolved;
+              }
+            }
+          }
+        }
       }
     };
   };
+
+  // Automatically overwrite generic default placeholder icons on created items
+  Hooks.on("preCreateItem", (itemDoc, data, options, userId) => {
+    if (isDefaultIcon(itemDoc.img)) {
+      const resolved = resolveEquipmentIcon(itemDoc.name, itemDoc.img, itemDoc.type);
+      if (resolved && !isDefaultIcon(resolved)) {
+        itemDoc.updateSource({ img: resolved });
+      }
+    }
+  });
 
   patchWeaponApcGetter();
   patchActorDerivedData(CONFIG.Actor?.documentClass);

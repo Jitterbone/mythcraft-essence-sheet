@@ -2293,6 +2293,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     context.classesDisplay = this.actor.system.classes || "Adventurer";
 
     // Prepare Origins items (Lineage, Background, Profession)
+    const profItems = this.actor.itemTypes.profession ?? [];
     context.originsList = [
       {
         type: "lineage",
@@ -2304,12 +2305,19 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         label: "Background",
         item: this.actor.itemTypes.background?.[0] ?? null,
       },
-      {
+      ...profItems.map((p, idx) => ({
+        type: "profession",
+        label: profItems.length > 1 ? `Profession ${idx + 1}` : "Profession",
+        item: p,
+      })),
+    ];
+    if (profItems.length === 0) {
+      context.originsList.push({
         type: "profession",
         label: "Profession",
-        item: this.actor.itemTypes.profession?.[0] ?? null,
-      },
-    ];
+        item: null,
+      });
+    }
 
     // Resource percentages for HUD meters
     const hp = this.actor.system.hp;

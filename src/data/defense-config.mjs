@@ -1,4 +1,4 @@
-﻿/**
+/**
  * mythcraft-essence-sheet | src/data/defense-config.mjs
  *
  * Configuration and lookup utilities for MythCraft Defense Targets:
@@ -84,6 +84,7 @@ export function getDefenseTargetConfig(rawDefense) {
   if (clean.includes("ant") || clean.includes("anti")) return DEFENSE_TARGET_CONFIG.ant;
   if (clean.includes("log")) return DEFENSE_TARGET_CONFIG.log;
   if (clean.includes("will")) return DEFENSE_TARGET_CONFIG.will;
+  if (clean.includes("ar") || clean.includes("armor")) return DEFENSE_TARGET_CONFIG.ar;
   
   return DEFENSE_TARGET_CONFIG.ar;
 }
@@ -97,7 +98,7 @@ export function getDefenseTargetConfig(rawDefense) {
 export function renderDefenseTargetBadgeHTML(defense) {
   const config = typeof defense === "object" && defense?.abbr ? defense : getDefenseTargetConfig(defense);
   return `
-    <span class="chat-defense-target-badge" 
+    <span class="chat-defense-target-badge def-${config.key}" 
           style="--def-color: ${config.color}; --def-bg: ${config.bg}; --def-border: ${config.border};"
           title="Target Defense: ${config.label} (${config.abbr})"
           data-tooltip="Target Defense: <strong>${config.label} (${config.abbr})</strong>">

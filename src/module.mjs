@@ -537,29 +537,85 @@ Hooks.once("init", () => {
   // 3. Defense Target Badge Injection for Weapon Attacks, Spell Attacks & Attack Roll Cards
   const isWeaponAttack = item?.type === "weapon";
   const hasDefenseTarget = Boolean(item?.system?.defenseTarget || item?.system?.defense || item?.system?.targetDefense);
+  const flavorText = String(message.flavor || "").toLowerCase();
+  const rootText = String(root.textContent || "").toLowerCase();
+  const flavorVsMatch = flavorText.match(/\bvs\s+([a-zA-Z]+)\b/i);
+  const contentVsMatch = rootText.match(/\bvs\s+([a-zA-Z]+)\b/i);
+
   const isAttackMessage = isWeaponAttack ||
                           hasDefenseTarget ||
                           Boolean(message.flags?.["mythcraft-essence-sheet"]?.isAttack) ||
+                          Boolean(message.flags?.["mythcraft-essence-sheet"]?.isSpell) ||
                           Boolean(message.flags?.["mythcraft-essence-sheet"]?.defenseTarget) ||
                           Boolean(message.flags?.["mythcraft-hud"]?.defenseTarget) ||
-                          message.rolls?.some(r => r.options?.defenseTarget || r.constructor?.name === "AttackRoll" || r.class === "AttackRoll") ||
-                          root.querySelector(".attack-card, .attack-defense") !== null ||
-                          /attack\s*roll/i.test(message.flavor || "") ||
-                          /attack\s*check/i.test(message.flavor || "");
+                          Boolean(message.flags?.mythcraft?.defenseTarget) ||
+                          Boolean(message.flags?.mythcraft?.defense) ||
+                          Boolean(message.flags?.mythcraft?.isAttack) ||
+                          message.rolls?.some(r => r.options?.defenseTarget || r.options?.targetDefense || r.constructor?.name === "AttackRoll" || r.class === "AttackRoll" || r.constructor?.name === "SpellRoll" || r.class === "SpellRoll") ||
+                          root.querySelector(".attack-card, .attack-defense, .spell-card, [data-defense-target]") !== null ||
+                          /attack\s*roll/i.test(flavorText) ||
+                          /attack\s*check/i.test(flavorText) ||
+                          Boolean(flavorVsMatch) ||
+                          Boolean(contentVsMatch);
 
-  if (isAttackMessage && !root.querySelector(".chat-defense-target-badge")) {
+  if (isAttackMessage) {
     const rawDefense = message.flags?.["mythcraft-essence-sheet"]?.defenseTarget ||
                        message.flags?.["mythcraft-hud"]?.defenseTarget ||
+                       message.flags?.mythcraft?.defenseTarget ||
+                       message.flags?.mythcraft?.defense ||
                        message.rolls?.find(r => r.options?.defenseTarget)?.options?.defenseTarget ||
+                       message.rolls?.find(r => r.options?.targetDefense)?.options?.targetDefense ||
                        item?.system?.defenseTarget ||
                        item?.system?.defense ||
                        item?.system?.targetDefense ||
+                       flavorVsMatch?.[1] ||
+                       contentVsMatch?.[1] ||
                        "ar";
 
     const defConfig = getDefenseTargetConfig(rawDefense);
-    const badgeEl = document.createElement("span");
+
+    // Remove plain text attack-defense if present
+    root.querySelectorAll(".attack-defense").forEach(el => el.remove());
+
+    // Locate or create the prominent card header banner
+    let targetHeader = root.querySelector(".essence-chat-card-header");
+    if (!targetHeader) {
+      targetHeader = root.querySelector(".mythcraft-statblock .card-header, .attack-card .card-header, .spell-card .card-header");
+    }
+
+    const diceRollEl = root.querySelector(".dice-roll");
+    const msgContent = root.querySelector(".message-content") || root;
+    const diceFlavorEl = root.querySelector(".dice-flavor");
+
+    if (!targetHeader) {
+      targetHeader = document.createElement("div");
+      targetHeader.className = "essence-chat-card-header";
+      const titleText = message.flavor || diceFlavorEl?.textContent?.trim() || (item ? `${item.name}` : "Attack Roll");
+      targetHeader.innerHTML = `<h4 class="card-roll-title">${titleText}</h4>`;
+      if (diceRollEl) {
+        diceRollEl.prepend(targetHeader);
+      } else {
+        msgContent.prepend(targetHeader);
+      }
+    }
+
+    if (diceFlavorEl && (targetHeader.classList.contains("essence-chat-card-header") || targetHeader.querySelector(".card-roll-title, .card-title"))) {
+      diceFlavorEl.style.display = "none";
+    }
+
+    targetHeader.style.display = "flex";
+    targetHeader.style.alignItems = "center";
+    targetHeader.style.justifyContent = "space-between";
+    targetHeader.style.gap = "8px";
+
+    // Ensure badge is inside targetHeader
+    let badgeEl = targetHeader.querySelector(".chat-defense-target-badge");
+    if (!badgeEl) {
+      badgeEl = document.createElement("span");
+      targetHeader.appendChild(badgeEl);
+    }
     badgeEl.className = `chat-defense-target-badge def-${defConfig.key}`;
-    badgeEl.style.cssText = `--def-color: ${defConfig.color}; --def-bg: ${defConfig.bg}; --def-border: ${defConfig.border};`;
+    badgeEl.style.cssText = `--def-color: ${defConfig.color}; --def-bg: ${defConfig.bg}; --def-border: ${defConfig.border}; margin-left: auto; display: inline-flex !important;`;
     badgeEl.setAttribute("title", `Target Defense: ${defConfig.label} (${defConfig.abbr})`);
     badgeEl.setAttribute("data-tooltip", `Target Defense: <strong>${defConfig.label} (${defConfig.abbr})</strong>`);
     badgeEl.innerHTML = `
@@ -567,42 +623,6 @@ Hooks.once("init", () => {
       <i class="${defConfig.icon} def-icon"></i>
       <span class="def-abbr">${defConfig.abbr}</span>
     `;
-
-    // Remove plain text attack-defense if present
-    root.querySelectorAll(".attack-defense").forEach(el => el.remove());
-
-    // 1. Check for card-header (e.g. custom or system roll card header)
-    const cardHeader = root.querySelector(".card-header, .mythcraft-statblock .card-header, .attack-card .card-header");
-    if (cardHeader) {
-      cardHeader.style.display = "flex";
-      cardHeader.style.alignItems = "center";
-      cardHeader.style.justifyContent = "space-between";
-      cardHeader.style.gap = "8px";
-      badgeEl.style.marginLeft = "auto";
-      cardHeader.appendChild(badgeEl);
-    } else {
-      // 2. Check for dice-roll wrapper or flavor header
-      const diceRollEl = root.querySelector(".dice-roll");
-      const flavorEl = root.querySelector(".flavor-text, .message-header .flavor");
-      if (diceRollEl) {
-        let rollHeader = diceRollEl.querySelector(".essence-chat-card-header");
-        if (!rollHeader) {
-          rollHeader = document.createElement("div");
-          rollHeader.className = "essence-chat-card-header";
-          const titleText = message.flavor || (item ? `${item.name}` : "Attack Roll");
-          rollHeader.innerHTML = `<h4 class="card-roll-title">${titleText}</h4>`;
-          diceRollEl.prepend(rollHeader);
-        }
-        badgeEl.style.marginLeft = "auto";
-        rollHeader.appendChild(badgeEl);
-      } else if (flavorEl) {
-        flavorEl.style.display = "flex";
-        flavorEl.style.alignItems = "center";
-        flavorEl.style.justifyContent = "space-between";
-        badgeEl.style.marginLeft = "auto";
-        flavorEl.appendChild(badgeEl);
-      }
-    }
   }
 
 
@@ -654,6 +674,7 @@ Hooks.once("init", () => {
   }
   };
 
+  Hooks.on("renderChatMessage", handleChatMessageRender);
   Hooks.on("renderChatMessageHTML", handleChatMessageRender);
 
   patchFeatureUsesMaxFormula();

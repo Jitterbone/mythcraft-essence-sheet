@@ -445,65 +445,87 @@
           <div class="bops-staged-section skill-allocator-stage">
             <div class="stage-header">
               <h4><i class="fas fa-graduation-cap"></i> 2. Background Skill Allocation</h4>
-              <div class="skill-pool-tracker">
-                <span>Available Points: <strong>{{backgroundSkillPool}}</strong></span>
-                <span class="used-pill {{#if (eq backgroundSkillRemaining 0)}}complete{{else}}pending{{/if}}">
-                  Spent: {{backgroundSkillSpent}} / {{backgroundSkillPool}} (Remaining: {{backgroundSkillRemaining}})
-                </span>
-                <span class="cap-pill">Individual Cap: +{{effectivePerSkillCap}}</span>
-              </div>
-            </div>
-
-            <div class="skill-categories-allocator">
-              {{#if parsedBackground.skillCategories.length}}
-                {{#each parsedBackground.skillCategories as |cat|}}
-                  <div class="skill-category-block">
-                    <div class="category-title"><i class="fas fa-tag"></i> {{cat.category}}</div>
-                    <div class="category-skills-grid">
-                      {{#each cat.skills as |sk|}}
-                        <div class="skill-tile-card {{#if (gt (lookup ../../data.allocatedSkills sk.name) 0)}}allocated{{/if}} {{#if sk.isFeatureBonus}}encouraged-gold{{/if}}">
-                          <div class="skill-tile-info">
-                            <span class="skill-tile-name">{{sk.name}}{{#if sk.hasStar}}<span class="star-mark" title="Specialized / Craft / Language Skill">*</span>{{/if}}</span>
-                          </div>
-                          <div class="skill-tile-stepper">
-                            <button type="button" class="sk-btn minus" data-action="adjustSkill" data-skill="{{sk.name}}" data-delta="-1"
-                                    {{#unless (gt (lookup ../../data.allocatedSkills sk.name) 0)}}disabled{{/unless}}>
-                              <i class="fas fa-minus"></i>
-                            </button>
-                            <span class="sk-val">{{#if (lookup ../../data.allocatedSkills sk.name)}}{{lookup ../../data.allocatedSkills sk.name}}{{else}}0{{/if}}</span>
-                            <button type="button" class="sk-btn plus" data-action="adjustSkill" data-skill="{{sk.name}}" data-delta="1"
-                                    {{#if (or (gte (lookup ../../data.allocatedSkills sk.name) ../../effectivePerSkillCap) (lte ../../backgroundSkillRemaining 0))}}disabled{{/if}}>
-                              <i class="fas fa-plus"></i>
-                            </button>
-                          </div>
-                        </div>
-                      {{/each}}
-                    </div>
-                  </div>
-                {{/each}}
-              {{else}}
-                <div class="category-skills-grid">
-                  {{#each parsedBackground.eligibleSkills as |sk|}}
-                    <div class="skill-tile-card {{#if (gt (lookup ../data.allocatedSkills sk) 0)}}allocated{{/if}}">
-                      <div class="skill-tile-info">
-                        <span class="skill-tile-name">{{sk}}</span>
-                      </div>
-                      <div class="skill-tile-stepper">
-                        <button type="button" class="sk-btn minus" data-action="adjustSkill" data-skill="{{sk}}" data-delta="-1"
-                                {{#unless (gt (lookup ../data.allocatedSkills sk) 0)}}disabled{{/unless}}>
-                          <i class="fas fa-minus"></i>
-                        </button>
-                        <span class="sk-val">{{#if (lookup ../data.allocatedSkills sk)}}{{lookup ../data.allocatedSkills sk}}{{else}}0{{/if}}</span>
-                        <button type="button" class="sk-btn plus" data-action="adjustSkill" data-skill="{{sk}}" data-delta="1"
-                                {{#if (or (gte (lookup ../data.allocatedSkills sk) ../effectivePerSkillCap) (lte ../backgroundSkillRemaining 0))}}disabled{{/if}}>
-                          <i class="fas fa-plus"></i>
-                        </button>
-                      </div>
-                    </div>
-                  {{/each}}
+              {{#if (gt backgroundSkillPool 0)}}
+                <div class="skill-pool-tracker">
+                  <span>Available Points: <strong>{{backgroundSkillPool}}</strong></span>
+                  <span class="used-pill {{#if (eq backgroundSkillRemaining 0)}}complete{{else}}pending{{/if}}">
+                    Spent: {{backgroundSkillSpent}} / {{backgroundSkillPool}} (Remaining: {{backgroundSkillRemaining}})
+                  </span>
+                  <span class="cap-pill">Individual Cap: +{{effectivePerSkillCap}}</span>
                 </div>
               {{/if}}
             </div>
+
+            {{#if parsedBackground.fixedSkills.length}}
+              <div class="fixed-skills-banner">
+                <i class="fas fa-circle-info"></i>
+                <div class="fixed-skills-content">
+                  <h5>Fixed Background Skill Bonus:</h5>
+                  <div class="fixed-skills-pills">
+                    {{#each parsedBackground.fixedSkills as |fs|}}
+                      <span class="fixed-skill-pill"><i class="fas fa-plus"></i> {{fs.value}} {{fs.name}}</span>
+                    {{/each}}
+                  </div>
+                  <p class="fixed-skill-desc">The {{selectedBackground.name}} background grants a fixed skill bonus automatically instead of distributed skill points.</p>
+                </div>
+              </div>
+            {{/if}}
+
+            {{#if (or parsedBackground.skillCategories.length (gt backgroundSkillPool 0))}}
+              <div class="skill-categories-allocator">
+                {{#if parsedBackground.skillCategories.length}}
+                  {{#each parsedBackground.skillCategories as |cat|}}
+                    <div class="skill-category-block">
+                      <div class="category-title"><i class="fas fa-tag"></i> {{cat.category}}</div>
+                      <div class="category-skills-grid">
+                        {{#each cat.skills as |sk|}}
+                          <div class="skill-tile-card {{#if (gt (lookup ../../data.allocatedSkills sk.name) 0)}}allocated{{/if}} {{#if sk.isFeatureBonus}}encouraged-gold{{/if}}">
+                            <div class="skill-tile-info">
+                              <span class="skill-tile-name">{{sk.name}}{{#if sk.hasStar}}<span class="star-mark" title="Specialized / Craft / Language Skill">*</span>{{/if}}</span>
+                              {{#if (gt sk.cap 4)}}
+                                <span class="skill-cap-badge" title="Category Cap: +{{sk.cap}}">+{{sk.cap}} max</span>
+                              {{/if}}
+                            </div>
+                            <div class="skill-tile-stepper">
+                              <button type="button" class="sk-btn minus" data-action="adjustSkill" data-category="{{cat.category}}" data-skill="{{sk.name}}" data-delta="-1"
+                                      {{#unless (gt (lookup ../../data.allocatedSkills sk.name) 0)}}disabled{{/unless}}>
+                                <i class="fas fa-minus"></i>
+                              </button>
+                              <span class="sk-val">{{#if (lookup ../../data.allocatedSkills sk.name)}}{{lookup ../../data.allocatedSkills sk.name}}{{else}}0{{/if}}</span>
+                              <button type="button" class="sk-btn plus" data-action="adjustSkill" data-category="{{cat.category}}" data-skill="{{sk.name}}" data-delta="1"
+                                      {{#if (or (gte (lookup ../../data.allocatedSkills sk.name) sk.cap) (lte ../../backgroundSkillRemaining 0))}}disabled{{/if}}>
+                                <i class="fas fa-plus"></i>
+                              </button>
+                            </div>
+                          </div>
+                        {{/each}}
+                      </div>
+                    </div>
+                  {{/each}}
+                {{else if parsedBackground.eligibleSkills.length}}
+                  <div class="category-skills-grid">
+                    {{#each parsedBackground.eligibleSkills as |sk|}}
+                      <div class="skill-tile-card {{#if (gt (lookup ../data.allocatedSkills sk) 0)}}allocated{{/if}}">
+                        <div class="skill-tile-info">
+                          <span class="skill-tile-name">{{sk}}</span>
+                        </div>
+                        <div class="skill-tile-stepper">
+                          <button type="button" class="sk-btn minus" data-action="adjustSkill" data-skill="{{sk}}" data-delta="-1"
+                                  {{#unless (gt (lookup ../data.allocatedSkills sk) 0)}}disabled{{/unless}}>
+                            <i class="fas fa-minus"></i>
+                          </button>
+                          <span class="sk-val">{{#if (lookup ../data.allocatedSkills sk)}}{{lookup ../data.allocatedSkills sk}}{{else}}0{{/if}}</span>
+                          <button type="button" class="sk-btn plus" data-action="adjustSkill" data-skill="{{sk}}" data-delta="1"
+                                  {{#if (or (gte (lookup ../data.allocatedSkills sk) ../effectivePerSkillCap) (lte ../backgroundSkillRemaining 0))}}disabled{{/if}}>
+                            <i class="fas fa-plus"></i>
+                          </button>
+                        </div>
+                      </div>
+                    {{/each}}
+                  </div>
+                {{/if}}
+              </div>
+            {{/if}}
 
             {{!-- Starting Wealth Picker --}}
             <div class="wealth-selector-box">

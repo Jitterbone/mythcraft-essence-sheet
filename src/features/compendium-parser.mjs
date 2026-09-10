@@ -72,6 +72,726 @@ export const MYTHCRAFT_SKILLS = new Set([
 ]);
 
 /**
+ * Canonical background rules library for skill points, category structures,
+ * per-skill caps (including tagged skill caps), starting wealth, and encouraged professions.
+ */
+export const BACKGROUND_CANON_DATA = {
+  "born warrior": {
+    name: "Born Warrior",
+    skillPoints: 12,
+    defaultPerSkillCap: 4,
+    taggedCaps: {},
+    encouragedProfessions: {
+      tag: "militant",
+      bonusSkill: "Forced March",
+      bonusValue: 2,
+      professions: new Set(["guard", "inquisitor", "knight", "soldier", "thug"]),
+    },
+    skillCategories: [
+      {
+        category: "Athletics",
+        skills: [
+          { name: "Applied Force", key: "applied force", hasStar: false },
+          { name: "Athletics", key: "athletics", hasStar: false },
+          { name: "Sprinting", key: "sprinting", hasStar: false },
+        ],
+      },
+      {
+        category: "Influence",
+        skills: [
+          { name: "Intimidating", key: "intimidating", hasStar: false },
+          { name: "Leadership", key: "leadership", hasStar: false },
+        ],
+      },
+      {
+        category: "Knowledge",
+        skills: [
+          { name: "Geography", key: "geography", hasStar: false },
+          { name: "History", key: "history", hasStar: false },
+          { name: "Medicine", key: "medicine", hasStar: true },
+          { name: "Military", key: "military", hasStar: false },
+          { name: "Vehicles [land]", key: "vehicles [land]", hasStar: true },
+        ],
+      },
+      {
+        category: "Luck",
+        skills: [
+          { name: "Fortuity", key: "fortuity", hasStar: false },
+          { name: "Scavenging", key: "scavenging", hasStar: false },
+        ],
+      },
+      {
+        category: "Stamina",
+        skills: [
+          { name: "Distance Running", key: "distance running", hasStar: false },
+          { name: "Forced March", key: "forced march", hasStar: false },
+          { name: "Menacing", key: "menacing", hasStar: false },
+        ],
+      },
+      {
+        category: "Survival",
+        skills: [
+          { name: "Animal Handling", key: "animal handling", hasStar: false },
+          { name: "Dungeoneering", key: "dungeoneering", hasStar: false },
+          { name: "Navigating", key: "navigating", hasStar: true },
+          { name: "Sheltering", key: "sheltering", hasStar: false },
+        ],
+      },
+    ],
+  },
+
+  "criminal": {
+    name: "Criminal",
+    skillPoints: 12,
+    defaultPerSkillCap: 3,
+    taggedCaps: {
+      subterfuge: 6,
+    },
+    encouragedProfessions: {
+      tag: "underworld",
+      bonusSkill: "Intuiting",
+      bonusValue: 2,
+      professions: new Set(["charlatan", "sailor", "thug", "thief"]),
+    },
+    skillCategories: [
+      {
+        category: "Acrobatics",
+        skills: [
+          { name: "Balancing", key: "balancing", hasStar: false },
+          { name: "Contorting", key: "contorting", hasStar: false },
+          { name: "Tumbling", key: "tumbling", hasStar: false },
+        ],
+      },
+      {
+        category: "Athleticism",
+        skills: [
+          { name: "Athletics", key: "athletics", hasStar: false },
+          { name: "Sprinting", key: "sprinting", hasStar: false },
+        ],
+      },
+      {
+        category: "Crafting",
+        skills: [
+          { name: "Brewing", key: "brewing", hasStar: true },
+          { name: "Cooking", key: "cooking", hasStar: true },
+          { name: "Jeweling", key: "jeweling", hasStar: true },
+          { name: "Painting", key: "painting", hasStar: true },
+          { name: "Pottery", key: "pottery", hasStar: true },
+          { name: "Weaving", key: "weaving", hasStar: true },
+          { name: "Woodcarving", key: "woodcarving", hasStar: true },
+        ],
+      },
+      {
+        category: "Influence",
+        skills: [
+          { name: "Deceiving", key: "deceiving", hasStar: false },
+          { name: "Gossiping", key: "gossiping", hasStar: false },
+          { name: "Intimidating", key: "intimidating", hasStar: false },
+          { name: "Persuading", key: "persuading", hasStar: false },
+        ],
+      },
+      {
+        category: "Knowledge",
+        skills: [
+          { name: "Art", key: "art", hasStar: false },
+          { name: "Law", key: "law", hasStar: false },
+          { name: "Politics", key: "politics", hasStar: false },
+        ],
+      },
+      {
+        category: "Luck",
+        skills: [
+          { name: "Fortuity", key: "fortuity", hasStar: false },
+          { name: "Scavenging", key: "scavenging", hasStar: false },
+        ],
+      },
+      {
+        category: "Observation",
+        skills: [
+          { name: "Appraising", key: "appraising", hasStar: false },
+          { name: "Eavesdropping", key: "eavesdropping", hasStar: false },
+          { name: "Intuiting", key: "intuiting", hasStar: false },
+          { name: "Investigating", key: "investigating", hasStar: false },
+          { name: "Perceiving", key: "perceiving", hasStar: false },
+        ],
+      },
+      {
+        category: "Performance",
+        skills: [
+          { name: "Entertaining", key: "entertaining", hasStar: false },
+          { name: "Savoir Faire", key: "savoir faire", hasStar: false },
+        ],
+      },
+      {
+        category: "Subterfuge",
+        skills: [
+          { name: "Disguising", key: "disguising", hasStar: true },
+          { name: "Evading", key: "evading", hasStar: false },
+          { name: "Forging", key: "forging", hasStar: true },
+          { name: "Lockpicking", key: "lockpicking", hasStar: true },
+          { name: "Sleight of Hand", key: "sleight of hand", hasStar: false },
+        ],
+      },
+      {
+        category: "Survival",
+        skills: [
+          { name: "Dungeoneering", key: "dungeoneering", hasStar: false },
+          { name: "Sneaking", key: "sneaking", hasStar: false },
+        ],
+      },
+    ],
+  },
+
+  "entrepreneur": {
+    name: "Entrepreneur",
+    skillPoints: 12,
+    defaultPerSkillCap: 3,
+    taggedCaps: {
+      crafting: 6,
+    },
+    encouragedProfessions: {
+      tag: "mercantile",
+      bonusSkill: "Appraising",
+      bonusValue: 2,
+      professions: new Set(["charlatan", "entertainer", "guard", "sailor", "trader"]),
+    },
+    skillCategories: [
+      {
+        category: "Crafting",
+        skills: [
+          { name: "Alchemy", key: "alchemy", hasStar: true },
+          { name: "Brewing", key: "brewing", hasStar: true },
+          { name: "Calligraphy", key: "calligraphy", hasStar: true },
+          { name: "Carpentry", key: "carpentry", hasStar: true },
+          { name: "Cartography", key: "cartography", hasStar: true },
+          { name: "Cobbling", key: "cobbling", hasStar: true },
+          { name: "Cooking", key: "cooking", hasStar: true },
+          { name: "Glassblowing", key: "glassblowing", hasStar: true },
+          { name: "Jeweling", key: "jeweling", hasStar: true },
+          { name: "Leatherworking", key: "leatherworking", hasStar: true },
+          { name: "Masonry", key: "masonry", hasStar: true },
+          { name: "Painting", key: "painting", hasStar: true },
+          { name: "Pottery", key: "pottery", hasStar: true },
+          { name: "Smithing", key: "smithing", hasStar: true },
+          { name: "Weaving", key: "weaving", hasStar: true },
+          { name: "Woodcarving", key: "woodcarving", hasStar: true },
+        ],
+      },
+      {
+        category: "Influence",
+        skills: [
+          { name: "Deceiving", key: "deceiving", hasStar: false },
+          { name: "Empathy", key: "empathy", hasStar: false },
+          { name: "Gossiping", key: "gossiping", hasStar: false },
+          { name: "Persuading", key: "persuading", hasStar: false },
+        ],
+      },
+      {
+        category: "Knowledge",
+        skills: [
+          { name: "Art", key: "art", hasStar: false },
+          { name: "Economics", key: "economics", hasStar: false },
+          { name: "History", key: "history", hasStar: false },
+          { name: "Law", key: "law", hasStar: false },
+          { name: "Politics", key: "politics", hasStar: false },
+        ],
+      },
+      {
+        category: "Luck",
+        skills: [
+          { name: "Fortuity", key: "fortuity", hasStar: false },
+        ],
+      },
+      {
+        category: "Observation",
+        skills: [
+          { name: "Appraising", key: "appraising", hasStar: false },
+          { name: "Eavesdropping", key: "eavesdropping", hasStar: false },
+          { name: "Intuiting", key: "intuiting", hasStar: false },
+          { name: "Perceiving", key: "perceiving", hasStar: false },
+        ],
+      },
+      {
+        category: "Performance",
+        skills: [
+          { name: "Entertaining", key: "entertaining", hasStar: false },
+          { name: "Instrument", key: "instrument", hasStar: true },
+          { name: "Savoir Faire", key: "savoir faire", hasStar: false },
+        ],
+      },
+      {
+        category: "Subterfuge",
+        skills: [
+          { name: "Forging", key: "forging", hasStar: true },
+          { name: "Sleight of Hand", key: "sleight of hand", hasStar: false },
+        ],
+      },
+    ],
+  },
+
+  "noble title": {
+    name: "Noble Title",
+    skillPoints: 12,
+    defaultPerSkillCap: 4,
+    taggedCaps: {},
+    encouragedProfessions: {
+      tag: "aristocratic",
+      bonusSkill: "Gossiping",
+      bonusValue: 2,
+      professions: new Set(["barrister", "entertainer", "honorable", "knight", "pioneer"]),
+    },
+    skillCategories: [
+      {
+        category: "Crafting",
+        skills: [
+          { name: "Alchemy", key: "alchemy", hasStar: true },
+          { name: "Calligraphy", key: "calligraphy", hasStar: true },
+          { name: "Cartography", key: "cartography", hasStar: true },
+          { name: "Painting", key: "painting", hasStar: true },
+          { name: "Weaving", key: "weaving", hasStar: true },
+          { name: "Woodcarving", key: "woodcarving", hasStar: true },
+        ],
+      },
+      {
+        category: "Influence",
+        skills: [
+          { name: "Deceiving", key: "deceiving", hasStar: false },
+          { name: "Empathy", key: "empathy", hasStar: false },
+          { name: "Gossiping", key: "gossiping", hasStar: false },
+          { name: "Intimidating", key: "intimidating", hasStar: false },
+          { name: "Leadership", key: "leadership", hasStar: false },
+          { name: "Persuading", key: "persuading", hasStar: false },
+        ],
+      },
+      {
+        category: "Knowledge",
+        skills: [
+          { name: "Arcana", key: "arcana", hasStar: false },
+          { name: "Art", key: "art", hasStar: false },
+          { name: "Astrology", key: "astrology", hasStar: false },
+          { name: "Astronomy", key: "astronomy", hasStar: false },
+          { name: "Economics", key: "economics", hasStar: false },
+          { name: "Geography", key: "geography", hasStar: false },
+          { name: "History", key: "history", hasStar: false },
+          { name: "Law", key: "law", hasStar: false },
+          { name: "Medicine", key: "medicine", hasStar: true },
+          { name: "Military", key: "military", hasStar: false },
+          { name: "Politics", key: "politics", hasStar: false },
+          { name: "Religion", key: "religion", hasStar: false },
+        ],
+      },
+      {
+        category: "Observation",
+        skills: [
+          { name: "Appraising", key: "appraising", hasStar: false },
+          { name: "Eavesdropping", key: "eavesdropping", hasStar: false },
+          { name: "Intuiting", key: "intuiting", hasStar: false },
+          { name: "Investigating", key: "investigating", hasStar: false },
+          { name: "Perceiving", key: "perceiving", hasStar: false },
+        ],
+      },
+      {
+        category: "Performance",
+        skills: [
+          { name: "Dancing", key: "dancing", hasStar: false },
+          { name: "Entertaining", key: "entertaining", hasStar: false },
+          { name: "Instrument", key: "instrument", hasStar: true },
+          { name: "Savoir Faire", key: "savoir faire", hasStar: false },
+        ],
+      },
+    ],
+  },
+
+  "noble": {
+    name: "Noble",
+    skillPoints: 12,
+    defaultPerSkillCap: 4,
+    taggedCaps: {},
+    encouragedProfessions: {
+      tag: "aristocratic",
+      bonusSkill: "Gossiping",
+      bonusValue: 2,
+      professions: new Set(["barrister", "entertainer", "honorable", "knight", "pioneer"]),
+    },
+    skillCategories: [
+      {
+        category: "Crafting",
+        skills: [
+          { name: "Alchemy", key: "alchemy", hasStar: true },
+          { name: "Calligraphy", key: "calligraphy", hasStar: true },
+          { name: "Cartography", key: "cartography", hasStar: true },
+          { name: "Painting", key: "painting", hasStar: true },
+          { name: "Weaving", key: "weaving", hasStar: true },
+          { name: "Woodcarving", key: "woodcarving", hasStar: true },
+        ],
+      },
+      {
+        category: "Influence",
+        skills: [
+          { name: "Deceiving", key: "deceiving", hasStar: false },
+          { name: "Empathy", key: "empathy", hasStar: false },
+          { name: "Gossiping", key: "gossiping", hasStar: false },
+          { name: "Intimidating", key: "intimidating", hasStar: false },
+          { name: "Leadership", key: "leadership", hasStar: false },
+          { name: "Persuading", key: "persuading", hasStar: false },
+        ],
+      },
+      {
+        category: "Knowledge",
+        skills: [
+          { name: "Arcana", key: "arcana", hasStar: false },
+          { name: "Art", key: "art", hasStar: false },
+          { name: "Astrology", key: "astrology", hasStar: false },
+          { name: "Astronomy", key: "astronomy", hasStar: false },
+          { name: "Economics", key: "economics", hasStar: false },
+          { name: "Geography", key: "geography", hasStar: false },
+          { name: "History", key: "history", hasStar: false },
+          { name: "Law", key: "law", hasStar: false },
+          { name: "Medicine", key: "medicine", hasStar: true },
+          { name: "Military", key: "military", hasStar: false },
+          { name: "Politics", key: "politics", hasStar: false },
+          { name: "Religion", key: "religion", hasStar: false },
+        ],
+      },
+      {
+        category: "Observation",
+        skills: [
+          { name: "Appraising", key: "appraising", hasStar: false },
+          { name: "Eavesdropping", key: "eavesdropping", hasStar: false },
+          { name: "Intuiting", key: "intuiting", hasStar: false },
+          { name: "Investigating", key: "investigating", hasStar: false },
+          { name: "Perceiving", key: "perceiving", hasStar: false },
+        ],
+      },
+      {
+        category: "Performance",
+        skills: [
+          { name: "Dancing", key: "dancing", hasStar: false },
+          { name: "Entertaining", key: "entertaining", hasStar: false },
+          { name: "Instrument", key: "instrument", hasStar: true },
+          { name: "Savoir Faire", key: "savoir faire", hasStar: false },
+        ],
+      },
+    ],
+  },
+
+  "outlander": {
+    name: "Outlander",
+    skillPoints: 12,
+    defaultPerSkillCap: 3,
+    taggedCaps: {
+      survival: 6,
+    },
+    encouragedProfessions: {
+      tag: "wanderer",
+      bonusSkill: "Navigating",
+      bonusValue: 2,
+      professions: new Set(["nomad", "pioneer", "sailor"]),
+    },
+    skillCategories: [
+      {
+        category: "Acrobatics",
+        skills: [
+          { name: "Balancing", key: "balancing", hasStar: false },
+          { name: "Contorting", key: "contorting", hasStar: false },
+        ],
+      },
+      {
+        category: "Athleticism",
+        skills: [
+          { name: "Applied Force", key: "applied force", hasStar: false },
+          { name: "Athletics", key: "athletics", hasStar: false },
+          { name: "Sprinting", key: "sprinting", hasStar: false },
+        ],
+      },
+      {
+        category: "Crafting",
+        skills: [
+          { name: "Carpentry", key: "carpentry", hasStar: true },
+          { name: "Cartography", key: "cartography", hasStar: true },
+          { name: "Cobbling", key: "cobbling", hasStar: true },
+          { name: "Cooking", key: "cooking", hasStar: true },
+          { name: "Leatherworking", key: "leatherworking", hasStar: true },
+          { name: "Weaving", key: "weaving", hasStar: true },
+          { name: "Woodcarving", key: "woodcarving", hasStar: true },
+        ],
+      },
+      {
+        category: "Knowledge",
+        skills: [
+          { name: "Astrology", key: "astrology", hasStar: false },
+          { name: "Astronomy", key: "astronomy", hasStar: false },
+          { name: "Geography", key: "geography", hasStar: false },
+          { name: "Medicine", key: "medicine", hasStar: true },
+          { name: "Vehicles [land]", key: "vehicles [land]", hasStar: true },
+        ],
+      },
+      {
+        category: "Observation",
+        skills: [
+          { name: "Intuiting", key: "intuiting", hasStar: false },
+          { name: "Perceiving", key: "perceiving", hasStar: false },
+        ],
+      },
+      {
+        category: "Performance",
+        skills: [
+          { name: "Instrument", key: "instrument", hasStar: true },
+        ],
+      },
+      {
+        category: "Stamina",
+        skills: [
+          { name: "Distance Running", key: "distance running", hasStar: false },
+          { name: "Forced March", key: "forced march", hasStar: false },
+        ],
+      },
+      {
+        category: "Survival",
+        skills: [
+          { name: "Animal Handling", key: "animal handling", hasStar: false },
+          { name: "Dungeoneering", key: "dungeoneering", hasStar: false },
+          { name: "Foraging", key: "foraging", hasStar: false },
+          { name: "Nature", key: "nature", hasStar: false },
+          { name: "Navigating", key: "navigating", hasStar: true },
+          { name: "Sheltering", key: "sheltering", hasStar: false },
+          { name: "Sneaking", key: "sneaking", hasStar: false },
+          { name: "Tracking", key: "tracking", hasStar: false },
+        ],
+      },
+    ],
+  },
+
+  "student": {
+    name: "Student",
+    skillPoints: 12,
+    defaultPerSkillCap: 3,
+    taggedCaps: {
+      knowledge: 6,
+    },
+    encouragedProfessions: {
+      tag: "academic",
+      bonusSkill: "History",
+      bonusValue: 2,
+      professions: new Set(["archivist", "barrister", "clergy", "physician"]),
+    },
+    skillCategories: [
+      {
+        category: "Crafting",
+        skills: [
+          { name: "Alchemy", key: "alchemy", hasStar: true },
+          { name: "Brewing", key: "brewing", hasStar: true },
+          { name: "Calligraphy", key: "calligraphy", hasStar: true },
+          { name: "Carpentry", key: "carpentry", hasStar: true },
+          { name: "Cartography", key: "cartography", hasStar: true },
+          { name: "Cobbling", key: "cobbling", hasStar: true },
+          { name: "Cooking", key: "cooking", hasStar: true },
+          { name: "Glassblowing", key: "glassblowing", hasStar: true },
+          { name: "Jeweling", key: "jeweling", hasStar: true },
+          { name: "Leatherworking", key: "leatherworking", hasStar: true },
+          { name: "Masonry", key: "masonry", hasStar: true },
+          { name: "Painting", key: "painting", hasStar: true },
+          { name: "Pottery", key: "pottery", hasStar: true },
+          { name: "Smithing", key: "smithing", hasStar: true },
+          { name: "Weaving", key: "weaving", hasStar: true },
+          { name: "Woodcarving", key: "woodcarving", hasStar: true },
+        ],
+      },
+      {
+        category: "Influence",
+        skills: [
+          { name: "Deceiving", key: "deceiving", hasStar: false },
+          { name: "Gossiping", key: "gossiping", hasStar: false },
+          { name: "Persuading", key: "persuading", hasStar: false },
+        ],
+      },
+      {
+        category: "Knowledge",
+        skills: [
+          { name: "Arcana", key: "arcana", hasStar: false },
+          { name: "Art", key: "art", hasStar: false },
+          { name: "Astrology", key: "astrology", hasStar: false },
+          { name: "Astronomy", key: "astronomy", hasStar: false },
+          { name: "Economics", key: "economics", hasStar: false },
+          { name: "Engineering", key: "engineering", hasStar: false },
+          { name: "Geography", key: "geography", hasStar: false },
+          { name: "History", key: "history", hasStar: false },
+          { name: "Law", key: "law", hasStar: false },
+          { name: "Medicine", key: "medicine", hasStar: true },
+          { name: "Military", key: "military", hasStar: false },
+          { name: "Politics", key: "politics", hasStar: false },
+          { name: "Religion", key: "religion", hasStar: false },
+        ],
+      },
+      {
+        category: "Observation",
+        skills: [
+          { name: "Appraising", key: "appraising", hasStar: false },
+          { name: "Eavesdropping", key: "eavesdropping", hasStar: false },
+          { name: "Investigating", key: "investigating", hasStar: false },
+        ],
+      },
+      {
+        category: "Performance",
+        skills: [
+          { name: "Dancing", key: "dancing", hasStar: false },
+          { name: "Entertaining", key: "entertaining", hasStar: false },
+          { name: "Instrument", key: "instrument", hasStar: true },
+        ],
+      },
+      {
+        category: "Subterfuge",
+        skills: [
+          { name: "Disguising", key: "disguising", hasStar: true },
+          { name: "Forging", key: "forging", hasStar: true },
+        ],
+      },
+      {
+        category: "Survival",
+        skills: [
+          { name: "Animal Handling", key: "animal handling", hasStar: false },
+          { name: "Navigating", key: "navigating", hasStar: true },
+        ],
+      },
+    ],
+  },
+
+  "true believer": {
+    name: "True Believer",
+    skillPoints: 12,
+    defaultPerSkillCap: 4,
+    taggedCaps: {},
+    encouragedProfessions: {
+      tag: "religious",
+      bonusSkill: "Religion",
+      bonusValue: 2,
+      professions: new Set(["clergy", "inquisitor", "physician"]),
+    },
+    skillCategories: [
+      {
+        category: "Crafting",
+        skills: [
+          { name: "Alchemy", key: "alchemy", hasStar: true },
+          { name: "Brewing", key: "brewing", hasStar: true },
+          { name: "Calligraphy", key: "calligraphy", hasStar: true },
+          { name: "Cooking", key: "cooking", hasStar: true },
+          { name: "Jeweling", key: "jeweling", hasStar: true },
+          { name: "Painting", key: "painting", hasStar: true },
+          { name: "Pottery", key: "pottery", hasStar: true },
+          { name: "Weaving", key: "weaving", hasStar: true },
+          { name: "Woodcarving", key: "woodcarving", hasStar: true },
+        ],
+      },
+      {
+        category: "Influence",
+        skills: [
+          { name: "Deceiving", key: "deceiving", hasStar: false },
+          { name: "Empathy", key: "empathy", hasStar: false },
+          { name: "Gossiping", key: "gossiping", hasStar: false },
+          { name: "Intimidating", key: "intimidating", hasStar: false },
+          { name: "Leadership", key: "leadership", hasStar: false },
+          { name: "Persuading", key: "persuading", hasStar: false },
+        ],
+      },
+      {
+        category: "Knowledge",
+        skills: [
+          { name: "Arcana", key: "arcana", hasStar: false },
+          { name: "Art", key: "art", hasStar: false },
+          { name: "Economics", key: "economics", hasStar: false },
+          { name: "Geography", key: "geography", hasStar: false },
+          { name: "History", key: "history", hasStar: false },
+          { name: "Law", key: "law", hasStar: false },
+          { name: "Medicine", key: "medicine", hasStar: true },
+          { name: "Politics", key: "politics", hasStar: false },
+          { name: "Religion", key: "religion", hasStar: false },
+        ],
+      },
+      {
+        category: "Luck",
+        skills: [
+          { name: "Fortuity", key: "fortuity", hasStar: false },
+        ],
+      },
+      {
+        category: "Observation",
+        skills: [
+          { name: "Intuiting", key: "intuiting", hasStar: false },
+          { name: "Perceiving", key: "perceiving", hasStar: false },
+        ],
+      },
+      {
+        category: "Performance",
+        skills: [
+          { name: "Entertaining", key: "entertaining", hasStar: false },
+          { name: "Instrument", key: "instrument", hasStar: true },
+          { name: "Savoir Faire", key: "savoir faire", hasStar: false },
+        ],
+      },
+      {
+        category: "Stamina",
+        skills: [
+          { name: "Forced March", key: "forced march", hasStar: false },
+        ],
+      },
+      {
+        category: "Survival",
+        skills: [
+          { name: "Animal Handling", key: "animal handling", hasStar: false },
+          { name: "Navigating", key: "navigating", hasStar: true },
+        ],
+      },
+    ],
+  },
+
+  "knave": {
+    name: "Knave",
+    skillPoints: 0,
+    defaultPerSkillCap: 0,
+    taggedCaps: {},
+    fixedSkills: [
+      { name: "Savoir Faire", key: "savoir faire", value: 4 },
+    ],
+    encouragedProfessions: null,
+    dualProfession: true,
+    skillCategories: [],
+  },
+};
+
+/**
+ * Backward compatibility alias for BACKGROUND_ENCOURAGED_PROFESSIONS.
+ */
+export const BACKGROUND_ENCOURAGED_PROFESSIONS = Object.fromEntries(
+  Object.entries(BACKGROUND_CANON_DATA)
+    .filter(([k, v]) => v.encouragedProfessions)
+    .map(([k, v]) => [k, v.encouragedProfessions])
+);
+
+/**
+ * Returns the individual per-skill cap for a skill under the character's background,
+ * accounting for background category caps (e.g. +6 Subterfuge for Criminals, +6 Crafting for Entrepreneurs).
+ * @param {object} parsedBackground
+ * @param {string} skillName
+ * @param {string} [categoryName=""]
+ * @returns {number}
+ */
+export function getBackgroundSkillCap(parsedBackground, skillName, categoryName = "") {
+  if (!parsedBackground) return 4;
+  const sNorm = (skillName || "").toLowerCase().trim();
+  const cNorm = (categoryName || "").toLowerCase().trim();
+
+  if (parsedBackground.taggedCaps) {
+    for (const [tag, cap] of Object.entries(parsedBackground.taggedCaps)) {
+      const t = tag.toLowerCase().trim();
+      if (cNorm === t) return cap;
+      if (MYTHCRAFT_SKILL_CATEGORIES[t]?.includes(sNorm)) return cap;
+    }
+  }
+
+  return parsedBackground.defaultPerSkillCap ?? parsedBackground.perSkillCap ?? 4;
+}
+
+/**
  * Discovers and groups all available MythCraft compendiums.
  * @returns {Record<string, Array<CompendiumCollection>>}
  */
@@ -448,50 +1168,45 @@ export function calculateAttributePool(attributes = {}, bonusPoints = 0, basePoo
  */
 export function parseBackgroundData(item) {
   const desc = descriptionText(item);
+  const rawDesc = String(item?.system?.description?.value ?? item?.system?.description ?? "");
+  const clean = desc;
 
-  // 1. Skill Points & Per-Skill Cap
-  let skillPoints = 12; // Standard default
-  let perSkillCap = 4;
+  // 1. Check static library canonical background data first
+  const bgNameKey = String(item?.name || "").toLowerCase().replace(/ background$/i, "").trim();
+  const canon = BACKGROUND_CANON_DATA[bgNameKey] || (bgNameKey === "noble" ? BACKGROUND_CANON_DATA["noble title"] : null);
 
-  const spMatch = desc.match(/gain\s*\+?(\d+)\s*skill\s*points?/i);
-  if (spMatch) skillPoints = parseInt(spMatch[1], 10);
+  let skillPoints = canon ? (canon.skillPoints ?? 12) : 12;
+  let perSkillCap = canon ? (canon.defaultPerSkillCap ?? 4) : 4;
+  let taggedCaps = canon ? (canon.taggedCaps || {}) : {};
+  let eligibleSkills = canon ? (canon.skillCategories ? canon.skillCategories.flatMap(c => c.skills.map(s => s.name.toLowerCase())) : []) : [];
+  let skillCategories = canon ? (canon.skillCategories ? canon.skillCategories.map(c => ({ category: c.category, skills: c.skills.map(s => ({ ...s })) })) : []) : [];
+  let fixedSkills = canon?.fixedSkills ? [...canon.fixedSkills] : [];
 
-  const capMatch = desc.match(/put\s*up\s*to\s*\+?(\d+)\s*points?\s*into\s*any\s*individual\s*skill/i);
-  if (capMatch) perSkillCap = parseInt(capMatch[1], 10);
+  let encouragedTag = canon?.encouragedProfessions ? canon.encouragedProfessions.tag : "";
+  let encouragedBonusSkill = canon?.encouragedProfessions ? canon.encouragedProfessions.bonusSkill : "";
+  let encouragedBonusValue = canon?.encouragedProfessions ? canon.encouragedProfessions.bonusValue : 0;
+  let encouragedProfessionsLib = canon?.encouragedProfessions || null;
 
-  // 2. Eligible Skills List & Categories
-  const eligibleSkills = [];
-  const skillCategories = [];
+  if (!canon) {
+    const spMatch = desc.match(/gain\s*\+?(\d+)\s*skill\s*points?/i);
+    if (spMatch) skillPoints = parseInt(spMatch[1], 10);
 
-  const skillSectionMatch = desc.match(/(?:following\s*skills[:\.]?)([\s\S]*?)(?:Gain\s*\d|If\s*you\s*take|Professions\s*with|Tenure|Starting\s*Wealth|$)/i);
-  if (skillSectionMatch) {
-    const lines = skillSectionMatch[1].split(/[\n\r]+/);
-    for (const line of lines) {
-      const clean = line.replace(/^[•\-\*]\s*/, "").trim();
-      if (!clean) continue;
-      // Skip lines that look like wealth or rules
-      if (/^(gain\s*\d|if\s*you\s*take|professions\s*with|tenure|starting\s*wealth)/i.test(clean)) continue;
+    const capMatch = desc.match(/put\s*up\s*to\s*\+?(\d+)\s*points?\s*into\s*any\s*individual\s*skill/i);
+    if (capMatch) perSkillCap = parseInt(capMatch[1], 10);
 
-      const parts = clean.split(":");
-      if (parts.length > 1) {
-        const category = parts[0].trim();
-        const rawList = parts[1];
-        const categorySkills = rawList.split(",").map(s => {
-          const rawName = s.trim();
-          const hasStar = rawName.includes("*");
-          const name = rawName.replace(/\*/g, "").trim();
-          const key = name.toLowerCase();
-          return { name, key, hasStar };
-        }).filter(s => Boolean(s.name) && s.name.length < 40 && !/^(with|you\s*may|gain|choose)/i.test(s.name));
+    const skillSectionMatch = desc.match(/(?:following\s*skills[:\.]?)([\s\S]*?)(?:Gain\s*\d|If\s*you\s*take|Professions\s*with|Tenure|Starting\s*Wealth|$)/i);
+    if (skillSectionMatch) {
+      const lines = skillSectionMatch[1].split(/[\n\r]+/);
+      for (const line of lines) {
+        const cleanLine = line.replace(/^[•\-\*]\s*/, "").trim();
+        if (!cleanLine) continue;
+        if (/^(gain\s*\d|if\s*you\s*take|professions\s*with|tenure|starting\s*wealth)/i.test(cleanLine)) continue;
 
-        if (categorySkills.length > 0) {
-          skillCategories.push({ category, skills: categorySkills });
-          eligibleSkills.push(...categorySkills.map(s => s.name.toLowerCase()));
-        }
-      } else {
-        // Only accept if line is a comma-separated list of short skill names, not a full sentence
-        if (!/(?:with\s*this|you\s*may|put\s*up|points?\s*into|spend\s*on)/i.test(clean)) {
-          const skills = parts[0].split(",").map(s => {
+        const parts = cleanLine.split(":");
+        if (parts.length > 1) {
+          const category = parts[0].trim();
+          const rawList = parts[1];
+          const categorySkills = rawList.split(",").map(s => {
             const rawName = s.trim();
             const hasStar = rawName.includes("*");
             const name = rawName.replace(/\*/g, "").trim();
@@ -499,39 +1214,104 @@ export function parseBackgroundData(item) {
             return { name, key, hasStar };
           }).filter(s => Boolean(s.name) && s.name.length < 40 && !/^(with|you\s*may|gain|choose)/i.test(s.name));
 
-          if (skills.length > 0) {
-            skillCategories.push({ category: "General", skills });
-            eligibleSkills.push(...skills.map(s => s.name.toLowerCase()));
+          if (categorySkills.length > 0) {
+            skillCategories.push({ category, skills: categorySkills });
+            eligibleSkills.push(...categorySkills.map(s => s.name.toLowerCase()));
+          }
+        } else {
+          if (!/(?:with\s*this|you\s*may|put\s*up|points?\s*into|spend\s*on)/i.test(cleanLine)) {
+            const skills = parts[0].split(",").map(s => {
+              const rawName = s.trim();
+              const hasStar = rawName.includes("*");
+              const name = rawName.replace(/\*/g, "").trim();
+              const key = name.toLowerCase();
+              return { name, key, hasStar };
+            }).filter(s => Boolean(s.name) && s.name.length < 40 && !/^(with|you\s*may|gain|choose)/i.test(s.name));
+
+            if (skills.length > 0) {
+              skillCategories.push({ category: "General", skills });
+              eligibleSkills.push(...skills.map(s => s.name.toLowerCase()));
+            }
           }
         }
       }
     }
-  }
 
-  // If no restricted skill section was found, but the background grants skill points to spend on any skills (e.g. Urchin)
-  if (skillCategories.length === 0 && (skillPoints > 0 || /any\s*skills?\s*(?:of\s*your\s*choice)?/i.test(desc))) {
-    const starSkills = new Set([
-      "alchemy", "brewing", "calligraphy", "carpentry", "cartography",
-      "cobbling", "cooking", "glassblowing", "jeweling", "leatherworking",
-      "masonry", "painting", "pottery", "smithing", "weaving", "woodcarving",
-      "disguising", "forging", "lockpicking", "instrument", "vehicles", "vehicles [land]", "vehicles [water]"
-    ]);
+    if (skillCategories.length === 0 && (skillPoints > 0 || /any\s*skills?\s*(?:of\s*your\s*choice)?/i.test(desc))) {
+      const starSkills = new Set([
+        "alchemy", "brewing", "calligraphy", "carpentry", "cartography",
+        "cobbling", "cooking", "glassblowing", "jeweling", "leatherworking",
+        "masonry", "painting", "pottery", "smithing", "weaving", "woodcarving",
+        "disguising", "forging", "lockpicking", "instrument", "vehicles", "vehicles [land]", "vehicles [water]"
+      ]);
 
-    for (const [catKey, skillNames] of Object.entries(MYTHCRAFT_SKILL_CATEGORIES)) {
-      const catName = catKey.charAt(0).toUpperCase() + catKey.slice(1);
-      const catSkills = skillNames.map(sk => {
-        const cleanName = sk.replace(/\*/g, "").trim();
-        const titleName = cleanName.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-        const key = cleanName.toLowerCase();
-        const hasStar = starSkills.has(key);
-        return { name: titleName, key, hasStar };
-      });
-      skillCategories.push({ category: catName, skills: catSkills });
-      eligibleSkills.push(...catSkills.map(s => s.name.toLowerCase()));
+      for (const [catKey, skillNames] of Object.entries(MYTHCRAFT_SKILL_CATEGORIES)) {
+        const catName = catKey.charAt(0).toUpperCase() + catKey.slice(1);
+        const catSkills = skillNames.map(sk => {
+          const cleanName = sk.replace(/\*/g, "").trim();
+          const titleName = cleanName.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+          const key = cleanName.toLowerCase();
+          const hasStar = starSkills.has(key);
+          return { name: titleName, key, hasStar };
+        });
+        skillCategories.push({ category: catName, skills: catSkills });
+        eligibleSkills.push(...catSkills.map(s => s.name.toLowerCase()));
+      }
+    }
+
+    // Check official MythCraft BackgroundModel schema (system.occupation)
+    if (!encouragedTag && item?.system?.occupation?.tag) {
+      encouragedTag = String(item.system.occupation.tag).trim().toLowerCase();
+    }
+    if (!encouragedBonusSkill && item?.system?.occupation?.skill) {
+      encouragedBonusSkill = String(item.system.occupation.skill).trim();
+    }
+    if (!encouragedBonusValue && item?.system?.occupation?.bonus !== undefined) {
+      encouragedBonusValue = Number(item.system.occupation.bonus) || 2;
+    }
+
+    // Tag extraction fallback from description
+    if (!encouragedTag) {
+      const tagMatch = clean.match(/(?:professions?\s*with\s*the|with\s*the|taking\s*a\s*profession\s*with\s*the)\s*([a-zA-Z0-9_\-]+)\s*tag/i)
+        || clean.match(/tag[:\s]+([a-zA-Z0-9_\-]+)/i)
+        || clean.match(/([a-zA-Z0-9_\-]+)\s*tag/i);
+      if (tagMatch) {
+        encouragedTag = tagMatch[1].trim().toLowerCase();
+      }
+    }
+
+    // Bonus extraction
+    if (!encouragedBonusValue || !encouragedBonusSkill) {
+      const bonusMatch = clean.match(/(?:gain|receive)\s*(?:\+)?(\d+)\s*(?:points?\s*(?:in|to)?|to|in)?\s*([a-zA-Z\s]+?)(?:\s*skill|\s*\(|\.|\n|$)/i)
+        || clean.match(/\+(\d+)\s*([a-zA-Z\s]+?)(?:\s*skill|\.|\n|$)/i);
+
+      if (bonusMatch) {
+        const candidateVal = parseInt(bonusMatch[1], 10);
+        const candidateSkill = bonusMatch[2].replace(/attribute|point|wealth|sc|silver/gi, "").trim();
+        const isGenericPoints = /^(?:skill|attribute|bonus)?\s*s?\s*(?:that|you|to|of)?/i.test(candidateSkill) || !candidateSkill;
+        if (candidateVal > 0 && candidateSkill && candidateSkill.length < 35 && !isGenericPoints) {
+          if (!encouragedBonusValue) encouragedBonusValue = candidateVal;
+          if (!encouragedBonusSkill) encouragedBonusSkill = candidateSkill;
+        }
+      }
+    }
+
+    if (!encouragedBonusValue && (encouragedTag || rawDesc.includes("@UUID") || clean.toLowerCase().includes("profession"))) {
+      encouragedBonusValue = 2;
+    }
+    if (!encouragedBonusSkill && (encouragedTag || rawDesc.includes("@UUID") || clean.toLowerCase().includes("profession"))) {
+      const knownSkills = ["Religion", "Medicine", "Insight", "Investigation", "Persuasion", "Deception", "History", "Arcana", "Athletics", "Stealth", "Perception", "Awareness", "Survival", "Forced March", "Intimidation", "Streetwise", "Performance", "Crafting"];
+      for (const sk of knownSkills) {
+        if (clean.toLowerCase().includes(sk.toLowerCase())) {
+          encouragedBonusSkill = sk;
+          break;
+        }
+      }
+      if (!encouragedBonusSkill) encouragedBonusSkill = "Synergy Skill";
     }
   }
 
-  // 3. Starting Wealth
+  // Starting Wealth
   let wealthFormula = "5d20*2";
   let wealthAverage = 104;
   const wealthMatch = desc.match(/gain\s*([0-9d\*\+\-\s]+)\s*sc\s*\(or\s*take\s*the\s*average[,\s]*(\d+)\s*sc\)/i);
@@ -540,73 +1320,11 @@ export function parseBackgroundData(item) {
     wealthAverage = parseInt(wealthMatch[2], 10);
   }
 
-  // 4. Encouraged Profession Tag & Bonus Parsing
-  let encouragedTag = "";
-  let encouragedBonusSkill = "";
-  let encouragedBonusValue = 0;
-
-  // Check official MythCraft BackgroundModel schema (system.occupation)
-  if (item?.system?.occupation?.tag) {
-    encouragedTag = String(item.system.occupation.tag).trim().toLowerCase();
-  }
-  if (item?.system?.occupation?.skill) {
-    encouragedBonusSkill = String(item.system.occupation.skill).trim();
-  }
-  if (item?.system?.occupation?.bonus !== undefined) {
-    encouragedBonusValue = Number(item.system.occupation.bonus) || 2;
-  }
-
-  const rawDesc = String(item?.system?.description?.value ?? item?.system?.description ?? "");
-  const clean = descriptionText(item);
-
-  // Tag extraction fallback from description (e.g. "with the sacred tag", "profession with the militant tag", "religious tag")
-  if (!encouragedTag) {
-    const tagMatch = clean.match(/(?:professions?\s*with\s*the|with\s*the|taking\s*a\s*profession\s*with\s*the)\s*([a-zA-Z0-9_\-]+)\s*tag/i)
-      || clean.match(/tag[:\s]+([a-zA-Z0-9_\-]+)/i)
-      || clean.match(/([a-zA-Z0-9_\-]+)\s*tag/i);
-    if (tagMatch) {
-      encouragedTag = tagMatch[1].trim().toLowerCase();
-    }
-  }
-
-  // Bonus extraction
-  if (!encouragedBonusValue || !encouragedBonusSkill) {
-    const bonusMatch = clean.match(/(?:gain|receive)\s*(?:\+)?(\d+)\s*(?:points?\s*(?:in|to)?|to|in)?\s*([a-zA-Z\s]+?)(?:\s*skill|\s*\(|\.|\n|$)/i)
-      || clean.match(/\+(\d+)\s*([a-zA-Z\s]+?)(?:\s*skill|\.|\n|$)/i);
-
-    if (bonusMatch) {
-      const candidateVal = parseInt(bonusMatch[1], 10);
-      const candidateSkill = bonusMatch[2].replace(/attribute|point|wealth|sc|silver/gi, "").trim();
-      const isGenericPoints = /^(?:skill|attribute|bonus)?\s*s?\s*(?:that|you|to|of)?/i.test(candidateSkill) || !candidateSkill;
-      if (candidateVal > 0 && candidateSkill && candidateSkill.length < 35 && !isGenericPoints) {
-        if (!encouragedBonusValue) encouragedBonusValue = candidateVal;
-        if (!encouragedBonusSkill) encouragedBonusSkill = candidateSkill;
-      }
-    }
-  }
-
-  // Fallback: If background mentions professions or tags, ensure standard +2 bonus value
-  if (!encouragedBonusValue && (encouragedTag || rawDesc.includes("@UUID") || clean.toLowerCase().includes("profession"))) {
-    encouragedBonusValue = 2;
-  }
-  if (!encouragedBonusSkill && (encouragedTag || rawDesc.includes("@UUID") || clean.toLowerCase().includes("profession"))) {
-    // Try to find the associated skill
-    const knownSkills = ["Religion", "Medicine", "Insight", "Investigation", "Persuasion", "Deception", "History", "Arcana", "Athletics", "Stealth", "Perception", "Awareness", "Survival", "Forced March", "Intimidation", "Streetwise", "Performance", "Crafting"];
-    for (const sk of knownSkills) {
-      if (clean.toLowerCase().includes(sk.toLowerCase())) {
-        encouragedBonusSkill = sk;
-        break;
-      }
-    }
-    if (!encouragedBonusSkill) encouragedBonusSkill = "Synergy Skill";
-  }
-
   const uuidMatches = [...rawDesc.matchAll(/@UUID\[([^\]]+)\](?:\{([^}]+)\})?/gi)].map(m => ({
     uuid: m[1],
     name: (m[2] || "").trim(),
   }));
 
-  // Detect Knave-style backgrounds that grant two profession selections
   const dualProfession = (item?.system?.professions === 2)
     || /choose\s*two\s*professions?/i.test(clean)
     || /may\s*select\s*two\s*professions?/i.test(clean)
@@ -622,23 +1340,34 @@ export function parseBackgroundData(item) {
     || /^urchin$/i.test(String(item?.name || "").trim())
   );
 
+  let startingGear = [];
+  const bgGearMatch = desc.match(/(?:gain|receive)\s*(?:the\s*following\s*gear|the\s*following\s*items|starting\s*gear|starting\s*equipment)[^:]*:\s*([\s\S]*?)(?:Gain\s*\d|If\s*you\s*take|Professions\s*with|Tenure|Starting\s*Wealth|$)/i)
+    || desc.match(/(?:starting\s*(?:gear|equipment)[:\.]?)\s*([\s\S]*?)(?:Gain\s*\d|If\s*you\s*take|Professions\s*with|Tenure|Starting\s*Wealth|$)/i);
+  if (bgGearMatch) {
+    startingGear = parseProfessionStartingGear(bgGearMatch[1]);
+  }
+
   return {
     skillPoints,
     perSkillCap,
+    defaultPerSkillCap: perSkillCap,
+    taggedCaps,
     eligibleSkills: Array.from(new Set(eligibleSkills)),
     skillCategories,
+    fixedSkills,
+    startingGear,
     startingWealth: {
       formula: wealthFormula,
       average: wealthAverage,
     },
-    encouragedProfessions: {
+    encouragedProfessions: encouragedProfessionsLib || {
       tag: encouragedTag,
       bonusSkill: encouragedBonusSkill,
       bonusValue: encouragedBonusValue,
       rawProfessionUuids: uuidMatches,
     },
     hasNoProfession,
-    dualProfession,
+    dualProfession: canon?.dualProfession !== undefined ? canon.dualProfession : dualProfession,
   };
 }
 

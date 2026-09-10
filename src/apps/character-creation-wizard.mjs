@@ -15,6 +15,9 @@ import {
   parseLineageMilestones,
   getAttributeLevelCap,
   calculateAttributePool,
+  BACKGROUND_CANON_DATA,
+  BACKGROUND_ENCOURAGED_PROFESSIONS,
+  getBackgroundSkillCap,
   parseBackgroundData,
   parseProfessionData,
   parseTalentData,
@@ -594,7 +597,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     const backgroundSkillRemaining = backgroundSkillPool - backgroundSkillSpent;
     const effectivePerSkillCap = Math.max(parsedBackground?.perSkillCap ?? 4, featureSkillCapOverride);
 
-    // Decorate parsedBackground.skillCategories with feature bonus highlight flags
+    // Decorate parsedBackground.skillCategories with feature bonus highlight flags, per-skill caps, and current allocated values
     if (parsedBackground?.skillCategories) {
       for (const cat of parsedBackground.skillCategories) {
         const catKey = cat.category.toLowerCase().trim();
@@ -606,6 +609,8 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
             return skName.includes(t) || t.includes(skName);
           });
           sk.isFeatureBonus = matchesTag;
+          sk.cap = Math.max(getBackgroundSkillCap(parsedBackground, sk.name, cat.category), featureSkillCapOverride);
+          sk.value = Number(this.data.allocatedSkills[sk.name] ?? 0);
         }
       }
     }
@@ -773,8 +778,19 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
   _isProfessionEncouraged(profession, parsedBackground) {
     if (!profession || !parsedBackground) return false;
-    const tag = (parsedBackground?.encouragedProfessions?.tag || "").trim().toLowerCase();
     const pName = (profession.name || "").toLowerCase().replace(/ profession$/i, "").trim();
+
+    // 0. Static library matching by background name or parsed background
+    const bgName = String(this.data.backgrounds.find(b => b.id === this.data.selectedBackgroundId)?.name || "").toLowerCase().replace(/ background$/i, "").trim();
+    const libEntry = BACKGROUND_ENCOURAGED_PROFESSIONS[bgName] || (parsedBackground?.encouragedProfessions?.tag ? Object.values(BACKGROUND_ENCOURAGED_PROFESSIONS).find(e => e.tag === parsedBackground.encouragedProfessions.tag) : null);
+    if (libEntry) {
+      if (libEntry.professions.has(pName)) return true;
+      for (const p of libEntry.professions) {
+        if (pName === p || pName.includes(p) || p.includes(pName)) return true;
+      }
+    }
+
+    const tag = (parsedBackground?.encouragedProfessions?.tag || "").trim().toLowerCase();
     const pDesc = String(profession.system?.description?.value ?? profession.system?.description ?? "").toLowerCase();
 
     // 1. Tag match in system fields
@@ -1047,6 +1063,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
   static _onAdjustSkill(event, target) {
     const skill = target.dataset.skill;
+    const category = target.dataset.category || "";
     const delta = parseInt(target.dataset.delta, 10);
     const cur = Number(this.data.allocatedSkills[skill] ?? 0);
     const next = Math.max(0, cur + delta);
@@ -1061,7 +1078,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
     const bg = this.data.backgrounds.find(b => b.id === this.data.selectedBackgroundId);
     const parsed = bg ? parseBackgroundData(bg) : null;
-    const cap = Math.max(parsed?.perSkillCap ?? 4, featureSkillCapOverride);
+    const cap = Math.max(getBackgroundSkillCap(parsed, skill, category), featureSkillCapOverride);
     const maxPool = (parsed?.skillPoints ?? 12) + featureSkillBonus;
 
     if (delta > 0) {
@@ -1071,7 +1088,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
         return;
       }
       if (next > cap) {
-        ui.notifications.warn(`Skills are limited to a maximum of +${cap}.`);
+        ui.notifications.warn(`"${skill}" is limited to a maximum of +${cap} points for your background.`);
         return;
       }
     }
@@ -1251,6 +1268,10 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     for (const [attrKey, attrVal] of Object.entries(this.data.attributes)) {
       updates[`system.attributes.${attrKey}`] = attrVal || 0;
     }
+    // Ensure both 'luck' and 'lck' are populated for system model and module compat
+    const luckVal = this.data.attributes.luck ?? this.data.attributes.lck ?? 0;
+    updates["system.attributes.luck"] = luckVal;
+    updates["system.attributes.lck"] = luckVal;
 
     // 1. HP calculation
     const endVal = this.data.attributes.end || 0;
@@ -1315,7 +1336,17 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
         const key = findSkillKey(sName);
         const curVal = Number(this.actor.system?.skills?.[key]?.value ?? this.actor.system?.skills?.[key]?.bonus ?? 0);
         skillUpdates[`system.skills.${key}.value`] = curVal + pts;
-        skillUpdates[`system.skills.${key}.bonus`] = curVal + pts;
+      }
+    }
+
+    // Apply fixed background skills (e.g. Knave +4 Savoir Faire)
+    if (parsedBg?.fixedSkills?.length) {
+      for (const fSkill of parsedBg.fixedSkills) {
+        const key = findSkillKey(fSkill.name);
+        if (key) {
+          const curVal = Number(skillUpdates[`system.skills.${key}.value`] ?? this.actor.system?.skills?.[key]?.value ?? this.actor.system?.skills?.[key]?.bonus ?? 0);
+          skillUpdates[`system.skills.${key}.value`] = curVal + fSkill.value;
+        }
       }
     }
 
@@ -1325,15 +1356,13 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     if (parsedProf) {
       for (const fSkill of parsedProf.fixedSkills) {
         const key = findSkillKey(fSkill.name);
-        const curVal = Number(skillUpdates[`system.skills.${key}.value`] ?? this.actor.system?.skills?.[key]?.value ?? this.actor.system?.skills?.[key]?.bonus ?? 0);
+        const curVal = Number(skillUpdates[`system.skills.${key}.value`] ?? this.actor.system?.skills?.[key]?.value ?? 0);
         skillUpdates[`system.skills.${key}.value`] = curVal + fSkill.value;
-        skillUpdates[`system.skills.${key}.bonus`] = curVal + fSkill.value;
       }
       for (const cSkill of this.data.selectedProfessionSkills) {
         const key = findSkillKey(cSkill);
-        const curVal = Number(skillUpdates[`system.skills.${key}.value`] ?? this.actor.system?.skills?.[key]?.value ?? this.actor.system?.skills?.[key]?.bonus ?? 0);
+        const curVal = Number(skillUpdates[`system.skills.${key}.value`] ?? this.actor.system?.skills?.[key]?.value ?? 0);
         skillUpdates[`system.skills.${key}.value`] = curVal + parsedProf.choiceSkills.value;
-        skillUpdates[`system.skills.${key}.bonus`] = curVal + parsedProf.choiceSkills.value;
       }
     }
 
@@ -1343,30 +1372,30 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     if (parsedProf2) {
       for (const fSkill of parsedProf2.fixedSkills) {
         const key = findSkillKey(fSkill.name);
-        const curVal = Number(skillUpdates[`system.skills.${key}.value`] ?? this.actor.system?.skills?.[key]?.value ?? this.actor.system?.skills?.[key]?.bonus ?? 0);
+        const curVal = Number(skillUpdates[`system.skills.${key}.value`] ?? this.actor.system?.skills?.[key]?.value ?? 0);
         skillUpdates[`system.skills.${key}.value`] = curVal + fSkill.value;
-        skillUpdates[`system.skills.${key}.bonus`] = curVal + fSkill.value;
       }
       for (const cSkill of this.data.selectedProfessionSkills2) {
         const key = findSkillKey(cSkill);
-        const curVal = Number(skillUpdates[`system.skills.${key}.value`] ?? this.actor.system?.skills?.[key]?.value ?? this.actor.system?.skills?.[key]?.bonus ?? 0);
+        const curVal = Number(skillUpdates[`system.skills.${key}.value`] ?? this.actor.system?.skills?.[key]?.value ?? 0);
         skillUpdates[`system.skills.${key}.value`] = curVal + parsedProf2.choiceSkills.value;
-        skillUpdates[`system.skills.${key}.bonus`] = curVal + parsedProf2.choiceSkills.value;
       }
     }
 
     // Background bonus skill for encouraged professions (first and/or second profession)
-    if (parsedBg?.encouragedProfessions?.bonusSkill) {
-      const bonusSkillName = parsedBg.encouragedProfessions.bonusSkill;
-      const bonusVal = Number(parsedBg.encouragedProfessions.bonusValue) || 2;
+    const bgName = String(bg?.name || "").toLowerCase().replace(/ background$/i, "").trim();
+    const libEntry = BACKGROUND_ENCOURAGED_PROFESSIONS[bgName];
+    const bonusSkillName = libEntry?.bonusSkill || parsedBg?.encouragedProfessions?.bonusSkill;
+    const bonusVal = Number(libEntry?.bonusValue ?? parsedBg?.encouragedProfessions?.bonusValue ?? 2);
+
+    if (bonusSkillName) {
       let bonusApplied = false;
 
       if (prof && this._isProfessionEncouraged(prof, parsedBg)) {
         const bKey = findSkillKey(bonusSkillName);
         if (bKey) {
-          const curVal = Number(skillUpdates[`system.skills.${bKey}.value`] ?? this.actor.system?.skills?.[bKey]?.value ?? this.actor.system?.skills?.[bKey]?.bonus ?? 0);
+          const curVal = Number(skillUpdates[`system.skills.${bKey}.value`] ?? this.actor.system?.skills?.[bKey]?.value ?? 0);
           skillUpdates[`system.skills.${bKey}.value`] = curVal + bonusVal;
-          skillUpdates[`system.skills.${bKey}.bonus`] = curVal + bonusVal;
           bonusApplied = true;
         }
       }
@@ -1374,9 +1403,8 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       if (!bonusApplied && prof2 && this._isProfessionEncouraged(prof2, parsedBg)) {
         const bKey = findSkillKey(bonusSkillName);
         if (bKey) {
-          const curVal = Number(skillUpdates[`system.skills.${bKey}.value`] ?? this.actor.system?.skills?.[bKey]?.value ?? this.actor.system?.skills?.[bKey]?.bonus ?? 0);
+          const curVal = Number(skillUpdates[`system.skills.${bKey}.value`] ?? this.actor.system?.skills?.[bKey]?.value ?? 0);
           skillUpdates[`system.skills.${bKey}.value`] = curVal + bonusVal;
-          skillUpdates[`system.skills.${bKey}.bonus`] = curVal + bonusVal;
         }
       }
     }
@@ -1445,34 +1473,85 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       if (sp) itemsToCreate.push(sp.toObject());
     }
 
-    // Starting gear helper
-    const addGearItems = (gearList) => {
-      const allEquip = this.data.allEquipmentDocs || [];
-      for (const gear of gearList) {
-        const cleanName = (gear.name || "").trim().toLowerCase();
-        const baseName = cleanName
-          .replace(/\([^)]+\)/g, "")
-          .replace(/\[[^\]]+\]/g, "")
-          .replace(/^(a|an|the)\s+/i, "")
-          .trim();
+    // Helper to resolve an item directly from the compendiums by name or alias
+    const resolveCompendiumItem = async (gear) => {
+      const cleanName = (typeof gear === "string" ? gear : gear.name || "").trim();
+      if (!cleanName) return null;
 
-        const match = allEquip.find(d => {
+      const lower = cleanName.toLowerCase();
+      const baseName = lower
+        .replace(/\([^)]+\)/g, "")
+        .replace(/\[[^\]]+\]/g, "")
+        .replace(/^(a|an|the|one|two|three|four|five|\d+)\s+/i, "")
+        .trim();
+
+      const parenMatch = lower.match(/^([^\(]+)\s*\(([^)]+)\)$/);
+      const invertedName = parenMatch ? `${parenMatch[2].trim()} ${parenMatch[1].trim()}` : "";
+      const singularName = lower.endsWith("s") ? lower.slice(0, -1) : lower;
+
+      const searchPools = [
+        this.data.allEquipmentDocs || [],
+        this.data.allBopsDocs || [],
+        this.data.allLineageDocs || [],
+        this.data.talents || [],
+        this.data.availableSpells || [],
+      ];
+
+      for (const pool of searchPools) {
+        // 1. Exact match
+        let match = pool.find(d => (d.name || "").trim().toLowerCase() === lower);
+        if (match) return match;
+
+        // 2. Base name / Inverted name / Singular match
+        match = pool.find(d => {
           const dName = (d.name || "").trim().toLowerCase();
           const dBase = dName
             .replace(/\([^)]+\)/g, "")
             .replace(/\[[^\]]+\]/g, "")
             .replace(/^(a|an|the)\s+/i, "")
             .trim();
-          return dName === cleanName || dBase === baseName || (baseName && (dName.includes(baseName) || baseName.includes(dName)));
+          return dName === baseName ||
+                 (invertedName && dName === invertedName) ||
+                 (dBase && (dBase === baseName || dBase === singularName)) ||
+                 (baseName && dName.includes(baseName)) ||
+                 (baseName && baseName.includes(dName));
         });
+        if (match) return match;
+      }
 
-        if (match && typeof match.toObject === "function") {
-          const obj = match.toObject();
-          foundry.utils.setProperty(obj, "system.quantity", Number(gear.quantity) || 1);
+      // If still not found, search all registered Foundry game packs
+      if (globalThis.game?.packs) {
+        for (const pack of game.packs.values()) {
+          if (pack.documentName !== "Item") continue;
+          if (pack.index) {
+            const entry = pack.index.find(e => {
+              const eName = (e.name || "").trim().toLowerCase();
+              return eName === lower || eName === baseName || (invertedName && eName === invertedName) || (baseName && eName.includes(baseName));
+            });
+            if (entry) {
+              const doc = await pack.getDocument(entry._id || entry.id);
+              if (doc) return doc;
+            }
+          }
+        }
+      }
+
+      return null;
+    };
+
+    // Starting gear helper: sources full compendium items whenever a matching name exists
+    const addGearItems = async (gearList, sourceLabel = "background / profession") => {
+      for (const gear of gearList || []) {
+        const qty = Number(gear.quantity) || 1;
+        const compItem = await resolveCompendiumItem(gear);
+
+        if (compItem && typeof compItem.toObject === "function") {
+          const obj = compItem.toObject();
+          foundry.utils.setProperty(obj, "system.quantity", qty);
           obj.img = resolveItemIcon(obj, obj.img, obj.type);
           itemsToCreate.push(obj);
         } else {
-          const lowerName = gear.name.toLowerCase();
+          const lowerName = (gear.name || "").toLowerCase();
           let itemType = "gear";
           if (/(?:sword|blade|dagger|axe|bow|crossbow|halberd|spear|knife|quarterstaff|hammer|mace|flail|club|cestus|knuckles)/i.test(lowerName)) {
             itemType = "weapon";
@@ -1484,16 +1563,52 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
             type: itemType,
             img: resolveItemIcon(gear.name, null, itemType),
             system: {
-              quantity: Number(gear.quantity) || 1,
-              description: { value: "<p>Acquired from profession starting equipment.</p>" },
+              quantity: qty,
+              description: { value: `<p>Acquired from ${sourceLabel}.</p>` },
             },
           });
         }
       }
     };
 
-    if (parsedProf?.startingGear) addGearItems(parsedProf.startingGear);
-    if (parsedProf2?.startingGear) addGearItems(parsedProf2.startingGear);
+    // Background starting gear & item grant advancements
+    if (parsedBg?.startingGear?.length) {
+      await addGearItems(parsedBg.startingGear, "background starting equipment");
+    }
+
+    const processItemGrantAdvancements = async (itemDoc) => {
+      if (!itemDoc) return;
+      const advs = Array.isArray(itemDoc.system?.advancements)
+        ? itemDoc.system.advancements
+        : typeof itemDoc.system?.advancements === "object"
+          ? Object.values(itemDoc.system.advancements)
+          : [];
+
+      for (const adv of advs) {
+        if (adv.type === "itemGrant" || adv.documentClass?.TYPE === "itemGrant") {
+          for (const poolItem of adv.pool || []) {
+            if (poolItem.uuid) {
+              try {
+                const fetched = await fromUuid(poolItem.uuid);
+                if (fetched && typeof fetched.toObject === "function") {
+                  const obj = fetched.toObject();
+                  obj.img = resolveItemIcon(obj, obj.img, obj.type);
+                  itemsToCreate.push(obj);
+                }
+              } catch (e) {}
+            }
+          }
+        }
+      }
+    };
+
+    if (bg) await processItemGrantAdvancements(bg);
+    if (prof) await processItemGrantAdvancements(prof);
+    if (prof2) await processItemGrantAdvancements(prof2);
+
+    // Profession starting gear
+    if (parsedProf?.startingGear) await addGearItems(parsedProf.startingGear, "profession starting equipment");
+    if (parsedProf2?.startingGear) await addGearItems(parsedProf2.startingGear, "profession starting equipment");
 
     // Deduplicate by name: for stackable gear (same name from two professions), stack quantity
     const seenNames = new Map(); // name -> index in uniqueItemsToCreate

@@ -8826,6 +8826,9 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
+  gap: 8px !important;
+  min-height: 32px !important;
+  overflow: visible !important;
 }
 
 .essence-chat-card-header .card-roll-title {

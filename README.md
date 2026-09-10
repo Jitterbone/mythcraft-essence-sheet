@@ -1,4 +1,4 @@
-# MythCraft Essence Sheet (v0.5.0-alpha) 📜✨
+# MythCraft Essence Sheet (v0.5.1) 📜✨
 
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Development-FF5E5B?style=flat&logo=kofi&logoColor=white)](https://ko-fi.com/jitterbone)
 
@@ -195,6 +195,26 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 ---
 
 ## 📝 Changelog
+
+### v0.5.1
+- **Target Defense Chat Badges**:
+  - Registered `renderChatMessage` & `renderChatMessageHTML` hooks to ensure attack and spell roll chat cards dynamically display prominent, high-contrast target defense badges (`[vs AR]`, `[vs REF]`, `[vs FORT]`, `[vs ANT]`, `[vs LOG]`, `[vs WILL]`) in the top-right corner of the teal-and-gold card banner.
+  - Automatically deduplicates and cleans up duplicate subtitle/flavor elements across chat rolls.
+- **Canonical Backgrounds & Rule Enforcement**:
+  - Implemented a canonical background library (`BACKGROUND_CANON_DATA`) enforcing exact official skill point budgets, valid skill categories, and individual skill caps (e.g. *Born Warrior* +4 cap, *Criminal* +6 subterfuge / +3 general caps).
+  - **Knave Background Mechanics**: Added full Knave background support granting a fixed +4 bonus to *Savoir Faire* with 0 manual point allocation needed, along with dual-profession selection.
+  - **Encouraged Profession Highlighting**: Restored gleaming gold highlighting for tag-matching encouraged professions with automatic skill bonus calculation and display.
+  - **Compendium Sourcing for Starting Equipment**: Background equipment distribution dynamically matches and sources canonical items from compendiums.
+- **Dynamic Compendium & Item Icons**:
+  - Implemented dynamic runtime icon overrides for talents, backgrounds, professions, weapons, and armor without modifying on-disk compendium databases.
+  - Replaced generic fallback icons with rich contextual Foundry core SVG icons across combat, magic, specialization tracks, and equipment.
+- **Level-Up & Attribute Reallocation**:
+  - Supports reallocating attribute points during level-up and recalculation, allowing negative adjustments down to the base floor when adjusting stats.
+  - Preserves scroll positions and expands active tracks seamlessly in the Talent Tree viewer and Level-Up picker.
+- **Automation & System Polish**:
+  - Fixed damage rolls so rolling damage never inadvertently deducts AP or SP.
+  - Sanitized item data structures when provisioning background/lineage items to eliminate Foundry advancement and deprecation warnings during character creation.
+  - Synchronized Action Point (AP) calculations when Coordination (COR) or max AP changes.
 
 ### v0.5.0-alpha
 - **Lineage Sublineages & Choice Groups Overhaul**:

@@ -22,12 +22,12 @@ import { resolveItemIcon } from "./equipment-icons.mjs";
  */
 export const OFFICIAL_PACK_NAMES = {
   lineages: ["lineages", "chapter-1-lineages", "lineage"],
-  bops: ["bops", "chapter-2-bops", "backgrounds-and-professions", "backgrounds", "professions"],
-  classes: ["classes", "chapter-3-classes", "class-talents"],
+  bops: ["bops", "bop", "chapter-2-bops", "backgrounds-and-professions", "backgrounds", "professions", "background", "profession"],
+  classes: ["classes", "chapter-3-classes", "class-talents", "class"],
   magic: ["magic-talents", "chapter-4-magic", "magic"],
-  spells: ["spells", "cantrips"],
-  specTalents: ["spec-talents", "specialization-talents", "chapter-5-specialization-talents"],
-  equipment: ["equipment", "chapter-6-equipment", "items", "gear"],
+  spells: ["spells", "cantrips", "spell", "cantrip"],
+  specTalents: ["spec-talents", "specialization-talents", "chapter-5-specialization-talents", "specialization", "specializations"],
+  equipment: ["equipment", "chapter-6-equipment", "items", "gear", "item"],
 };
 
 function descriptionText(item) {
@@ -588,15 +588,21 @@ export function parseBackgroundData(item) {
     name: (m[2] || "").trim(),
   }));
 
-  const hasNoProfession = /do\s*not\s*get\s*to\s*select\s*a\s*profession/i.test(clean) || /no\s*professional\s*experience/i.test(clean);
-
   // Detect Knave-style backgrounds that grant two profession selections
-  const dualProfession = /choose\s*two\s*professions?/i.test(clean)
+  const dualProfession = (item?.system?.professions === 2)
+    || /choose\s*two\s*professions?/i.test(clean)
     || /may\s*select\s*two\s*professions?/i.test(clean)
     || /gains?\s*two\s*professions?/i.test(clean)
     || /select\s*(?:any\s*)?two\s*professions?/i.test(clean)
     || /two\s*profession\s*choices?/i.test(clean)
     || /knave/i.test(String(item?.name || ""));
+
+  const hasNoProfession = !dualProfession && (
+    (item?.system?.professions === 0)
+    || /do\s*not\s*(?:get\s*to\s*)?select\s*(?:a\s*)?profession/i.test(clean)
+    || (/no\s*professional\s*experience/i.test(clean) && !/two\s*professions?/i.test(clean))
+    || /^urchin$/i.test(String(item?.name || "").trim())
+  );
 
   return {
     skillPoints,

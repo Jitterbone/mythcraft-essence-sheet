@@ -192,8 +192,11 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
     this.data.backgrounds = bopsDocs.filter(d => isDocOfCategory(d, "background") && !String(d.name || "").toLowerCase().includes(": rank"))
       .sort((a, b) => a.name.localeCompare(b.name));
-    this.data.professions = bopsDocs.filter(d => String(d.name || "").trim().toLowerCase().endsWith(" profession"))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    this.data.professions = bopsDocs.filter(d => {
+      const name = String(d.name || "").trim().toLowerCase();
+      if (name.includes(": rank")) return false;
+      return d.type === "profession" || d.system?.category === "profession" || name.endsWith(" profession") || isDocOfCategory(d, "profession");
+    }).sort((a, b) => a.name.localeCompare(b.name));
 
     // Starting Talents: Specialization and Magic Entry talents (Level 1 characters cannot take Class talents)
     const specTalents = await loadPacksDocuments(packs.specTalents);
@@ -759,8 +762,16 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
   _hasTag(rawTags, target) {
     if (!rawTags || !target) return false;
-    const values = Array.isArray(rawTags) ? rawTags : rawTags instanceof Set ? Array.from(rawTags) : Object.values(rawTags);
-    return values.some(tag => String(tag?.name || tag?.label || tag?.id || tag).toLowerCase() === target.toLowerCase());
+    const tgt = String(target).toLowerCase().trim();
+    if (typeof rawTags === "string") {
+      return rawTags.toLowerCase().split(/[,\s]+/).includes(tgt);
+    }
+    const values = Array.isArray(rawTags) ? rawTags : rawTags instanceof Set ? Array.from(rawTags) : typeof rawTags === "object" ? Object.values(rawTags) : [rawTags];
+    return values.some(tag => {
+      if (!tag) return false;
+      if (typeof tag === "string") return tag.toLowerCase().trim() === tgt;
+      return String(tag?.name || tag?.label || tag?.id || tag?.value || tag).toLowerCase().trim() === tgt;
+    });
   }
 
   _getBaseAttributePool() {

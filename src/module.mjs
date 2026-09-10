@@ -15,6 +15,7 @@ import {
 } from "./sheets/_module.mjs";
 import { initDamageAutomation, patchFeatureUsesMaxFormula } from "./features/damage-automation.mjs";
 import { initEquipmentAutomation, patchWeaponApcGetter } from "./features/equipment-automation.mjs";
+import { initCompendiumIconOverrides } from "./features/equipment-icons.mjs";
 import { patchSystemHpCalculation, getEnduranceThreshold, calculateApMax } from "./features/hp-automation.mjs";
 import { syncHomebrewAttributesToSystem, patchAttributeSkillInput, getFullAttributeName } from "./features/homebrew-attributes.mjs";
 import { initLuckPointReroll } from "./features/luck-points.mjs";
@@ -61,6 +62,7 @@ Hooks.once("init", () => {
   // Initialize Automation Engines
   initDamageAutomation();
   initEquipmentAutomation();
+  initCompendiumIconOverrides();
   initCombatAutomation();
   initConditionAutomation();
   patchSystemHpCalculation();

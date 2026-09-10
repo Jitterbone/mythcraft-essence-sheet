@@ -727,3 +727,62 @@ export function applyDefaultEquipmentIcon(itemData) {
   return itemData;
 }
 export const applyDefaultItemIcon = applyDefaultEquipmentIcon;
+
+/**
+ * Dynamically enriches compendium indices and UI windows with resolved icons
+ * at runtime without altering the on-disk database files.
+ * When the module is deactivated, compendiums immediately revert to original icons.
+ */
+export function initCompendiumIconOverrides() {
+  // 1. Dynamic in-memory index enrichment when packs are loaded
+  Hooks.once("ready", () => {
+    try {
+      for (const pack of (game.packs || [])) {
+        if (pack.documentName === "Item") {
+          // If index is already built, enrich existing entries in memory
+          if (pack.indexed && pack.index) {
+            for (const entry of pack.index) {
+              if (isDefaultIcon(entry.img)) {
+                const resolved = resolveItemIcon(entry.name, entry.img, entry.type);
+                if (resolved && !isDefaultIcon(resolved)) {
+                  entry.img = resolved;
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("mythcraft-essence-sheet | Error enriching compendium index:", err);
+    }
+  });
+
+  // 2. Intercept Compendium UI rendering (both ApplicationV2 and classic Foundry compendium windows)
+  Hooks.on("renderCompendium", (app, html, data) => {
+    try {
+      const root = html instanceof HTMLElement ? html : html?.[0];
+      if (!root || !app.collection) return;
+
+      const entries = root.querySelectorAll(".directory-item[data-document-id], .directory-item[data-entry-id], li.compendium-entry, li.directory-item");
+      for (const el of entries) {
+        const id = el.dataset.documentId || el.dataset.entryId || el.dataset.id;
+        const img = el.querySelector("img");
+        if (!img) continue;
+
+        const entry = app.collection.index?.get(id);
+        const name = entry?.name || el.querySelector(".entry-name, .document-name, a")?.textContent?.trim();
+        const type = entry?.type || "gear";
+        const currentImg = img.getAttribute("src") || entry?.img;
+
+        if (isDefaultIcon(currentImg)) {
+          const resolved = resolveItemIcon(name, currentImg, type);
+          if (resolved && !isDefaultIcon(resolved)) {
+            img.src = resolved;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("mythcraft-essence-sheet | Error rendering compendium icons:", err);
+    }
+  });
+}

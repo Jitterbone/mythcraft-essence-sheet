@@ -8,6 +8,7 @@
 import MythCraftItemSheet from "/systems/mythcraft/module/applications/sheets/item-sheet.mjs";
 import { isItemContainer } from "../features/container-utils.mjs";
 import { isItemClothes } from "../features/equipment-automation.mjs";
+import { isDefaultIcon, resolveItemIcon } from "../features/equipment-icons.mjs";
 import { sanitizeGmOnlyFields } from "../features/permissions-fix.mjs";
 import { getActiveTagsLibrary, syncCustomTagsToSystem } from "../data/tags-library.mjs";
 
@@ -101,12 +102,20 @@ export default class EssenceItemSheet extends MythCraftItemSheet {
     const ImagePopoutApp = foundry.applications.apps.ImagePopout || globalThis.ImagePopout;
     const itemPortrait = this.element.querySelector(".profile, .portrait, .item-img, img[data-edit='img'], img.profile-img, img");
     if (itemPortrait) {
+      if (isDefaultIcon(this.item?.img)) {
+        const resolved = resolveItemIcon(this.item, this.item?.img, this.item?.type);
+        if (resolved && !isDefaultIcon(resolved)) {
+          itemPortrait.src = resolved;
+        }
+      }
+
       itemPortrait.addEventListener("contextmenu", (event) => {
         event.preventDefault();
         event.stopPropagation();
-        if (this.item?.img) {
+        const displaySrc = itemPortrait.src || this.item?.img;
+        if (displaySrc) {
           new ImagePopoutApp({
-            src: this.item.img,
+            src: displaySrc,
             window: { title: this.item.name },
             shareable: true,
             uuid: this.item.uuid,

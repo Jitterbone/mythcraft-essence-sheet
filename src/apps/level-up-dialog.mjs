@@ -191,7 +191,7 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
         mod,
         preview: base + mod,
         isAtCap: (base + mod) >= levelCap,
-        canDecrease: (base + mod) > 0,  // can subtract as long as result stays >= 0
+        canDecrease: (base + mod) > -5,  // can subtract as long as result stays >= -5
       };
     });
 
@@ -333,14 +333,12 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       return;
     }
 
-    // Prevent reducing an attribute below 0 total
-    if (base + nextMod < 0) {
-      ui.notifications.warn(`Attributes cannot go below 0.`);
+    // Prevent reducing an attribute below -5 total
+    if (base + nextMod < -5) {
+      ui.notifications.warn(`Attributes cannot go below -5.`);
       return;
     }
 
-    // Prevent the allocation delta going below the negative of the base
-    // (i.e. you can move points freely but the final total must be >= 0)
     this._attributeChanges[attr] = nextMod;
     this.render();
   }
@@ -465,11 +463,11 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       return;
     }
 
-    // Validate no attribute went below 0
+    // Validate no attribute went below -5
     for (const [key, mod] of Object.entries(this._attributeChanges)) {
       const base = getAttributeValue(this.actor, key);
-      if (base + mod < 0) {
-        ui.notifications.warn(`${key.toUpperCase()} cannot go below 0.`);
+      if (base + mod < -5) {
+        ui.notifications.warn(`${key.toUpperCase()} cannot go below -5.`);
         return;
       }
     }

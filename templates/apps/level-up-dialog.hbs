@@ -71,7 +71,7 @@
           <div class="attr-prog-row">
             <span class="attr-prog-label">{{attr.label}}</span>
             <div class="attr-prog-stepper">
-              <button type="button" class="spin-btn" data-action="adjustAttribute" data-attr="{{attr.key}}" data-delta="-1" {{#unless attr.canDecrease}}disabled title="Attribute cannot go below 0"{{/unless}}><i class="fas fa-minus"></i></button>
+              <button type="button" class="spin-btn" data-action="adjustAttribute" data-attr="{{attr.key}}" data-delta="-1" {{#unless attr.canDecrease}}disabled title="Minimum attribute reached (-5)"{{/unless}}><i class="fas fa-minus"></i></button>
               <span class="attr-prog-val {{#if attr.mod}}modified{{/if}}">{{attr.preview}}</span>
               <button type="button" class="spin-btn" data-action="adjustAttribute" data-attr="{{attr.key}}" data-delta="1" {{#if attr.isAtCap}}disabled title="Attribute cap reached"{{/if}}><i class="fas fa-plus"></i></button>
             </div>

@@ -115,29 +115,31 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       height: 760,
     },
     actions: {
-      nextStep: this.#onNextStep,
-      prevStep: this.#onPrevStep,
-      selectLineage: this.#onSelectLineage,
-      selectLineageFeature: this.#onSelectLineageFeature,
-      adjustAttribute: this.#onAdjustAttribute,
-      setHpMode: this.#onSetHpMode,
-      selectBackground: this.#onSelectBackground,
-      confirmBackground: this.#onConfirmBackground,
-      adjustSkill: this.#onAdjustSkill,
-      setWealthMode: this.#onSetWealthMode,
-      selectProfession: this.#onSelectProfession,
-      confirmProfession: this.#onConfirmProfession,
-      toggleProfessionSkill: this.#onToggleProfessionSkill,
-      selectProfession2: this.#onSelectProfession2,
-      confirmProfession2: this.#onConfirmProfession2,
-      toggleProfessionSkill2: this.#onToggleProfessionSkill2,
-      selectTalent: this.#onSelectTalent,
-      toggleExtraTalent: this.#onToggleExtraTalent,
-      toggleSpell: this.#onToggleSpell,
-      toggleCardExpand: this.#toggleCardExpand,
-      setSearch: this.#setSearch,
-      viewTalent: this.#onViewTalent,
-      finalize: this.#onFinalize,
+      nextStep: this._onNextStep,
+      prevStep: this._onPrevStep,
+      selectLineage: this._onSelectLineage,
+      selectSublineage: this._onSelectSublineage,
+      selectLineageChoice: this._onSelectLineageChoice,
+      selectLineageFeature: this._onSelectLineageFeature,
+      adjustAttribute: this._onAdjustAttribute,
+      setHpMode: this._onSetHpMode,
+      selectBackground: this._onSelectBackground,
+      confirmBackground: this._onConfirmBackground,
+      adjustSkill: this._onAdjustSkill,
+      setWealthMode: this._onSetWealthMode,
+      selectProfession: this._onSelectProfession,
+      confirmProfession: this._onConfirmProfession,
+      toggleProfessionSkill: this._onToggleProfessionSkill,
+      selectProfession2: this._onSelectProfession2,
+      confirmProfession2: this._onConfirmProfession2,
+      toggleProfessionSkill2: this._onToggleProfessionSkill2,
+      selectTalent: this._onSelectTalent,
+      toggleExtraTalent: this._onToggleExtraTalent,
+      toggleSpell: this._onToggleSpell,
+      toggleCardExpand: this._toggleCardExpand,
+      setSearch: this._setSearch,
+      viewTalent: this._onViewTalent,
+      finalize: this._onFinalize,
     },
   };
 
@@ -761,7 +763,13 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     return values.some(tag => String(tag?.name || tag?.label || tag?.id || tag).toLowerCase() === target.toLowerCase());
   }
 
-  static #toggleCardExpand(event, target) {
+  #getBaseAttributePool() {
+    const coreKeys = new Set(["str", "dex", "end", "awr", "int", "cha", "lck", "cor"]);
+    const customKeys = Object.keys(this.data.attributes).filter(k => !coreKeys.has(k.toLowerCase()));
+    return 5 + customKeys.length;
+  }
+
+  static _toggleCardExpand(event, target) {
     event.preventDefault();
     event.stopPropagation();
     const card = target.closest(".wizard-selection-card, .bops-item-card, .talent-choice-card, .feature-detail-card");
@@ -772,16 +780,16 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.render();
   }
 
-  static #setSearch(event, target) {
+  static _setSearch(event, target) {
     const key = target.dataset.search;
     if (!key) return;
     this.data.searches[key] = target.value || "";
     this.render();
   }
 
-  #getBaseAttributePool() {
+  static _getBaseAttributePool(attributes = {}) {
     const coreKeys = new Set(["str", "dex", "end", "awr", "int", "cha", "lck", "cor"]);
-    const customKeys = Object.keys(this.data.attributes).filter(k => !coreKeys.has(k.toLowerCase()));
+    const customKeys = Object.keys(attributes).filter(k => !coreKeys.has(k.toLowerCase()));
     return 5 + customKeys.length;
   }
 
@@ -789,7 +797,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
    *  Action Handlers
    * ──────────────────────────────────────────────────────────────────────── */
 
-  static #onNextStep(event, target) {
+  static _onNextStep(event, target) {
     // Step validation checks
     if (this.currentStep === 1) {
       if (!this.data.selectedLineageId) {
@@ -819,7 +827,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     }
 
     if (this.currentStep === 2) {
-      const basePool = this.#getBaseAttributePool();
+      const basePool = CharacterCreationWizard.#getBaseAttributePool(this.data.attributes);
       const pool = calculateAttributePool(this.data.attributes, this.data.bonusAttributePoints, basePool);
       if (pool.remaining < 0) {
         ui.notifications.warn("You have allocated more attribute points than available. Please adjust before proceeding.");
@@ -866,14 +874,14 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     }
   }
 
-  static #onPrevStep(event, target) {
+  static _onPrevStep(event, target) {
     if (this.currentStep > 1) {
       this.currentStep--;
       this.render();
     }
   }
 
-  static #onSelectLineage(event, target) {
+  static _onSelectLineage(event, target) {
     const id = target.dataset.lineageId;
     this.data.selectedLineageId = id;
     this.data.expandedCardIds.add(id);
@@ -884,13 +892,13 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.render();
   }
 
-  static #onSelectSublineage(event, target) {
+  static _onSelectSublineage(event, target) {
     const val = target.value ?? target.dataset.sublineage;
     this.data.selectedSublineageName = val || null;
     this.render();
   }
 
-  static #onSelectLineageChoice(event, target) {
+  static _onSelectLineageChoice(event, target) {
     const groupKey = target.dataset.groupKey;
     if (!groupKey) return;
     const val = target.value ?? target.dataset.choiceId;
@@ -903,7 +911,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.render();
   }
 
-  static #onSelectLineageFeature(event, target) {
+  static _onSelectLineageFeature(event, target) {
     const id = target.dataset.featureId || target.value;
     if (!id) return;
     const isLocked = target.classList.contains("locked") || target.dataset.locked === "true";
@@ -934,7 +942,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.render();
   }
 
-  static async #onViewTalent(event, target) {
+  static async _onViewTalent(event, target) {
     event.preventDefault();
     event.stopPropagation();
     const id = target.dataset.talentId || target.dataset.featureId;
@@ -947,7 +955,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     }
   }
 
-  static #onAdjustAttribute(event, target) {
+  static _onAdjustAttribute(event, target) {
     const attr = target.dataset.attr;
     const delta = parseInt(target.dataset.delta, 10);
     const cur = Number(this.data.attributes[attr] ?? 0);
@@ -955,7 +963,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
     const next = cur + delta;
     if (delta > 0) {
-      const basePool = this.#getBaseAttributePool();
+      const basePool = CharacterCreationWizard._getBaseAttributePool(this.data.attributes);
       const pool = calculateAttributePool(this.data.attributes, this.data.bonusAttributePoints, basePool);
       if (pool.remaining <= 0) {
         ui.notifications.warn("No remaining attribute points to spend.");
@@ -971,12 +979,12 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.render();
   }
 
-  static #onSetHpMode(event, target) {
+  static _onSetHpMode(event, target) {
     this.data.hpMode = target.dataset.mode;
     this.render();
   }
 
-  static #onSelectBackground(event, target) {
+  static _onSelectBackground(event, target) {
     this.data.selectedBackgroundId = target.dataset.backgroundId;
     this.data.expandedCardIds.add(target.dataset.cardId);
     this.data.allocatedSkills = {};
@@ -989,13 +997,13 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.render();
   }
 
-  static #onConfirmBackground(event, target) {
+  static _onConfirmBackground(event, target) {
     event.preventDefault();
     this.data.backgroundConfirmed = Boolean(this.data.selectedBackgroundId);
     this.render();
   }
 
-  static #onAdjustSkill(event, target) {
+  static _onAdjustSkill(event, target) {
     const skill = target.dataset.skill;
     const delta = parseInt(target.dataset.delta, 10);
     const cur = Number(this.data.allocatedSkills[skill] ?? 0);
@@ -1030,12 +1038,12 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.render();
   }
 
-  static #onSetWealthMode(event, target) {
+  static _onSetWealthMode(event, target) {
     this.data.wealthMode = target.dataset.mode;
     this.render();
   }
 
-  static #onSelectProfession(event, target) {
+  static _onSelectProfession(event, target) {
     if (!this.data.selectedBackgroundId) return;
     this.data.selectedProfessionId = target.dataset.professionId;
     this.data.expandedCardIds.add(target.dataset.cardId);
@@ -1044,13 +1052,13 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.render();
   }
 
-  static #onConfirmProfession(event, target) {
+  static _onConfirmProfession(event, target) {
     event.preventDefault();
     this.data.professionConfirmed = Boolean(this.data.selectedProfessionId);
     this.render();
   }
 
-  static #onToggleProfessionSkill(event, target) {
+  static _onToggleProfessionSkill(event, target) {
     const skillName = target.dataset.skill;
     const prof = this.data.professions.find(p => p.id === this.data.selectedProfessionId);
     const parsed = prof ? parseProfessionData(prof) : null;
@@ -1071,7 +1079,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
   // ── Knave dual-profession handlers ──────────────────────────────────────────
 
-  static #onSelectProfession2(event, target) {
+  static _onSelectProfession2(event, target) {
     if (!this.data.selectedBackgroundId) return;
     const id = target.dataset.professionId;
     // Must differ from the first profession
@@ -1086,13 +1094,13 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.render();
   }
 
-  static #onConfirmProfession2(event, target) {
+  static _onConfirmProfession2(event, target) {
     event.preventDefault();
     this.data.professionConfirmed2 = Boolean(this.data.selectedProfessionId2);
     this.render();
   }
 
-  static #onToggleProfessionSkill2(event, target) {
+  static _onToggleProfessionSkill2(event, target) {
     const skillName = target.dataset.skill;
     const prof = this.data.professions.find(p => p.id === this.data.selectedProfessionId2);
     const parsed = prof ? parseProfessionData(prof) : null;
@@ -1111,7 +1119,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.render();
   }
 
-  static #onSelectTalent(event, target) {
+  static _onSelectTalent(event, target) {
     const isLocked = target.classList.contains("locked") || target.dataset.locked === "true";
     if (isLocked) {
       const tooltip = target.dataset.tooltip || "Prerequisites not met";
@@ -1130,7 +1138,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.render();
   }
 
-  static #onToggleExtraTalent(event, target) {
+  static _onToggleExtraTalent(event, target) {
     const id = target.dataset.talentId;
     const talent = this.data.talents.find(t => t.id === this.data.selectedTalentId);
     const parsed = talent ? parseTalentData(talent) : null;
@@ -1158,7 +1166,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.render();
   }
 
-  static #onToggleSpell(event, target) {
+  static _onToggleSpell(event, target) {
     const id = target.dataset.spellId;
     const idx = this.data.selectedSpellIds.indexOf(id);
     if (idx >= 0) {
@@ -1169,13 +1177,13 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.render();
   }
 
-  static #onSetMagicAttribute(event, target) {
+  static _onSetMagicAttribute(event, target) {
     this.data.magicAttribute = target.value;
     this.render();
   }
 
-  static async #onFinalize(event, target) {
-    const basePool = this.#getBaseAttributePool();
+  static async _onFinalize(event, target) {
+    const basePool = CharacterCreationWizard._getBaseAttributePool(this.data.attributes);
     const pool = calculateAttributePool(this.data.attributes, this.data.bonusAttributePoints, basePool);
     if (pool.remaining < 0) {
       ui.notifications.error("Attribute points are over-allocated. Please correct before completing.");

@@ -590,6 +590,14 @@ export function parseBackgroundData(item) {
 
   const hasNoProfession = /do\s*not\s*get\s*to\s*select\s*a\s*profession/i.test(clean) || /no\s*professional\s*experience/i.test(clean);
 
+  // Detect Knave-style backgrounds that grant two profession selections
+  const dualProfession = /choose\s*two\s*professions?/i.test(clean)
+    || /may\s*select\s*two\s*professions?/i.test(clean)
+    || /gains?\s*two\s*professions?/i.test(clean)
+    || /select\s*(?:any\s*)?two\s*professions?/i.test(clean)
+    || /two\s*profession\s*choices?/i.test(clean)
+    || /knave/i.test(String(item?.name || ""));
+
   return {
     skillPoints,
     perSkillCap,
@@ -606,6 +614,7 @@ export function parseBackgroundData(item) {
       rawProfessionUuids: uuidMatches,
     },
     hasNoProfession,
+    dualProfession,
   };
 }
 

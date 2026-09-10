@@ -85,6 +85,11 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       professionConfirmed: false,
       selectedProfessionSkills: [],
 
+      // Knave background: second profession
+      selectedProfessionId2: null,
+      professionConfirmed2: false,
+      selectedProfessionSkills2: [],
+
       // Step 5: Talents
       talents: [],
       selectedTalentId: null,
@@ -123,6 +128,9 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       selectProfession: this.#onSelectProfession,
       confirmProfession: this.#onConfirmProfession,
       toggleProfessionSkill: this.#onToggleProfessionSkill,
+      selectProfession2: this.#onSelectProfession2,
+      confirmProfession2: this.#onConfirmProfession2,
+      toggleProfessionSkill2: this.#onToggleProfessionSkill2,
       selectTalent: this.#onSelectTalent,
       toggleExtraTalent: this.#onToggleExtraTalent,
       toggleSpell: this.#onToggleSpell,
@@ -428,6 +436,25 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
           .sort((a, b) => a.name.localeCompare(b.name))
       : [];
 
+    // Knave dual-profession: second profession
+    const isDualProfession = Boolean(parsedBackground?.dualProfession);
+    const availableProfessions2 = isDualProfession && this.data.backgroundConfirmed
+      ? availableProfessions.filter(p => p.id !== this.data.selectedProfessionId)
+      : [];
+    const selectedProfession2 = isDualProfession
+      ? this.data.professions.find(p => p.id === this.data.selectedProfessionId2)
+      : null;
+    const parsedProfession2 = selectedProfession2 ? parseProfessionData(selectedProfession2) : null;
+    if (parsedProfession2?.startingGear) {
+      for (const gear of parsedProfession2.startingGear) {
+        gear.img = resolveEquipmentIcon(gear.name, null, "gear");
+      }
+    }
+    const professionRankItems2 = selectedProfession2
+      ? (this.data.allBopsDocs || []).filter(item => String(item.name || "").toLowerCase().startsWith(`${selectedProfession2.name.toLowerCase().replace(/ profession$/, "")}: rank`))
+          .sort((a, b) => a.name.localeCompare(b.name))
+      : [];
+
     // Search filter helper
     const matchesSearch = (document, query) => {
       const text = `${document?.name || ""} ${document?.system?.description?.value || document?.system?.description || document?.description || ""}`
@@ -623,6 +650,11 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       selectedProfession,
       parsedProfession,
       professionRankItems,
+      isDualProfession,
+      availableProfessions2,
+      selectedProfession2,
+      parsedProfession2,
+      professionRankItems2,
       selectedTalent,
       parsedTalent,
       talentGroups,
@@ -790,6 +822,22 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       }
     }
 
+    if (this.currentStep === 4) {
+      // For Knave (dual profession), both professions must be confirmed
+      const bg = this.data.backgrounds.find(b => b.id === this.data.selectedBackgroundId);
+      const parsedBg = bg ? parseBackgroundData(bg) : null;
+      if (parsedBg?.dualProfession) {
+        if (!this.data.professionConfirmed) {
+          ui.notifications.warn("Please select and confirm your first profession before proceeding.");
+          return;
+        }
+        if (!this.data.professionConfirmed2) {
+          ui.notifications.warn("The Knave background allows two professions. Please select and confirm your second profession before proceeding.");
+          return;
+        }
+      }
+    }
+
     if (this.currentStep === 5) {
       if (!this.data.selectedTalentId) {
         ui.notifications.warn("Please select a starting talent before proceeding.");
@@ -930,6 +978,9 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.data.backgroundConfirmed = true;
     this.data.selectedProfessionId = null;
     this.data.professionConfirmed = false;
+    this.data.selectedProfessionId2 = null;
+    this.data.professionConfirmed2 = false;
+    this.data.selectedProfessionSkills2 = [];
     this.render();
   }
 
@@ -1009,6 +1060,48 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
         return;
       }
       this.data.selectedProfessionSkills.push(skillName);
+    }
+    this.render();
+  }
+
+  // ── Knave dual-profession handlers ──────────────────────────────────────────
+
+  static #onSelectProfession2(event, target) {
+    if (!this.data.selectedBackgroundId) return;
+    const id = target.dataset.professionId;
+    // Must differ from the first profession
+    if (id === this.data.selectedProfessionId) {
+      ui.notifications.warn("Your second profession must be different from your first.");
+      return;
+    }
+    this.data.selectedProfessionId2 = id;
+    this.data.expandedCardIds.add(target.dataset.cardId);
+    this.data.selectedProfessionSkills2 = [];
+    this.data.professionConfirmed2 = false;
+    this.render();
+  }
+
+  static #onConfirmProfession2(event, target) {
+    event.preventDefault();
+    this.data.professionConfirmed2 = Boolean(this.data.selectedProfessionId2);
+    this.render();
+  }
+
+  static #onToggleProfessionSkill2(event, target) {
+    const skillName = target.dataset.skill;
+    const prof = this.data.professions.find(p => p.id === this.data.selectedProfessionId2);
+    const parsed = prof ? parseProfessionData(prof) : null;
+    const maxChoices = parsed?.choiceSkills?.count ?? 0;
+
+    const idx = this.data.selectedProfessionSkills2.indexOf(skillName);
+    if (idx >= 0) {
+      this.data.selectedProfessionSkills2.splice(idx, 1);
+    } else {
+      if (this.data.selectedProfessionSkills2.length >= maxChoices) {
+        ui.notifications.warn(`You may only select ${maxChoices} choice skills.`);
+        return;
+      }
+      this.data.selectedProfessionSkills2.push(skillName);
     }
     this.render();
   }
@@ -1186,6 +1279,24 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       }
     }
 
+    // Knave second profession skills
+    const prof2 = parsedBg?.dualProfession ? this.data.professions.find(p => p.id === this.data.selectedProfessionId2) : null;
+    const parsedProf2 = prof2 ? parseProfessionData(prof2) : null;
+    if (parsedProf2) {
+      for (const fSkill of parsedProf2.fixedSkills) {
+        const key = findSkillKey(fSkill.name);
+        const curVal = Number(skillUpdates[`system.skills.${key}.value`] ?? this.actor.system?.skills?.[key]?.value ?? this.actor.system?.skills?.[key]?.bonus ?? 0);
+        skillUpdates[`system.skills.${key}.value`] = curVal + fSkill.value;
+        skillUpdates[`system.skills.${key}.bonus`] = curVal + fSkill.value;
+      }
+      for (const cSkill of this.data.selectedProfessionSkills2) {
+        const key = findSkillKey(cSkill);
+        const curVal = Number(skillUpdates[`system.skills.${key}.value`] ?? this.actor.system?.skills?.[key]?.value ?? this.actor.system?.skills?.[key]?.bonus ?? 0);
+        skillUpdates[`system.skills.${key}.value`] = curVal + parsedProf2.choiceSkills.value;
+        skillUpdates[`system.skills.${key}.bonus`] = curVal + parsedProf2.choiceSkills.value;
+      }
+    }
+
     // Background bonus skill for encouraged professions
     if (parsedBg?.encouragedProfessions?.bonusSkill && prof) {
       const tag = parsedBg.encouragedProfessions.tag;
@@ -1242,6 +1353,14 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       if (rankOne) itemsToCreate.push(rankOne.toObject());
     }
 
+    // Knave second profession items
+    if (prof2) {
+      itemsToCreate.push(prof2.toObject());
+      const prof2BaseName = prof2.name.replace(/ profession$/i, "");
+      const rankOne2 = (this.data.allBopsDocs || []).find(item => item.name.toLowerCase() === `${prof2BaseName.toLowerCase()}: rank 1`);
+      if (rankOne2) itemsToCreate.push(rankOne2.toObject());
+    }
+
     if (startingTalent) itemsToCreate.push(startingTalent.toObject());
 
     for (const extraId of this.data.selectedExtraTalentIds) {
@@ -1254,10 +1373,10 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       if (sp) itemsToCreate.push(sp.toObject());
     }
 
-    // Starting gear - match with compendium equipment when possible to retain full formulas, icons & stats
-    if (parsedProf?.startingGear) {
+    // Starting gear helper
+    const addGearItems = (gearList) => {
       const allEquip = this.data.allEquipmentDocs || [];
-      for (const gear of parsedProf.startingGear) {
+      for (const gear of gearList) {
         const cleanName = (gear.name || "").trim().toLowerCase();
         const baseName = cleanName
           .replace(/\([^)]+\)/g, "")
@@ -1265,7 +1384,6 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
           .replace(/^(a|an|the)\s+/i, "")
           .trim();
 
-        // Match compendium document
         const match = allEquip.find(d => {
           const dName = (d.name || "").trim().toLowerCase();
           const dBase = dName
@@ -1282,7 +1400,6 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
           obj.img = resolveItemIcon(obj, obj.img, obj.type);
           itemsToCreate.push(obj);
         } else {
-          // Detect appropriate item type
           const lowerName = gear.name.toLowerCase();
           let itemType = "gear";
           if (/(?:sword|blade|dagger|axe|bow|crossbow|halberd|spear|knife|quarterstaff|hammer|mace|flail|club|cestus|knuckles)/i.test(lowerName)) {
@@ -1290,7 +1407,6 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
           } else if (/(?:armor|mail|gambeson|brigandine|leather|plate|cuirass|robes?|shield)/i.test(lowerName)) {
             itemType = "armor";
           }
-
           itemsToCreate.push({
             name: gear.name,
             type: itemType,
@@ -1302,17 +1418,29 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
           });
         }
       }
-    }
+    };
 
-    // Deduplicate itemsToCreate by normalized name to guarantee no duplicate items on the actor
-    const seenNames = new Set();
+    if (parsedProf?.startingGear) addGearItems(parsedProf.startingGear);
+    if (parsedProf2?.startingGear) addGearItems(parsedProf2.startingGear);
+
+    // Deduplicate by name: for stackable gear (same name from two professions), stack quantity
+    const seenNames = new Map(); // name -> index in uniqueItemsToCreate
     const uniqueItemsToCreate = [];
     for (const itemData of itemsToCreate) {
       const key = String(itemData.name || "").toLowerCase().trim();
-      if (seenNames.has(key)) continue;
-      seenNames.add(key);
+      if (seenNames.has(key)) {
+        // If it's a stackable gear item, add the quantities instead of skipping
+        const existingIdx = seenNames.get(key);
+        const existing = uniqueItemsToCreate[existingIdx];
+        const existingQty = Number(existing?.system?.quantity) || 1;
+        const newQty = Number(itemData?.system?.quantity) || 1;
+        if (existing?.system?.quantity !== undefined) {
+          existing.system.quantity = existingQty + newQty;
+        }
+        continue;
+      }
+      seenNames.set(key, uniqueItemsToCreate.length);
 
-      // Ensure every item adopts a resolved icon if it currently has a generic default
       if (isDefaultIcon(itemData.img)) {
         itemData.img = resolveItemIcon(itemData, itemData.img, itemData.type);
       }

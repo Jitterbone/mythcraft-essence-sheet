@@ -191,6 +191,7 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
         mod,
         preview: base + mod,
         isAtCap: (base + mod) >= levelCap,
+        canDecrease: (base + mod) > 0,  // can subtract as long as result stays >= 0
       };
     });
 
@@ -332,8 +333,14 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       return;
     }
 
-    if (nextMod < 0) return;
+    // Prevent reducing an attribute below 0 total
+    if (base + nextMod < 0) {
+      ui.notifications.warn(`Attributes cannot go below 0.`);
+      return;
+    }
 
+    // Prevent the allocation delta going below the negative of the base
+    // (i.e. you can move points freely but the final total must be >= 0)
     this._attributeChanges[attr] = nextMod;
     this.render();
   }
@@ -452,10 +459,19 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       "system.hp.value": finalCurrentHp,
     };
 
-    const attrPointsRemaining = Math.max(0, levelsGained - Object.values(this._attributeChanges).reduce((sum, value) => sum + value, 0));
-    if (levelsGained > 0 && Object.values(this._attributeChanges).reduce((sum, value) => sum + value, 0) > levelsGained) {
+    const totalNetMod = Object.values(this._attributeChanges).reduce((sum, value) => sum + value, 0);
+    if (levelsGained > 0 && totalNetMod > levelsGained) {
       ui.notifications.warn(`Spend no more than ${levelsGained} attribute point${levelsGained === 1 ? "" : "s"}.`);
       return;
+    }
+
+    // Validate no attribute went below 0
+    for (const [key, mod] of Object.entries(this._attributeChanges)) {
+      const base = getAttributeValue(this.actor, key);
+      if (base + mod < 0) {
+        ui.notifications.warn(`${key.toUpperCase()} cannot go below 0.`);
+        return;
+      }
     }
 
     // Soft warning if leveling up without a talent selected
@@ -463,9 +479,9 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       ui.notifications.warn("No talent was selected for this level-up. You can choose one later from the Talent Trees.");
     }
 
-    // Apply attribute advancements
+    // Apply attribute advancements (including negative reallocation moves)
     for (const [key, mod] of Object.entries(this._attributeChanges)) {
-      if (mod > 0) {
+      if (mod !== 0) {
         const currentAttribute = this.actor.system.attributes?.[key];
         const base = getAttributeValue(this.actor, key);
         const path = currentAttribute && typeof currentAttribute === "object" && "value" in currentAttribute

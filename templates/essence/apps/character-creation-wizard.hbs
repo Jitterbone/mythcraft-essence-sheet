@@ -639,6 +639,99 @@
             </div>
           {{/if}}
         {{/if}}
+
+        {{!-- Knave: Second Profession Picker --}}
+        {{#if (and isDualProfession data.backgroundConfirmed)}}
+          <div class="bops-staged-section profession-stage knave-second-profession">
+            <div class="stage-header">
+              <h4><i class="fas fa-hammer"></i> 4. Choose Second Profession <span class="knave-badge"><i class="fas fa-mask"></i> Knave</span></h4>
+              {{#if data.professionConfirmed2}}
+                <span class="confirmed-badge"><i class="fas fa-check"></i> Confirmed: {{selectedProfession2.name}}</span>
+              {{/if}}
+            </div>
+            <p class="choice-guidance">As a Knave, you gain two professions. Your second profession must be different from the first.</p>
+
+            <div class="bops-list-grid">
+              {{#each availableProfessions2 as |prof|}}
+                <div class="bops-item-card {{#if (eq ../data.selectedProfessionId2 prof.id)}}selected{{/if}} {{#if prof.isEncouraged}}encouraged-gold{{/if}}"
+                     data-action="selectProfession2"
+                     data-profession-id="{{prof.id}}"
+                     data-card-id="{{prof.id}}-2">
+                  <img src="{{prof.img}}" alt="{{prof.name}}" />
+                  <div class="bops-item-info">
+                    <h5>{{prof.name}}</h5>
+                  </div>
+                </div>
+              {{/each}}
+            </div>
+
+            {{#if selectedProfession2}}
+              <div class="selection-confirm-row">
+                <button type="button" class="wizard-confirm-btn {{#if data.professionConfirmed2}}confirmed{{/if}}" data-action="confirmProfession2">
+                  <i class="fas {{#if data.professionConfirmed2}}fa-check-double{{else}}fa-check{{/if}}"></i>
+                  {{#if data.professionConfirmed2}}Second Profession Confirmed{{else}}Confirm Second Profession{{/if}}
+                </button>
+              </div>
+            {{/if}}
+
+            {{#if (and parsedProfession2 data.professionConfirmed2)}}
+              <div class="profession-detail-subpanel">
+                <div class="profession-summary-header">
+                  <h5>{{selectedProfession2.name}} (Rank 1)</h5>
+                </div>
+
+                {{#if professionRankItems2.length}}
+                  <div class="rank-features-box">
+                    <h6 class="box-sub"><i class="fas fa-award"></i> Profession Rank 1 Abilities:</h6>
+                    {{#each professionRankItems2 as |rank|}}
+                      <div class="profession-rank-row">
+                        <strong>{{rank.name}}</strong>
+                        <div>{{{rank.system.description.value}}}</div>
+                      </div>
+                    {{/each}}
+                  </div>
+                {{/if}}
+
+                <div class="prof-skills-box">
+                  <h6 class="box-sub"><i class="fas fa-book"></i> Profession Skills:</h6>
+                  <div class="fixed-skills-row">
+                    {{#each parsedProfession2.fixedSkills as |skill|}}
+                      <span class="prof-skill-pill fixed">+{{skill.value}} {{skill.name}}</span>
+                    {{/each}}
+                  </div>
+
+                  {{#if parsedProfession2.choiceSkills.count}}
+                    <h6 class="box-sub">Choose {{parsedProfession2.choiceSkills.count}} Choice Skills (+{{parsedProfession2.choiceSkills.value}} each):</h6>
+                    <div class="choice-skills-wrap">
+                      {{#each parsedProfession2.choiceSkills.options as |opt|}}
+                        <label class="choice-skill-toggle {{#if (lookup ../data.selectedProfessionSkills2 opt)}}checked{{/if}}">
+                          <input type="checkbox" data-action="toggleProfessionSkill2" data-skill="{{opt}}"
+                                 {{#if (lookup ../data.selectedProfessionSkills2 opt)}}checked{{/if}} />
+                          <span>{{opt}}</span>
+                        </label>
+                      {{/each}}
+                    </div>
+                  {{/if}}
+                </div>
+
+                {{#if parsedProfession2.startingGear.length}}
+                  <div class="prof-gear-box">
+                    <h6 class="box-sub"><i class="fas fa-shield"></i> Starting Equipment:</h6>
+                    <div class="gear-preview-chips">
+                      {{#each parsedProfession2.startingGear as |gear|}}
+                        <span class="gear-chip">
+                          {{#if gear.img}}<img src="{{gear.img}}" class="gear-chip-img" alt="{{gear.name}}" />{{/if}}
+                          <span class="gear-chip-name">{{gear.name}}</span>
+                          {{#if (gt gear.quantity 1)}}<span class="gear-chip-qty">&times;{{gear.quantity}}</span>{{/if}}
+                        </span>
+                      {{/each}}
+                    </div>
+                  </div>
+                {{/if}}
+              </div>
+            {{/if}}
+          </div>
+        {{/if}}
       </div>
     {{/if}}
 

@@ -418,8 +418,10 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     const availableProfessions = parsedBackground && this.data.backgroundConfirmed
       ? this.data.professions.map(profession => {
           const isEncouraged = isEncouragedProfession(profession);
+          const pId = profession.id || profession._id;
           return {
-            id: profession.id,
+            id: pId,
+            _id: pId,
             name: profession.name,
             img: resolveItemIcon(profession, profession.img, "profession"),
             system: profession.system,
@@ -469,10 +471,16 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
     const filteredLineages = this.data.lineages.filter(item => matchesSearch(item, this.data.searches.lineage));
     const filteredBackgrounds = this.data.backgrounds
-      .map(bg => ({
-        ...bg,
-        img: resolveItemIcon(bg, bg.img, "background"),
-      }))
+      .map(bg => {
+        const bgId = bg.id || bg._id;
+        return {
+          id: bgId,
+          _id: bgId,
+          name: bg.name,
+          img: resolveItemIcon(bg, bg.img, "background"),
+          system: bg.system,
+        };
+      })
       .filter(item => matchesSearch(item, this.data.searches.background));
     const filteredProfessions = availableProfessions.filter(item => matchesSearch(item, this.data.searches.profession));
 
@@ -575,10 +583,16 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       ? this.data.availableSpells.filter(s => isDocOfStack(s, stackTag) && matchesSearch(s, this.data.searches.spell))
       : this.data.availableSpells.filter(s => matchesSearch(s, this.data.searches.spell));
 
-    const filteredSpells = rawFilteredSpells.map(s => ({
-      ...s,
-      img: resolveItemIcon(s, s.img, "spell"),
-    }));
+    const filteredSpells = rawFilteredSpells.map(s => {
+      const sId = s.id || s._id;
+      return {
+        id: sId,
+        _id: sId,
+        name: s.name,
+        system: s.system,
+        img: resolveItemIcon(s, s.img, "spell"),
+      };
+    });
 
     // Active lineage features for skill bonus parsing
     const activeLineageFeatures = [
@@ -990,10 +1004,12 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
   }
 
   static _onSelectBackground(event, target) {
-    this.data.selectedBackgroundId = target.dataset.backgroundId;
-    this.data.expandedCardIds.add(target.dataset.cardId);
+    const bgId = target.dataset.backgroundId || target.closest("[data-background-id]")?.dataset.backgroundId;
+    const cardId = target.dataset.cardId || target.closest("[data-card-id]")?.dataset.cardId;
+    this.data.selectedBackgroundId = bgId;
+    if (cardId) this.data.expandedCardIds.add(cardId);
     this.data.allocatedSkills = {};
-    this.data.backgroundConfirmed = true;
+    this.data.backgroundConfirmed = Boolean(bgId);
     this.data.selectedProfessionId = null;
     this.data.professionConfirmed = false;
     this.data.selectedProfessionId2 = null;
@@ -1050,8 +1066,10 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
   static _onSelectProfession(event, target) {
     if (!this.data.selectedBackgroundId) return;
-    this.data.selectedProfessionId = target.dataset.professionId;
-    this.data.expandedCardIds.add(target.dataset.cardId);
+    const profId = target.dataset.professionId || target.closest("[data-profession-id]")?.dataset.professionId;
+    const cardId = target.dataset.cardId || target.closest("[data-card-id]")?.dataset.cardId;
+    this.data.selectedProfessionId = profId;
+    if (cardId) this.data.expandedCardIds.add(cardId);
     this.data.selectedProfessionSkills = [];
     this.data.professionConfirmed = false;
     this.render();
@@ -1086,14 +1104,15 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
   static _onSelectProfession2(event, target) {
     if (!this.data.selectedBackgroundId) return;
-    const id = target.dataset.professionId;
+    const id = target.dataset.professionId || target.closest("[data-profession-id]")?.dataset.professionId;
+    const cardId = target.dataset.cardId || target.closest("[data-card-id]")?.dataset.cardId;
     // Must differ from the first profession
     if (id === this.data.selectedProfessionId) {
       ui.notifications.warn("Your second profession must be different from your first.");
       return;
     }
     this.data.selectedProfessionId2 = id;
-    this.data.expandedCardIds.add(target.dataset.cardId);
+    if (cardId) this.data.expandedCardIds.add(cardId);
     this.data.selectedProfessionSkills2 = [];
     this.data.professionConfirmed2 = false;
     this.render();

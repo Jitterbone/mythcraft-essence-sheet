@@ -1,4 +1,4 @@
-# MythCraft Essence Sheet (v0.6.0-beta) 📜✨
+# MythCraft Essence Sheet (v0.6.1-beta) 📜✨
 
 [![Latest Release](https://img.shields.io/github/v/release/Jitterbone/mythcraft-essence-sheet?style=flat&logo=github&logoColor=white&color=22c55e&label=Latest%20Release)](https://github.com/Jitterbone/mythcraft-essence-sheet/releases/latest)
 [![Foundry VTT](https://img.shields.io/badge/Foundry%20VTT-v14%20Verified-ff6400?style=flat)](https://foundryvtt.com)
@@ -200,6 +200,25 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 ---
 
 ## 📝 Changelog
+
+### v0.6.1-beta
+- **Second Skin Armor Specialization Choice Dialog**:
+  - Added an interactive popup modal (`SecondSkinChoiceDialog`) triggered automatically when acquiring Second Skin talents.
+  - Features official lists for **Light Armor**, **Medium Armor**, **Heavy Armor**, and **Shields** with custom campaign armor overrides.
+  - Added an interactive specialization pill button on character sheet talent and feature cards (`[🛡 Specialization]`) allowing players to review or change their armor specialization at any time.
+- **Community House Rules Settings**:
+  - Introduced a dedicated **Community House Rules** settings section in module configuration with a distinctive `#f43f5e` category header.
+  - **Second Skin Variation Rules (`secondSkinRuleVariant`)**:
+    - *Rules as Written* (`raw`, default): Requires choosing one specific armor per talent.
+    - *Second Skin Armor Type* (`category`): Unlocks resistance bonuses for all armors within the category without requiring individual selection.
+    - *Jitterbone's Sturdy Bones* (`sturdyBones`): Grants full resistance bonuses to all donned armors & shields by default without requiring talents.
+  - **Jitterbone's Bonebreaker (`jitterboneBonebreakerRule`)**:
+    - Automatically grants the full **Astounding Critical** talent automation to all character actors by default.
+  - **World Reload Prompts**: Configured `requiresReload: true` on rule variant settings to automatically prompt GMs to reload the world upon saving.
+- **Astounding Critical Automation**:
+  - **Exploding Critical Damage Dice**: Critical hits automatically explode damage dice on max face values (`d6x`, `d8x`, `d10x`, `d12x`, etc.), continuing to roll additional dice as long as maximum values are rolled.
+  - **Critical Failure Range Doubling**: Doubles effective critical failure range (e.g. from 1 to 2, or 2 to 4), immediately reflected in character sheet header chips (`2−`, `4−`).
+  - **Turn End & AP Loss on Critical Failure**: Critically failing an attack or spell check immediately resets Action Points to 0, ends the character's turn in active combat, and displays an alert banner on the chat roll card.
 
 ### v0.6.0-beta
 - **Target Defense Chat Badges**:

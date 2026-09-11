@@ -3744,6 +3744,8 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         }
       }
 
+      const isRawSecondSkin = getSetting("secondSkinRuleVariant", "raw") === "raw";
+
       context.talents = await Promise.all((this.actor.itemTypes.talent || []).map(async (item) => {
         const isFavorite = isItemFavorite(item);
         const expanded = this.collapsedItems.has(item.id)
@@ -3752,7 +3754,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         const descVal = item.system?.description?.value ?? item.system?.description ?? "";
         const essenceCost = Number(item.flags?.["mythcraft-essence-sheet"]?.essenceCost ?? item.system?.essenceCost ?? 0);
         const isAttuned = item.flags?.["mythcraft-essence-sheet"]?.isAttuned ?? true;
-        const isSecondSkin = isSecondSkinTalent(item);
+        const isSecondSkin = isRawSecondSkin && isSecondSkinTalent(item);
         const secondSkinArmor = item.flags?.["mythcraft-essence-sheet"]?.secondSkinArmor || "";
         return {
           item,
@@ -3774,7 +3776,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         const descVal = item.system?.description?.value ?? item.system?.description ?? "";
         const essenceCost = Number(item.flags?.["mythcraft-essence-sheet"]?.essenceCost ?? item.system?.essenceCost ?? 0);
         const isAttuned = item.flags?.["mythcraft-essence-sheet"]?.isAttuned ?? true;
-        const isSecondSkin = isSecondSkinTalent(item);
+        const isSecondSkin = isRawSecondSkin && isSecondSkinTalent(item);
         const secondSkinArmor = item.flags?.["mythcraft-essence-sheet"]?.secondSkinArmor || "";
         return {
           item,

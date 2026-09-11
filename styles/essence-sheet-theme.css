@@ -4758,6 +4758,13 @@
   box-shadow: 0 0 6px rgba(16, 185, 129, 0.3);
 }
 
+.essence-sheet .armor-resist-badge.locked-stat {
+  background: rgba(51, 65, 85, 0.35);
+  border: 1px dashed rgba(148, 163, 184, 0.4);
+  color: #94a3b8;
+  opacity: 0.8;
+}
+
 .essence-sheet .armor-req-badge {
   background: rgba(51, 65, 85, 0.5);
   border: 1px solid rgba(100, 116, 139, 0.4);

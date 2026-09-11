@@ -255,8 +255,125 @@ export function getDonnedArmor(actor) {
 }
 
 /**
+ * Detects the category of an armor item ("light", "medium", "heavy", "shield", "enhancement", or "unknown").
+ * @param {Item} item
+ * @returns {"light"|"medium"|"heavy"|"shield"|"enhancement"|"unknown"}
+ */
+export function getArmorCategory(item) {
+  if (!item || item.type !== "armor") return "unknown";
+  if (isArmorEnhancement(item)) return "enhancement";
+  if (isShield(item)) return "shield";
+
+  // 1. Direct system fields (category, armorType, subType, type)
+  const rawCat = String(
+    item.system?.category ||
+    item.system?.armorType ||
+    item.system?.subType ||
+    item.system?.type ||
+    ""
+  ).toLowerCase().trim();
+
+  if (rawCat.includes("light")) return "light";
+  if (rawCat.includes("medium") || rawCat.includes("med")) return "medium";
+  if (rawCat.includes("heavy")) return "heavy";
+  if (rawCat.includes("shield")) return "shield";
+
+  // 2. Tags check
+  const rawTags = item.system?.tags || [];
+  const tagList = Array.isArray(rawTags)
+    ? rawTags
+    : (rawTags instanceof Set ? Array.from(rawTags) : (typeof rawTags === "object" && rawTags !== null ? Object.keys(rawTags).concat(Object.values(rawTags)) : String(rawTags).split(",")));
+  for (const t of tagList) {
+    const str = String(typeof t === "string" ? t : (t?.name || t?.label || t?.value || t?.id || "")).toLowerCase().trim();
+    if (str.includes("light")) return "light";
+    if (str.includes("medium") || str.includes("med")) return "medium";
+    if (str.includes("heavy")) return "heavy";
+    if (str.includes("shield")) return "shield";
+  }
+
+  // 3. Name heuristic matching MythCraft armor types
+  const name = (item.name || "").toLowerCase();
+  if (/\b(?:gambeson|padded|leather|studded|hide|silk|robes?)\b/.test(name)) return "light";
+  if (/\b(?:brigandine|chain shirt|scale mail|scale|breastplate|half plate|cuirass)\b/.test(name)) return "medium";
+  if (/\b(?:ring mail|chainmail|chain mail|splint|full plate|plate mail|field plate|plate)\b/.test(name)) return "heavy";
+  if (/\b(?:buckler|targe|pavise|heater|kite|aegis|shield)\b/.test(name)) return "shield";
+
+  return "unknown";
+}
+
+/**
+ * Checks whether an actor possesses the Second Skin talent required to unlock an armor piece's resistance specialization.
+ * Rules:
+ * • Second Skin: Light Armor  -> Unlocks Light armor resistance
+ * • Second Skin: Medium Armor -> Unlocks Medium armor resistance
+ * • Second Skin: Heavy Armor  -> Unlocks Heavy armor resistance
+ * • Second Skin: Shields      -> Unlocks Shield resistance
+ *
+ * @param {Actor} actor
+ * @param {Item} armorItem
+ * @returns {boolean}
+ */
+export function hasSecondSkinForArmor(actor, armorItem) {
+  if (!actor || !armorItem) return false;
+
+  // Enhancements do not require Second Skin
+  if (isArmorEnhancement(armorItem)) return true;
+
+  // NPCs without talents / monster statblocks gain armor resists directly
+  if (actor.type === "npc") {
+    const hasTalents = (actor.itemTypes?.talent?.length ?? 0) > 0;
+    if (!hasTalents) return true;
+  }
+
+  const category = getArmorCategory(armorItem);
+  const armorName = (armorItem.name || "").toLowerCase().trim();
+
+  // Collect talent, feature, and specialization items from actor
+  const talentItems = (actor.items || []).filter(i => {
+    const t = i.type?.toLowerCase();
+    return t === "talent" || t === "feature" || t === "specialization";
+  });
+
+  for (const item of talentItems) {
+    const name = (item.name || "").toLowerCase().trim();
+    const desc = String(item.system?.description?.value || item.system?.description || "").toLowerCase();
+
+    // Check if this item represents a Second Skin talent
+    const isSecondSkin = name.includes("second skin") ||
+      desc.includes("gain the armor’s resist bonus") ||
+      desc.includes("gain the armor's resist bonus") ||
+      desc.includes("gain the shield’s resist bonus") ||
+      desc.includes("gain the shield's resist bonus");
+
+    if (!isSecondSkin) continue;
+
+    // Direct armor name match (e.g. "Second Skin: Leather Armor", "Second Skin (Chainmail)")
+    if (armorName && (name.includes(armorName) || desc.includes(armorName))) {
+      return true;
+    }
+
+    // Category specific matches
+    if (category === "light") {
+      if (name.includes("light") || desc.includes("light armor")) return true;
+    } else if (category === "medium") {
+      if (name.includes("medium") || name.includes("med ") || name.includes("med:") || desc.includes("medium armor")) return true;
+    } else if (category === "heavy") {
+      if (name.includes("heavy") || desc.includes("heavy armor")) return true;
+    } else if (category === "shield") {
+      if (name.includes("shield") || desc.includes("shield")) return true;
+    } else if (category === "unknown") {
+      // Fallback: If category is unknown homebrew, any Second Skin talent unlocks it
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
  * Calculate effective resistances for an actor by combining base resistances with donned armor, shield, and enhancement resistance specializations
  * Stacks matching resistance types across all equipped armor pieces (e.g. Armor Sharp 2 + Shield Sharp 2 + Enhancement Sharp 2 = Sharp 6)
+ * Armor and shield resistances strictly require the corresponding Second Skin talent (Light, Medium, Heavy, Shields).
  * @param {Actor} actor
  * @returns {{ list: Array<object>, combinedString: string, map: Record<string, number>, armorResists: Array<object>, baseResists: Array<object> }}
  */
@@ -267,10 +384,10 @@ export function calculateEffectiveResistances(actor) {
 
   const armorResistAuto = getSetting("armorResistanceAutomation", true);
   if (armorResistAuto) {
-    // 1. Donned Body Armor
+    // 1. Donned Body Armor (Requires Second Skin talent for that armor category)
     const donnedArmor = getDonnedArmor(actor);
     const armorRes = donnedArmor?.system?.resist || donnedArmor?.system?.resistances || donnedArmor?.system?.resistance || donnedArmor?.system?.damage?.resist || "";
-    if (armorRes) {
+    if (armorRes && hasSecondSkinForArmor(actor, donnedArmor)) {
       const parsedArmor = parseResistanceString(armorRes);
       for (const r of parsedArmor) {
         armorResists.push({
@@ -281,11 +398,11 @@ export function calculateEffectiveResistances(actor) {
       }
     }
 
-    // 2. Equipped Shields (all active shields)
+    // 2. Equipped Shields (Requires Second Skin: Shields talent)
     const equippedShields = getEquippedShields(actor);
     for (const shield of equippedShields) {
       const shieldRes = shield?.system?.resist || shield?.system?.resistances || shield?.system?.resistance || shield?.system?.damage?.resist || "";
-      if (shieldRes) {
+      if (shieldRes && hasSecondSkinForArmor(actor, shield)) {
         const parsedShield = parseResistanceString(shieldRes);
         for (const r of parsedShield) {
           armorResists.push({

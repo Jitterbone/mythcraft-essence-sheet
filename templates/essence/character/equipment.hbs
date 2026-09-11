@@ -448,8 +448,9 @@
                   {{/each}}
 
                   {{#if a.resist}}
-                    <span class="armor-resist-badge {{#if a.isDonned}}active-stat{{/if}}" title="Resistance Specialization: {{a.resist}}">
-                      <i class="fas fa-shield-virus"></i>
+                    <span class="armor-resist-badge {{#if a.hasSecondSkin}}{{#if (or a.isDonned a.isEquipped a.isWorn)}}active-stat{{/if}}{{else}}locked-stat{{/if}}"
+                          title="{{#if a.hasSecondSkin}}Resistance Specialization: {{a.resist}} (Unlocked by Second Skin){{else}}Resistance Specialization: {{a.resist}} (Locked — Requires Second Skin talent){{/if}}">
+                      <i class="fas {{#if a.hasSecondSkin}}fa-shield-virus{{else}}fa-lock{{/if}}"></i>
                       {{a.resist}}
                     </span>
                   {{/if}}

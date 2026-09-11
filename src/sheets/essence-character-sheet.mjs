@@ -48,6 +48,8 @@ import {
   isEnhancementEquipped,
   getEquippedEnhancement,
   calculateEffectiveResistances,
+  hasSecondSkinForArmor,
+  getArmorCategory,
   getWeaponDamageData,
   getTwoHandedBaseFormula,
   applyEffectiveArmorAndDefenses,
@@ -3583,6 +3585,8 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         const enhArBonus = isEnhancementItem ? Number(item.system?.ar || item.system?.arBonus || 0) : 0;
         const ar = Number.isNumeric(item.system?.ar) ? Number(item.system.ar) : 10;
         const resist = item.system?.resist || "";
+        const hasSecondSkin = hasSecondSkinForArmor(this.actor, item);
+        const armorCategory = getArmorCategory(item);
         const strMin = item.system?.strMin;
         const actorStr = this.actor.system?.attributes?.str ?? 0;
         const isStrFailed = (isDonned || isEquipped || isWorn) && Number.isNumeric(strMin) && strMin > 0 && actorStr < strMin;
@@ -3637,6 +3641,8 @@ export default class EssenceCharacterSheet extends CharacterSheet {
           donStatusLabel,
           ar,
           resist,
+          hasSecondSkin,
+          armorCategory,
           strMin,
           isStrFailed,
           dexMax,

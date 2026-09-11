@@ -4,7 +4,8 @@
 [![Foundry VTT](https://img.shields.io/badge/Foundry%20VTT-v14%20Verified-ff6400?style=flat)](https://foundryvtt.com)
 [![Latest Release Installs](https://img.shields.io/github/downloads/Jitterbone/mythcraft-essence-sheet/latest/mythcraft-essence-sheet.zip?displayAssetName=false&style=flat&logo=github&logoColor=white&color=38bdf8&label=Latest%20Release%20Installs)](https://github.com/Jitterbone/mythcraft-essence-sheet/releases/latest)
 [![Lifetime Installs](https://img.shields.io/github/downloads/Jitterbone/mythcraft-essence-sheet/mythcraft-essence-sheet.zip?displayAssetName=false&style=flat&logo=github&logoColor=white&color=38bdf8&label=Lifetime%20Installs)](https://github.com/Jitterbone/mythcraft-essence-sheet/releases)
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Development-FF5E5B?style=flat&logo=kofi&logoColor=white)](https://ko-fi.com/jitterbone)
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/jitterbone)
 
 A complete suite of elegant, high-readability alternate actor and item sheets for the **Mythcraft** system in Foundry VTT. Designed to seamlessly match the **Mythcraft HUD** aesthetic with a dark teal-and-gold palette, streamlined workflows, rich embedded editors, and comprehensive **built-in automation**.
 

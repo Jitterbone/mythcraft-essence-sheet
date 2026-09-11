@@ -49,7 +49,7 @@
           <div class="tier-title">
             <i class="fas fa-fist-raised"></i>
             <span>Tier 1 Actions</span>
-            <span class="tier-allowance-badge" title="Actions allowed per turn">1 Action / Turn</span>
+            <span class="tier-allowance-badge" title="Actions allowed per turn">{{#if tier1AllowanceLabel}}{{tier1AllowanceLabel}}{{else}}1 Action / Turn{{/if}}</span>
           </div>
           <button type="button"
                   class="tier-add-btn"
@@ -187,7 +187,7 @@
           <div class="tier-title">
             <i class="fas fa-fist-raised"></i>
             <span>Tier 2 Actions</span>
-            <span class="tier-allowance-badge" title="Actions allowed per turn">1 Action / Turn</span>
+            <span class="tier-allowance-badge" title="Actions allowed per turn">{{#if tier2AllowanceLabel}}{{tier2AllowanceLabel}}{{else}}1 Action / Turn{{/if}}</span>
           </div>
           <button type="button"
                   class="tier-add-btn"

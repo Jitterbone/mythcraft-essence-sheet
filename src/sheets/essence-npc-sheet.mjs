@@ -24,7 +24,78 @@ import { applyMessageRollMode } from "../features/roll-privacy.mjs";
 
 const MODULE_PATH = (p) => `modules/mythcraft-essence-sheet/templates/essence/${p}`;
 
+/**
+ * Maps written number words and digit strings to integers.
+ */
+const WORD_TO_NUM = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5,
+  six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9, 10: 10,
+};
 
+/**
+ * Parses turn action allowances (Tier 1 and Tier 2) from an NPC's Turn Action Economy text/HTML.
+ *
+ * @param {string} actionsHTMLOrText - The raw HTML or text from actor.system.actions.
+ * @returns {{ tier1Allowance: number, tier1AllowanceLabel: string, tier2Allowance: number, tier2AllowanceLabel: string }}
+ */
+export function parseNpcActionAllowances(actionsHTMLOrText) {
+  if (!actionsHTMLOrText) {
+    return {
+      tier1Allowance: 1,
+      tier1AllowanceLabel: "1 Action / Turn",
+      tier2Allowance: 1,
+      tier2AllowanceLabel: "1 Action / Turn",
+    };
+  }
+
+  const clean = String(actionsHTMLOrText)
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#39;/g, "'")
+    .replace(/’/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const numPattern = "one|two|three|four|five|six|seven|eight|nine|ten|\\d+";
+
+  const t1Patterns = [
+    new RegExp(`(?:take|use|gain)\\s+(?:up\\s+to\\s+)?(${numPattern})\\s+Tier\\s*1\\s+actions?`, "gi"),
+    new RegExp(`(${numPattern})\\s+Tier\\s*1\\s+actions?`, "gi"),
+    new RegExp(`Tier\\s*1[^.]*?(${numPattern})\\s+actions?`, "gi"),
+  ];
+
+  const t2Patterns = [
+    new RegExp(`(?:take|use|gain)\\s+(?:up\\s+to\\s+)?(${numPattern})\\s+Tier\\s*2\\s+actions?`, "gi"),
+    new RegExp(`(${numPattern})\\s+Tier\\s*2\\s+actions?`, "gi"),
+    new RegExp(`Tier\\s*2[^.]*?(${numPattern})\\s+actions?`, "gi"),
+  ];
+
+  const extractMax = (patterns) => {
+    let max = 0;
+    for (const pat of patterns) {
+      let match;
+      while ((match = pat.exec(clean)) !== null) {
+        const raw = match[1].toLowerCase();
+        const num = WORD_TO_NUM[raw] ?? parseInt(raw, 10);
+        if (!isNaN(num) && num > max) {
+          max = num;
+        }
+      }
+    }
+    return max > 0 ? max : 1;
+  };
+
+  const t1Max = extractMax(t1Patterns);
+  const t2Max = extractMax(t2Patterns);
+
+  return {
+    tier1Allowance: t1Max,
+    tier1AllowanceLabel: `${t1Max} ${t1Max === 1 ? "Action" : "Actions"} / Turn`,
+    tier2Allowance: t2Max,
+    tier2AllowanceLabel: `${t2Max} ${t2Max === 1 ? "Action" : "Actions"} / Turn`,
+  };
+}
 
 export default class EssenceNPCSheet extends NPCSheet {
 
@@ -1018,6 +1089,12 @@ export default class EssenceNPCSheet extends NPCSheet {
           r.isGrayedOut = false;
         }
       }
+
+      const allowances = parseNpcActionAllowances(this.actor.system.actions);
+      context.tier1Allowance = allowances.tier1Allowance;
+      context.tier1AllowanceLabel = allowances.tier1AllowanceLabel;
+      context.tier2Allowance = allowances.tier2Allowance;
+      context.tier2AllowanceLabel = allowances.tier2AllowanceLabel;
 
       context.tier1Actions = rawTier1;
       context.tier2Actions = rawTier2;

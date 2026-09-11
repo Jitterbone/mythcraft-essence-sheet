@@ -212,6 +212,7 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
   - Supports reallocating attribute points during level-up and recalculation, allowing negative adjustments down to the base floor when adjusting stats.
   - Preserves scroll positions and expands active tracks seamlessly in the Talent Tree viewer and Level-Up picker.
 - **Automation & System Polish**:
+  - **NPC Turn Action Economy Allowances**: Added dynamic parsing of Tier 1 and Tier 2 action allowances from creature Turn Action Economy rules (e.g. "4 Actions / Turn", "2 Actions / Turn") instead of static placeholders.
   - Fixed damage rolls so rolling damage never inadvertently deducts AP or SP.
   - Sanitized item data structures when provisioning background/lineage items to eliminate Foundry advancement and deprecation warnings during character creation.
   - Synchronized Action Point (AP) calculations when Coordination (COR) or max AP changes.

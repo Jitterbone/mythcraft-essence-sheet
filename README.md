@@ -1,5 +1,6 @@
 # MythCraft Essence Sheet (v0.6.0-beta) 📜✨
 
+[![Downloads](https://img.shields.io/github/downloads/Jitterbone/mythcraft-essence-sheet/total?style=flat&logo=github&logoColor=white&color=38bdf8&label=Downloads)](https://github.com/Jitterbone/mythcraft-essence-sheet/releases)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Development-FF5E5B?style=flat&logo=kofi&logoColor=white)](https://ko-fi.com/jitterbone)
 
 A complete suite of elegant, high-readability alternate actor and item sheets for the **Mythcraft** system in Foundry VTT. Designed to seamlessly match the **Mythcraft HUD** aesthetic with a dark teal-and-gold palette, streamlined workflows, rich embedded editors, and comprehensive **built-in automation**.

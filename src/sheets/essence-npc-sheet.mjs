@@ -14,8 +14,7 @@ import ConditionsDialog from "../apps/conditions-dialog.mjs";
 import TagsManagementDialog from "../apps/tags-dialog.mjs";
 import ActorTagsAssignmentDialog from "../apps/actor-tags-dialog.mjs";
 
-import { findTagDefinition, formatTagTitle } from "../data/tags-library.mjs";
-import { enrichText, getEnrichedItemTags, rollItemDamage, rollSpellItem, getActorCritHit, getActorCritFail } from "./essence-character-sheet.mjs";
+import { enrichText, getEnrichedItemTags, rollItemDamage, rollSpellItem, getActorCritHit, getActorCritFail, hasAstoundingCritical } from "./essence-character-sheet.mjs";
 import { getDefenseTargetConfig, renderDefenseTargetBadgeHTML } from "../data/defense-config.mjs";
 import { applyEffectiveArmorAndDefenses } from "../features/equipment-automation.mjs";
 import { applyMessageRollMode } from "../features/roll-privacy.mjs";
@@ -309,6 +308,19 @@ export default class EssenceNPCSheet extends NPCSheet {
     const isCrit = typeof d20Result === "number" && d20Result >= critHit;
     const isFumble = typeof d20Result === "number" && d20Result <= critFail;
 
+    const isAstounding = hasAstoundingCritical(this.actor);
+    if (isFumble && isAstounding) {
+      if (this.actor.system?.ap !== undefined) {
+        await this.actor.update({ "system.ap.value": 0 });
+      }
+      if (game.combat?.started && game.combat?.combatant?.actorId === this.actor.id) {
+        if (game.user.isGM || game.combat.combatant?.isOwner) {
+          await game.combat.nextTurn();
+        }
+      }
+      ui.notifications.warn(`${this.actor.name} suffered a Critical Failure! Turn ended immediately and remaining AP lost (Astounding Critical).`);
+    }
+
     const defBadgeHTML = renderDefenseTargetBadgeHTML(defenseTarget);
     const resultClass = isCrit ? "crit-success" : (isFumble ? "crit-fail" : "");
     const resultLabel = isCrit ? "CRITICAL HIT" : (isFumble ? "CRITICAL FAILURE" : "ATTACK ROLL");
@@ -327,6 +339,7 @@ export default class EssenceNPCSheet extends NPCSheet {
           <div class="roll-label">${resultLabel}</div>
           <div class="roll-value">${roll.total}</div>
           <div class="roll-formula">${roll.formula}</div>
+          ${(isFumble && isAstounding) ? '<div class="astounding-fumble-banner" style="margin-top: 6px; padding: 4px 8px; background: rgba(192, 57, 43, 0.35); border: 1px solid #e74c3c; border-radius: 4px; color: #ff9999; font-size: 11px; font-weight: 700; text-align: center;"><i class="fas fa-skull-crossbones"></i> Astounding Critical Failure: Turn Ended &amp; AP Lost!</div>' : ''}
         </div>
       </div>
     `;

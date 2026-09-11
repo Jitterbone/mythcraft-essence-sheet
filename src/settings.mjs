@@ -367,6 +367,21 @@ export function registerSettings() {
     },
   });
 
+  game.settings.register(MODULE_ID, "jitterboneBonebreakerRule", {
+    name: "Jitterbone's Bonebreaker",
+    hint: "Grants the Astounding Critical talent automation to all character actors by default (exploding critical damage dice on max face, doubled critical failure range, and turn ends immediately on critical failure).",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+    requiresReload: true,
+    onChange: () => {
+      for (const app of Object.values(ui.windows || {})) {
+        if (app.actor) app.render(false);
+      }
+    },
+  });
+
   // Render styled category headers in Settings Config
   Hooks.on("renderSettingsConfig", (app, html) => {
     const root = html instanceof HTMLElement ? html : (html[0] || html);

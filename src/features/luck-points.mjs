@@ -1,10 +1,24 @@
+import { getSetting } from "../settings.mjs";
+
 /**
- * mythcraft-essence-sheet | src/features/luck-points.mjs
- *
- * Implements the "Use Luck Point" context menu option on chat rolls.
- * Right-clicking any roll made by a character sheet allows the player or GM
- * to spend 1 Luck Point (LP) to re-evaluate and reroll the check with 3D dice animations.
+ * Checks whether an actor possesses the "Astounding Critical" talent or benefits from the "Jitterbone's Bonebreaker" rule variant.
+ * @param {Actor} actor
+ * @returns {boolean}
  */
+export function hasAstoundingCritical(actor) {
+  if (!actor) return false;
+  if (getSetting("jitterboneBonebreakerRule", false)) {
+    if (actor.type === "character" || !actor.type) return true;
+  }
+  const items = actor.items || [];
+  return items.some(item => {
+    const name = (item.name || "").toLowerCase().trim();
+    if (name.includes("astounding critical")) return true;
+    const desc = String(item.system?.description?.value || item.system?.description || "").toLowerCase();
+    return desc.includes("astounding critical") ||
+      (desc.includes("max damage on a damage die") && desc.includes("set that die aside"));
+  });
+}
 
 /**
  * Calculates effective critical hit threshold based on actor Luck and Damage Modification settings.
@@ -21,12 +35,16 @@ export function getActorCritHit(actor) {
 }
 
 /**
- * Calculates effective critical fail threshold for actor.
+ * Calculates effective critical fail threshold for actor (doubles with Astounding Critical / Bonebreaker rule).
  * @param {Actor} actor
  * @returns {number}
  */
 export function getActorCritFail(actor) {
-  return Number(actor?.system?.critical?.fail ?? 1);
+  const baseFail = Number(actor?.system?.critical?.effectiveFail ?? actor?.system?.critical?.fail ?? 1);
+  if (hasAstoundingCritical(actor)) {
+    return Math.max(1, baseFail * 2);
+  }
+  return Math.max(1, baseFail);
 }
 
 /**

@@ -6,7 +6,7 @@
  */
 
 import { getSetting } from "../settings.mjs";
-import { getActorCritHit } from "./luck-points.mjs";
+import { getActorCritHit, getActorCritFail, hasAstoundingCritical } from "./luck-points.mjs";
 import { applyMessageRollMode } from "./roll-privacy.mjs";
 
 /**
@@ -296,9 +296,25 @@ export async function executeUnifiedAction(actor, item, options = {}) {
     await deductSp(actor, spCost);
   }
 
-  // 4. Critical hit check
+  // 4. Critical hit & fumble check
   const critThreshold = getActorCritHit(actor);
-  const isCrit = roll.dice[0]?.results?.[0]?.result >= critThreshold;
+  const critFailThreshold = getActorCritFail(actor);
+  const dieResult = roll.dice[0]?.results?.[0]?.result;
+  const isCrit = typeof dieResult === "number" && dieResult >= critThreshold;
+  const isFumble = typeof dieResult === "number" && dieResult <= critFailThreshold;
+
+  const isAstounding = hasAstoundingCritical(actor);
+  if (isFumble && isAstounding) {
+    if (actor.system?.ap !== undefined) {
+      await actor.update({ "system.ap.value": 0 });
+    }
+    if (game.combat?.started && game.combat?.combatant?.actorId === actor.id) {
+      if (game.user.isGM || game.combat.combatant?.isOwner) {
+        await game.combat.nextTurn();
+      }
+    }
+    ui.notifications.warn(`${actor.name} suffered a Critical Failure! Turn ended immediately and remaining AP lost (Astounding Critical).`);
+  }
 
   // 5. Build chat message
   const cardData = {
@@ -307,6 +323,8 @@ export async function executeUnifiedAction(actor, item, options = {}) {
     roll,
     total: roll.total,
     isCrit,
+    isFumble,
+    isAstoundingFumble: isFumble && isAstounding,
     apCost,
     spCost,
     hasDamage: !!(item.system?.damage?.formula || item.system?.damageFormula || (Array.isArray(item.system?.damage) && item.system.damage.length > 0)),

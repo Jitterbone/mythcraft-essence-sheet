@@ -24,7 +24,7 @@ import LevelUpDialog from "./apps/level-up-dialog.mjs";
 import { registerSettings } from "./settings.mjs";
 
 import { findTagDefinition, getActiveTagsLibrary, syncCustomTagsToSystem, patchTagInputElement } from "./data/tags-library.mjs";
-import { getEnrichedItemTags, getActorCritHit, getActorCritFail, rollItemDamage } from "./sheets/essence-character-sheet.mjs";
+import { getEnrichedItemTags, getActorCritHit, getActorCritFail, hasAstoundingCritical, makeExplodingDiceFormula, rollItemDamage } from "./sheets/essence-character-sheet.mjs";
 import { getDefenseTargetConfig, renderDefenseTargetBadgeHTML, DEFENSE_TARGET_CONFIG } from "./data/defense-config.mjs";
 import { mcConditions as MythcraftConditions } from "./data/condition-data.mjs";
 import { initCombatAutomation, resetTurnMovementStride } from "./features/combat-automation.mjs";
@@ -204,6 +204,8 @@ Hooks.once("init", () => {
     getActiveTagsLibrary,
     getActorCritHit,
     getActorCritFail,
+    hasAstoundingCritical,
+    makeExplodingDiceFormula,
     rollItemDamage,
   };
 
@@ -846,6 +848,8 @@ Hooks.once("ready", async () => {
       getActiveTagsLibrary,
       getActorCritHit,
       getActorCritFail,
+      hasAstoundingCritical,
+      makeExplodingDiceFormula,
       rollItemDamage,
       executeUnifiedAction,
       executeRest,

@@ -271,6 +271,7 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
 
     const currentAttrMod = (index === 0) ? attrMod : 0;
     const currentAffinity = (index === 0) ? affinityBonus : 0;
+    const isAstounding = hasAstoundingCritical(actor);
 
     let finalFormula = baseFormula;
 
@@ -278,7 +279,7 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
       if (!isSpell) {
         // Weapon, Action & Feature Attack Crit Rule:
         // 1. Maximize normal damage (dice max + modifiers)
-        // 2. Roll damage dice a second time
+        // 2. Roll damage dice a second time (exploding on max face if Astounding Critical)
         // 3. Add LUCK score
         let diceMax = 0;
         let extraDiceFormula = "";
@@ -288,7 +289,8 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
           for (const term of tempRoll.terms) {
             if (term.faces && term.number) {
               diceMax += term.number * term.faces;
-              extraDiceFormula += (extraDiceFormula ? " + " : "") + `${term.number}d${term.faces}`;
+              const explodeSuffix = isAstounding ? "x" : "";
+              extraDiceFormula += (extraDiceFormula ? " + " : "") + `${term.number}d${term.faces}${explodeSuffix}`;
             } else if (typeof term.total === "number") {
               diceMax += term.total;
             } else if (typeof term.number === "number" && !term.faces) {
@@ -299,15 +301,18 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
           diceMax = 0;
         }
 
-        if (!extraDiceFormula) extraDiceFormula = baseFormula;
+        if (!extraDiceFormula) {
+          extraDiceFormula = isAstounding ? makeExplodingDiceFormula(baseFormula) : baseFormula;
+        }
         const maxNormalDamage = diceMax + currentAttrMod + currentAffinity;
         const luckBonus = (index === 0) ? luckScore : 0;
 
         finalFormula = `${maxNormalDamage} + ${extraDiceFormula}${luckBonus ? ` + ${luckBonus}` : ""}`;
       } else {
-        // Spell Crit Rule: Add LUCK to damage
+        // Spell Crit Rule: Add LUCK to damage (exploding on max face if Astounding Critical)
         const luckBonus = (index === 0) ? luckScore : 0;
-        finalFormula = `${baseFormula}${luckBonus ? ` + ${luckBonus}` : ""}`;
+        const spellDiceFormula = isAstounding ? makeExplodingDiceFormula(baseFormula) : baseFormula;
+        finalFormula = `${spellDiceFormula}${luckBonus ? ` + ${luckBonus}` : ""}`;
       }
     } else {
       // Normal damage
@@ -333,6 +338,7 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
   const flavorPrefix = isCrit ? `💥 CRITICAL HIT: ${item.name}` : `${item.name}`;
   const notes = [];
   if (isCrit) notes.push("Critical Damage");
+  if (isCrit && hasAstoundingCritical(actor)) notes.push("Astounding Crit (Exploding Dice)");
   if (isWeapon && weaponData?.isTwoHandedGrip) notes.push("2H Grip");
   if (attrModLabel) notes.push(attrModLabel);
   if (hasItemAffinity) notes.push("+3 Affinity");
@@ -421,6 +427,19 @@ export async function rollSpellItem(actor, item, { rollMode = null } = {}) {
   const isCrit = typeof d20Result === "number" && d20Result >= critHit;
   const isFumble = typeof d20Result === "number" && d20Result <= critFail;
 
+  const isAstounding = hasAstoundingCritical(actor);
+  if (isFumble && isAstounding) {
+    if (actor.system?.ap !== undefined) {
+      await actor.update({ "system.ap.value": 0 });
+    }
+    if (game.combat?.started && game.combat?.combatant?.actorId === actor.id) {
+      if (game.user.isGM || game.combat.combatant?.isOwner) {
+        await game.combat.nextTurn();
+      }
+    }
+    ui.notifications.warn(`${actor.name} suffered a Critical Failure! Turn ended immediately and remaining AP lost (Astounding Critical).`);
+  }
+
   const defBadgeHTML = defenseTarget ? renderDefenseTargetBadgeHTML(defenseTarget) : "";
   const resultClass = isCrit ? "crit-success" : (isFumble ? "crit-fail" : "");
   const resultLabel = isCrit ? "CRITICAL SUCCESS" : (isFumble ? "CRITICAL FAILURE" : "SPELL ROLL");
@@ -438,6 +457,7 @@ export async function rollSpellItem(actor, item, { rollMode = null } = {}) {
         <div class="roll-label">${resultLabel}</div>
         <div class="roll-value">${roll.total}</div>
         <div class="roll-formula">${roll.formula}</div>
+        ${(isFumble && isAstounding) ? '<div class="astounding-fumble-banner" style="margin-top: 6px; padding: 4px 8px; background: rgba(192, 57, 43, 0.35); border: 1px solid #e74c3c; border-radius: 4px; color: #ff9999; font-size: 11px; font-weight: 700; text-align: center;"><i class="fas fa-skull-crossbones"></i> Astounding Critical Failure: Turn Ended &amp; AP Lost!</div>' : ''}
       </div>
     </div>
   `;
@@ -454,7 +474,7 @@ export async function rollSpellItem(actor, item, { rollMode = null } = {}) {
         itemUuid: item.uuid,
         itemName: item.name,
         defenseTarget,
-        isSpell: true,
+        isSpellCheck: true,
         critHit,
         isCrit,
         isFumble,
@@ -490,13 +510,55 @@ export function getActorCritHit(actor) {
 }
 
 /**
+ * Checks whether an actor possesses the "Astounding Critical" talent or benefits from the "Jitterbone's Bonebreaker" rule variant.
+ * @param {Actor} actor
+ * @returns {boolean}
+ */
+export function hasAstoundingCritical(actor) {
+  if (!actor) return false;
+
+  // 1. Community House Rule: "Jitterbone's Bonebreaker" variant gives it to all character actors by default
+  if (getSetting("jitterboneBonebreakerRule", false)) {
+    if (actor.type === "character" || !actor.type) {
+      return true;
+    }
+  }
+
+  // 2. Check items on actor for Astounding Critical talent or feature
+  const items = actor.items || [];
+  return items.some(item => {
+    const name = (item.name || "").toLowerCase().trim();
+    if (name.includes("astounding critical")) return true;
+    const desc = String(item.system?.description?.value || item.system?.description || "").toLowerCase();
+    return desc.includes("astounding critical") ||
+      (desc.includes("max damage on a damage die") && desc.includes("set that die aside"));
+  });
+}
+
+/**
+ * Converts standard dice terms (e.g. "1d6", "2d8", "d12") into exploding dice terms ("1d6x", "2d8x", "d12x")
+ * @param {string} formula
+ * @returns {string}
+ */
+export function makeExplodingDiceFormula(formula) {
+  if (!formula || typeof formula !== "string") return formula;
+  return formula.replace(/(\d*d\d+)(?!x)/gi, (m) => `${m}x`);
+}
+
+/**
  * Calculates effective critical failure threshold based on actor settings (default 1).
+ * If the actor has the Astounding Critical talent (or Jitterbone's Bonebreaker rule),
+ * the critical failure range doubles (e.g. 1 -> 2, 2 -> 4).
  * @param {Actor} actor
  * @returns {number}
  */
 export function getActorCritFail(actor) {
   if (!actor) return 1;
-  return Number(actor.system?.critical?.fail ?? 1);
+  const baseFail = Number(actor.system?.critical?.effectiveFail ?? actor.system?.critical?.fail ?? 1);
+  if (hasAstoundingCritical(actor)) {
+    return Math.max(1, baseFail * 2);
+  }
+  return Math.max(1, baseFail);
 }
 
 /**
@@ -753,7 +815,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     const attr = item.system?.attr || "str";
     const attrValue = Number(this.actor.system?.attributes?.[attr] ?? 0);
     const critHit = getActorCritHit(this.actor);
-    const critFail = Number(this.actor.system?.critical?.effectiveFail ?? this.actor.system?.critical?.fail ?? 1);
+    const critFail = getActorCritFail(this.actor);
     const modifier = Number(item.system?.attackModifierValue ?? item.system?.attackModifier ?? 0);
     const luck = Number(this.actor.system?.attributes?.luck?.value ?? this.actor.system?.attributes?.luck ?? 0);
 
@@ -783,6 +845,19 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     const isCrit = typeof d20Result === "number" && d20Result >= critHit;
     const isFumble = typeof d20Result === "number" && d20Result <= critFail;
 
+    const isAstounding = hasAstoundingCritical(this.actor);
+    if (isFumble && isAstounding) {
+      if (this.actor.system?.ap !== undefined) {
+        await this.actor.update({ "system.ap.value": 0 });
+      }
+      if (game.combat?.started && game.combat?.combatant?.actorId === this.actor.id) {
+        if (game.user.isGM || game.combat.combatant?.isOwner) {
+          await game.combat.nextTurn();
+        }
+      }
+      ui.notifications.warn(`${this.actor.name} suffered a Critical Failure! Turn ended immediately and remaining AP lost (Astounding Critical).`);
+    }
+
     const defenseTarget = item.system?.defenseTarget || item.system?.defense || "ar";
     const defBadgeHTML = renderDefenseTargetBadgeHTML(defenseTarget);
     const resultClass = isCrit ? "crit-success" : (isFumble ? "crit-fail" : "");
@@ -802,6 +877,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
           <div class="roll-label">${resultLabel}</div>
           <div class="roll-value">${roll.total}</div>
           <div class="roll-formula">${roll.formula}</div>
+          ${(isFumble && isAstounding) ? '<div class="astounding-fumble-banner" style="margin-top: 6px; padding: 4px 8px; background: rgba(192, 57, 43, 0.35); border: 1px solid #e74c3c; border-radius: 4px; color: #ff9999; font-size: 11px; font-weight: 700; text-align: center;"><i class="fas fa-skull-crossbones"></i> Astounding Critical Failure: Turn Ended &amp; AP Lost!</div>' : ''}
         </div>
       </div>
     `;
@@ -2360,8 +2436,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     context.luckPenalty = Math.abs(luck);
     context.maxLp = Math.max(0, Math.floor(luck / 2));
     context.critHit = getActorCritHit(this.actor);
-    const baseFail = Number(this.actor.system?.critical?.fail ?? 1);
-    context.critFail = Math.max(1, baseFail);
+    context.critFail = getActorCritFail(this.actor);
 
     // Power levels collected from Spells tab
     const powerLevels = this.actor.system?.powerLevel || {};

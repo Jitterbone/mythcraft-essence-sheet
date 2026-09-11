@@ -17,6 +17,7 @@ import ConditionsDialog from "../apps/conditions-dialog.mjs";
 import LevelUpDialog from "../apps/level-up-dialog.mjs";
 import CharacterCreationWizard from "../apps/character-creation-wizard.mjs";
 import TalentTreeViewer from "../apps/talent-tree-viewer.mjs";
+import SecondSkinChoiceDialog, { isSecondSkinTalent } from "../apps/second-skin-dialog.mjs";
 import {
   CANONICAL_TALENTS,
   NORMALIZED_CANONICAL_TALENTS,
@@ -584,8 +585,21 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       addJournalEntry: this.#addJournalEntry,
       addContact: this.#addContact,
       addResource: this.#addResource,
+      configureSecondSkin: this.#configureSecondSkin,
     },
   };
+
+  /**
+   * Action handler to open the Second Skin specialization choice dialog for a talent.
+   */
+  static async #configureSecondSkin(event, target) {
+    event.preventDefault();
+    event.stopPropagation();
+    const itemId = target.dataset.itemId || target.closest("[data-item-id]")?.dataset.itemId;
+    const item = this.actor.items.get(itemId);
+    if (!item) return;
+    SecondSkinChoiceDialog.promptChoice(item);
+  }
 
   /**
    * Helper to prompt a confirmation dialog before deletion.
@@ -3738,12 +3752,16 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         const descVal = item.system?.description?.value ?? item.system?.description ?? "";
         const essenceCost = Number(item.flags?.["mythcraft-essence-sheet"]?.essenceCost ?? item.system?.essenceCost ?? 0);
         const isAttuned = item.flags?.["mythcraft-essence-sheet"]?.isAttuned ?? true;
+        const isSecondSkin = isSecondSkinTalent(item);
+        const secondSkinArmor = item.flags?.["mythcraft-essence-sheet"]?.secondSkinArmor || "";
         return {
           item,
           isFavorite,
           expanded,
           essenceCost,
           isAttuned,
+          isSecondSkin,
+          secondSkinArmor,
           descriptionHTML: expanded ? await enrichText(descVal, { rollData: this.actor.getRollData() }) : "",
         };
       }));
@@ -3756,12 +3774,16 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         const descVal = item.system?.description?.value ?? item.system?.description ?? "";
         const essenceCost = Number(item.flags?.["mythcraft-essence-sheet"]?.essenceCost ?? item.system?.essenceCost ?? 0);
         const isAttuned = item.flags?.["mythcraft-essence-sheet"]?.isAttuned ?? true;
+        const isSecondSkin = isSecondSkinTalent(item);
+        const secondSkinArmor = item.flags?.["mythcraft-essence-sheet"]?.secondSkinArmor || "";
         return {
           item,
           isFavorite,
           expanded,
           essenceCost,
           isAttuned,
+          isSecondSkin,
+          secondSkinArmor,
           descriptionHTML: expanded ? await enrichText(descVal, { rollData: this.actor.getRollData() }) : "",
         };
       }));

@@ -14,6 +14,7 @@
 
 import { getSetting } from "../settings.mjs";
 import { isDefaultIcon, resolveEquipmentIcon, resolveTalentIcon, resolveItemIcon, applyDefaultItemIcon } from "./equipment-icons.mjs";
+import SecondSkinChoiceDialog, { isSecondSkinTalent } from "../apps/second-skin-dialog.mjs";
 
 /**
  * Safely parse a signed or unsigned number from string or number inputs.
@@ -302,12 +303,54 @@ export function getArmorCategory(item) {
 }
 
 /**
+ * Normalizes an armor name string for reliable matching.
+ * @param {string} name
+ * @returns {string}
+ */
+export function normalizeArmorName(name) {
+  return String(name || "")
+    .toLowerCase()
+    .replace(/\s*armor$/i, "")
+    .replace(/\s*shield$/i, "")
+    .replace(/[()[\]\-–—]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Checks whether an armor item matches a selected Second Skin armor specialization name.
+ * @param {Item} armorItem
+ * @param {string} chosenName
+ * @returns {boolean}
+ */
+export function matchArmorName(armorItem, chosenName) {
+  if (!armorItem || !chosenName) return false;
+  const itemRaw = String(armorItem.name || "").toLowerCase().trim();
+  const chosenRaw = String(chosenName).toLowerCase().trim();
+
+  // 1. Exact match
+  if (itemRaw === chosenRaw) return true;
+
+  // 2. Normalized match
+  const normItem = normalizeArmorName(itemRaw);
+  const normChosen = normalizeArmorName(chosenRaw);
+  if (normItem === normChosen) return true;
+  if (normItem.includes(normChosen) || normChosen.includes(normItem)) return true;
+
+  // 3. Compact whitespace match (e.g. "chain mail" / "chainmail")
+  const compactItem = itemRaw.replace(/[^a-z0-9]/g, "");
+  const compactChosen = chosenRaw.replace(/[^a-z0-9]/g, "");
+  if (compactItem && compactChosen && (compactItem.includes(compactChosen) || compactChosen.includes(compactItem))) return true;
+
+  return false;
+}
+
+/**
  * Checks whether an actor possesses the Second Skin talent required to unlock an armor piece's resistance specialization.
- * Rules:
- * • Second Skin: Light Armor  -> Unlocks Light armor resistance
- * • Second Skin: Medium Armor -> Unlocks Medium armor resistance
- * • Second Skin: Heavy Armor  -> Unlocks Heavy armor resistance
- * • Second Skin: Shields      -> Unlocks Shield resistance
+ * Supports three rule variants configured via `secondSkinRuleVariant`:
+ * 1. "raw" (Rules as Written - Default): Requires choosing one specific armor type per talent.
+ * 2. "category" (Second Skin Armor Type): Unlocks all armors within that category.
+ * 3. "sturdyBones" (Jitterbone's Sturdy Bones): Always unlocked for all armors without needing talents.
  *
  * @param {Actor} actor
  * @param {Item} armorItem
@@ -318,6 +361,14 @@ export function hasSecondSkinForArmor(actor, armorItem) {
 
   // Enhancements do not require Second Skin
   if (isArmorEnhancement(armorItem)) return true;
+
+  // Check rule variant setting
+  const variant = getSetting("secondSkinRuleVariant", "raw");
+
+  // Variant 3: "sturdyBones" -> Always active without talents!
+  if (variant === "sturdyBones") {
+    return true;
+  }
 
   // NPCs without talents / monster statblocks gain armor resists directly
   if (actor.type === "npc") {
@@ -339,31 +390,41 @@ export function hasSecondSkinForArmor(actor, armorItem) {
     const desc = String(item.system?.description?.value || item.system?.description || "").toLowerCase();
 
     // Check if this item represents a Second Skin talent
-    const isSecondSkin = name.includes("second skin") ||
-      desc.includes("gain the armor’s resist bonus") ||
-      desc.includes("gain the armor's resist bonus") ||
-      desc.includes("gain the shield’s resist bonus") ||
-      desc.includes("gain the shield's resist bonus");
-
+    const isSecondSkin = isSecondSkinTalent(item);
     if (!isSecondSkin) continue;
 
-    // Direct armor name match (e.g. "Second Skin: Leather Armor", "Second Skin (Chainmail)")
-    if (armorName && (name.includes(armorName) || desc.includes(armorName))) {
+    // Check if talent category matches armor category
+    let talentCat = "unknown";
+    if (name.includes("light") || desc.includes("light armor")) talentCat = "light";
+    else if (name.includes("medium") || name.includes("med ") || name.includes("med:") || desc.includes("medium armor")) talentCat = "medium";
+    else if (name.includes("heavy") || desc.includes("heavy armor")) talentCat = "heavy";
+    else if (name.includes("shield") || desc.includes("shield")) talentCat = "shield";
+
+    if (category !== "unknown" && talentCat !== "unknown" && category !== talentCat) {
+      continue;
+    }
+
+    // Variant 2: "category" -> Any Second Skin of matching category unlocks ALL armors in that category
+    if (variant === "category") {
       return true;
     }
 
-    // Category specific matches
-    if (category === "light") {
-      if (name.includes("light") || desc.includes("light armor")) return true;
-    } else if (category === "medium") {
-      if (name.includes("medium") || name.includes("med ") || name.includes("med:") || desc.includes("medium armor")) return true;
-    } else if (category === "heavy") {
-      if (name.includes("heavy") || desc.includes("heavy armor")) return true;
-    } else if (category === "shield") {
-      if (name.includes("shield") || desc.includes("shield")) return true;
-    } else if (category === "unknown") {
-      // Fallback: If category is unknown homebrew, any Second Skin talent unlocks it
-      return true;
+    // Variant 1: "raw" (Rules as Written) -> Must match specific chosen armor
+    const chosenArmor = item.flags?.["mythcraft-essence-sheet"]?.secondSkinArmor;
+    if (chosenArmor) {
+      if (matchArmorName(armorItem, chosenArmor)) {
+        return true;
+      }
+    } else {
+      // Check if talent name itself contains specific armor in parentheses, e.g. "Second Skin: Light Armor (Leather)"
+      const parentheticalMatch = (item.name || "").match(/\(([^)]+)\)/);
+      if (parentheticalMatch && matchArmorName(armorItem, parentheticalMatch[1])) {
+        return true;
+      }
+      // If no armor chosen yet, check direct name match
+      if (matchArmorName(armorItem, item.name)) {
+        return true;
+      }
     }
   }
 
@@ -861,6 +922,19 @@ export function initEquipmentAutomation() {
       if (resolved && !isDefaultIcon(resolved)) {
         itemDoc.updateSource({ img: resolved });
       }
+    }
+  });
+
+  // Prompt Second Skin choice dialog when a Second Skin talent is created on a character sheet
+  Hooks.on("createItem", (itemDoc, options, userId) => {
+    if (userId !== game.user?.id) return;
+    if (itemDoc.parent?.type !== "character") return;
+    if (getSetting("secondSkinRuleVariant", "raw") !== "raw") return;
+
+    if (isSecondSkinTalent(itemDoc) && !itemDoc.flags?.["mythcraft-essence-sheet"]?.secondSkinArmor) {
+      setTimeout(() => {
+        SecondSkinChoiceDialog.promptChoice(itemDoc);
+      }, 150);
     }
   });
 

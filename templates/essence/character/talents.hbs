@@ -66,6 +66,18 @@
                           title="Click to Toggle Details">
                       {{t.item.name}}
                     </span>
+                    {{#if t.isSecondSkin}}
+                      <div class="item-inline-tags">
+                        <button type="button"
+                                class="item-essence-tag second-skin-spec-btn {{#if t.secondSkinArmor}}configured{{else}}unconfigured{{/if}}"
+                                data-action="configureSecondSkin"
+                                data-item-id="{{t.item.id}}"
+                                title="{{#if t.secondSkinArmor}}Specialization: {{t.secondSkinArmor}} (Click to change){{else}}Click to Choose Armor Specialization{{/if}}">
+                          <i class="fas {{#if t.secondSkinArmor}}fa-shield-halved{{else}}fa-shield-virus{{/if}}"></i>
+                          <span>{{#if t.secondSkinArmor}}{{t.secondSkinArmor}}{{else}}Choose Armor{{/if}}</span>
+                        </button>
+                      </div>
+                    {{/if}}
                     {{#if t.essenceCost}}
                       <div class="item-inline-tags">
                         <button type="button"
@@ -195,6 +207,18 @@
                     title="Click to Toggle Details">
                 {{f.item.name}}
               </span>
+              {{#if f.isSecondSkin}}
+                <div class="item-inline-tags">
+                  <button type="button"
+                          class="item-essence-tag second-skin-spec-btn {{#if f.secondSkinArmor}}configured{{else}}unconfigured{{/if}}"
+                          data-action="configureSecondSkin"
+                          data-item-id="{{f.item.id}}"
+                          title="{{#if f.secondSkinArmor}}Specialization: {{f.secondSkinArmor}} (Click to change){{else}}Click to Choose Armor Specialization{{/if}}">
+                    <i class="fas {{#if f.secondSkinArmor}}fa-shield-halved{{else}}fa-shield-virus{{/if}}"></i>
+                    <span>{{#if f.secondSkinArmor}}{{f.secondSkinArmor}}{{else}}Choose Armor{{/if}}</span>
+                  </button>
+                </div>
+              {{/if}}
               {{#if f.essenceCost}}
                 <div class="item-inline-tags">
                   <button type="button"

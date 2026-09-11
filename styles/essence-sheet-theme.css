@@ -16161,6 +16161,260 @@ tag-input .tag-chip-remove:hover {
   color: #fbbf24;
 }
 
+/* ── Second Skin Armor Specialization Dialog & Buttons ──────────── */
+.second-skin-dialog-root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background: #1a1a1a;
+  color: #e8e0d0;
+  font-family: var(--mc-font, 'Signika', 'Arial Narrow', sans-serif);
+}
 
+.second-skin-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(23, 67, 69, 0.7) 0%, rgba(58, 122, 127, 0.25) 100%);
+  border: 1px solid rgba(79, 163, 168, 0.4);
+  border-radius: 6px;
+}
 
+.second-skin-dialog-header .dialog-banner-icon {
+  font-size: 24px;
+  color: #FEEBB3;
+  text-shadow: 0 0 10px rgba(254, 235, 179, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 50%;
+  border: 1px solid rgba(254, 235, 179, 0.3);
+}
 
+.second-skin-dialog-header .dialog-banner-text {
+  flex: 1;
+}
+
+.second-skin-dialog-header .dialog-title {
+  margin: 0 0 2px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #FEEBB3;
+  letter-spacing: 0.03em;
+}
+
+.second-skin-dialog-header .dialog-subtitle {
+  margin: 0;
+  font-size: 11px;
+  color: #d3c4a3;
+  line-height: 1.35;
+}
+
+.second-skin-options-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.second-skin-options-container .options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.armor-option-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(34, 34, 34, 0.85);
+  border: 1px solid rgba(58, 122, 127, 0.3);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.armor-option-card input[type="radio"] {
+  display: none;
+}
+
+.armor-option-card:hover {
+  background: rgba(58, 122, 127, 0.2);
+  border-color: rgba(79, 163, 168, 0.7);
+  transform: translateY(-1px);
+}
+
+.armor-option-card.selected,
+.armor-option-card:has(input:checked) {
+  background: linear-gradient(135deg, rgba(23, 67, 69, 0.8) 0%, rgba(58, 122, 127, 0.4) 100%);
+  border-color: #FEEBB3;
+  box-shadow: 0 0 8px rgba(254, 235, 179, 0.25);
+}
+
+.armor-option-card .option-icon {
+  font-size: 14px;
+  color: #4fa3a8;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.armor-option-card.selected .option-icon,
+.armor-option-card:has(input:checked) .option-icon {
+  color: #FEEBB3;
+}
+
+.armor-option-card .option-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.armor-option-card .option-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e8e0d0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.armor-option-card.selected .option-name,
+.armor-option-card:has(input:checked) .option-name {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.armor-option-card .option-cat {
+  font-size: 10px;
+  color: #8a8278;
+}
+
+.armor-option-card .option-check {
+  font-size: 13px;
+  color: transparent;
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+
+.armor-option-card.selected .option-check,
+.armor-option-card:has(input:checked) .option-check {
+  color: #FEEBB3;
+}
+
+.custom-armor-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 8px 10px;
+  background: rgba(26, 26, 26, 0.6);
+  border: 1px dashed rgba(58, 122, 127, 0.4);
+  border-radius: 5px;
+}
+
+.custom-armor-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #d3c4a3;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.custom-armor-input {
+  flex: 1;
+  background: rgba(14, 24, 28, 0.85);
+  border: 1px solid rgba(58, 122, 127, 0.5);
+  border-radius: 4px;
+  color: #e8e0d0;
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+.custom-armor-input:focus {
+  border-color: #FEEBB3;
+  box-shadow: 0 0 6px rgba(254, 235, 179, 0.3);
+  outline: none;
+}
+
+.second-skin-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(58, 122, 127, 0.3);
+}
+
+.second-skin-dialog-footer .essence-gold-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: linear-gradient(135deg, #174345 0%, #3a7a7f 100%);
+  border: 1px solid #FEEBB3;
+  border-radius: 4px;
+  color: #FEEBB3;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.second-skin-dialog-footer .essence-gold-btn:hover {
+  background: linear-gradient(135deg, #246975 0%, #4fa3a8 100%);
+  box-shadow: 0 0 10px rgba(254, 235, 179, 0.4);
+  transform: translateY(-1px);
+}
+
+/* ── Second Skin Sheet Pill / Badge ─────────────────────────────── */
+.second-skin-spec-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  vertical-align: middle;
+}
+
+.second-skin-spec-btn.configured {
+  background: rgba(23, 67, 69, 0.65);
+  border: 1px solid rgba(254, 235, 179, 0.4);
+  color: #FEEBB3;
+}
+
+.second-skin-spec-btn.configured:hover {
+  background: rgba(36, 105, 117, 0.85);
+  border-color: #FEEBB3;
+  box-shadow: 0 0 8px rgba(254, 235, 179, 0.35);
+}
+
+.second-skin-spec-btn.unconfigured {
+  background: rgba(230, 126, 34, 0.15);
+  border: 1px dashed rgba(230, 126, 34, 0.6);
+  color: #f39c12;
+  animation: pulse-border 2s infinite ease-in-out;
+}
+
+.second-skin-spec-btn.unconfigured:hover {
+  background: rgba(230, 126, 34, 0.3);
+  border-color: #e67e22;
+  color: #FEEBB3;
+}

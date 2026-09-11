@@ -345,6 +345,27 @@ export function registerSettings() {
     default: "confirm",
   });
 
+  // ── COMMUNITY HOUSE RULES ────────────────────────────────────────────────
+
+  game.settings.register(MODULE_ID, "secondSkinRuleVariant", {
+    name: "Second Skin Variation Rules",
+    hint: "Configure how Second Skin armor resistance specialization is handled. 'Rules as Written' requires choosing one specific armor per talent. 'Second Skin Armor Type' unlocks all armors within the category. 'Jitterbone's Sturdy Bones' grants full armor resistance bonuses by default without needing the talent.",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: {
+      raw: "Rules as Written (Choose One Specific Armor)",
+      category: "Second Skin Armor Type (Unlocks Full Category)",
+      sturdyBones: "Jitterbone's Sturdy Bones (Always Active Without Talent)",
+    },
+    default: "raw",
+    onChange: () => {
+      for (const app of Object.values(ui.windows || {})) {
+        if (app.actor) app.render(false);
+      }
+    },
+  });
+
   // Render styled category headers in Settings Config
   Hooks.on("renderSettingsConfig", (app, html) => {
     const root = html instanceof HTMLElement ? html : (html[0] || html);
@@ -432,6 +453,18 @@ export function registerSettings() {
       subHeader.innerHTML = '<i class="fas fa-bolt"></i> Combat &amp; Damage Automations';
       subHeader.style.cssText = subHeaderStyle;
       targetCombat.parentNode.insertBefore(subHeader, targetCombat);
+    }
+
+    // 3. COMMUNITY HOUSE RULES Header
+    const targetHouseRulesEl = root.querySelector('[data-setting-id="mythcraft-essence-sheet.secondSkinRuleVariant"]') ||
+                               root.querySelector('[name="mythcraft-essence-sheet.secondSkinRuleVariant"]');
+    const targetHouseRules = targetHouseRulesEl?.closest('.form-group') || targetHouseRulesEl?.closest('.setting') || targetHouseRulesEl;
+    if (targetHouseRules && !root.querySelector('.essence-house-rules-main-header')) {
+      const houseRulesHeader = document.createElement('h3');
+      houseRulesHeader.className = 'essence-house-rules-main-header';
+      houseRulesHeader.innerHTML = '<i class="fas fa-dice-d20" style="color: #f43f5e;"></i> Community House Rules';
+      houseRulesHeader.style.cssText = mainHeaderStyle;
+      targetHouseRules.parentNode.insertBefore(houseRulesHeader, targetHouseRules);
     }
   });
 }

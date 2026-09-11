@@ -1,0 +1,53 @@
+﻿<div class="second-skin-dialog-root">
+  <header class="second-skin-dialog-header">
+    <div class="dialog-banner-icon">
+      <i class="fas fa-shield-halved"></i>
+    </div>
+    <div class="dialog-banner-text">
+      <h3 class="dialog-title">Second Skin: {{categoryLabel}}</h3>
+      <p class="dialog-subtitle">Choose <strong>one specific type of armor</strong> to gain its Resistance Specialization bonus when worn.</p>
+    </div>
+  </header>
+
+  <div class="second-skin-options-container">
+    <div class="options-grid">
+      {{#each armorOptions as |opt|}}
+        <label class="armor-option-card {{#if opt.isSelected}}selected{{/if}}" data-action="selectArmorOption" data-armor-name="{{opt.name}}">
+          <input type="radio" name="selectedArmor" value="{{opt.name}}" {{#if opt.isSelected}}checked{{/if}} />
+          <div class="option-icon">
+            <i class="fas fa-shield-alt"></i>
+          </div>
+          <div class="option-info">
+            <span class="option-name">{{opt.name}}</span>
+            {{#if opt.categoryLabel}}
+              <span class="option-cat">{{opt.categoryLabel}}</span>
+            {{/if}}
+          </div>
+          <div class="option-check">
+            <i class="fas fa-check-circle"></i>
+          </div>
+        </label>
+      {{/each}}
+    </div>
+
+    {{!-- Custom Homebrew Armor Override --}}
+    <div class="custom-armor-row">
+      <label class="custom-armor-label" for="customArmor">
+        <i class="fas fa-hammer"></i> Custom / Other Armor:
+      </label>
+      <input type="text"
+             id="customArmor"
+             name="customArmor"
+             class="custom-armor-input"
+             placeholder="Type custom armor name (e.g. Dragon Scale)..."
+             value="" />
+    </div>
+  </div>
+
+  <footer class="second-skin-dialog-footer">
+    <button type="submit" class="essence-gold-btn confirm-btn" data-action="confirmChoice">
+      <i class="fas fa-check"></i>
+      <span>Confirm Specialization</span>
+    </button>
+  </footer>
+</div>

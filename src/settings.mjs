@@ -359,6 +359,7 @@ export function registerSettings() {
       sturdyBones: "Jitterbone's Sturdy Bones (Always Active Without Talent)",
     },
     default: "raw",
+    requiresReload: true,
     onChange: () => {
       for (const app of Object.values(ui.windows || {})) {
         if (app.actor) app.render(false);

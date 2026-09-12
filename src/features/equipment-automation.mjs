@@ -441,6 +441,24 @@ export function hasSecondSkinForArmor(actor, armorItem) {
 export function calculateEffectiveResistances(actor) {
   const baseResistStr = actor?.system?.damage?.resist || "";
   const baseResists = parseResistanceString(baseResistStr);
+
+  // For NPCs, resistances are fixed directly on their statblock and do not use Second Skin or equipment stacking
+  if (actor?.type === "npc") {
+    const list = baseResists.map(r => ({
+      ...r,
+      hasArmorBonus: false,
+      armorValue: 0,
+      baseValue: r.value,
+    }));
+    return {
+      list,
+      combinedString: baseResistStr,
+      map: Object.fromEntries(baseResists.map(r => [r.type, r.value])),
+      armorResists: [],
+      baseResists,
+    };
+  }
+
   const armorResists = [];
 
   const armorResistAuto = getSetting("armorResistanceAutomation", true);

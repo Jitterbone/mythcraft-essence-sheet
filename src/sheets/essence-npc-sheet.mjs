@@ -16,6 +16,7 @@ import ActorTagsAssignmentDialog from "../apps/actor-tags-dialog.mjs";
 
 import { enrichText, getEnrichedItemTags, rollItemDamage, rollSpellItem, getActorCritHit, getActorCritFail, hasAstoundingCritical } from "./essence-character-sheet.mjs";
 import { getDefenseTargetConfig, renderDefenseTargetBadgeHTML } from "../data/defense-config.mjs";
+import { findTagDefinition, formatTagTitle } from "../data/tags-library.mjs";
 import { applyEffectiveArmorAndDefenses } from "../features/equipment-automation.mjs";
 import { applyMessageRollMode } from "../features/roll-privacy.mjs";
 

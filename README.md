@@ -1,4 +1,4 @@
-# MythCraft Essence Sheet (v0.6.1-beta) 📜✨
+# MythCraft Essence Sheet (v0.6.2-beta) 📜✨
 
 [![Latest Release](https://img.shields.io/github/v/release/Jitterbone/mythcraft-essence-sheet?style=flat&logo=github&logoColor=white&color=22c55e&label=Latest%20Release)](https://github.com/Jitterbone/mythcraft-essence-sheet/releases/latest)
 [![Foundry VTT](https://img.shields.io/badge/Foundry%20VTT-v14%20Verified-ff6400?style=flat)](https://foundryvtt.com)
@@ -200,6 +200,14 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 ---
 
 ## 📝 Changelog
+
+### v0.6.2-beta
+- **NPC Sheet Rendering & Tag Lookup Fix**:
+  - Resolved a critical rendering error (`ReferenceError: findTagDefinition is not defined`) when opening NPC sheets by properly importing system tag definition and title formatting helpers.
+- **Fixed NPC Resistance Handling**:
+  - Ensured NPC statblock resistances remain fixed to their written values, bypassing player equipment Second Skin talent requirements and stacking calculations.
+- **Community House Rules Settings Organization**:
+  - Reordered settings so the **Allow Resistance Stacking** toggle appears directly beneath **Second Skin Variation Rules** in the **Community House Rules** configuration menu.
 
 ### v0.6.1-beta
 - **Second Skin Armor Specialization Choice Dialog**:

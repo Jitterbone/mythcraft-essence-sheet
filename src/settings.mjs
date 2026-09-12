@@ -367,9 +367,9 @@ export function registerSettings() {
     },
   });
 
-  game.settings.register(MODULE_ID, "jitterboneBonebreakerRule", {
-    name: "Jitterbone's Bonebreaker",
-    hint: "Grants the Astounding Critical talent automation to all character actors by default (exploding critical damage dice on max face, doubled critical failure range, and turn ends immediately on critical failure).",
+  game.settings.register(MODULE_ID, "allowResistanceStacking", {
+    name: "Allow Resistance Stacking",
+    hint: "By Rules as Written (RAW), resistances from multiple sources sharing the same damage type do not stack—only the highest value applies. Enable this setting to allow matching resistances from all armor, shields, enhancements, and base defenses to stack together additively.",
     scope: "world",
     config: true,
     type: Boolean,
@@ -382,9 +382,9 @@ export function registerSettings() {
     },
   });
 
-  game.settings.register(MODULE_ID, "allowResistanceStacking", {
-    name: "Allow Resistance Stacking",
-    hint: "By Rules as Written (RAW), resistances from multiple sources sharing the same damage type do not stack—only the highest value applies. Enable this setting to allow matching resistances from all armor, shields, enhancements, and base defenses to stack together additively.",
+  game.settings.register(MODULE_ID, "jitterboneBonebreakerRule", {
+    name: "Jitterbone's Bonebreaker",
+    hint: "Grants the Astounding Critical talent automation to all character actors by default (exploding critical damage dice on max face, doubled critical failure range, and turn ends immediately on critical failure).",
     scope: "world",
     config: true,
     type: Boolean,

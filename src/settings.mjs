@@ -382,6 +382,21 @@ export function registerSettings() {
     },
   });
 
+  game.settings.register(MODULE_ID, "allowResistanceStacking", {
+    name: "Allow Resistance Stacking",
+    hint: "By Rules as Written (RAW), resistances from multiple sources sharing the same damage type do not stack—only the highest value applies. Enable this setting to allow matching resistances from all armor, shields, enhancements, and base defenses to stack together additively.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+    requiresReload: true,
+    onChange: () => {
+      for (const app of Object.values(ui.windows || {})) {
+        if (app.actor) app.render(false);
+      }
+    },
+  });
+
   // Render styled category headers in Settings Config
   Hooks.on("renderSettingsConfig", (app, html) => {
     const root = html instanceof HTMLElement ? html : (html[0] || html);

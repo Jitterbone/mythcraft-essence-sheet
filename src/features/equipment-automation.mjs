@@ -490,18 +490,32 @@ export function calculateEffectiveResistances(actor) {
     }
   }
 
-  // Combine and stack resistances
+  const allowStacking = getSetting("allowResistanceStacking", false);
+
+  // Combine and calculate resistances
   const resistMap = {};
   const labelMap = {};
 
-  for (const r of baseResists) {
-    resistMap[r.type] = (resistMap[r.type] || 0) + r.value;
-    labelMap[r.type] = r.label;
-  }
-
-  for (const r of armorResists) {
-    resistMap[r.type] = (resistMap[r.type] || 0) + r.value;
-    labelMap[r.type] = r.label;
+  if (allowStacking) {
+    // Alternative / House Rule: Additively stack matching resistances across all sources
+    for (const r of baseResists) {
+      resistMap[r.type] = (resistMap[r.type] || 0) + r.value;
+      labelMap[r.type] = r.label;
+    }
+    for (const r of armorResists) {
+      resistMap[r.type] = (resistMap[r.type] || 0) + r.value;
+      labelMap[r.type] = r.label;
+    }
+  } else {
+    // Rules as Written (RAW - Default): Take the highest value among all sources of the same resistance type
+    for (const r of baseResists) {
+      resistMap[r.type] = Math.max(resistMap[r.type] || 0, r.value);
+      labelMap[r.type] = r.label;
+    }
+    for (const r of armorResists) {
+      resistMap[r.type] = Math.max(resistMap[r.type] || 0, r.value);
+      labelMap[r.type] = r.label;
+    }
   }
 
   const list = Object.entries(resistMap).map(([type, value]) => ({
@@ -509,8 +523,12 @@ export function calculateEffectiveResistances(actor) {
     label: labelMap[type] || (type.charAt(0).toUpperCase() + type.slice(1)),
     value,
     hasArmorBonus: armorResists.some(a => a.type === type),
-    armorValue: armorResists.filter(a => a.type === type).reduce((sum, a) => sum + a.value, 0),
-    baseValue: baseResists.filter(b => b.type === type).reduce((sum, b) => sum + b.value, 0),
+    armorValue: allowStacking
+      ? armorResists.filter(a => a.type === type).reduce((sum, a) => sum + a.value, 0)
+      : armorResists.filter(a => a.type === type).reduce((max, a) => Math.max(max, a.value), 0),
+    baseValue: allowStacking
+      ? baseResists.filter(b => b.type === type).reduce((sum, b) => sum + b.value, 0)
+      : baseResists.filter(b => b.type === type).reduce((max, b) => Math.max(max, b.value), 0),
   }));
 
   return {

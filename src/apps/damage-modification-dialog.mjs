@@ -25,6 +25,8 @@ const ALL_DAMAGE_TYPES = [
 
 const TYPE_MAP = Object.fromEntries(ALL_DAMAGE_TYPES.map(t => [t.key, t]));
 import { calculateEffectiveResistances, getDonnedArmor } from "../features/equipment-automation.mjs";
+import { getActorCritHit, getActorCritFail } from "../features/luck-points.mjs";
+import { getSetting } from "../settings.mjs";
 
 export default class DamageModificationDialog extends HandlebarsApplicationMixin(ApplicationV2) {
 
@@ -167,14 +169,14 @@ export default class DamageModificationDialog extends HandlebarsApplicationMixin
     }));
     context.vulnList = DamageModificationDialog.parseModifierString(actor.system.damage?.vulnerable || "");
 
-    // Critical Hit & Fail with Luck Scaling
+    // Critical Hit & Fail with Luck Scaling & Astounding Critical automation
     const luck = Number(actor.system.attributes?.luck ?? 0);
     const luckBonus = luck >= 12 ? 2 : (luck >= 6 ? 1 : 0);
     const baseHit = Number(actor.system.critical?.hit ?? 20);
     const baseFail = Number(actor.system.critical?.fail ?? 1);
     const critBonus = Number(actor.flags?.["mythcraft-essence-sheet"]?.critBonus ?? 0);
-    const effectiveHit = Math.max(16, baseHit - luckBonus - critBonus);
-    const effectiveFail = Math.max(1, baseFail);
+    const effectiveHit = getActorCritHit(actor);
+    const effectiveFail = getActorCritFail(actor);
 
     context.critData = {
       luck,
@@ -256,6 +258,8 @@ export default class DamageModificationDialog extends HandlebarsApplicationMixin
     const removeBtns = this.element.querySelectorAll(".dmg-entry-remove-btn");
     for (const btn of removeBtns) {
       btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         const row = btn.closest(".dmg-entry-row");
         if (row) row.remove();
       });
@@ -269,7 +273,7 @@ export default class DamageModificationDialog extends HandlebarsApplicationMixin
    * @param {FormDataExtended} formData
    */
   static async #onSubmitForm(event, form, formData) {
-    const actor = this.document;
+    const actor = this.actor;
     if (!actor) return;
 
     const rawData = formData.object;
@@ -285,6 +289,7 @@ export default class DamageModificationDialog extends HandlebarsApplicationMixin
     }
 
     // Collect configured Resistances
+    const allowStacking = getSetting("allowResistanceStacking", false);
     const resistRows = this.element.querySelectorAll(".resist-entry-list .dmg-entry-row");
     const resistParts = [];
     for (const row of resistRows) {
@@ -293,7 +298,12 @@ export default class DamageModificationDialog extends HandlebarsApplicationMixin
       const valInput = row.querySelector('.dmg-entry-input');
       const val = Number(valInput?.value) || 1;
       const armorVal = Number(row.dataset.armorVal) || 0;
-      const baseVal = Math.max(0, val - armorVal);
+      let baseVal = 0;
+      if (allowStacking) {
+        baseVal = Math.max(0, val - armorVal);
+      } else {
+        baseVal = val > armorVal ? val : (armorVal > 0 ? 0 : val);
+      }
       if (baseVal > 0) {
         resistParts.push(`${label} ${baseVal}`);
       }
@@ -329,3 +339,4 @@ export default class DamageModificationDialog extends HandlebarsApplicationMixin
     ui.notifications.info(`Updated Damage & Critical Modifications for ${actor.name}`);
   }
 }
+

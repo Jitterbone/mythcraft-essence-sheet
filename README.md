@@ -206,6 +206,9 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
   - Added an interactive popup modal (`SecondSkinChoiceDialog`) triggered automatically when acquiring Second Skin talents.
   - Features official lists for **Light Armor**, **Medium Armor**, **Heavy Armor**, and **Shields** with custom campaign armor overrides.
   - Added an interactive specialization pill button on character sheet talent and feature cards (`[🛡 Specialization]`) allowing players to review or change their armor specialization at any time.
+- **Rules as Written Resistance Automation & Allow Resistance Stacking Setting**:
+  - **Rules as Written (RAW - Default)**: Matching resistance types across multiple sources (body armor, shields, enhancements, base actor resistances) do not stack additively—only the single highest resistance value for each matching damage type applies. Characters still gain all distinct resistance types granted across their equipment.
+  - **Allow Resistance Stacking House Rule (`allowResistanceStacking`)**: Added a toggle under **Community House Rules** allowing GMs to enable additive stacking of matching resistances from all sources.
 - **Community House Rules Settings**:
   - Introduced a dedicated **Community House Rules** settings section in module configuration with a distinctive `#f43f5e` category header.
   - **Second Skin Variation Rules (`secondSkinRuleVariant`)**:

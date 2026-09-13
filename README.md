@@ -1,4 +1,4 @@
-# MythCraft Essence Sheet (v0.6.2-beta) 📜✨
+# MythCraft Essence Sheet (v0.6.3-beta) 📜✨
 
 [![Latest Release](https://img.shields.io/github/v/release/Jitterbone/mythcraft-essence-sheet?style=flat&logo=github&logoColor=white&color=22c55e&label=Latest%20Release)](https://github.com/Jitterbone/mythcraft-essence-sheet/releases/latest)
 [![Foundry VTT](https://img.shields.io/badge/Foundry%20VTT-v14%20Verified-ff6400?style=flat)](https://foundryvtt.com)
@@ -200,6 +200,24 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 ---
 
 ## 📝 Changelog
+
+### v0.6.3-beta
+- **Soul Damage & Claimed Souls Weapon Mechanics (Homebrew / Optional Rules)**:
+  - Added optional setting **Enable Soul Damage & Claimed Souls Mechanics** in module settings and the Homebrew Configuration dialog.
+  - Added **CLAIMED SOULS & SOUL DAMAGE** configuration card to Weapon Item sheets:
+    - **`Deals Soul Damage`**: Toggles whether the weapon inflicts Soul Damage.
+    - **`Enable Claimed Souls Modifier`**: Activates $+1$ to $+5$ Attack and Damage scaling per harvested soul with interactive stepper controls.
+    - Injected `Soul` damage type directly into MythCraft core system `CONFIG.damage.types` and item damage dropdowns.
+  - **Live Ethereal Purple Soul Meter**: Character and NPC sheet headers render accumulated soul damage via `.soul-mini-box` tracker and glowing purple `.soul-damage-bar-fill` overlay on the HP meter, featuring a pulsing alert when soul damage reaches lethal threshold.
+  - **Lethal Execution Threshold**: When total accumulated Soul Damage $\ge$ target's remaining HP, the creature immediately dies ($\text{HP} \to 0$, `dead` condition applied, and a dramatic "SOUL HARVESTED!" announcement card is posted to chat).
+  - **Automated Harvest**: Weapons with Claimed Souls gain $+1$ soul upon lethal execution or reducing a creature to 0 HP (capped at $+5$).
+  - **Rest Automation**: Completing a Full Rest automatically resets accumulated soul damage on characters and resets claimed souls on owned weapons to 0.
+  - **Damage Pipeline & Chat Cards**: Unified damage application engine, added ethereal purple `.soul-damage-btn` styling (`APPLY SOUL DAMAGE (X)`), and cleaned up redundant system card labels.
+- **Level-Up & Compendium Parser Fixes**:
+  - Resolved `ReferenceError: docName is not defined` when building talent trees.
+  - Corrected attribute advancement in the Level-Up dialog to accurately read existing stats and caps from the sheet.
+  - Expanded Magic Attribute options across Character Creation and Level-Up to include Luck (LCK), Coordination (COR), Sanity (SAN), and custom attributes.
+  - Fixed read-only getter assignment errors during damage roll instantiation.
 
 ### v0.6.2-beta
 - **NPC Sheet Rendering & Tag Lookup Fix**:

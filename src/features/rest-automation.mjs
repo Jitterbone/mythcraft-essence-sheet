@@ -80,6 +80,25 @@ export async function executeRest(actor, mode = "rest") {
       const maxLp = calculateMaxLuckPoints(luckScore);
       updates["system.lp.value"] = maxLp;
 
+      // Reset Soul Damage on Actor
+      updates["flags.mythcraft-essence-sheet.soulDamage"] = 0;
+      updates["system.soulDamage"] = 0;
+
+      // Reset Claimed Souls on all owned weapons
+      const weaponItems = actor.itemTypes?.weapon || actor.items.filter(i => i.type === "weapon");
+      let resetSoulsCount = 0;
+      for (const w of weaponItems) {
+        const hasClaimed = Boolean(w.flags?.["mythcraft-essence-sheet"]?.enableClaimedSouls || w.system?.enableClaimedSouls);
+        const souls = Number(w.flags?.["mythcraft-essence-sheet"]?.claimedSouls ?? w.system?.claimedSouls ?? 0);
+        if (hasClaimed || souls > 0) {
+          await w.update({
+            "flags.mythcraft-essence-sheet.claimedSouls": 0,
+            "system.claimedSouls": 0,
+          });
+          resetSoulsCount++;
+        }
+      }
+
       if (!isFatigued) {
         updates["system.death.value"] = 0;
       }
@@ -99,7 +118,7 @@ export async function executeRest(actor, mode = "rest") {
         try { await actor.toggleStatusEffect("burning", { active: false }); } catch (e) {}
       }
 
-      chatSummary = `<strong>${actor.name}</strong> took a Full Rest, restoring all <strong>HP (${maxHp})</strong>, <strong>SP (${maxSp})</strong>, and <strong>Luck Points (${maxLp})</strong>.`;
+      chatSummary = `<strong>${actor.name}</strong> took a Full Rest, restoring all <strong>HP (${maxHp})</strong>, <strong>SP (${maxSp})</strong>, and <strong>Luck Points (${maxLp})</strong>${resetSoulsCount > 0 ? ", and reset weapon Claimed Souls to 0" : ""}.`;
       break;
     }
   }

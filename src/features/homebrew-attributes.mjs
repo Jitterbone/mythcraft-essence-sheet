@@ -104,6 +104,52 @@ export function syncHomebrewAttributesToSystem() {
       }
     }
   }
+
+  // 6. Register Soul Damage type in System CONFIG
+  syncSoulDamageToSystem();
+}
+
+/**
+ * Synchronizes the Soul damage type to core MythCraft CONFIG (damage.types & damage.categories)
+ */
+export function syncSoulDamageToSystem() {
+  const configs = [];
+  if (typeof mythcraft !== "undefined" && mythcraft.CONFIG) configs.push(mythcraft.CONFIG);
+  if (globalThis.CONFIG?.MYTHCRAFT) configs.push(globalThis.CONFIG.MYTHCRAFT);
+
+  for (const cfg of configs) {
+    if (!cfg.damage) cfg.damage = { types: {}, categories: {} };
+    if (!cfg.damage.types) cfg.damage.types = {};
+    if (!cfg.damage.categories) cfg.damage.categories = {};
+
+    cfg.damage.types.soul = {
+      label: "MYTHCRAFT.DamageTypes.soul",
+      category: "energy",
+      color: foundry.utils?.Color?.fromString?.("#c084fc") || "#c084fc",
+    };
+
+    if (cfg.damage.categories.energy) {
+      if (Array.isArray(cfg.damage.categories.energy.types) && !cfg.damage.categories.energy.types.includes("soul")) {
+        cfg.damage.categories.energy.types.push("soul");
+      }
+    }
+  }
+
+  if (globalThis.CONFIG?.damageTypes) {
+    globalThis.CONFIG.damageTypes.soul = "Soul";
+  }
+
+  // Ensure translation exists in game.i18n
+  if (game.i18n) {
+    if (game.i18n.translations) {
+      foundry.utils.setProperty(game.i18n.translations, "MYTHCRAFT.DamageTypes.soul", "Soul");
+      foundry.utils.setProperty(game.i18n.translations, "MYTHCRAFT.DamageTypes.Soul", "Soul");
+    }
+    if (game.i18n._fallback) {
+      foundry.utils.setProperty(game.i18n._fallback, "MYTHCRAFT.DamageTypes.soul", "Soul");
+      foundry.utils.setProperty(game.i18n._fallback, "MYTHCRAFT.DamageTypes.Soul", "Soul");
+    }
+  }
 }
 
 export const CORE_ATTRIBUTE_NAME_MAP = {

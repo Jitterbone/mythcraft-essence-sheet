@@ -13,11 +13,12 @@
  */
 
 import { calculateEffectiveResistances } from "./equipment-automation.mjs";
+import { getSetting } from "../settings.mjs";
 
 export const DAMAGE_CATEGORIES = {
   physical: ["blunt", "sharp"],
   elemental: ["cold", "corrosive", "fire", "lightning", "toxic"],
-  energy: ["necrotic", "psychic", "radiant", "sonic"],
+  energy: ["necrotic", "psychic", "radiant", "sonic", "soul"],
 };
 
 export const DAMAGE_TYPE_TO_CATEGORY = {
@@ -32,6 +33,7 @@ export const DAMAGE_TYPE_TO_CATEGORY = {
   psychic: "energy",
   radiant: "energy",
   sonic: "energy",
+  soul: "energy",
 };
 
 /**
@@ -294,6 +296,10 @@ export function calculateMythCraftDamage(actor, rawDamage, options = {}) {
 export async function applyActorDamage(actor, rawDamage, options = {}) {
   if (!actor) return null;
 
+  const damageType = String(options.type || "").toLowerCase().trim();
+  const isSoulDamage = damageType === "soul" || damageType === "soul damage" || damageType === "soul-damage";
+  const isSoulDamageEnabled = Boolean(getSetting("enableSoulDamage", false));
+
   const { finalDamage, breakdown } = calculateMythCraftDamage(actor, rawDamage, options);
 
   const hp = actor.system?.hp || {};
@@ -305,11 +311,94 @@ export async function applyActorDamage(actor, rawDamage, options = {}) {
     return actor;
   }
 
-  // Shield absorbs first (acting as Temporary HP)
+  const attackerActor = options.attackerActor;
+  const attackerWeapon = options.attackerWeapon;
+
+  // 1. Soul Damage Path (Accumulates over rounds; lethal when >= current HP)
+  if (isSoulDamage && isSoulDamageEnabled) {
+    const curSoul = Number(actor.flags?.["mythcraft-essence-sheet"]?.soulDamage ?? actor.system?.soulDamage ?? 0);
+    const newSoul = curSoul + finalDamage;
+    const isLethal = (currentHp > 0) && (newSoul >= currentHp);
+
+    if (isLethal) {
+      // Lethal Soul Damage Execution
+      await actor.update({
+        "system.hp.value": 0,
+        "flags.mythcraft-essence-sheet.soulDamage": newSoul,
+        "system.soulDamage": newSoul,
+      });
+
+      // Mark dead status effect if available
+      try {
+        if (typeof actor.toggleStatusEffect === "function") {
+          await actor.toggleStatusEffect("dead", { active: true, overlay: true });
+        }
+      } catch (e) {}
+
+      // Post dramatic chat card for Soul Harvest execution
+      const harvestCard = `
+        <div class="mythcraft chat-card essence-soul-harvest-card" style="background: linear-gradient(135deg, rgba(88, 28, 135, 0.4) 0%, rgba(15, 23, 42, 0.95) 100%); border: 1px solid #c084fc; border-radius: 8px; padding: 10px 12px; box-shadow: 0 4px 14px rgba(168, 85, 247, 0.4);">
+          <header style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; border-bottom: 1px solid rgba(192, 132, 252, 0.3); padding-bottom: 4px;">
+            <i class="fas fa-ghost" style="color: #e879f9; font-size: 18px;"></i>
+            <h3 style="margin: 0; font-family: 'Cinzel', serif; font-size: 14px; color: #f3e8ff; font-weight: 700;">SOUL HARVESTED!</h3>
+          </header>
+          <div style="font-size: 12px; color: #f3e8ff; line-height: 1.4;">
+            <strong>${actor.name}</strong>'s soul was torn from its body! Accumulated Soul Damage (<strong>${newSoul}</strong>) exceeded remaining HP (<strong>${currentHp}</strong>). The creature immediately perished!
+          </div>
+        </div>
+      `;
+      await ChatMessage.create({
+        speaker: ChatMessage.getSpeaker({ actor: attackerActor || actor }),
+        content: harvestCard,
+        flavor: "Soul Harvest Execution",
+      });
+
+      // Harvest soul into weapon if Claimed Souls is enabled
+      const hasClaimedSouls = Boolean(attackerWeapon?.flags?.["mythcraft-essence-sheet"]?.enableClaimedSouls || attackerWeapon?.system?.enableClaimedSouls);
+      if (attackerWeapon && hasClaimedSouls) {
+        const curSouls = Math.min(5, Math.max(0, Number(attackerWeapon.flags?.["mythcraft-essence-sheet"]?.claimedSouls ?? attackerWeapon.system?.claimedSouls ?? 0)));
+        if (curSouls < 5) {
+          const nextSouls = curSouls + 1;
+          await attackerWeapon.update({
+            "flags.mythcraft-essence-sheet.claimedSouls": nextSouls,
+            "system.claimedSouls": nextSouls,
+          });
+          ui.notifications.info(`${attackerWeapon.name} claimed ${actor.name}'s soul! (+${nextSouls} Attack & Damage).`);
+        }
+      }
+    } else {
+      // Non-lethal soul damage accumulation
+      await actor.update({
+        "flags.mythcraft-essence-sheet.soulDamage": newSoul,
+        "system.soulDamage": newSoul,
+      });
+      ui.notifications.info(`Applied ${finalDamage} soul damage to ${actor.name} (Accumulated: ${newSoul} / ${currentHp} HP).`);
+    }
+
+    // Display purple scrolling text on canvas tokens
+    if (canvas?.interface?.createScrollingText && canvas.scene) {
+      const tokens = actor.getActiveTokens ? actor.getActiveTokens() : [];
+      const displayArgs = {
+        fill: "#c084fc",
+        fontSize: 28,
+        stroke: 0x000000,
+        strokeThickness: 4,
+      };
+      for (const token of tokens) {
+        if (token.visible && !token.document?.isSecret) {
+          canvas.interface.createScrollingText(token.center, `-${finalDamage} ✦`, displayArgs);
+        }
+      }
+    }
+
+    return actor;
+  }
+
+  // 2. Standard Damage Path: Shield absorbs first (acting as Temporary HP)
   const damageToShield = Math.min(finalDamage, currentShield);
   const remainingDamage = Math.max(0, finalDamage - damageToShield);
   const newShield = Math.max(0, currentShield - damageToShield);
-  const newHp = currentHp - remainingDamage;
+  const newHp = Math.max(0, currentHp - remainingDamage);
 
   const updates = {
     "system.hp.shield": newShield,
@@ -317,6 +406,22 @@ export async function applyActorDamage(actor, rawDamage, options = {}) {
   };
 
   await actor.update(updates);
+
+  // If creature was reduced to 0 HP and killed by a Claimed Souls weapon
+  if (currentHp > 0 && newHp === 0 && isSoulDamageEnabled) {
+    const hasClaimedSouls = Boolean(attackerWeapon?.flags?.["mythcraft-essence-sheet"]?.enableClaimedSouls || attackerWeapon?.system?.enableClaimedSouls);
+    if (attackerWeapon && hasClaimedSouls) {
+      const curSouls = Math.min(5, Math.max(0, Number(attackerWeapon.flags?.["mythcraft-essence-sheet"]?.claimedSouls ?? attackerWeapon.system?.claimedSouls ?? 0)));
+      if (curSouls < 5) {
+        const nextSouls = curSouls + 1;
+        await attackerWeapon.update({
+          "flags.mythcraft-essence-sheet.claimedSouls": nextSouls,
+          "system.claimedSouls": nextSouls,
+        });
+        ui.notifications.info(`${attackerWeapon.name} claimed a soul from the kill! (+${nextSouls} Attack & Damage).`);
+      }
+    }
+  }
 
   // Display floating scrolling text on canvas tokens
   if (canvas?.interface?.createScrollingText && canvas.scene) {
@@ -394,7 +499,37 @@ export function initDamageAutomation() {
     let amount = btn.dataset.value !== undefined ? Number(btn.dataset.value) : (roll?.total ?? 0);
     if (event.shiftKey) amount = Math.floor(amount / 2);
 
-    const dmgType = btn.dataset.damageType || roll?.type || roll?.options?.type || "";
+    // Resolve Attacker Actor & Weapon
+    const attackerActorId = message?.flags?.["mythcraft-essence-sheet"]?.attackerActorId || message?.speaker?.actor;
+    const attackerActor = attackerActorId ? game.actors?.get(attackerActorId) : null;
+    const attackerItemId = message?.flags?.["mythcraft-essence-sheet"]?.itemId;
+    const attackerWeapon = (attackerActor && attackerItemId) ? attackerActor.items.get(attackerItemId) : null;
+
+    const weaponIsSoul = Boolean(
+      attackerWeapon?.flags?.["mythcraft-essence-sheet"]?.isSoulDamage ||
+      attackerWeapon?.flags?.["mythcraft-essence-sheet"]?.damageType === "soul" ||
+      attackerWeapon?.system?.isSoulDamage ||
+      attackerWeapon?.system?.damageType === "soul" ||
+      attackerWeapon?.system?.damage?.type === "soul" ||
+      (Array.isArray(attackerWeapon?.system?.damage) && attackerWeapon.system.damage.some(d => d?.type === "soul" || d?.types?.includes("soul"))) ||
+      (Array.isArray(attackerWeapon?.system?.tags) ? attackerWeapon.system.tags.some(t => /soul/i.test(t)) : (typeof attackerWeapon?.system?.tags === "object" && attackerWeapon?.system?.tags && Object.values(attackerWeapon.system.tags).some(t => /soul/i.test(t))))
+    );
+
+    let dmgType = (
+      btn.dataset.damageType || 
+      btn.dataset.type || 
+      roll?.options?.type || 
+      roll?.type || 
+      message?.flags?.["mythcraft-essence-sheet"]?.damageType || 
+      (weaponIsSoul ? "soul" : null) ||
+      attackerWeapon?.system?.damage?.[0]?.type || 
+      attackerWeapon?.system?.damageType || 
+      ""
+    ).toLowerCase().trim();
+
+    if (btn.textContent && /soul/i.test(btn.textContent)) dmgType = "soul";
+    if (btn.classList.contains("soul-damage-btn")) dmgType = "soul";
+    if (!dmgType) dmgType = "damage";
 
     const controlledTokens = canvas?.tokens?.controlled || [];
     if (!controlledTokens.length) {
@@ -415,7 +550,12 @@ export function initDamageAutomation() {
           await actor.modifyTokenAttribute(isTemp ? "hp.shield" : "hp", amount, !isTemp, !isTemp);
         }
       } else {
-        await applyActorDamage(actor, amount, { type: dmgType });
+        await applyActorDamage(actor, amount, {
+          type: dmgType,
+          attackerActor,
+          attackerWeapon,
+          message,
+        });
       }
     }
   }, true);

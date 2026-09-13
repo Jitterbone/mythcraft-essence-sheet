@@ -71,6 +71,23 @@
         </div>
       </label>
     </div>
+
+    {{!-- Soul Damage & Claimed Souls Toggle --}}
+    <div class="setting-toggle-row" style="margin-top: 10px; border-top: 1px solid rgba(88, 178, 192, 0.2); padding-top: 10px;">
+      <label class="toggle-control-label">
+        <input type="checkbox"
+               name="enableSoulDamage"
+               class="homebrew-checkbox"
+               {{#if enableSoulDamage}}checked{{/if}}
+               data-action="toggleSoulDamage" />
+        <div class="toggle-text-block">
+          <span class="toggle-title"><i class="fas fa-ghost" style="color: #c084fc;"></i> Enable Soul Damage &amp; Claimed Souls Mechanics</span>
+          <span class="toggle-desc">
+            Enables accumulated Soul Damage tracking on characters and monsters (displayed as an ethereal purple meter on the HP bar). When total soul damage meets or exceeds remaining HP, the creature immediately dies. Weapons with the Claimed Souls modifier gain +1 to attack and damage per harvested soul (up to +5), resetting on a Full Rest.
+          </span>
+        </div>
+      </label>
+    </div>
   </div>
 
   {{!-- ── 3. Custom Attributes Manager ───────────────────────────── --}}

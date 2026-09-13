@@ -948,6 +948,56 @@
   box-shadow: 0 0 6px rgba(0, 210, 211, 0.8);
 }
 
+.essence-sheet .soul-damage-bar-fill,
+.essence-npc-sheet .soul-damage-bar-fill,
+.essence-npc-sheet .npc-soul-bar-fill {
+  background: linear-gradient(90deg, #9333ea, #c084fc, #e879f9);
+  border-left: 1px solid #f3e8ff;
+  box-shadow: 0 0 8px rgba(192, 132, 252, 0.9);
+}
+
+.essence-sheet .soul-mini-box,
+.essence-npc-sheet .soul-mini-box {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(168, 85, 247, 0.2);
+  border: 1px solid rgba(192, 132, 252, 0.4);
+  border-radius: 3px;
+  padding: 1px 4px;
+  color: #c084fc;
+  font-size: 8.5px;
+  margin-left: 2px;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.essence-sheet .soul-mini-box.soul-lethal,
+.essence-npc-sheet .soul-mini-box.soul-lethal {
+  background: rgba(220, 38, 38, 0.35);
+  border-color: #ef4444;
+  color: #fca5a5;
+  animation: pulse-soul-lethal 1.5s infinite;
+}
+
+@keyframes pulse-soul-lethal {
+  0%, 100% { box-shadow: 0 0 4px rgba(239, 68, 68, 0.6); }
+  50% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.95); }
+}
+
+.essence-sheet .soul-damage-input,
+.essence-npc-sheet .soul-damage-input {
+  width: 18px;
+  text-align: center;
+  background: transparent;
+  border: none;
+  color: #e9d5ff;
+  font-weight: 700;
+  font-size: 9.5px;
+  padding: 0;
+  outline: none;
+}
+
 .essence-sheet .ap-bar-fill {
   background: linear-gradient(90deg, var(--mc-teal-dark), var(--mc-teal-light));
 }
@@ -8644,6 +8694,24 @@
   border-color: #f87171 !important;
   color: #ffffff !important;
   box-shadow: 0 0 12px rgba(239, 68, 68, 0.5) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Apply Soul Damage Button - Ethereal Cosmic Violet */
+.chat-message .apply-damage-btn.soul-damage-btn,
+.chat-message .apply-damage.soul-damage-btn {
+  background: linear-gradient(135deg, rgba(147, 51, 234, 0.45) 0%, rgba(88, 28, 135, 0.75) 100%) !important;
+  border: 1px solid rgba(192, 132, 252, 0.85) !important;
+  color: #f3e8ff !important;
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.45) !important;
+}
+
+.chat-message .apply-damage-btn.soul-damage-btn:hover,
+.chat-message .apply-damage.soul-damage-btn:hover {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.6) 0%, rgba(126, 34, 206, 0.9) 100%) !important;
+  border-color: #e879f9 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 16px rgba(192, 132, 252, 0.75) !important;
   transform: translateY(-1px) !important;
 }
 

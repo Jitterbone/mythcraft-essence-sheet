@@ -13,11 +13,11 @@ import {
   EssenceItemSheet,
   EssenceSiegeWeaponSheet,
 } from "./sheets/_module.mjs";
-import { initDamageAutomation, patchFeatureUsesMaxFormula } from "./features/damage-automation.mjs";
+import { initDamageAutomation, applyActorDamage, patchFeatureUsesMaxFormula } from "./features/damage-automation.mjs";
 import { initEquipmentAutomation, patchWeaponApcGetter } from "./features/equipment-automation.mjs";
 import { initCompendiumIconOverrides } from "./features/equipment-icons.mjs";
 import { patchSystemHpCalculation, getEnduranceThreshold, calculateApMax } from "./features/hp-automation.mjs";
-import { syncHomebrewAttributesToSystem, patchAttributeSkillInput, getFullAttributeName } from "./features/homebrew-attributes.mjs";
+import { syncHomebrewAttributesToSystem, syncSoulDamageToSystem, patchAttributeSkillInput, getFullAttributeName } from "./features/homebrew-attributes.mjs";
 import { initLuckPointReroll } from "./features/luck-points.mjs";
 import { initPermissionsFix } from "./features/permissions-fix.mjs";
 import LevelUpDialog from "./apps/level-up-dialog.mjs";
@@ -67,6 +67,7 @@ Hooks.once("init", () => {
   initConditionAutomation();
   patchSystemHpCalculation();
   syncHomebrewAttributesToSystem();
+  syncSoulDamageToSystem();
   syncCustomTagsToSystem();
   patchTagInputElement();
   patchAttributeSkillInput();
@@ -455,6 +456,51 @@ Hooks.once("init", () => {
 
     const applyDamageButtons = root.querySelectorAll(".apply-damage, .apply-damage-btn, .apply-healing, .apply-healing-btn");
 
+    // Enhance & format Apply Damage Buttons (Soul Damage Purple & Clean Labels)
+    applyDamageButtons.forEach((btn, idx) => {
+      if (btn.classList.contains("apply-healing") || btn.classList.contains("apply-healing-btn")) return;
+      const rollIdx = btn.dataset.index !== undefined ? Number(btn.dataset.index) : idx;
+      const roll = message?.rolls?.[rollIdx] || message?.rolls?.[0];
+
+      const itemIsSoul = Boolean(
+        item?.flags?.["mythcraft-essence-sheet"]?.isSoulDamage ||
+        item?.flags?.["mythcraft-essence-sheet"]?.damageType === "soul" ||
+        item?.system?.isSoulDamage ||
+        item?.system?.damageType === "soul" ||
+        item?.system?.damage?.type === "soul" ||
+        (Array.isArray(item?.system?.damage) && item.system.damage.some(d => d?.type === "soul" || d?.types?.includes("soul"))) ||
+        (Array.isArray(item?.system?.tags) ? item.system.tags.some(t => /soul/i.test(t)) : (typeof item?.system?.tags === "object" && item?.system?.tags && Object.values(item.system.tags).some(t => /soul/i.test(t))))
+      );
+
+      let dmgType = (
+        btn.dataset.damageType || 
+        btn.dataset.type || 
+        roll?.options?.type || 
+        roll?.type || 
+        message?.flags?.["mythcraft-essence-sheet"]?.damageType || 
+        (itemIsSoul ? "soul" : null) ||
+        item?.system?.damage?.[0]?.type || 
+        item?.system?.damageType || 
+        ""
+      ).toLowerCase().trim();
+
+      if (btn.textContent && /soul/i.test(btn.textContent)) dmgType = "soul";
+
+      const total = btn.dataset.value !== undefined ? Number(btn.dataset.value) : (roll?.total ?? 0);
+
+      if (dmgType === "soul" || dmgType === "soul damage" || dmgType === "soul-damage" || itemIsSoul) {
+        btn.dataset.damageType = "soul";
+        btn.classList.add("soul-damage-btn");
+        btn.innerHTML = `<i class="fas fa-ghost"></i> <span>APPLY SOUL DAMAGE (${total})</span>`;
+      } else {
+        // Clean up accidental duplicate "DAMAGE DAMAGE" labels from core system
+        if (btn.textContent && (/damage\s+damage/i.test(btn.textContent) || /apply\s+damage\s+damage/i.test(btn.textContent))) {
+          const cleanType = (dmgType && dmgType !== "damage") ? `${dmgType.toUpperCase()} ` : "";
+          btn.innerHTML = `<i class="fas fa-sword"></i> <span>APPLY ${cleanType}DAMAGE (${total})</span>`;
+        }
+      }
+    });
+
     if (isRecent) {
       // Build suspense: Hide the Apply Damage button initially, wait until the roll animation finishes and modifiers land, then pop it in!
       if (applyDamageButtons.length > 0) {
@@ -780,9 +826,14 @@ Hooks.once("init", () => {
 
 
 
+Hooks.on("i18nInit", () => {
+  syncSoulDamageToSystem();
+});
+
 Hooks.on("setup", () => {
   // Ensure MythCraft status conditions persist through setup phase
   CONFIG.statusEffects = MythcraftConditions;
+  syncSoulDamageToSystem();
 });
 
 Hooks.once("ready", async () => {
@@ -795,6 +846,7 @@ Hooks.once("ready", async () => {
   patchFeatureUsesMaxFormula();
   patchSystemHpCalculation();
   syncHomebrewAttributesToSystem();
+  syncSoulDamageToSystem();
   syncCustomTagsToSystem();
   patchTagInputElement();
   patchAttributeSkillInput();
@@ -931,14 +983,32 @@ document.addEventListener("click", async (event) => {
   }
 
   // 4. Apply Damage to Selected Tokens
-  const applyDmgBtn = event.target.closest(".apply-damage-btn, [data-action='applyDamageToSelected']");
+  const applyDmgBtn = event.target.closest(".apply-damage-btn, .apply-damage, [data-action='applyDamageToSelected'], [data-action='apply-damage']");
   if (applyDmgBtn) {
     event.preventDefault();
     event.stopPropagation();
-    const amount = Number(applyDmgBtn.dataset.amount || applyDmgBtn.dataset.total || 0);
-    const damageType = applyDmgBtn.dataset.damageType || "damage";
-    const selectedTokens = canvas.tokens?.controlled || [];
 
+    const msgEl = applyDmgBtn.closest("[data-message-id]");
+    const message = msgEl ? game.messages.get(msgEl.dataset.messageId) : null;
+
+    let amount = Number(applyDmgBtn.dataset.amount || applyDmgBtn.dataset.total || applyDmgBtn.dataset.value || 0);
+    if (!amount && message?.rolls?.length) {
+      amount = message.rolls.reduce((sum, r) => sum + (Number(r.total) || 0), 0);
+    }
+
+    const attackerActorId = message?.flags?.["mythcraft-essence-sheet"]?.attackerActorId || message?.speaker?.actor;
+    const attackerActor = attackerActorId ? game.actors?.get(attackerActorId) : null;
+    const attackerItemId = message?.flags?.["mythcraft-essence-sheet"]?.itemId;
+    const attackerWeapon = (attackerActor && attackerItemId) ? attackerActor.items.get(attackerItemId) : null;
+
+    let damageType = (applyDmgBtn.dataset.damageType || applyDmgBtn.dataset.type || "").toLowerCase().trim();
+    if (!damageType && message?.rolls?.length) {
+      damageType = (message.rolls[0]?.options?.type || message.rolls[0]?.type || message?.flags?.["mythcraft-essence-sheet"]?.damageType || attackerWeapon?.system?.damage?.[0]?.type || attackerWeapon?.system?.damageType || "damage").toLowerCase().trim();
+    }
+    if (applyDmgBtn.textContent && /soul/i.test(applyDmgBtn.textContent)) damageType = "soul";
+    if (!damageType) damageType = "damage";
+
+    const selectedTokens = canvas.tokens?.controlled || [];
     if (selectedTokens.length === 0) {
       ui.notifications.warn("Please select at least one token on the canvas to apply damage to.");
       return;
@@ -947,10 +1017,12 @@ document.addEventListener("click", async (event) => {
     for (const token of selectedTokens) {
       const actor = token.actor;
       if (!actor) continue;
-      const curHp = Number(actor.system?.hp?.value ?? 0);
-      const newHp = Math.max(0, curHp - amount);
-      await actor.update({ "system.hp.value": newHp });
-      ui.notifications.info(`Applied ${amount} ${damageType} damage to ${actor.name} (HP: ${curHp} → ${newHp}).`);
+      await applyActorDamage(actor, amount, {
+        type: damageType,
+        attackerActor,
+        attackerWeapon,
+        message,
+      });
     }
     return;
   }

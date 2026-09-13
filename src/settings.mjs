@@ -69,6 +69,15 @@ export function registerSettings() {
     default: false,
   });
 
+  game.settings.register(MODULE_ID, "enableSoulDamage", {
+    name: "Enable Soul Damage & Claimed Souls Mechanics",
+    hint: "Tracks accumulated soul damage on characters and monsters (purple HP bar). Creatures die when soul damage >= remaining HP, and weapons with Claimed Souls gain +1 to attack and damage per harvested soul (max +5).",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+  });
+
   game.settings.register(MODULE_ID, "customAttributes", {
     name: "Custom Attributes",
     scope: "world",

@@ -19,6 +19,7 @@ import { getDefenseTargetConfig, renderDefenseTargetBadgeHTML } from "../data/de
 import { findTagDefinition, formatTagTitle } from "../data/tags-library.mjs";
 import { applyEffectiveArmorAndDefenses } from "../features/equipment-automation.mjs";
 import { applyMessageRollMode } from "../features/roll-privacy.mjs";
+import { getSetting } from "../settings.mjs";
 
 
 
@@ -286,7 +287,13 @@ export default class EssenceNPCSheet extends NPCSheet {
     // Direct MythCraft NPC Attack Check Evaluation
     const attackBonus = Number(item.system?.attackBonus ?? item.system?.toHit ?? item.system?.attackModifier ?? 0);
     const defenseTarget = (item.system?.defense || item.system?.defenseTarget || "ar").toLowerCase();
-    const formula = attackBonus !== 0 ? (attackBonus > 0 ? `1d20 + ${attackBonus}` : `1d20 - ${Math.abs(attackBonus)}`) : "1d20";
+
+    // Claimed Souls Modifier (Soul Harvest)
+    const enableClaimed = Boolean(item.flags?.["mythcraft-essence-sheet"]?.enableClaimedSouls || item.system?.enableClaimedSouls);
+    const claimedSouls = enableClaimed ? Math.min(5, Math.max(0, Number(item.flags?.["mythcraft-essence-sheet"]?.claimedSouls ?? item.system?.claimedSouls ?? 0))) : 0;
+
+    const totalBonus = attackBonus + claimedSouls;
+    const formula = totalBonus !== 0 ? (totalBonus > 0 ? `1d20 + ${totalBonus}` : `1d20 - ${Math.abs(totalBonus)}`) : "1d20";
 
     const critHit = getActorCritHit(this.actor);
     const critFail = getActorCritFail(this.actor);
@@ -358,6 +365,8 @@ export default class EssenceNPCSheet extends NPCSheet {
           itemName: item.name,
           defenseTarget,
           isAttack: true,
+          claimedSouls,
+          enableClaimedSouls: enableClaimed,
           critHit,
           isCrit,
           isFumble,
@@ -752,6 +761,14 @@ export default class EssenceNPCSheet extends NPCSheet {
     context.deathVal = Number(this.actor.system?.death?.value ?? 0);
     context.deathMax = Number(this.actor.system?.death?.max || Math.max(1, (this.actor.system?.attributes?.end ?? 0) + 8));
 
+    // Soul Damage calculations (Homebrew / Optional Rules)
+    const enableSoulDamageSetting = Boolean(getSetting("enableSoulDamage", false));
+    const soulDamageVal = Number(this.actor.flags?.["mythcraft-essence-sheet"]?.soulDamage ?? this.actor.system?.soulDamage ?? 0);
+    context.enableSoulDamage = enableSoulDamageSetting;
+    context.soulDamage = soulDamageVal;
+    context.soulPct = (hpMax > 0) ? Math.min(100, Math.round((soulDamageVal / hpMax) * 100)) : 0;
+    context.isSoulLethal = (hpVal > 0) && (soulDamageVal >= hpVal);
+
     // Size Dropdown Options
     const SIZES_MAP = {
       fine: "Fine",
@@ -873,6 +890,14 @@ export default class EssenceNPCSheet extends NPCSheet {
       context.isBloodied = hpVal > 0 && hpVal <= Math.floor(hpMax / 2);
       context.deathVal = Number(sys.death?.value ?? 0);
       context.deathMax = Number(sys.death?.max || Math.max(1, (sys.attributes?.end ?? 0) + 8));
+
+      // Soul Damage calculations (Homebrew / Optional Rules)
+      const enableSoulDamageSetting = Boolean(getSetting("enableSoulDamage", false));
+      const soulDamageVal = Number(this.actor.flags?.["mythcraft-essence-sheet"]?.soulDamage ?? this.actor.system?.soulDamage ?? 0);
+      context.enableSoulDamage = enableSoulDamageSetting;
+      context.soulDamage = soulDamageVal;
+      context.soulPct = (hpMax > 0) ? Math.min(100, Math.round((soulDamageVal / hpMax) * 100)) : 0;
+      context.isSoulLethal = (hpVal > 0) && (soulDamageVal >= hpVal);
 
       // Defenses for header strip
       context.headerDefenses = [
@@ -1714,17 +1739,20 @@ export default class EssenceNPCSheet extends NPCSheet {
       });
     });
 
-    // Live fluid meter bar animation when modifying HP or Shield inputs in the header
+    // Live fluid meter bar animation when modifying HP, Shield, or Soul Damage inputs in the header
     const hpInput = this.element.querySelector("input[name='system.hp.value']");
     const hpMaxInput = this.element.querySelector("input[name='system.hp.max']");
     const shieldInput = this.element.querySelector("input[name='system.hp.shield']");
+    const soulDamageInput = this.element.querySelector("input[name='flags.mythcraft-essence-sheet.soulDamage'], input[name='soulDamage.value'], input[name='system.soulDamage']");
     const hpBar = this.element.querySelector(".npc-header-hp-card .hp-bar-fill, .npc-hp-meter-card .hp-bar-fill");
     const shieldBar = this.element.querySelector(".npc-header-hp-card .shield-bar-fill, .npc-hp-meter-card .shield-bar-fill");
+    const soulBar = this.element.querySelector(".soul-damage-bar-fill, .npc-soul-bar-fill");
 
     const updateLiveHpBars = () => {
       const hpVal = Math.max(0, Number(hpInput?.value ?? 0));
       const hpMax = Math.max(1, Number(hpMaxInput?.value ?? 1));
       const hpShield = Math.max(0, Number(shieldInput?.value ?? 0));
+      const soulVal = Math.max(0, Number(soulDamageInput?.value ?? (this.actor.flags?.["mythcraft-essence-sheet"]?.soulDamage ?? 0)));
       const totalHp = hpVal + hpShield;
 
       let hpPct = 0;
@@ -1737,6 +1765,8 @@ export default class EssenceNPCSheet extends NPCSheet {
         shieldPct = Math.round((hpShield / hpMax) * 100);
       }
 
+      const soulPct = hpMax > 0 ? Math.min(100, Math.round((soulVal / hpMax) * 100)) : 0;
+
       if (hpBar) {
         hpBar.style.transition = "width 0.8s cubic-bezier(0.25, 1, 0.5, 1)";
         hpBar.style.width = `${hpPct}%`;
@@ -1745,11 +1775,16 @@ export default class EssenceNPCSheet extends NPCSheet {
         shieldBar.style.transition = "width 0.8s cubic-bezier(0.25, 1, 0.5, 1)";
         shieldBar.style.width = `${shieldPct}%`;
       }
+      if (soulBar) {
+        soulBar.style.transition = "width 0.8s cubic-bezier(0.25, 1, 0.5, 1)";
+        soulBar.style.width = `${soulPct}%`;
+      }
     };
 
     hpInput?.addEventListener("input", updateLiveHpBars);
     hpMaxInput?.addEventListener("input", updateLiveHpBars);
     shieldInput?.addEventListener("input", updateLiveHpBars);
+    soulDamageInput?.addEventListener("input", updateLiveHpBars);
 
     // Expandable Action and Feature Rows
     const rows = this.element.querySelectorAll(".npc-action-card, .npc-feature-card, .npc-spell-card, .npc-reaction-card");

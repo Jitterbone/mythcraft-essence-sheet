@@ -117,12 +117,23 @@
                 <i class="fas fa-shield-alt"></i>
                 <input type="number" name="system.hp.shield" value="{{system.hp.shield}}" class="shield-input" min="0" placeholder="0" />
               </div>
+              {{#if enableSoulDamage}}
+                <div class="soul-mini-box {{#if isSoulLethal}}soul-lethal{{/if}}" data-tooltip="<strong>Soul Damage</strong><br/><span style='font-size:11px;'>Accumulated soul damage: {{soulDamage}} / {{system.hp.max}} HP{{#if isSoulLethal}}<br/><strong style='color:#f87171;'>LETHAL EXECUTION!</strong>{{/if}}</span>" data-tooltip-direction="UP">
+                  <i class="fas fa-ghost"></i>
+                  <input type="number" name="flags.mythcraft-essence-sheet.soulDamage" value="{{soulDamage}}" class="soul-damage-input" min="0" placeholder="0" />
+                </div>
+              {{/if}}
             </div>
           </div>
 
           <div class="meter-track hp-meter-track">
             <div class="meter-fill hp-bar-fill" data-meter-key="hp" style="width: {{hpPct}}%;"></div>
             <div class="meter-fill shield-bar-fill" data-meter-key="shield" style="width: {{shieldPct}}%;" title="Shield Points: {{system.hp.shield}}"></div>
+            {{#if enableSoulDamage}}
+              {{#if (gt soulDamage 0)}}
+                <div class="meter-fill soul-damage-bar-fill npc-soul-bar-fill" data-meter-key="soulDamage" style="width: {{soulPct}}%;" data-tooltip="<strong>Soul Damage: {{soulDamage}}</strong>" data-tooltip-direction="UP"></div>
+              {{/if}}
+            {{/if}}
           </div>
 
           <div class="meter-sub-row death-saves-bar">

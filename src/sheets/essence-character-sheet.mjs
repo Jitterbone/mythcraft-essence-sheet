@@ -221,19 +221,49 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
   }
 
   // 1. Collect raw damage definitions
+  const sys = item.system || {};
+  const flags = item.flags?.["mythcraft-essence-sheet"] || {};
+
+  const isSoul = Boolean(
+    flags.isSoulDamage === true ||
+    flags.damageType === "soul" ||
+    sys.isSoulDamage === true ||
+    sys.damageType === "soul" ||
+    (typeof sys.damage?.type === "string" && sys.damage.type.toLowerCase() === "soul") ||
+    (Array.isArray(sys.damage?.types) && sys.damage.types.some(t => String(t).toLowerCase() === "soul")) ||
+    (Array.isArray(sys.damage) && sys.damage.some(d => String(d?.type || d?.types?.[0] || "").toLowerCase() === "soul")) ||
+    (Array.isArray(sys.tags) ? sys.tags.some(t => /soul/i.test(t)) : (typeof sys.tags === "object" && sys.tags && Object.values(sys.tags).some(t => /soul/i.test(t))))
+  );
+
+  let defaultType = isSoul ? "soul" : null;
+  if (!defaultType) {
+    if (sys.damageType) defaultType = sys.damageType;
+    else if (typeof sys.damage?.type === "string") defaultType = sys.damage.type;
+    else if (Array.isArray(sys.damage?.types) && sys.damage.types.length > 0) defaultType = sys.damage.types[0];
+    else if (Array.isArray(sys.damage) && sys.damage[0]?.type) defaultType = sys.damage[0].type;
+    else if (Array.isArray(sys.damage) && sys.damage[0]?.types?.[0]) defaultType = sys.damage[0].types[0];
+    else defaultType = "sharp";
+  }
+
   let damages = [];
   if (isWeapon && weaponData) {
-    const defaultType = (Array.isArray(item.system?.damage) && item.system.damage[0]?.type) || item.system?.damageType || "sharp";
     damages = [{ formula: weaponData.baseFormula, type: defaultType }];
-    if (Array.isArray(item.system?.damage) && item.system.damage.length > 1) {
-      for (let i = 1; i < item.system.damage.length; i++) {
-        if (item.system.damage[i]?.formula) damages.push(item.system.damage[i]);
+    if (Array.isArray(sys.damage) && sys.damage.length > 1) {
+      for (let i = 1; i < sys.damage.length; i++) {
+        if (sys.damage[i]?.formula) damages.push({ formula: sys.damage[i].formula, type: isSoul ? "soul" : (sys.damage[i].type || defaultType) });
       }
     }
-  } else if (Array.isArray(item.system?.damage) && item.system.damage.length > 0) {
-    damages = item.system.damage.filter(d => d && d.formula);
-  } else if (item.system?.damageFormula) {
-    damages = [{ formula: item.system.damageFormula, type: item.system.damageType || "sharp" }];
+  } else if (Array.isArray(sys.damage) && sys.damage.length > 0) {
+    damages = sys.damage.filter(d => d && (d.formula || typeof d === "string")).map(d => ({
+      formula: typeof d === "string" ? d : d.formula,
+      type: isSoul ? "soul" : ((typeof d === "object" ? (d.type || d.types?.[0]) : null) || defaultType),
+    }));
+  } else if (sys.damage?.formula) {
+    damages = [{ formula: sys.damage.formula, type: defaultType }];
+  } else if (sys.damageFormula) {
+    damages = [{ formula: sys.damageFormula, type: defaultType }];
+  } else if (typeof sys.damage === "string" && sys.damage.trim()) {
+    damages = [{ formula: sys.damage.trim(), type: defaultType }];
   }
 
   if (!damages.length) {
@@ -262,10 +292,14 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
                           item.system?.affinity === true;
   const affinityBonus = hasItemAffinity ? 3 : 0;
 
-  // 4. Luck score (added on crits for weapons & spells)
+  // 4. Claimed Souls bonus (+X)
+  const enableClaimed = Boolean(item.flags?.["mythcraft-essence-sheet"]?.enableClaimedSouls || item.system?.enableClaimedSouls);
+  const claimedSouls = (isWeapon && enableClaimed) ? Math.min(5, Math.max(0, Number(item.flags?.["mythcraft-essence-sheet"]?.claimedSouls ?? item.system?.claimedSouls ?? 0))) : 0;
+
+  // 5. Luck score (added on crits for weapons & spells)
   const luckScore = Number(actor.system?.attributes?.luck ?? 0);
 
-  // 5. Evaluate rolls per damage entry
+  // 6. Evaluate rolls per damage entry
   const RollClass = mythcraft?.rolls?.DamageRoll || Roll;
   const rolls = [];
 
@@ -276,6 +310,7 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
 
     const currentAttrMod = (index === 0) ? attrMod : 0;
     const currentAffinity = (index === 0) ? affinityBonus : 0;
+    const currentClaimedSouls = (index === 0) ? claimedSouls : 0;
     const isAstounding = hasAstoundingCritical(actor);
 
     let finalFormula = baseFormula;
@@ -309,7 +344,7 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
         if (!extraDiceFormula) {
           extraDiceFormula = isAstounding ? makeExplodingDiceFormula(baseFormula) : baseFormula;
         }
-        const maxNormalDamage = diceMax + currentAttrMod + currentAffinity;
+        const maxNormalDamage = diceMax + currentAttrMod + currentAffinity + currentClaimedSouls;
         const luckBonus = (index === 0) ? luckScore : 0;
 
         finalFormula = `${maxNormalDamage} + ${extraDiceFormula}${luckBonus ? ` + ${luckBonus}` : ""}`;
@@ -327,19 +362,28 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
       if (currentAffinity !== 0) {
         finalFormula = `${finalFormula} + ${currentAffinity}`;
       }
+      if (currentClaimedSouls !== 0) {
+        finalFormula = `${finalFormula} + ${currentClaimedSouls}`;
+      }
     }
 
     const r = new RollClass(finalFormula, rollData, {
       type: dmgType,
+      damageType: dmgType,
       hasAffinity: hasItemAffinity,
       attrMod: currentAttrMod,
+      claimedSouls: currentClaimedSouls,
       isCrit,
     });
+    if (r.options) {
+      r.options.type = dmgType;
+      r.options.damageType = dmgType;
+    }
     await r.evaluate();
     rolls.push(r);
   }
 
-  // 6. Build Chat Message
+  // 7. Build Chat Message
   const flavorPrefix = isCrit ? `💥 CRITICAL HIT: ${item.name}` : `${item.name}`;
   const notes = [];
   if (isCrit) notes.push("Critical Damage");
@@ -347,8 +391,11 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
   if (isWeapon && weaponData?.isTwoHandedGrip) notes.push("2H Grip");
   if (attrModLabel) notes.push(attrModLabel);
   if (hasItemAffinity) notes.push("+3 Affinity");
+  if (claimedSouls > 0) notes.push(`+${claimedSouls} Claimed Souls`);
   if (isCrit && luckScore) notes.push(`+${luckScore} LUCK`);
   const flavorSuffix = notes.length ? ` (Includes ${notes.join(", ")})` : "";
+
+  const primaryDamageType = damages[0]?.type || "sharp";
 
   const messageData = {
     speaker: ChatMessage.getSpeaker({ actor }),
@@ -360,11 +407,17 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
         itemId: item.id,
         itemUuid: item.uuid,
         itemName: item.name,
+        damageType: primaryDamageType,
+        damages: damages.map((d, i) => ({ type: d.type || "sharp", formula: d.formula, total: rolls[i]?.total })),
         type: "damage",
         isCrit,
         isDamage: true,
         isDamageRoll: true,
         apDeducted: true,
+        claimedSouls,
+        enableClaimedSouls: enableClaimed,
+        attackerActorId: actor.id,
+        attackerActorUuid: actor.uuid,
       },
     },
   };
@@ -825,8 +878,12 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     const modifier = Number(item.system?.attackModifierValue ?? item.system?.attackModifier ?? 0);
     const luck = Number(this.actor.system?.attributes?.luck?.value ?? this.actor.system?.attributes?.luck ?? 0);
 
+    // Claimed Souls Modifier (Soul Harvest)
+    const enableClaimed = Boolean(item.flags?.["mythcraft-essence-sheet"]?.enableClaimedSouls || item.system?.enableClaimedSouls);
+    const claimedSouls = enableClaimed ? Math.min(5, Math.max(0, Number(item.flags?.["mythcraft-essence-sheet"]?.claimedSouls ?? item.system?.claimedSouls ?? 0))) : 0;
+
     // MythCraft Rule: If LUCK < 0, subtract LUCK from every d20 roll
-    let formula = `1d20 + ${attrValue + modifier}`;
+    let formula = `1d20 + ${attrValue + modifier + claimedSouls}`;
     if (luck < 0) {
       formula = `${formula} - ${Math.abs(luck)}`;
     }
@@ -901,6 +958,8 @@ export default class EssenceCharacterSheet extends CharacterSheet {
           itemName: item.name,
           defenseTarget,
           isAttack: true,
+          claimedSouls,
+          enableClaimedSouls: enableClaimed,
           critHit,
           isCrit,
           isFumble,
@@ -2091,6 +2150,18 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       });
     }
 
+    // Soul Damage input listener
+    const soulDamageInput = this.element.querySelector("input[name='flags.mythcraft-essence-sheet.soulDamage'], input[name='soulDamage.value'], input[name='system.soulDamage']");
+    if (soulDamageInput) {
+      soulDamageInput.addEventListener("change", async (event) => {
+        const val = Math.max(0, parseInt(event.target.value, 10) || 0);
+        await this.actor.update({
+          "flags.mythcraft-essence-sheet.soulDamage": val,
+          "system.soulDamage": val,
+        });
+      });
+    }
+
     // Magic Attribute selector listener
     const magicAttrSelect = this.element.querySelector(".magic-attr-dropdown, #magic-attr-select");
     if (magicAttrSelect) {
@@ -2459,8 +2530,16 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     }
 
     // Resource percentages for HUD meters
-    const hp = this.actor.system.hp;
+    const hp = this.actor.system.hp || {};
     context.hpPct = hp.max > 0 ? Math.round(Math.min(100, Math.max(0, (hp.value / hp.max) * 100))) : 0;
+
+    // Soul Damage calculation (Homebrew / Optional Rules)
+    const enableSoulDamageSetting = Boolean(getSetting("enableSoulDamage", false));
+    const soulDamageVal = Number(this.actor.flags?.["mythcraft-essence-sheet"]?.soulDamage ?? this.actor.system?.soulDamage ?? 0);
+    context.enableSoulDamage = enableSoulDamageSetting;
+    context.soulDamage = soulDamageVal;
+    context.soulPct = (hp.max > 0) ? Math.min(100, Math.round((soulDamageVal / hp.max) * 100)) : 0;
+    context.isSoulLethal = (Number(hp.value) > 0) && (soulDamageVal >= Number(hp.value));
 
     const ap = this.actor.system.ap;
     context.apPct = ap.max > 0 ? Math.round(Math.min(100, Math.max(0, (ap.value / ap.max) * 100))) : 0;
@@ -2939,6 +3018,14 @@ export default class EssenceCharacterSheet extends CharacterSheet {
 
     context.spPct = spMax > 0 ? Math.round(Math.min(100, Math.max(0, (sp.value / spMax) * 100))) : 0;
     context.isBloodied = hpVal > 0 && hpVal <= (hp.bloodied || Math.floor(hpMax / 2));
+
+    // Homebrew: Soul Damage calculation
+    const enableSoulDamageSetting = Boolean(getSetting("enableSoulDamage", false));
+    const soulDamageVal = Number(this.actor.flags?.["mythcraft-essence-sheet"]?.soulDamage ?? this.actor.system?.soulDamage ?? 0);
+    context.enableSoulDamage = enableSoulDamageSetting;
+    context.soulDamage = soulDamageVal;
+    context.soulPct = (hpMax > 0) ? Math.min(100, Math.round((soulDamageVal / hpMax) * 100)) : 0;
+    context.isSoulLethal = (hpVal > 0) && (soulDamageVal >= hpVal);
 
     // Homebrew: Fear Threshold & Fear Resource calculation
     const enableSanitySetting = game.settings.get("mythcraft-essence-sheet", "enableSanity") ?? false;

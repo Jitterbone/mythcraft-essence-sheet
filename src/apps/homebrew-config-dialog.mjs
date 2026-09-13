@@ -36,6 +36,7 @@ export default class HomebrewConfigDialog extends HandlebarsApplicationMixin(App
       deleteCustomSkill: this.#onDeleteCustomSkill,
       toggleSanity: this.#onToggleSanity,
       toggleFear: this.#onToggleFear,
+      toggleSoulDamage: this.#onToggleSoulDamage,
     },
   };
 
@@ -44,11 +45,14 @@ export default class HomebrewConfigDialog extends HandlebarsApplicationMixin(App
     form: {
       template: "modules/mythcraft-essence-sheet/templates/apps/homebrew-config-dialog.hbs",
     },
-  };  constructor(options = {}) {
+  };
+
+  constructor(options = {}) {
     super(options);
     this._enableSanity = game.settings.get(MODULE_ID, "enableSanity") ?? false;
     this._enableFear = game.settings.get(MODULE_ID, "enableFear") ?? false;
     this._sanityOnNpc = game.settings.get(MODULE_ID, "sanityOnNpc") ?? false;
+    this._enableSoulDamage = game.settings.get(MODULE_ID, "enableSoulDamage") ?? false;
     this._customAttributes = foundry.utils.deepClone(game.settings.get(MODULE_ID, "customAttributes") ?? []);
     this._customSkills = foundry.utils.deepClone(game.settings.get(MODULE_ID, "customSkills") ?? []);
   }
@@ -110,6 +114,7 @@ export default class HomebrewConfigDialog extends HandlebarsApplicationMixin(App
       enableSanity: this._enableSanity,
       enableFear: this._enableFear,
       sanityOnNpc: this._sanityOnNpc,
+      enableSoulDamage: this._enableSoulDamage,
       customAttributes: customAttrsWithMeta,
       hasCustomAttrs: customAttrsWithMeta.length > 0,
       customSkills: customSkillsWithMeta,
@@ -134,6 +139,11 @@ export default class HomebrewConfigDialog extends HandlebarsApplicationMixin(App
 
   static async #onToggleFear(event, target) {
     this._enableFear = target.checked;
+    this.render();
+  }
+
+  static async #onToggleSoulDamage(event, target) {
+    this._enableSoulDamage = target.checked;
     this.render();
   }
 
@@ -190,6 +200,7 @@ export default class HomebrewConfigDialog extends HandlebarsApplicationMixin(App
     const enableSanity = !!rawData.enableSanity;
     const enableFear = enableSanity && !!rawData.enableFear;
     const sanityOnNpc = enableSanity && !!rawData.sanityOnNpc;
+    const enableSoulDamage = !!rawData.enableSoulDamage;
 
     // Process custom attributes list
     const attrEntries = Object.entries(rawData.attrs || {});
@@ -214,6 +225,7 @@ export default class HomebrewConfigDialog extends HandlebarsApplicationMixin(App
     await game.settings.set(MODULE_ID, "enableSanity", enableSanity);
     await game.settings.set(MODULE_ID, "enableFear", enableFear);
     await game.settings.set(MODULE_ID, "sanityOnNpc", sanityOnNpc);
+    await game.settings.set(MODULE_ID, "enableSoulDamage", enableSoulDamage);
     await game.settings.set(MODULE_ID, "customAttributes", customAttributes);
     await game.settings.set(MODULE_ID, "customSkills", customSkills);
 

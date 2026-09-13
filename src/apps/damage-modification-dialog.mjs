@@ -20,6 +20,7 @@ const ALL_DAMAGE_TYPES = [
   { key: "psychic", label: "Psychic", icon: "fas fa-brain" },
   { key: "radiant", label: "Radiant", icon: "fas fa-sun" },
   { key: "sonic", label: "Sonic", icon: "fas fa-volume-high" },
+  { key: "soul", label: "Soul Damage", icon: "fas fa-ghost" },
   { key: "all", label: "All Damage", icon: "fas fa-asterisk" },
 ];
 

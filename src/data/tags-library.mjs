@@ -121,6 +121,20 @@ export const DEFAULT_TAGS_LIBRARY = [
     categoryLabel: "Weapon",
     description: "The unwieldy tag interacts with your encumbrance. It takes 1 AP to draw or sheathe an unwieldy weapon.",
   },
+  {
+    id: "soul-damage",
+    name: "Soul Damage",
+    category: "weapon",
+    categoryLabel: "Damage Type / Weapon",
+    description: "Soul damage adds up over rounds. When the total soul damage accumulated is greater than or equal to the target's remaining HP, it immediately dies and the wielder of the weapon claims its soul.",
+  },
+  {
+    id: "soul",
+    name: "Soul",
+    category: "weapon",
+    categoryLabel: "Damage Type / Weapon",
+    description: "Soul damage adds up over rounds. When the total soul damage accumulated is greater than or equal to the target's remaining HP, it immediately dies and the wielder of the weapon claims its soul.",
+  },
 
   // ── ARMOR TAGS ─────────────────────────────────────────────────────────────
   {

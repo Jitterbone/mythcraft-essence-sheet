@@ -2560,3 +2560,343 @@ NORMALIZED_CANONICAL_TALENTS["throw anything i"] = {
   category: "class"
 };
 
+/**
+ * Extracts structured tags and category metadata from an Item document.
+ * @param {Item|object} item
+ * @returns {{ directTags: Array<string>, descTags: Array<string>, allTags: Array<string> }}
+ */
+export function extractTalentStructuredTags(item) {
+  const directSet = new Set();
+  const descSet = new Set();
+  if (!item) return { directTags: [], descTags: [], allTags: [] };
+
+  const addTagString = (str, targetSet = directSet) => {
+    if (!str || typeof str !== "string") return;
+    str.split(/[,;|\n\r]+/).map(s => s.trim().replace(/^•\s*/, "")).filter(Boolean).forEach(t => {
+      const clean = t.replace(/<[^>]+>/g, "").trim();
+      if (clean && clean.length > 1 && !/^https?:\/\//i.test(clean)) {
+        targetSet.add(clean);
+      }
+    });
+  };
+
+  // 1. Direct system.tags / tagList / properties / _synthesizedTags (handles Array, Set, Object/Record, String)
+  const rawTags = item.system?.tags ?? item.system?.tagList ?? item.system?.properties ?? item._synthesizedTags;
+  if (rawTags) {
+    if (typeof rawTags === "string") {
+      addTagString(rawTags, directSet);
+    } else if (Array.isArray(rawTags) || rawTags instanceof Set) {
+      for (const t of rawTags) {
+        if (typeof t === "string") {
+          addTagString(t, directSet);
+        } else if (t && typeof t === "object") {
+          const val = t.name || t.label || t.value || t.tag || t.title;
+          if (val && typeof val === "string") addTagString(val, directSet);
+        }
+      }
+    } else if (typeof rawTags === "object") {
+      Object.values(rawTags).forEach(t => {
+        if (typeof t === "string") {
+          addTagString(t, directSet);
+        } else if (t && typeof t === "object") {
+          const val = t.name || t.label || t.value || t.tag || t.title;
+          if (val && typeof val === "string") addTagString(val, directSet);
+        }
+      });
+    }
+  }
+
+  // 2. Direct system properties & subtitle/header fields
+  const sys = item.system || {};
+  ["class", "subclass", "discipline", "magicSource", "stack", "track", "category", "tag", "subtitle", "subTitle", "header", "subHeader", "type", "classification"].forEach(field => {
+    if (sys[field] && typeof sys[field] === "string") {
+      addTagString(sys[field], directSet);
+    }
+  });
+
+  // 3. Source fields
+  if (sys.source?.book && typeof sys.source.book === "string") directSet.add(sys.source.book.trim());
+  if (sys.source?.custom && typeof sys.source.custom === "string") directSet.add(sys.source.custom.trim());
+
+  // 4. Folder chain
+  const chain = item._folderChain || [];
+  chain.forEach(f => {
+    if (typeof f === "string") directSet.add(f.trim());
+  });
+
+  // 5. Description text scanning (Subheader lines under title, SRD links, Prerequisite class names)
+  const rawDesc = String(sys.description?.value || sys.description || "");
+  if (rawDesc) {
+    // 5a. Subheader under the title / header (e.g. <em>Class Entry, Cleric</em>, <p class="tags">Class Entry, Cleric</p>)
+    const subheaderMatches = [
+      rawDesc.match(/<(?:em|i|span|div|h[3-6]|p)[^>]*>([^<]+(?:,\s*[^<]+)+)<\/(?:em|i|span|div|h[3-6]|p)>/i),
+      rawDesc.match(/class=["'](?:sub-?header|item-?sub(?:title)?|sub-?title|tags?|tag-list)["'][^>]*>([^<]+)<\//i),
+    ];
+
+    for (const m of subheaderMatches) {
+      if (m && m[1]) {
+        addTagString(m[1], directSet);
+      }
+    }
+
+    // Check first italic tag at the very start of the description (e.g. <em>Class Entry, Cleric</em> or <i>Demonsoul</i>)
+    const leadingItalicMatch = rawDesc.match(/^\s*(?:<p[^>]*>)?\s*<(?:em|i)[^>]*>([^<]{1,60})<\/(?:em|i)>/i);
+    if (leadingItalicMatch && leadingItalicMatch[1]) {
+      const txt = leadingItalicMatch[1].trim();
+      if (!txt.endsWith(".") || txt.includes(",")) {
+        addTagString(txt, directSet);
+      }
+    }
+
+    // 5b. SRD links
+    const srdMatch = rawDesc.match(/srd\.mythcraftrpg\.com\/([a-zA-Z0-9_\-]+)/i);
+    if (srdMatch) descSet.add(srdMatch[1].trim());
+
+    // 5c. Prerequisites
+    const prereqMatch = rawDesc.match(/prerequisites?[:\s]+([^\n\r<]+)/i);
+    if (prereqMatch) {
+      addTagString(prereqMatch[1], descSet);
+    }
+  }
+
+  const allSet = new Set([...directSet, ...descSet]);
+  return {
+    directTags: Array.from(directSet),
+    descTags: Array.from(descSet),
+    allTags: Array.from(allSet),
+  };
+}
+
+/**
+ * Resolves comprehensive track and hierarchy categorization for any talent document.
+ * @param {Item|object} item
+ * @param {object} [options]
+ * @returns {{ category: string, rootName: string, trackName: string, isEntry: boolean }}
+ */
+export function resolveTalentTrackInfo(item, { customTalentMap = new Map(), customPackMap = new Map() } = {}) {
+  const cTalentMap = customTalentMap || new Map();
+  const cPackMap = customPackMap || new Map();
+  const rawName = String(item?.name || "").trim();
+  const docNameClean = normalizeTalentName(rawName);
+  const { directTags, descTags, allTags } = extractTalentStructuredTags(item);
+  const normDirect = directTags.map(t => normalizeTalentName(t)).filter(Boolean);
+  const normAll = allTags.map(t => normalizeTalentName(t)).filter(Boolean);
+
+  let category = "specialization";
+  let rootName = "General Specialization";
+  let trackName = "General";
+  let isEntry = /entry\b/i.test(docNameClean);
+
+  // 0. Check Direct Custom Compendium flags/properties
+  if (item?._customCategory) {
+    category = item._customCategory === "subclass" ? "class" : item._customCategory;
+    rootName = item._customParent || (item._folderChain && item._folderChain.length > 0 ? item._folderChain[0] : (item._compendiumPack?.metadata?.label || item._compendiumPack?.title || "Custom"));
+    trackName = item._customTrack || (item._customCategory === "subclass" ? "Subclass Track" : "General");
+    isEntry = isEntry || trackName.toLowerCase().includes("entry");
+    return { category, rootName, trackName, isEntry };
+  }
+
+  // 1. Custom Compendium mapping
+  const customMatch = cTalentMap.get(docNameClean) || cTalentMap.get(rawName.toLowerCase());
+  const itemPack = (item.flags?.core?.sourceId || item._stats?.compendiumSource || item.pack || "").toLowerCase();
+  let matchedCustom = customMatch || null;
+  if (!matchedCustom) {
+    for (const [packKey, customEntry] of cPackMap) {
+      if (itemPack.includes(packKey)) {
+        matchedCustom = customEntry;
+        break;
+      }
+    }
+  }
+  if (matchedCustom) {
+    category = matchedCustom.category === "subclass" ? "class" : (matchedCustom.category || "specialization");
+    rootName = matchedCustom.parentName || matchedCustom.parent || "Custom";
+    trackName = matchedCustom.trackName || matchedCustom.track || "General";
+    isEntry = isEntry || trackName.toLowerCase().includes("entry");
+    return { category, rootName, trackName, isEntry };
+  }
+
+  // 2. Direct Canonical talent lookup
+  const canonicalMatch = NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[rawName.toLowerCase()];
+  if (canonicalMatch) {
+    return {
+      category: canonicalMatch.category,
+      rootName: canonicalMatch.parent,
+      trackName: canonicalMatch.track,
+      isEntry: Boolean(canonicalMatch.isEntry) || isEntry,
+    };
+  }
+
+  // Base name without parentheticals or roman numerals (e.g. "Second Skin: Heavy Armor (Chain Mail)" -> "Second Skin: Heavy Armor")
+  const baseStripped = docNameClean.replace(/\s*\([^)]*\)/g, "").replace(/\b(i|ii|iii|iv|v|vi|vii|viii|ix|x|\d+)\b/g, "").trim();
+  if (baseStripped && baseStripped !== docNameClean) {
+    const baseMatch = NORMALIZED_CANONICAL_TALENTS[baseStripped] || CANONICAL_TALENTS[baseStripped];
+    if (baseMatch) {
+      return {
+        category: baseMatch.category,
+        rootName: baseMatch.parent,
+        trackName: baseMatch.track,
+        isEntry: Boolean(baseMatch.isEntry) || isEntry,
+      };
+    }
+  }
+
+  // 3. Class Match (Checks 13 Canonical Classes)
+  let matchedClass = null;
+  for (const cls of MYTHCRAFT_CANONICAL_CLASSES) {
+    const cLow = cls.toLowerCase();
+    if (normAll.some(t => t === cLow || t.startsWith(`${cLow} `) || t.endsWith(` ${cLow}`)) || docNameClean.startsWith(cLow)) {
+      matchedClass = cls;
+      break;
+    }
+  }
+  // Check if any tag is a subclass in SUBCLASS_TO_CLASS
+  if (!matchedClass) {
+    for (const t of [...normDirect, ...normAll, docNameClean]) {
+      if (SUBCLASS_TO_CLASS[t]) {
+        matchedClass = SUBCLASS_TO_CLASS[t];
+        break;
+      }
+    }
+  }
+
+  if (matchedClass) {
+    category = "class";
+    rootName = matchedClass;
+
+    // Check direct item tags for specific subclass/track name first
+    const specificDirectTag = directTags.find(t => {
+      const tLow = t.toLowerCase().trim();
+      return tLow !== matchedClass.toLowerCase() && !/^(class|talent|feature|crb|heroic|entry|specialization)$/i.test(tLow);
+    });
+
+    let matchedTrack = null;
+    if (specificDirectTag) {
+      matchedTrack = specificDirectTag.charAt(0).toUpperCase() + specificDirectTag.slice(1);
+    } else {
+      const classSubclasses = CANONICAL_CLASS_SUBCLASSES[matchedClass] || [];
+      for (const sub of classSubclasses) {
+        const subLow = sub.toLowerCase();
+        if (normAll.includes(subLow) || docNameClean.includes(subLow)) {
+          matchedTrack = sub;
+          break;
+        }
+      }
+    }
+
+    if (!matchedTrack) {
+      matchedTrack = (isEntry || /entry\b/i.test(docNameClean)) ? `${matchedClass} Entry` : `${matchedClass} Track`;
+    }
+
+    trackName = matchedTrack;
+    return { category, rootName, trackName, isEntry: isEntry || /entry\b/i.test(trackName) || /entry\b/i.test(docNameClean) };
+  }
+
+  // 4. Magic Discipline Match (Arcane, Divine, Occult, Primal, Psionic)
+  let matchedDiscipline = null;
+  for (const mag of MYTHCRAFT_CANONICAL_MAGIC) {
+    const mLow = mag.toLowerCase();
+    if (normAll.some(t => t === mLow || t.includes(mLow)) || docNameClean.includes(mLow)) {
+      matchedDiscipline = mag;
+      break;
+    }
+  }
+  if (!matchedDiscipline) {
+    for (const t of [...normDirect, ...normAll, docNameClean]) {
+      if (DISCIPLINE_TO_MAGIC[t]) {
+        matchedDiscipline = DISCIPLINE_TO_MAGIC[t];
+        break;
+      }
+    }
+  }
+
+  if (matchedDiscipline) {
+    category = "magic";
+    rootName = matchedDiscipline;
+    const magicTracks = CANONICAL_MAGIC_DISCIPLINES[matchedDiscipline] || [];
+    let matchedTrack = null;
+
+    // Check direct tags for sub-discipline
+    const specificDirectTag = directTags.find(t => {
+      const tLow = t.toLowerCase().trim();
+      return tLow !== matchedDiscipline.toLowerCase() && !/^(magic|talent|feature|crb|heroic|entry|specialization)$/i.test(tLow);
+    });
+
+    if (specificDirectTag) {
+      matchedTrack = specificDirectTag.charAt(0).toUpperCase() + specificDirectTag.slice(1);
+    } else {
+      for (const sub of magicTracks) {
+        const subLow = sub.toLowerCase();
+        if (normAll.includes(subLow) || docNameClean.includes(subLow)) {
+          matchedTrack = sub;
+          break;
+        }
+      }
+    }
+
+    if (!matchedTrack) {
+      if (isEntry || /adept|student|disciple|initiate|warden|entry/i.test(docNameClean)) {
+        matchedTrack = `${matchedDiscipline} Entry`;
+      } else {
+        // Check if there is a secondary tag like "Spells" or "Versatility"
+        const directTagsList = directTags.map(t => String(t).trim());
+        const secondary = directTagsList.find(t => !/^(magic|psionic|arcane|divine|occult|primal)$/i.test(t.toLowerCase()));
+        if (secondary) {
+          matchedTrack = `${matchedDiscipline} ${secondary.charAt(0).toUpperCase() + secondary.slice(1)}`;
+        } else {
+          matchedTrack = `${matchedDiscipline} Magic`;
+        }
+      }
+    }
+
+    trackName = matchedTrack;
+    return { category, rootName, trackName, isEntry: isEntry || /entry\b/i.test(trackName) || /adept|student|disciple|initiate|warden/i.test(docNameClean) };
+  }
+
+  // 5. Specialization Stack Match (Combat, Command, Defense, Skill)
+  let matchedSpec = null;
+  // First, look for specific subtracks (excluding generic stack names like 'defense', 'combat', 'command', 'skill')
+  for (const t of [...normDirect, ...normAll, docNameClean]) {
+    if (SUBTRACK_TO_SPEC[t] && !/^(defense|combat|command|skill|general)$/i.test(t)) {
+      matchedSpec = { spec: SUBTRACK_TO_SPEC[t], track: t.charAt(0).toUpperCase() + t.slice(1) };
+      break;
+    }
+  }
+  if (!matchedSpec) {
+    for (const t of [...normDirect, ...normAll, docNameClean]) {
+      if (SUBTRACK_TO_SPEC[t]) {
+        matchedSpec = { spec: SUBTRACK_TO_SPEC[t], track: t.charAt(0).toUpperCase() + t.slice(1) };
+        break;
+      }
+    }
+  }
+  if (!matchedSpec) {
+    for (const [spec, subtracks] of Object.entries(CANONICAL_SPEC_STACKS)) {
+      const sClean = spec.toLowerCase().replace(/ stack$/, "");
+      if (normAll.some(t => t === sClean || t.includes(sClean)) || docNameClean.includes(sClean)) {
+        const foundSub = subtracks.find(st => normDirect.includes(st.toLowerCase()) || normAll.includes(st.toLowerCase()) || docNameClean.includes(st.toLowerCase()));
+        matchedSpec = { spec, track: foundSub || (sClean.charAt(0).toUpperCase() + sClean.slice(1)) };
+        break;
+      }
+    }
+  }
+
+  // 6. Keywords in name (Second Skin, Lucky, etc.)
+  if (!matchedSpec) {
+    if (docNameClean.includes("second skin")) {
+      matchedSpec = { spec: "Defense Stack", track: docNameClean.includes("shield") ? "Shield" : "Armor" };
+    } else if (docNameClean.includes("lucky") || docNameClean.includes("luck")) {
+      matchedSpec = { spec: "Skill Stack", track: "Luck" };
+    }
+  }
+
+  if (matchedSpec) {
+    category = "specialization";
+    rootName = matchedSpec.spec;
+    trackName = matchedSpec.track;
+    return { category, rootName, trackName, isEntry };
+  }
+
+  return { category, rootName, trackName, isEntry };
+}
+

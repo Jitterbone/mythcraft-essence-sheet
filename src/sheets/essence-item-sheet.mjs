@@ -11,6 +11,8 @@ import { isItemClothes } from "../features/equipment-automation.mjs";
 import { isDefaultIcon, resolveItemIcon } from "../features/equipment-icons.mjs";
 import { sanitizeGmOnlyFields } from "../features/permissions-fix.mjs";
 import { getActiveTagsLibrary, syncCustomTagsToSystem } from "../data/tags-library.mjs";
+import { extractTalentStructuredTags } from "../features/talent-canonical-map.mjs";
+import { getEnrichedItemTags } from "./essence-character-sheet.mjs";
 
 export default class EssenceItemSheet extends MythCraftItemSheet {
 
@@ -56,6 +58,28 @@ export default class EssenceItemSheet extends MythCraftItemSheet {
 
     const library = getActiveTagsLibrary();
     const itemType = this.item.type || "item";
+
+    // Extract structured tags from subheader / description / properties in memory
+    const structured = extractTalentStructuredTags(this.item);
+    if (structured.directTags.length > 0) {
+      if (Array.isArray(context.system?.tags)) {
+        for (const t of structured.directTags) {
+          if (!context.system.tags.includes(t)) context.system.tags.push(t);
+        }
+      } else if (context.system?.tags && typeof context.system.tags === "object") {
+        let maxIdx = Object.keys(context.system.tags).length;
+        for (const t of structured.directTags) {
+          if (!Object.values(context.system.tags).includes(t)) {
+            context.system.tags[maxIdx++] = t;
+          }
+        }
+      } else if (context.system && !context.system.tags) {
+        context.system.tags = [...structured.directTags];
+      }
+    }
+
+    const enrichedTags = getEnrichedItemTags(this.item);
+    context.enrichedTags = enrichedTags;
 
     // Inject custom tags into tagOptions if present
     if (context.tagOptions && typeof context.tagOptions === "object") {
@@ -126,6 +150,36 @@ export default class EssenceItemSheet extends MythCraftItemSheet {
 
     const detailsTab = this.element.querySelector('.tab[data-tab="details"]') || this.element.querySelector('form.sheet-body') || this.element.querySelector('form');
 
+    // 0. Inject Detected & Configured Item Tags Panel in Details Tab
+    if (detailsTab && !this.element.querySelector('.essence-item-tags-panel')) {
+      const enrichedTags = context.enrichedTags || getEnrichedItemTags(this.item);
+      if (enrichedTags && enrichedTags.length > 0) {
+        const tagsCard = document.createElement("div");
+        tagsCard.className = "essence-item-tags-panel";
+        tagsCard.style.cssText = "background: rgba(8, 28, 36, 0.7); border: 1px solid rgba(88, 178, 192, 0.35); border-radius: 8px; padding: 8px 12px; margin-bottom: 10px;";
+        tagsCard.innerHTML = `
+          <div class="tags-panel-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; border-bottom:1px solid rgba(88, 178, 192, 0.25); padding-bottom:4px;">
+            <div class="tags-title" style="font-family:'Cinzel', Georgia, serif; color:#f1c40f; font-weight:700; font-size:0.82rem; letter-spacing:0.06em; text-transform:uppercase; display:flex; align-items:center; gap:6px;">
+              <i class="fas fa-tags tag-icon" style="color:#2dd4bf;"></i>
+              <span>ITEM TAGS</span>
+            </div>
+            <span class="tags-hint" style="font-size:0.7rem; color:rgba(254, 235, 179, 0.6);">Detected & configured tags</span>
+          </div>
+          <div class="essence-tags-pills-row" style="display:flex; flex-wrap:wrap; gap:6px; padding:4px 0;">
+            ${enrichedTags.map(tag => `
+              <span class="tag-badge-pill ${tag.category}" 
+                    style="--cat-color: ${tag.categoryMeta.color}; --cat-bg: ${tag.categoryMeta.bg}; --cat-border: ${tag.categoryMeta.border}; cursor:pointer;"
+                    data-tooltip="${(tag.tooltipHTML || tag.name).replace(/"/g, '&quot;')}"
+                    data-tooltip-direction="UP">
+                <i class="${tag.categoryMeta.icon}"></i>
+                <span class="tag-badge-name">${tag.name}</span>
+              </span>
+            `).join("")}
+          </div>
+        `;
+        detailsTab.prepend(tagsCard);
+      }
+    }
 
     // 1. Inject Essence Cost card in Details tab
     if (detailsTab && !this.element.querySelector('.essence-item-cost-panel')) {

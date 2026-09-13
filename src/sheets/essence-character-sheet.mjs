@@ -29,6 +29,8 @@ import {
   MYTHCRAFT_CANONICAL_MAGIC,
   normalizeTalentName,
   isDisallowedTalentItem,
+  resolveTalentTrackInfo,
+  extractTalentStructuredTags,
 } from "../features/talent-canonical-map.mjs";
 import { parseTalentData } from "../features/compendium-parser.mjs";
 import { RestDialog } from "../features/rest-automation.mjs";
@@ -108,16 +110,18 @@ export async function enrichText(content, options = {}) {
  */
 export function getEnrichedItemTags(item) {
   if (!item) return [];
-  const rawTags = item.system?.tags ?? item.system?.tagList ?? item.system?.properties ?? [];
-  let tagNames = [];
+  const structured = extractTalentStructuredTags(item);
+  let tagNames = structured.directTags.length > 0 ? [...structured.directTags] : [];
+
+  const rawTags = item.system?.tags ?? item.system?.tagList ?? item.system?.properties ?? item._synthesizedTags ?? [];
   if (Array.isArray(rawTags)) {
-    tagNames = rawTags;
+    tagNames.push(...rawTags);
   } else if (rawTags instanceof Set) {
-    tagNames = Array.from(rawTags);
+    tagNames.push(...Array.from(rawTags));
   } else if (typeof rawTags === "object" && rawTags !== null) {
-    tagNames = Object.values(rawTags);
+    tagNames.push(...Object.values(rawTags));
   } else if (typeof rawTags === "string" && rawTags.trim()) {
-    tagNames = rawTags.split(/[,;\n]/).map(t => t.trim()).filter(Boolean);
+    tagNames.push(...rawTags.split(/[,;\n]/).map(t => t.trim()).filter(Boolean));
   }
 
   if (item.system?.aptitude) {
@@ -648,6 +652,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       addContact: this.#addContact,
       addResource: this.#addResource,
       configureSecondSkin: this.#configureSecondSkin,
+      viewDoc: this.#viewDoc,
     },
   };
 
@@ -969,6 +974,38 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       uuid: this.document.uuid,
     });
     ip.render(true);
+  }
+
+  static #viewDoc(event, target) {
+    if (event) {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+    }
+    const el = target || event?.currentTarget || event?.target;
+    const itemId = el?.dataset?.itemId 
+      || el?.dataset?.talentId
+      || el?.closest?.("[data-item-id]")?.dataset?.itemId 
+      || el?.closest?.("[data-talent-id]")?.dataset?.talentId
+      || el?.closest?.(".item")?.dataset?.itemId;
+    const effectId = el?.dataset?.effectId 
+      || el?.closest?.("[data-effect-id]")?.dataset?.effectId;
+
+    if (itemId) {
+      const item = this.actor.items.get(itemId);
+      if (item) return item.sheet.render(true);
+    }
+    if (effectId) {
+      const effect = this.actor.effects.get(effectId);
+      if (effect) return effect.sheet.render(true);
+    }
+
+    const docRow = el?.closest?.("[data-document-class]");
+    if (docRow) {
+      const cls = docRow.dataset.documentClass;
+      const id = docRow.dataset.itemId || docRow.dataset.id;
+      if (cls === "Item" && id) return this.actor.items.get(id)?.sheet?.render(true);
+      if (cls === "ActiveEffect" && id) return this.actor.effects.get(id)?.sheet?.render(true);
+    }
   }
 
   static async #toggleAttunement(event, target) {
@@ -3094,88 +3131,21 @@ export default class EssenceCharacterSheet extends CharacterSheet {
 
     const drawerTrackMap = new Map();
     for (const item of drawerTalentItems) {
-      const rawName = String(item.name || "").trim();
-      const docNameClean = normalizeTalentName(rawName);
-      const chain = (item._folderChain || []).map(f => normalizeTalentName(f));
-      const docTags = (Array.isArray(item.system?.tags) ? item.system.tags : []).map(tag =>
-        normalizeTalentName(tag?.name || tag?.label || tag)
-      );
+      const trackInfo = resolveTalentTrackInfo(item, { customTalentMap, customPackMap });
+      const category = trackInfo.category;
+      const rootName = trackInfo.rootName;
+      const trackName = trackInfo.trackName;
+      const isEntry = trackInfo.isEntry;
 
-      let category = "specialization";
-      let rootName = "General Specialization";
-      let trackName = "General";
-      let isEntry = false;
-
-      // 1. Check custom talent map (matched by item name from custom compendium index)
-      const customMatch = customTalentMap.get(docNameClean) || customTalentMap.get(rawName.toLowerCase());
-      
-      // 2. Check custom compendium source
-      const itemPack = (item.flags?.core?.sourceId || item._stats?.compendiumSource || item.pack || "").toLowerCase();
-      let matchedCustom = customMatch || null;
-      if (!matchedCustom) {
-        for (const [packKey, customEntry] of customPackMap) {
-          if (itemPack.includes(packKey)) {
-            matchedCustom = customEntry;
-            break;
-          }
-        }
-      }
-
-      if (matchedCustom) {
-        category = matchedCustom.category === "subclass" ? "class" : (matchedCustom.category || "specialization");
-        rootName = matchedCustom.parentName || matchedCustom.parent || (chain.length > 0 ? chain[0] : (matchedCustom.packTitle || "Custom"));
-        trackName = matchedCustom.trackName || matchedCustom.track || (chain.length > 1 ? chain[chain.length - 1] : (matchedCustom.category === "subclass" ? (matchedCustom.packTitle || "Subclass Track") : (matchedCustom.parentName ? `${matchedCustom.parentName} Track` : "General")));
-        isEntry = /entry\b/i.test(docNameClean) || trackName.toLowerCase().includes("entry");
+      let groupKey;
+      if (category === "class" || category === "magic") {
+        groupKey = rootName.toUpperCase();
+      } else if (trackName && trackName.toLowerCase() !== "general" && trackName.toLowerCase() !== rootName.toLowerCase()) {
+        groupKey = `${rootName} — ${trackName}`.toUpperCase();
       } else {
-        const canonicalMatch = NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[rawName.toLowerCase()];
-        if (canonicalMatch) {
-          category = canonicalMatch.category;
-          rootName = canonicalMatch.parent;
-          trackName = canonicalMatch.track;
-          isEntry = canonicalMatch.isEntry;
-        } else {
-          let matchedSubclass = null;
-          for (const f of [...chain, ...docTags, docNameClean]) {
-            if (SUBCLASS_TO_CLASS[f]) {
-              matchedSubclass = { cls: SUBCLASS_TO_CLASS[f], track: f };
-              break;
-            }
-          }
-          if (matchedSubclass) {
-            category = "class";
-            rootName = matchedSubclass.cls;
-            trackName = matchedSubclass.track;
-          } else {
-            let matchedDiscipline = null;
-            for (const f of [...chain, ...docTags, docNameClean]) {
-              if (DISCIPLINE_TO_MAGIC[f]) {
-                matchedDiscipline = { mag: DISCIPLINE_TO_MAGIC[f], track: f };
-                break;
-              }
-            }
-            if (matchedDiscipline) {
-              category = "magic";
-              rootName = matchedDiscipline.mag;
-              trackName = matchedDiscipline.track;
-            } else {
-              let matchedSpecSubtrack = null;
-              for (const f of [...chain, ...docTags, docNameClean]) {
-                if (SUBTRACK_TO_SPEC[f]) {
-                  matchedSpecSubtrack = { spec: SUBTRACK_TO_SPEC[f], track: f };
-                  break;
-                }
-              }
-              if (matchedSpecSubtrack) {
-                category = "specialization";
-                rootName = matchedSpecSubtrack.spec;
-                trackName = matchedSpecSubtrack.track;
-              }
-            }
-          }
-        }
+        groupKey = rootName.toUpperCase();
       }
 
-      const groupKey = `${rootName} — ${trackName}`.toUpperCase();
       if (!drawerTrackMap.has(groupKey)) {
         drawerTrackMap.set(groupKey, {
           groupKey,
@@ -3211,10 +3181,32 @@ export default class EssenceCharacterSheet extends CharacterSheet {
 
       for (const node of nodeMap.values()) {
         for (const prereq of node.prerequisites) {
-          const pNode = nodeMap.get(prereq.toLowerCase().trim());
-          if (pNode && pNode !== node) {
+          const pKey = prereq.toLowerCase().trim();
+          const pClean = normalizeTalentName(pKey);
+          let pNode = nodeMap.get(pKey);
+          if (!pNode) {
+            for (const other of nodeMap.values()) {
+              if (other.name.toLowerCase().trim() === pKey || normalizeTalentName(other.name) === pClean) {
+                pNode = other;
+                break;
+              }
+            }
+          }
+          if (pNode && pNode !== node && !node.parents.includes(pNode)) {
             pNode.children.push(node);
             node.parents.push(pNode);
+          }
+        }
+      }
+
+      // If this group is a class or magic track and has an entry node,
+      // any non-entry node that still has no parents branches from the entry node
+      const entryNode = Array.from(nodeMap.values()).find(n => n.isEntry);
+      if (entryNode && (group.category === "class" || group.category === "magic")) {
+        for (const node of nodeMap.values()) {
+          if (node !== entryNode && node.parents.length === 0) {
+            entryNode.children.push(node);
+            node.parents.push(entryNode);
           }
         }
       }
@@ -3869,96 +3861,21 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       const trackGroups = new Map();
       for (const tObj of context.talents) {
         const item = tObj.item;
-        const rawName = String(item.name || "").trim();
-        const docNameClean = normalizeTalentName(rawName);
-        const chain = (item._folderChain || []).map(f => normalizeTalentName(f));
-        const docTags = (Array.isArray(item.system?.tags) ? item.system.tags : []).map(tag =>
-          normalizeTalentName(tag?.name || tag?.label || tag)
-        );
+        const trackInfo = resolveTalentTrackInfo(item, { customTalentMap, customPackMap });
+        const category = trackInfo.category;
+        const rootName = trackInfo.rootName;
+        const trackName = trackInfo.trackName;
+        const isEntry = trackInfo.isEntry;
 
-        let category = "specialization";
-        let rootName = "General Specialization";
-        let trackName = "General";
-        let isEntry = false;
-
-        // 1. Check custom talent map (matched by item name from custom compendium index)
-        const customMatch = customTalentMap.get(docNameClean) || customTalentMap.get(rawName.toLowerCase());
-        
-        // 2. Check custom compendium source
-        const itemPack = (item.flags?.core?.sourceId || item._stats?.compendiumSource || item.pack || "").toLowerCase();
-        let matchedCustom = customMatch || null;
-        if (!matchedCustom) {
-          for (const [packKey, customEntry] of customPackMap) {
-            if (itemPack.includes(packKey)) {
-              matchedCustom = customEntry;
-              break;
-            }
-          }
-        }
-
-        if (matchedCustom) {
-          category = matchedCustom.category === "subclass" ? "class" : (matchedCustom.category || "specialization");
-          rootName = matchedCustom.parentName || matchedCustom.parent || (chain.length > 0 ? chain[0] : (matchedCustom.packTitle || "Custom"));
-          trackName = matchedCustom.trackName || matchedCustom.track || (chain.length > 1 ? chain[chain.length - 1] : (matchedCustom.category === "subclass" ? (matchedCustom.packTitle || "Subclass Track") : (matchedCustom.parentName ? `${matchedCustom.parentName} Track` : "General")));
-          isEntry = /entry\b/i.test(docNameClean) || trackName.toLowerCase().includes("entry");
-        } else if (NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[rawName.toLowerCase()]) {
-          const canonicalMatch = NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[rawName.toLowerCase()];
-          category = canonicalMatch.category;
-          rootName = canonicalMatch.parent;
-          trackName = canonicalMatch.track;
-          isEntry = canonicalMatch.isEntry;
+        let groupKey;
+        if (category === "class" || category === "magic") {
+          groupKey = rootName.toUpperCase();
+        } else if (trackName && trackName.toLowerCase() !== "general" && trackName.toLowerCase() !== rootName.toLowerCase()) {
+          groupKey = `${rootName} — ${trackName}`.toUpperCase();
         } else {
-          let matchedSubclass = null;
-          for (const f of [...chain, ...docTags, docNameClean]) {
-            if (SUBCLASS_TO_CLASS[f]) {
-              matchedSubclass = { cls: SUBCLASS_TO_CLASS[f], track: f };
-              break;
-            }
-          }
-          if (matchedSubclass) {
-            category = "class";
-            rootName = matchedSubclass.cls;
-            trackName = matchedSubclass.track;
-          } else {
-            let matchedDiscipline = null;
-            for (const f of [...chain, ...docTags, docNameClean]) {
-              if (DISCIPLINE_TO_MAGIC[f]) {
-                matchedDiscipline = { mag: DISCIPLINE_TO_MAGIC[f], track: f };
-                break;
-              }
-            }
-            if (matchedDiscipline) {
-              category = "magic";
-              rootName = matchedDiscipline.mag;
-              trackName = matchedDiscipline.track;
-            } else {
-              let matchedSpecSubtrack = null;
-              for (const f of [...chain, ...docTags, docNameClean]) {
-                if (SUBTRACK_TO_SPEC[f]) {
-                  matchedSpecSubtrack = { spec: SUBTRACK_TO_SPEC[f], track: f };
-                  break;
-                }
-              }
-              if (matchedSpecSubtrack) {
-                category = "specialization";
-                rootName = matchedSpecSubtrack.spec;
-                trackName = matchedSpecSubtrack.track;
-              } else {
-                for (const cls of MYTHCRAFT_CANONICAL_CLASSES) {
-                  const cLow = cls.toLowerCase();
-                  if (chain.includes(cLow) || docNameClean.startsWith(cLow) || docTags.includes(cLow)) {
-                    category = "class";
-                    rootName = cls;
-                    trackName = `${cls} Entry`;
-                    break;
-                  }
-                }
-              }
-            }
-          }
+          groupKey = rootName.toUpperCase();
         }
 
-        const groupKey = `${rootName} — ${trackName}`.toUpperCase();
         if (!trackGroups.has(groupKey)) {
           trackGroups.set(groupKey, {
             groupKey,

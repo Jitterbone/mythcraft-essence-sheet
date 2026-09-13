@@ -25,11 +25,22 @@ import {
   parseProfessionData,
 } from "../features/compendium-parser.mjs";
 import { resolveItemIcon, isDefaultIcon } from "../features/equipment-icons.mjs";
+import { getSetting } from "../settings.mjs";
 import TalentTreeViewer from "./talent-tree-viewer.mjs";
 
 const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
 
-const getAttributeValue = (actor, key) => Number(actor?.system?.attributes?.[key]?.value ?? actor?.system?.attributes?.[key] ?? 0);
+const getAttributeValue = (actor, key) => {
+  const normKey = key === "lck" ? "luck" : (key === "luck" ? "lck" : key);
+  const sysAttr = actor?.system?.attributes;
+  if (!sysAttr) return 0;
+  const val = sysAttr[key] ?? sysAttr[normKey];
+  if (val !== undefined && val !== null) {
+    if (typeof val === "object" && "value" in val) return Number(val.value) || 0;
+    return Number(val) || 0;
+  }
+  return 0;
+};
 
 export { ENDURANCE_THRESHOLDS as ENDURANCE_THRESHOLD_CHART, getEnduranceThreshold as getHpDataForEndurance };
 
@@ -91,11 +102,21 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
     this._chosenHpMethod = "set"; // "set" | "rolled"
 
     // Attribute point advancement (1 point per level gained)
-    // Build from actor's actual attribute keys to include LCK, COR, SAN if present
+    // Build from actor's actual attribute keys, custom attributes, and standard order
     const actorAttrKeys = Object.keys(actor.system?.attributes ?? {});
-    const standardOrder = ["str", "dex", "end", "awr", "int", "cha", "lck", "cor", "san"];
-    const attrKeys = standardOrder.filter(k => actorAttrKeys.includes(k) || ["str","dex","end","awr","int","cha","lck","cor"].includes(k));
-    this._attributeChanges = Object.fromEntries(attrKeys.map(k => [k, 0]));
+    const customAttrsSetting = getSetting("customAttributes", []);
+    const customKeys = Array.isArray(customAttrsSetting)
+      ? customAttrsSetting.map(c => (typeof c === "string" ? c : c?.key || c?.id || "").toLowerCase().trim()).filter(Boolean)
+      : [];
+    const sanityEnabled = Boolean(getSetting("enableSanity", false));
+
+    const standardOrder = ["str", "dex", "end", "awr", "int", "cha", "luck", "cor"];
+    if (sanityEnabled || actorAttrKeys.includes("san")) standardOrder.push("san");
+
+    const allKeys = Array.from(new Set([...standardOrder, ...customKeys, ...actorAttrKeys]))
+      .filter(k => k !== "lck" && k !== "magic" && !k.startsWith("_"));
+
+    this._attributeChanges = Object.fromEntries(allKeys.map(k => [k, 0]));
 
     // Profession Rank Up
     this._increaseProfessionRank = false;
@@ -175,18 +196,31 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       }
     }
 
-    // Attributes list — built from this._attributeChanges keys to include LCK, COR, SAN
+    // Attributes list — built from this._attributeChanges keys to include LCK, COR, SAN, and custom attrs
     const attrNameMap = {
       str: "Strength", dex: "Dexterity", end: "Endurance", awr: "Awareness",
-      int: "Intellect", cha: "Charisma", lck: "Luck", cor: "Coordination", san: "Sanity",
+      int: "Intellect", cha: "Charisma", luck: "Luck", lck: "Luck", cor: "Coordination", san: "Sanity",
     };
+    const attrLabelMap = {
+      str: "STR", dex: "DEX", end: "END", awr: "AWR", int: "INT", cha: "CHA",
+      luck: "LCK", lck: "LCK", cor: "COR", san: "SAN",
+    };
+    const customAttrsSetting = getSetting("customAttributes", []) || [];
+    const customAttrMap = new Map(
+      (Array.isArray(customAttrsSetting) ? customAttrsSetting : []).map(ca => [
+        (typeof ca === "string" ? ca : ca?.key || ca?.id || "").toLowerCase().trim(),
+        ca,
+      ])
+    );
+
     const attributesList = Object.keys(this._attributeChanges).map(key => {
       const base = getAttributeValue(this.actor, key);
       const mod = this._attributeChanges[key] || 0;
+      const customDef = customAttrMap.get(key);
       return {
         key,
-        label: key.toUpperCase(),
-        name: attrNameMap[key] || key.toUpperCase(),
+        label: attrLabelMap[key] || customDef?.abbr || key.toUpperCase(),
+        name: attrNameMap[key] || customDef?.name || key.toUpperCase(),
         base,
         mod,
         preview: base + mod,
@@ -323,7 +357,7 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
   static #onAdjustAttribute(event, target) {
     const attr = target.dataset.attr;
     const delta = parseInt(target.dataset.delta, 10);
-    const base = Number(this.actor.system.attributes?.[attr]?.value ?? this.actor.system.attributes?.[attr] ?? 0);
+    const base = getAttributeValue(this.actor, attr);
     const curMod = this._attributeChanges[attr] || 0;
     const nextMod = curMod + delta;
 
@@ -480,12 +514,18 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
     // Apply attribute advancements (including negative reallocation moves)
     for (const [key, mod] of Object.entries(this._attributeChanges)) {
       if (mod !== 0) {
-        const currentAttribute = this.actor.system.attributes?.[key];
         const base = getAttributeValue(this.actor, key);
-        const path = currentAttribute && typeof currentAttribute === "object" && "value" in currentAttribute
-          ? `system.attributes.${key}.value`
-          : `system.attributes.${key}`;
-        updates[path] = base + mod;
+        const finalVal = base + mod;
+        if (key === "luck" || key === "lck") {
+          updates["system.attributes.luck"] = finalVal;
+          updates["system.attributes.lck"] = finalVal;
+        } else {
+          const currentAttribute = this.actor.system.attributes?.[key];
+          const path = currentAttribute && typeof currentAttribute === "object" && "value" in currentAttribute
+            ? `system.attributes.${key}.value`
+            : `system.attributes.${key}`;
+          updates[path] = finalVal;
+        }
       }
     }
 

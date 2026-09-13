@@ -904,19 +904,21 @@
 
                         <div class="srd-flowchart-nodes-cluster multi-branch-cluster">
                           {{#each tier.nodes as |node|}}
-                            <div class="srd-badge-node node-owned drawer-badge-node"
+                            <div class="srd-badge-node node-owned drawer-badge-node item"
+                                 data-item-id="{{node.id}}"
+                                 data-document-class="Item"
                                  data-talent-id="{{node.id}}">
                               
-                              <div class="badge-node-body" data-action="viewDoc" data-item-id="{{node.id}}" title="Inspect {{node.name}}">
+                              <div class="badge-node-body" data-action="viewDoc" data-item-id="{{node.id}}" data-document-class="Item" title="Inspect {{node.name}}">
                                 <span class="badge-node-title">{{node.name}}</span>
                                 <span class="badge-status-icon owned" title="Acquired"><i class="fas fa-check-circle"></i></span>
                               </div>
 
                               <div class="badge-node-actions">
-                                <button type="button" class="badge-btn view" data-action="viewDoc" data-item-id="{{node.id}}" title="Inspect Rules">
+                                <button type="button" class="badge-btn view" data-action="viewDoc" data-item-id="{{node.id}}" data-document-class="Item" title="Inspect Rules">
                                   <i class="fas fa-eye"></i>
                                 </button>
-                                <button type="button" class="badge-btn chat" data-action="postItemToChat" data-item-id="{{node.id}}" title="Share to Chat">
+                                <button type="button" class="badge-btn chat" data-action="postItemToChat" data-item-id="{{node.id}}" data-document-class="Item" title="Share to Chat">
                                   <i class="fas fa-comment-alt"></i>
                                 </button>
                               </div>

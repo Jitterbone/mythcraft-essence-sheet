@@ -847,12 +847,10 @@
             <h4><i class="fas fa-wand-magic"></i> Pick Spells:</h4>
             <div class="magic-attr-row">
               <label>Magic Attribute:</label>
-              <select name="magicAttr">
-                <option value="int" {{#if (eq data.magicAttribute 'int')}}selected{{/if}}>INT (Intelligence)</option>
-                <option value="awr" {{#if (eq data.magicAttribute 'awr')}}selected{{/if}}>AWR (Awareness)</option>
-                <option value="cha" {{#if (eq data.magicAttribute 'cha')}}selected{{/if}}>CHA (Charisma)</option>
-                <option value="str" {{#if (eq data.magicAttribute 'str')}}selected{{/if}}>STR (Strength)</option>
-                <option value="dex" {{#if (eq data.magicAttribute 'dex')}}selected{{/if}}>DEX (Dexterity)</option>
+              <select name="magicAttr" data-action="setMagicAttribute">
+                {{#each magicAttributeOptions as |opt|}}
+                  <option value="{{opt.key}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+                {{/each}}
               </select>
             </div>
             <div class="spells-selection-grid">

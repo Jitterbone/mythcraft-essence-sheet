@@ -14,13 +14,10 @@
       </h3>
       <div class="magic-attribute-selector" style="display: flex; align-items: center; gap: 8px;">
         <label for="magic-attr-select" style="font-size: 11px; font-weight: 700; color: #a8d5e2; text-transform: uppercase;"><i class="fas fa-wand-magic-sparkles"></i> Magic Attribute:</label>
-        <select id="magic-attr-select" class="magic-attr-dropdown" style="background: #151e24; color: #FEEBB3; border: 1px solid #246975; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: 700;">
-          <option value="int" {{#if (eq magicAttribute 'int')}}selected{{/if}}>INT (Intelligence)</option>
-          <option value="awr" {{#if (eq magicAttribute 'awr')}}selected{{/if}}>AWR (Awareness)</option>
-          <option value="cha" {{#if (eq magicAttribute 'cha')}}selected{{/if}}>CHA (Charisma)</option>
-          <option value="str" {{#if (eq magicAttribute 'str')}}selected{{/if}}>STR (Strength)</option>
-          <option value="dex" {{#if (eq magicAttribute 'dex')}}selected{{/if}}>DEX (Dexterity)</option>
-          <option value="end" {{#if (eq magicAttribute 'end')}}selected{{/if}}>END (Endurance)</option>
+        <select id="magic-attr-select" class="magic-attr-dropdown" name="system.attributes.magic" style="background: #151e24; color: #FEEBB3; border: 1px solid #246975; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: 700;">
+          {{#each magicAttributeOptions as |opt|}}
+            <option value="{{opt.key}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+          {{/each}}
         </select>
       </div>
     </div>

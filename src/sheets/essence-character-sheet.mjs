@@ -82,6 +82,7 @@ import {
   removeItemFromContainer,
 } from "../features/container-utils.mjs";
 import { applyMessageRollMode, getActiveRollMode } from "../features/roll-privacy.mjs";
+import { getMagicAttributeOptions } from "../features/homebrew-attributes.mjs";
 
 
 const MODULE_PATH = (p) => `modules/mythcraft-essence-sheet/templates/essence/character/${p}`;
@@ -2090,6 +2091,15 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       });
     }
 
+    // Magic Attribute selector listener
+    const magicAttrSelect = this.element.querySelector(".magic-attr-dropdown, #magic-attr-select");
+    if (magicAttrSelect) {
+      magicAttrSelect.addEventListener("change", async (event) => {
+        event.stopPropagation();
+        await this.actor.update({ "system.attributes.magic": event.target.value });
+      });
+    }
+
     // Max HP manual input listener (ensures true manual Max HP persists)
     const maxHpInput = this.element.querySelector("input[name='system.hp.max']");
     if (maxHpInput) {
@@ -3344,6 +3354,10 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     };
 
     if (partId === "spells") {
+      const curMagicAttr = this.actor.system?.attributes?.magic || "int";
+      context.magicAttribute = curMagicAttr;
+      context.magicAttributeOptions = getMagicAttributeOptions(curMagicAttr);
+
       const sources = mythcraft.CONFIG?.spells?.sources || {
         arcane: { label: "Arcane" },
         divine: { label: "Divine" },

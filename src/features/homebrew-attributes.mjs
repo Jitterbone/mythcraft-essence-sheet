@@ -333,3 +333,48 @@ export function patchAttributeSkillInput() {
   }
 }
 
+/**
+ * Generates the complete list of Magic Attribute options including all core attributes,
+ * Luck (LCK), Coordination (COR), Sanity (SAN if enabled), and any configured custom attributes.
+ * @param {string} [currentSelected="int"]
+ * @returns {Array<{ key: string, label: string, selected: boolean }>}
+ */
+export function getMagicAttributeOptions(currentSelected = "int") {
+  const normSelected = String(currentSelected || "int").toLowerCase().trim();
+  const baseOptions = [
+    { key: "int", abbr: "INT", name: "Intellect" },
+    { key: "awr", abbr: "AWR", name: "Awareness" },
+    { key: "cha", abbr: "CHA", name: "Charisma" },
+    { key: "str", abbr: "STR", name: "Strength" },
+    { key: "dex", abbr: "DEX", name: "Dexterity" },
+    { key: "end", abbr: "END", name: "Endurance" },
+    { key: "luck", abbr: "LCK", name: "Luck" },
+    { key: "cor", abbr: "COR", name: "Coordination" },
+  ];
+
+  const enableSanity = Boolean(game.settings?.get?.(MODULE_ID, "enableSanity") ?? false);
+  if (enableSanity) {
+    baseOptions.push({ key: "san", abbr: "SAN", name: "Sanity" });
+  }
+
+  const customAttrs = game.settings?.get?.(MODULE_ID, "customAttributes") ?? [];
+  if (Array.isArray(customAttrs)) {
+    for (const ca of customAttrs) {
+      const key = (typeof ca === "string" ? ca : ca?.key || ca?.id || "").toLowerCase().trim();
+      if (key && !baseOptions.some(o => o.key === key)) {
+        baseOptions.push({
+          key,
+          abbr: ca?.abbr || key.toUpperCase(),
+          name: ca?.name || key,
+        });
+      }
+    }
+  }
+
+  return baseOptions.map(opt => ({
+    key: opt.key,
+    label: `${opt.abbr} (${opt.name})`,
+    selected: opt.key === normSelected || (opt.key === "luck" && normSelected === "lck") || (opt.key === "lck" && normSelected === "luck"),
+  }));
+}
+

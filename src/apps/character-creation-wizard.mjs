@@ -36,6 +36,7 @@ import {
 } from "../features/equipment-icons.mjs";
 import { getSetting } from "../settings.mjs";
 import { getEnduranceThreshold, ENDURANCE_THRESHOLDS, calculateApMax } from "../features/hp-automation.mjs";
+import { getMagicAttributeOptions } from "../features/homebrew-attributes.mjs";
 
 const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
 
@@ -139,6 +140,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       selectTalent: this._onSelectTalent,
       toggleExtraTalent: this._onToggleExtraTalent,
       toggleSpell: this._onToggleSpell,
+      setMagicAttribute: this._onSetMagicAttribute,
       toggleCardExpand: this._toggleCardExpand,
       setSearch: this._setSearch,
       viewTalent: this._onViewTalent,
@@ -673,6 +675,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       filteredTalentGroups,
       extraTalentOptions,
       filteredSpells,
+      magicAttributeOptions: getMagicAttributeOptions(this.data.magicAttribute),
       hpData,
       setHpValue,
       isLastStep: this.currentStep === 6,

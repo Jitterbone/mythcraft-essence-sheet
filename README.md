@@ -1,4 +1,4 @@
-# MythCraft Essence Sheet (v0.6.3-beta) 📜✨
+# MythCraft Essence Sheet (v0.7.0-beta) 📜✨
 
 [![Latest Release](https://img.shields.io/github/v/release/Jitterbone/mythcraft-essence-sheet?style=flat&logo=github&logoColor=white&color=22c55e&label=Latest%20Release)](https://github.com/Jitterbone/mythcraft-essence-sheet/releases/latest)
 [![Foundry VTT](https://img.shields.io/badge/Foundry%20VTT-v14%20Verified-ff6400?style=flat)](https://foundryvtt.com)
@@ -200,6 +200,31 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 ---
 
 ## 📝 Changelog
+
+### v0.7.0-beta
+- **Item & Feature Explicit Tag Classification System**:
+  - Introduced an integrated tag tracking engine allowing items, talents, and lineage features to be classified with explicit structured tags (`Type: Lineage Feature`, `Type: Sublineage`, `Lineage: <Name>`, `Sublineage: <Name>`, `Class: <Name>`, `Track: <Name>`, `Category: <Category>`, `IsEntry: true`).
+  - Distinguishes **Starting Features** (automatically granted at character creation) from **Level Features** (available for selection at character creation and milestone levels 5, 10, 15, 20, 25, 29).
+  - Added an interactive **Explicit Tag Editor** directly on the Item Sheet with quick-tag pills, custom classification toggles, and live tag validation.
+- **Custom Compendium Content Manager**:
+  - Renamed and redesigned "Custom Talent Compendiums" to **Custom Compendium Content**.
+  - Expanded support beyond talents to include custom Lineages, Sublineages, Lineage Features, Classes, Subclasses, Specializations, and Magic packs.
+  - Granular configuration allows homebrew compendiums to seamlessly map into the Character Creation Wizard and Level-Up Progression.
+- **Class Tree Isolation & Parallel Subclass Branching Trees**:
+  - Overhauled class trees into distinct parent trees for each of the 13 canonical classes (*Berzerker*, *Cleric*, *Mage*, *Oracle*, *Pugilist*, *Ranger*, *Rogue*, *Tinkerer*, *Troubadour*, *Vessel*, *Warrior*, *Witch*, *Zealot*) and custom classes.
+  - Stripped numbered compendium prefixes (`3. Classes`, `Chapter 3: Classes`, etc.) so classes no longer bundle into a single mega-tree.
+  - Implemented the **Class Entry Gateway Altar** at the top of each class tree, feeding through a glowing tree-trunk splitter bar into a **parallel grid of subclass dropdown cards** with vertical tier stems and directional arrows.
+- **Lineage Multi-Depth Starting Feature Discovery**:
+  - Recursive folder scanning ensures starting features across nested compendium subfolders (`All [Lineage] Features` and `[Lineage] Starting Features`) are reliably discovered and automatically awarded.
+  - Safeguarded against lineages registering as sublineages of themselves.
+  - Prerequisite tracking enforces requirement checks before level features can be selected.
+- **Sheet UI Scale & Accessibility Setting**:
+  - Added a **Sheet UI Scale** setting under Quality of Life, allowing users to resize the interface from 75% to 150% (default 100%) for visual accessibility across different screen resolutions.
+  - Updates dynamically on open sheets without requiring a world reload.
+- **Quality of Life & Fixes**:
+  - Fixed Handlebars block tag balance in `level-up-dialog.hbs`.
+  - Removed temporary sheet themes to ensure visual consistency and focus on core stability.
+  - Enhanced prerequisite evaluation for level-up talent picking.
 
 ### v0.6.3-beta
 - **Soul Damage & Claimed Souls Weapon Mechanics (Homebrew / Optional Rules)**:

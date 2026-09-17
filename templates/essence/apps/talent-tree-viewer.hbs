@@ -82,7 +82,7 @@
                 {{#if tree.entryTalents.length}}
                   <div class="gateway-altar-container">
                     <div class="gateway-altar-heading">
-                      <i class="fas fa-sun"></i> Required Entry Gateway
+                      <i class="fas fa-crown"></i> {{tree.title}} Class Gateway &amp; Entry Talents
                     </div>
                     <div class="gateway-nodes-row">
                       {{#each tree.entryTalents as |node|}}
@@ -121,10 +121,12 @@
                         </div>
                       {{/each}}
                     </div>
-                    <div class="tree-trunk-stem">
-                      <div class="trunk-line"></div>
-                      <i class="fas fa-chevron-down trunk-arrow"></i>
-                    </div>
+                    {{#if tree.tracks.length}}
+                      <div class="tree-trunk-splitter-wrap">
+                        <div class="tree-trunk-line"></div>
+                        <div class="tree-branch-splitter-bar"></div>
+                      </div>
+                    {{/if}}
                   </div>
                 {{/if}}
 
@@ -135,12 +137,18 @@
                     <span>Select <strong>{{#each tree.entryTalents}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}}</strong> above to unlock the {{tree.title}} Magic stack and its talents.</span>
                   </div>
                 {{else if tree.tracks.length}}
-                  <div class="srd-tracks-flowchart-grid">
+                  <div class="srd-subclasses-parallel-grid">
                     {{#each tree.tracks as |track|}}
-                      <div class="srd-flowchart-track-card {{#if track.isStarted}}track-active{{/if}} {{#if track.isExpanded}}expanded{{else}}collapsed{{/if}}"
+                      <div class="srd-subclass-column-card {{#if track.isStarted}}track-active{{/if}} {{#if track.isExpanded}}expanded{{else}}collapsed{{/if}}"
                            data-track-title="{{track.trackTitle}}">
                         
-                        {{!-- Distinctive SRD Ornate Banner (Matching Official MythCraft SRD Diagram) --}}
+                        {{!-- Subclass Feeder Drop Line --}}
+                        <div class="subclass-feeder-stem">
+                          <div class="feeder-line"></div>
+                          <i class="fas fa-chevron-down feeder-arrow"></i>
+                        </div>
+
+                        {{!-- Distinctive SRD Ornate Subclass Banner --}}
                         <div class="srd-diagram-header-banner" data-action="toggleTrackExpand" data-track-title="{{track.trackTitle}}">
                           <div class="ornate-corner top-left"></div>
                           <div class="ornate-corner top-right"></div>

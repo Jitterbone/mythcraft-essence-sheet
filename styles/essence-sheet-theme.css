@@ -15495,50 +15495,82 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
   width: 100%;
 }
 
-.tree-trunk-stem {
+.tree-trunk-splitter-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: 100%;
   margin-top: 10px;
 }
 
-.tree-trunk-stem .trunk-line {
-  width: 2px;
+.tree-trunk-splitter-wrap .tree-trunk-line {
+  width: 3px;
   height: 24px;
-  background: linear-gradient(180deg, #FEEBB3 0%, #246975 100%);
-  box-shadow: 0 0 8px rgba(254, 235, 179, 0.5);
+  background: linear-gradient(180deg, #FEEBB3 0%, #38bdf8 100%);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
 }
 
-.tree-trunk-stem .trunk-arrow {
-  color: #246975;
-  font-size: 11px;
-  margin-top: -3px;
+.tree-trunk-splitter-wrap .tree-branch-splitter-bar {
+  width: 85%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent 0%, #38bdf8 15%, #FEEBB3 50%, #38bdf8 85%, transparent 100%);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
 }
 
 /* ============================================================
    Official MythCraft SRD Flowchart Diagram Track Styling
    ============================================================ */
 
+.srd-subclasses-parallel-grid,
 .srd-tracks-flowchart-grid {
   display: flex;
-  flex-direction: column;
-  gap: 28px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 24px;
   width: 100%;
 }
 
+.srd-subclass-column-card,
 .srd-flowchart-track-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 100%;
+  flex: 1 1 320px;
+  min-width: 280px;
+  max-width: 480px;
   background: rgba(14, 22, 28, 0.85);
   border: 1px solid rgba(42, 122, 127, 0.4);
   border-radius: 8px;
   padding: 16px;
   box-sizing: border-box;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+  position: relative;
 }
 
+.subclass-feeder-stem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: -16px;
+  margin-bottom: 8px;
+}
+
+.subclass-feeder-stem .feeder-line {
+  width: 2px;
+  height: 14px;
+  background: linear-gradient(180deg, #38bdf8 0%, #246975 100%);
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.3);
+}
+
+.subclass-feeder-stem .feeder-arrow {
+  color: #38bdf8;
+  font-size: 10px;
+  margin-top: -3px;
+}
+
+.srd-subclass-column-card.track-active,
 .srd-flowchart-track-card.track-active {
   border-color: rgba(254, 235, 179, 0.6);
   box-shadow: 0 0 20px rgba(254, 235, 179, 0.18);

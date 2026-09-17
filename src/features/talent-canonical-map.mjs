@@ -2808,11 +2808,42 @@ export function resolveTalentTrackInfo(item, { customTalentMap = new Map(), cust
     return { category, rootName, trackName, isEntry };
   }
 
-  // 3. Compendium Folder Hierarchy (Parent folder = Class, Secondary folder = Track)
+  // 3. Direct Canonical talent lookup (Exact matching for all official talents)
+  const canonicalMatch = NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[rawName.toLowerCase()];
+  if (canonicalMatch) {
+    return {
+      category: canonicalMatch.category,
+      rootName: canonicalMatch.parent,
+      trackName: canonicalMatch.track,
+      isEntry: Boolean(canonicalMatch.isEntry) || isEntry,
+    };
+  }
+
+  // Base name without parentheticals or roman numerals (e.g. "Second Skin: Heavy Armor (Chain Mail)" -> "Second Skin: Heavy Armor")
+  const baseStripped = docNameClean.replace(/\s*\([^)]*\)/g, "").replace(/\b(i|ii|iii|iv|v|vi|vii|viii|ix|x|\d+)\b/g, "").trim();
+  if (baseStripped && baseStripped !== docNameClean) {
+    const baseMatch = NORMALIZED_CANONICAL_TALENTS[baseStripped] || CANONICAL_TALENTS[baseStripped];
+    if (baseMatch) {
+      return {
+        category: baseMatch.category,
+        rootName: baseMatch.parent,
+        trackName: baseMatch.track,
+        isEntry: Boolean(baseMatch.isEntry) || isEntry,
+      };
+    }
+  }
+
+  // 4. Compendium Folder Hierarchy (Parent folder = Class, Secondary folder = Subclass/Track)
+  const cleanFolder = (f) => String(f || "").trim()
+    .replace(/^\d+[\.\s:_-]*/, "")
+    .replace(/^chapter\s*\d+[\s:_-]*/i, "")
+    .replace(/^part\s*\d+[\s:_-]*/i, "")
+    .trim();
+
   const rawChain = item._folderChain || (typeof item.folder === "object" ? [item.folder?.name] : []);
   const filteredChain = (Array.isArray(rawChain) ? rawChain : [])
-    .map(f => String(f || "").trim())
-    .filter(f => f && !/^(compendium|items?|core\s*rulebook|crb|talents?|class\s*talents?|classes|specializations?|magic\s*talents?)$/i.test(f));
+    .map(cleanFolder)
+    .filter(f => f && !/^(compendium|items?|core\s*rulebook|crb|talents?|class\s*talents?|classes|specializations?|magic\s*talents?|magic|disciplines?|features?)$/i.test(f));
 
   if (filteredChain.length >= 2) {
     const parentFolder = filteredChain[0];
@@ -2839,10 +2870,24 @@ export function resolveTalentTrackInfo(item, { customTalentMap = new Map(), cust
         trackName: (isEntry || /entry\b/i.test(docNameClean)) ? `${folder} Entry` : `${folder} Track`,
         isEntry: isEntry || /entry\b/i.test(docNameClean),
       };
+    } else if (MYTHCRAFT_CANONICAL_MAGIC.some(m => m.toLowerCase() === folder.toLowerCase())) {
+      return {
+        category: "magic",
+        rootName: folder,
+        trackName: (isEntry || /entry\b/i.test(docNameClean)) ? `${folder} Entry` : `${folder} Track`,
+        isEntry: isEntry || /entry\b/i.test(docNameClean),
+      };
+    } else if (MYTHCRAFT_CANONICAL_SPECS.some(s => s.toLowerCase() === folder.toLowerCase())) {
+      return {
+        category: "specialization",
+        rootName: folder,
+        trackName: "General",
+        isEntry: isEntry || /entry\b/i.test(docNameClean),
+      };
     }
   }
 
-  // 4. Custom Compendium Settings mapping
+  // 5. Custom Compendium Settings mapping
   const customMatch = cTalentMap.get(docNameClean) || cTalentMap.get(rawName.toLowerCase());
   const itemPack = (item.flags?.core?.sourceId || item._stats?.compendiumSource || item.pack || "").toLowerCase();
   let matchedCustom = customMatch || null;
@@ -2860,31 +2905,6 @@ export function resolveTalentTrackInfo(item, { customTalentMap = new Map(), cust
     trackName = matchedCustom.trackName || matchedCustom.track || "General";
     isEntry = isEntry || trackName.toLowerCase().includes("entry");
     return { category, rootName, trackName, isEntry };
-  }
-
-  // 5. Direct Canonical talent lookup
-  const canonicalMatch = NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[rawName.toLowerCase()];
-  if (canonicalMatch) {
-    return {
-      category: canonicalMatch.category,
-      rootName: canonicalMatch.parent,
-      trackName: canonicalMatch.track,
-      isEntry: Boolean(canonicalMatch.isEntry) || isEntry,
-    };
-  }
-
-  // Base name without parentheticals or roman numerals (e.g. "Second Skin: Heavy Armor (Chain Mail)" -> "Second Skin: Heavy Armor")
-  const baseStripped = docNameClean.replace(/\s*\([^)]*\)/g, "").replace(/\b(i|ii|iii|iv|v|vi|vii|viii|ix|x|\d+)\b/g, "").trim();
-  if (baseStripped && baseStripped !== docNameClean) {
-    const baseMatch = NORMALIZED_CANONICAL_TALENTS[baseStripped] || CANONICAL_TALENTS[baseStripped];
-    if (baseMatch) {
-      return {
-        category: baseMatch.category,
-        rootName: baseMatch.parent,
-        trackName: baseMatch.track,
-        isEntry: Boolean(baseMatch.isEntry) || isEntry,
-      };
-    }
   }
 
   // 3. Class Match (Checks 13 Canonical Classes)

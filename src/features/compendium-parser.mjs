@@ -2204,8 +2204,21 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
     let trackName = trackInfo.trackName;
     let isEntry = trackInfo.isEntry;
 
-    rootName = rootName.replace(/\s+stack$/i, "").replace(/\s+track$/i, "").replace(/\s+talents$/i, "").trim() || "General";
-    trackName = trackName.replace(/\s+stack$/i, "").replace(/\s+track$/i, "").replace(/\s+talents$/i, "").trim() || "General";
+    rootName = rootName
+      .replace(/^\d+[\.\s:_-]*/, "")
+      .replace(/^chapter\s*\d+[\s:_-]*/i, "")
+      .replace(/\s+stack$/i, "")
+      .replace(/\s+track$/i, "")
+      .replace(/\s+talents$/i, "")
+      .trim() || "General";
+
+    trackName = trackName
+      .replace(/^\d+[\.\s:_-]*/, "")
+      .replace(/^chapter\s*\d+[\s:_-]*/i, "")
+      .replace(/\s+stack$/i, "")
+      .replace(/\s+track$/i, "")
+      .replace(/\s+talents$/i, "")
+      .trim() || "General";
 
     const rootKey = `${category}:${rootName}`.toLowerCase();
     if (!rootTreeMap.has(rootKey)) {
@@ -2305,6 +2318,9 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
 
       for (const node of nodeMap.values()) {
         computeTier(node);
+        node.parentNames = node.parents.map(p => p.name);
+        node.hasParents = node.parents.length > 0;
+        node.hasChildren = node.children.length > 0;
       }
 
       const allNodes = Array.from(nodeMap.values());
@@ -2322,14 +2338,17 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
         .map(([tierNumber, nodes]) => ({
           tierNumber,
           label: `Tier ${tierNumber}`,
-          nodes,
+          nodes: nodes.sort((a, b) => a.name.localeCompare(b.name)),
         }));
 
-      const trackTitle = `${group.trackName.toUpperCase()} TRACK`;
+      const subclassName = group.trackName.replace(/ track$/i, "").replace(/ stack$/i, "").trim();
+      const trackTitle = `${subclassName.toUpperCase()} TRACK`;
       tracks.push({
         trackTitle,
+        subclassName,
         category: root.category,
         rootTitle: root.title,
+        entryNode: tiers[0]?.nodes?.[0] || null,
         nodes: allNodes,
         tiers,
         isStarted,

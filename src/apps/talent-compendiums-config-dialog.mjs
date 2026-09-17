@@ -75,6 +75,7 @@ export default class TalentCompendiumsConfigDialog extends HandlebarsApplication
       { key: "specialization", label: "Specialization Talents", icon: "fas fa-crosshairs" },
       { key: "magic", label: "Magic Talents", icon: "fas fa-wand-magic-sparkles" },
       { key: "lineage", label: "Ancestries & Lineages", icon: "fas fa-dna" },
+      { key: "sublineage", label: "Sublineage (Variants & Branches)", icon: "fas fa-code-branch" },
       { key: "lineage-starting", label: "Lineage Starting Features (Auto-Granted)", icon: "fas fa-star" },
       { key: "lineage-all", label: "Lineage All Features (Milestones / Choices)", icon: "fas fa-gem" },
       { key: "bops", label: "Backgrounds & Professions", icon: "fas fa-briefcase" },
@@ -93,7 +94,7 @@ export default class TalentCompendiumsConfigDialog extends HandlebarsApplication
       const selectedAcq = comp.acquisition || (
         selectedCat === "lineage-starting" ? "auto" :
         selectedCat === "lineage-all" ? "milestone" :
-        selectedCat === "lineage" || selectedCat === "bops" ? "wizard" : "tree"
+        selectedCat === "lineage" || selectedCat === "sublineage" || selectedCat === "bops" ? "wizard" : "tree"
       );
 
       // Inspect compendium folders
@@ -134,6 +135,7 @@ export default class TalentCompendiumsConfigDialog extends HandlebarsApplication
         isSpecialization: selectedCat === "specialization",
         isMagic: selectedCat === "magic",
         isLineage: selectedCat === "lineage",
+        isSublineage: selectedCat === "sublineage",
         isLineageStarting: selectedCat === "lineage-starting",
         isLineageAll: selectedCat === "lineage-all",
         isBops: selectedCat === "bops",

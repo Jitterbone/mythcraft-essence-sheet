@@ -852,7 +852,7 @@ export function getAvailableCompendiums() {
         if (!grouped.magic.includes(pack)) grouped.magic.push(pack);
       } else if (customEntry.category === "specialization") {
         if (!grouped.specTalents.includes(pack)) grouped.specTalents.push(pack);
-      } else if (customEntry.category === "lineage" || customEntry.category === "lineage-starting" || customEntry.category === "lineage-all") {
+      } else if (customEntry.category === "lineage" || customEntry.category === "sublineage" || customEntry.category === "lineage-starting" || customEntry.category === "lineage-all") {
         if (!grouped.lineages.includes(pack)) grouped.lineages.push(pack);
       } else if (customEntry.category === "bops" || customEntry.category === "background" || customEntry.category === "profession") {
         if (!grouped.bops.includes(pack)) grouped.bops.push(pack);
@@ -1979,11 +1979,12 @@ export function resolveLineageFeatures(selectedLineage, allLineageDocs = []) {
     const filteredChain = rawChain.filter(f => !/^(lineages?|ancestries?|compendium|items?)$/i.test(f.trim()));
 
     // Check if doc belongs to this ancestry via tags or folder chain
-    const tagAncestry = (tags.ancestry || tags.lineage || "").toLowerCase().replace(/lineage/i, "").trim();
+    const tagAncestry = (tags.ancestry || tags.lineage || doc._customParent || "").toLowerCase().replace(/lineage/i, "").trim();
     const folderAncestry = filteredChain.length > 0 ? filteredChain[0].toLowerCase().replace(/lineage/i, "").trim() : "";
     const belongsToLineage = (tagAncestry && (tagAncestry === baseName || tagAncestry === lineageFullName))
       || (folderAncestry && (folderAncestry === baseName || folderAncestry === lineageFullName))
-      || filteredChain.some(f => f.toLowerCase().includes(baseName));
+      || filteredChain.some(f => f.toLowerCase().includes(baseName))
+      || (doc._customCategory === "sublineage" && (!doc._customParent || doc._customParent.toLowerCase().replace(/lineage/i, "").trim() === baseName));
 
     if (!belongsToLineage) continue;
 
@@ -2011,13 +2012,14 @@ export function resolveLineageFeatures(selectedLineage, allLineageDocs = []) {
       continue;
     }
 
-    // C) Sublineages (Sublineage folder or tag e.g. "Wood Elf", "High Elf")
+    // C) Sublineages (Sublineage folder, tag, or custom sublineage compendium e.g. "Wood Elf", "High Elf")
     // Note: The lineage name itself or generic feature folders are NEVER sublineages
     const subFolder = filteredChain.find(f => {
       const norm = f.toLowerCase().replace(/lineage/i, "").trim();
       return norm && norm !== baseName && norm !== lineageFullName && !/^(starting|base|core|all|unique|choice|features|talents|traits|milestones)/i.test(f) && !f.toLowerCase().endsWith("features");
     });
-    const subName = tags.sublineage || subFolder;
+    const customSubName = doc._customCategory === "sublineage" ? (doc._customTrack || (filteredChain.length > 0 ? filteredChain[filteredChain.length - 1] : null) || doc._compendiumPack?.metadata?.label || doc._compendiumPack?.title || doc.name) : null;
+    const subName = tags.sublineage || customSubName || subFolder;
     if (subName) {
       const normSub = subName.toLowerCase().replace(/lineage/i, "").trim();
       if (normSub && normSub !== baseName && normSub !== lineageFullName && !/^(starting|base|core|all|unique|choice|features|talents|traits|milestones)/i.test(subName) && !subName.toLowerCase().endsWith("features")) {

@@ -111,10 +111,11 @@ export async function enrichText(content, options = {}) {
  */
 export function getEnrichedItemTags(item) {
   if (!item) return [];
-  const structured = extractTalentStructuredTags(item);
+  const isTalent = item.type === "talent";
+  const structured = isTalent ? extractTalentStructuredTags(item) : { directTags: [] };
   let tagNames = structured.directTags.length > 0 ? [...structured.directTags] : [];
 
-  const rawTags = item.system?.tags ?? item.system?.tagList ?? item.system?.properties ?? item._synthesizedTags ?? [];
+  const rawTags = item.system?.tags ?? item.system?.tagList ?? item.system?.properties ?? (isTalent ? item._synthesizedTags : []) ?? [];
   if (Array.isArray(rawTags)) {
     tagNames.push(...rawTags);
   } else if (rawTags instanceof Set) {

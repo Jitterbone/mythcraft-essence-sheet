@@ -94,19 +94,19 @@ export function registerSettings() {
     default: [],
   });
 
-  // ── TALENT TREES & COMPENDIUM SOURCES ─────────────────────────────────────
+  // ── CUSTOM COMPENDIUM CONTENT & SOURCES ─────────────────────────────────
 
   game.settings.registerMenu(MODULE_ID, "talentCompendiumsConfigMenu", {
-    name: "Custom Talent Compendiums & Tracks",
-    label: "Configure Talent Compendiums",
-    hint: "Register external or homebrew Item compendiums and map them into Class Tracks, Subclasses, Specialization Stacks, or Magic Disciplines.",
-    icon: "fas fa-diagram-project",
+    name: "Custom Compendium Content",
+    label: "Configure Custom Content & Compendiums",
+    hint: "Register external or homebrew Item compendiums and map them into Lineages, Starting Features, Milestone Features, Classes, Subclasses, Specializations, or Magic with tag-based classification and acquisition rules.",
+    icon: "fas fa-folder-tree",
     type: TalentCompendiumsConfigDialog,
     restricted: true,
   });
 
   game.settings.register(MODULE_ID, "customTalentCompendiums", {
-    name: "Custom Talent Compendiums",
+    name: "Custom Compendium Content",
     scope: "world",
     config: false,
     type: Array,
@@ -155,6 +155,34 @@ export function registerSettings() {
     config: false,
     type: Array,
     default: DEFAULT_CURRENCY_PRESETS,
+  });
+
+
+  game.settings.register(MODULE_ID, "sheetScale", {
+    name: "Sheet UI Scale / Zoom Level",
+    hint: "Scale the character, NPC, and item sheet interface for readability and accessibility (75% to 150%). Default is 100%.",
+    scope: "client",
+    config: true,
+    type: Number,
+    choices: {
+      0.75: "75% (Compact)",
+      0.80: "80%",
+      0.85: "85%",
+      0.90: "90%",
+      0.95: "95%",
+      1.0: "100% (Default)",
+      1.05: "105%",
+      1.10: "110%",
+      1.15: "115%",
+      1.20: "120%",
+      1.25: "125% (Large)",
+      1.35: "135%",
+      1.50: "150% (Extra Large)",
+    },
+    default: 1.0,
+    onChange: (value) => {
+      applySheetScale(value);
+    },
   });
 
   game.settings.register(MODULE_ID, "enableResourceAnimations", {
@@ -522,3 +550,16 @@ export function getSetting(key, defaultValue = true) {
     return defaultValue;
   }
 }
+
+/**
+ * Applies the configured UI scale to document.documentElement CSS variables.
+ * @param {number} [scale]
+ */
+export function applySheetScale(scale) {
+  const currentScale = scale !== undefined ? scale : Number(getSetting("sheetScale", 1.0)) || 1.0;
+  if (document.documentElement) {
+    document.documentElement.style.setProperty("--essence-sheet-scale", `${currentScale}`);
+  }
+}
+
+

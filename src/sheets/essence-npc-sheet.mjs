@@ -20,6 +20,7 @@ import { findTagDefinition, formatTagTitle } from "../data/tags-library.mjs";
 import { applyEffectiveArmorAndDefenses } from "../features/equipment-automation.mjs";
 import { applyMessageRollMode } from "../features/roll-privacy.mjs";
 import { getSetting } from "../settings.mjs";
+import { getFullAttributeName } from "../features/homebrew-attributes.mjs";
 
 
 
@@ -252,8 +253,26 @@ export default class EssenceNPCSheet extends NPCSheet {
   }
 
   static async #rollAttribute(event, target) {
-    const attribute = target.dataset.attribute;
-    if (attribute) this.actor.rollAttribute(attribute);
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const attribute = target.dataset?.attribute || target.closest("[data-attribute]")?.dataset?.attribute;
+    if (!attribute) return;
+    if (typeof this.actor.system?.rollAttribute === "function") {
+      return await this.actor.system.rollAttribute(attribute);
+    } else if (typeof this.actor.rollAttribute === "function") {
+      return await this.actor.rollAttribute(attribute);
+    }
+
+    // Direct fallback attribute roll
+    const attrVal = Number(this.actor.system?.attributes?.[attribute]?.value ?? this.actor.system?.attributes?.[attribute] ?? 0);
+    const formula = attrVal !== 0 ? (attrVal > 0 ? `1d20 + ${attrVal}` : `1d20 - ${Math.abs(attrVal)}`) : "1d20";
+    const fullAttrName = getFullAttributeName(attribute);
+    const AttributeRollClass = mythcraft?.rolls?.AttributeRoll || CONFIG.Dice?.rolls?.find(r => r.name === "AttributeRoll") || Roll;
+    const roll = new AttributeRollClass(formula, this.actor.getRollData(), {
+      attribute,
+      flavor: `${this.actor.name} - ${fullAttrName} Check`,
+    });
+    return roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }) });
   }
 
   static async #editAttribute(event, target) {
@@ -269,8 +288,26 @@ export default class EssenceNPCSheet extends NPCSheet {
   }
 
   static async #rollSkill(event, target) {
-    const skill = target.dataset.skill;
-    if (skill) this.actor.rollSkill(skill);
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const skill = target.dataset?.skill || target.closest("[data-skill]")?.dataset?.skill;
+    if (!skill) return;
+    if (typeof this.actor.system?.rollSkill === "function") {
+      return await this.actor.system.rollSkill(skill);
+    } else if (typeof this.actor.rollSkill === "function") {
+      return await this.actor.rollSkill(skill);
+    }
+
+    // Direct fallback skill roll
+    const skillBonus = Number(this.actor.system?.skills?.[skill]?.bonus ?? this.actor.system?.skills?.[skill]?.value ?? this.actor.system?.skills?.[skill] ?? 0);
+    const formula = skillBonus !== 0 ? (skillBonus > 0 ? `1d20 + ${skillBonus}` : `1d20 - ${Math.abs(skillBonus)}`) : "1d20";
+    const skillLabel = mythcraft?.CONFIG?.skills?.list?.[skill]?.label ? game.i18n.localize(mythcraft.CONFIG.skills.list[skill].label) : skill.charAt(0).toUpperCase() + skill.slice(1);
+    const AttributeRollClass = mythcraft?.rolls?.AttributeRoll || CONFIG.Dice?.rolls?.find(r => r.name === "AttributeRoll") || Roll;
+    const roll = new AttributeRollClass(formula, this.actor.getRollData(), {
+      skill,
+      flavor: `${this.actor.name} - ${skillLabel} Skill Check`,
+    });
+    return roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }) });
   }
 
   static async #rollInitiative(event, target) {

@@ -2570,6 +2570,11 @@ export function extractTalentStructuredTags(item) {
   const descSet = new Set();
   if (!item) return { directTags: [], descTags: [], allTags: [] };
 
+  // ONLY extract structured / parsed tags from text and hierarchy for talents
+  if (item.type && item.type !== "talent") {
+    return { directTags: [], descTags: [], allTags: [] };
+  }
+
   const addTagString = (str, targetSet = directSet) => {
     if (!str || typeof str !== "string") return;
     str.split(/[,;|\n\r]+/).map(s => s.trim().replace(/^•\s*/, "")).filter(Boolean).forEach(t => {
@@ -2668,7 +2673,91 @@ export function extractTalentStructuredTags(item) {
 }
 
 /**
+ * Parses explicit key-value structured tags (e.g. "class: Blood Hunter", "track: Order of the Lycan", "category: class", "ancestry: Elf")
+ * from an item's tags, properties, or flags.
+ * @param {Item|object} item
+ * @returns {{ class: string|null, track: string|null, category: string|null, isEntry: boolean, ancestry: string|null, lineage: string|null, sublineage: string|null, feature: string|null }}
+ */
+export function parseExplicitItemTags(item) {
+  const result = {
+    class: null,
+    track: null,
+    category: null,
+    isEntry: false,
+    ancestry: null,
+    lineage: null,
+    sublineage: null,
+    feature: null,
+  };
+  if (!item) return result;
+
+  const rawList = [];
+  const sysTags = item.system?.tags ?? item.system?.tagList ?? item.system?.properties;
+  if (Array.isArray(sysTags)) {
+    rawList.push(...sysTags);
+  } else if (sysTags instanceof Set) {
+    rawList.push(...Array.from(sysTags));
+  } else if (typeof sysTags === "object" && sysTags !== null) {
+    rawList.push(...Object.values(sysTags));
+  } else if (typeof sysTags === "string" && sysTags.trim()) {
+    rawList.push(...sysTags.split(/[,;\n\r|]+/));
+  }
+
+  // Check custom flags if present
+  const flags = item.flags?.["mythcraft-essence-sheet"] || {};
+  if (flags.class) result.class = String(flags.class).trim();
+  if (flags.track || flags.subclass) result.track = String(flags.track || flags.subclass).trim();
+  if (flags.category) result.category = String(flags.category).trim();
+  if (flags.ancestry || flags.lineage) result.ancestry = result.lineage = String(flags.ancestry || flags.lineage).trim();
+  if (flags.sublineage) result.sublineage = String(flags.sublineage).trim();
+  if (flags.feature) result.feature = String(flags.feature).trim();
+  if (flags.isEntry !== undefined) result.isEntry = Boolean(flags.isEntry);
+
+  for (const raw of rawList) {
+    if (!raw) continue;
+    const str = (typeof raw === "string" ? raw : (raw.name || raw.label || raw.value || raw.tag || "")).trim();
+    if (!str) continue;
+
+    const match = str.match(/^([a-zA-Z_-]+)\s*[:=]\s*(.+)$/);
+    if (match) {
+      const key = match[1].toLowerCase().replace(/[-_]/g, "");
+      const val = match[2].trim();
+      if (key === "class") result.class = val;
+      else if (key === "track" || key === "subclass" || key === "subtrack") result.track = val;
+      else if (key === "category") {
+        const catLow = val.toLowerCase();
+        result.category = catLow === "subclass" ? "class" : (catLow === "spec" ? "specialization" : catLow);
+      }
+      else if (key === "entry" || key === "isentry") result.isEntry = /^(true|1|yes)$/i.test(val);
+      else if (key === "ancestry" || key === "lineage") result.ancestry = result.lineage = val;
+      else if (key === "sublineage" || key === "subancestry") result.sublineage = val;
+      else if (key === "feature" || key === "featuretype") {
+        const featVal = val.toLowerCase();
+        if (/^(starting|base|core)/i.test(featVal)) result.feature = "starting";
+        else if (/^(all|unique|choice)/i.test(featVal)) result.feature = "all";
+        else result.feature = featVal;
+      }
+    } else if (/^entry$/i.test(str)) {
+      result.isEntry = true;
+    } else if (/^(starting|starting\s+features?|lineage\s+starting|base\s+features?|core\s+features?)$/i.test(str)) {
+      result.feature = "starting";
+    } else if (/^(all|all\s+features?|all\s+lineage\s+features?|unique\s+features?|choice\s+features?|unique)$/i.test(str)) {
+      result.feature = "all";
+    }
+  }
+
+  return result;
+}
+
+/**
  * Resolves comprehensive track and hierarchy categorization for any talent document.
+ * Priority:
+ * 1. Explicit item tags ("class: X", "track: Y", "category: Z", "entry: true")
+ * 2. Compendium folder hierarchy (parent folder = Class, secondary folder = Track)
+ * 3. Custom Compendium mapping
+ * 4. Direct Canonical talent lookup
+ * 5. Heuristic class/magic/spec matching
+ *
  * @param {Item|object} item
  * @param {object} [options]
  * @returns {{ category: string, rootName: string, trackName: string, isEntry: boolean }}
@@ -2687,7 +2776,30 @@ export function resolveTalentTrackInfo(item, { customTalentMap = new Map(), cust
   let trackName = "General";
   let isEntry = /entry\b/i.test(docNameClean);
 
-  // 0. Check Direct Custom Compendium flags/properties
+  // 1. Explicit Item Tags (Highest Precision)
+  const explicitTags = parseExplicitItemTags(item);
+  if (explicitTags.class || explicitTags.track || explicitTags.category) {
+    let cat = explicitTags.category;
+    let root = explicitTags.class;
+    let trk = explicitTags.track;
+    const entry = explicitTags.isEntry || isEntry;
+
+    if (root && !cat) {
+      cat = MYTHCRAFT_CANONICAL_MAGIC.some(m => m.toLowerCase() === root.toLowerCase()) ? "magic" : "class";
+    }
+    if (!cat) cat = "specialization";
+    if (!root) root = cat === "class" ? "Custom Class" : (cat === "magic" ? "Custom Magic" : "General");
+    if (!trk) trk = (entry || /entry\b/i.test(docNameClean)) ? `${root} Entry` : `${root} Track`;
+
+    return {
+      category: cat,
+      rootName: root,
+      trackName: trk,
+      isEntry: entry || /entry\b/i.test(trk) || /entry\b/i.test(docNameClean),
+    };
+  }
+
+  // 2. Direct Custom Compendium flags/properties
   if (item?._customCategory) {
     category = item._customCategory === "subclass" ? "class" : item._customCategory;
     rootName = item._customParent || (item._folderChain && item._folderChain.length > 0 ? item._folderChain[0] : (item._compendiumPack?.metadata?.label || item._compendiumPack?.title || "Custom"));
@@ -2696,7 +2808,41 @@ export function resolveTalentTrackInfo(item, { customTalentMap = new Map(), cust
     return { category, rootName, trackName, isEntry };
   }
 
-  // 1. Custom Compendium mapping
+  // 3. Compendium Folder Hierarchy (Parent folder = Class, Secondary folder = Track)
+  const rawChain = item._folderChain || (typeof item.folder === "object" ? [item.folder?.name] : []);
+  const filteredChain = (Array.isArray(rawChain) ? rawChain : [])
+    .map(f => String(f || "").trim())
+    .filter(f => f && !/^(compendium|items?|core\s*rulebook|crb|talents?|class\s*talents?|classes|specializations?|magic\s*talents?)$/i.test(f));
+
+  if (filteredChain.length >= 2) {
+    const parentFolder = filteredChain[0];
+    const secondaryFolder = filteredChain[1];
+    let cat = "class";
+    if (MYTHCRAFT_CANONICAL_MAGIC.some(m => m.toLowerCase() === parentFolder.toLowerCase()) || /magic|discipline/i.test(parentFolder)) {
+      cat = "magic";
+    } else if (MYTHCRAFT_CANONICAL_SPECS.some(s => s.toLowerCase() === parentFolder.toLowerCase()) || /specialization|spec\s*stack/i.test(parentFolder)) {
+      cat = "specialization";
+    }
+
+    return {
+      category: cat,
+      rootName: parentFolder,
+      trackName: secondaryFolder,
+      isEntry: isEntry || /entry\b/i.test(secondaryFolder) || /entry\b/i.test(docNameClean),
+    };
+  } else if (filteredChain.length === 1) {
+    const folder = filteredChain[0];
+    if (MYTHCRAFT_CANONICAL_CLASSES.some(c => c.toLowerCase() === folder.toLowerCase())) {
+      return {
+        category: "class",
+        rootName: folder,
+        trackName: (isEntry || /entry\b/i.test(docNameClean)) ? `${folder} Entry` : `${folder} Track`,
+        isEntry: isEntry || /entry\b/i.test(docNameClean),
+      };
+    }
+  }
+
+  // 4. Custom Compendium Settings mapping
   const customMatch = cTalentMap.get(docNameClean) || cTalentMap.get(rawName.toLowerCase());
   const itemPack = (item.flags?.core?.sourceId || item._stats?.compendiumSource || item.pack || "").toLowerCase();
   let matchedCustom = customMatch || null;
@@ -2716,7 +2862,7 @@ export function resolveTalentTrackInfo(item, { customTalentMap = new Map(), cust
     return { category, rootName, trackName, isEntry };
   }
 
-  // 2. Direct Canonical talent lookup
+  // 5. Direct Canonical talent lookup
   const canonicalMatch = NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[rawName.toLowerCase()];
   if (canonicalMatch) {
     return {

@@ -21,7 +21,7 @@ import { syncHomebrewAttributesToSystem, syncSoulDamageToSystem, patchAttributeS
 import { initLuckPointReroll } from "./features/luck-points.mjs";
 import { initPermissionsFix } from "./features/permissions-fix.mjs";
 import LevelUpDialog from "./apps/level-up-dialog.mjs";
-import { registerSettings } from "./settings.mjs";
+import { registerSettings, applySheetScale } from "./settings.mjs";
 
 import { findTagDefinition, getActiveTagsLibrary, syncCustomTagsToSystem, patchTagInputElement } from "./data/tags-library.mjs";
 import { getEnrichedItemTags, getActorCritHit, getActorCritFail, hasAstoundingCritical, makeExplodingDiceFormula, rollItemDamage } from "./sheets/essence-character-sheet.mjs";
@@ -51,6 +51,7 @@ Hooks.once("init", () => {
 
   // Register granular module settings
   registerSettings();
+  applySheetScale();
 
   // Register helpers before any initialization can render an Application.
   Handlebars.registerHelper("toUpperCase", (str) => typeof str === "string" ? str.toUpperCase() : String(str ?? ""));
@@ -887,6 +888,9 @@ Hooks.once("ready", async () => {
       console.warn(`${MODULE_ID} | Error setting default sheet classes:`, e);
     }
   }
+
+  // Ensure theme is applied on client ready
+  applyEssenceTheme();
 
   // Expose Tag, Defense, Damage, Combat, AP/SP & Rest API globally
   const moduleObj = game.modules.get(MODULE_ID);

@@ -3,13 +3,32 @@
   {{!-- ── 1. Header Overview Card ───────────────────────────────── --}}
   <div class="dialog-header-card">
     <div class="header-icon-box">
-      <i class="fas fa-diagram-project"></i>
+      <i class="fas fa-folder-tree"></i>
     </div>
     <div class="header-text-box">
-      <h2 class="dialog-title">Custom Talent Compendiums &amp; Tracks</h2>
+      <h2 class="dialog-title">Custom Compendium Content</h2>
       <p class="dialog-subtitle">
-        Register external or homebrew Item compendiums and map them into Class Tracks, Subclasses, Specialization Stacks, or Magic Disciplines for automated skill tree generation.
+        Register external and homebrew Item compendiums for Lineages, Starting Features, Milestone Features, Classes, Subclasses, Specializations, and Magic.
       </p>
+    </div>
+  </div>
+
+  {{!-- ── Tag System Quick Reference ─────────────────────────────── --}}
+  <div class="dialog-info-card" style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; padding: 10px 14px; margin-bottom: 12px;">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; color:#38bdf8; font-weight:700; font-size:12px;">
+      <i class="fas fa-tags"></i> Direct Item Tag Quick Reference
+    </div>
+    <p style="font-size:11px; color:#cbd5e1; margin:0 0 6px 0; line-height:1.4;">
+      You can organize content either by <strong>Compendium Folders</strong> or by adding explicit tags to your homebrew items (in <code>system.tags</code> or item properties):
+    </p>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; font-size:10.5px;">
+      <span style="background:rgba(30, 41, 59, 0.9); border:1px solid #475569; padding:2px 8px; border-radius:4px; color:#93c5fd;"><code>class: &lt;Class&gt;</code></span>
+      <span style="background:rgba(30, 41, 59, 0.9); border:1px solid #475569; padding:2px 8px; border-radius:4px; color:#93c5fd;"><code>track: &lt;Track&gt;</code></span>
+      <span style="background:rgba(30, 41, 59, 0.9); border:1px solid #475569; padding:2px 8px; border-radius:4px; color:#a7f3d0;"><code>ancestry: &lt;Name&gt;</code></span>
+      <span style="background:rgba(30, 41, 59, 0.9); border:1px solid #475569; padding:2px 8px; border-radius:4px; color:#a7f3d0;"><code>sublineage: &lt;Name&gt;</code></span>
+      <span style="background:rgba(30, 41, 59, 0.9); border:1px solid #475569; padding:2px 8px; border-radius:4px; color:#fde68a;"><code>feature: starting</code> (auto-granted)</span>
+      <span style="background:rgba(30, 41, 59, 0.9); border:1px solid #475569; padding:2px 8px; border-radius:4px; color:#fde68a;"><code>feature: all</code> (milestone pool)</span>
+      <span style="background:rgba(30, 41, 59, 0.9); border:1px solid #475569; padding:2px 8px; border-radius:4px; color:#f472b6;"><code>entry: true</code> (entry talent)</span>
     </div>
   </div>
 
@@ -26,7 +45,7 @@
     </div>
 
     <p class="section-desc">
-      Select an Item compendium from the dropdown or enter its package ID (e.g. <code>world.my-talents</code>). Choose whether it represents a Class, Subclass track, Specialization stack, or Magic discipline.
+      Select an Item compendium from the dropdown or enter its package ID (e.g. <code>world.my-talents</code>). Choose its content type and how items are acquired or displayed.
     </p>
 
     {{#if hasCustomCompendiums}}
@@ -61,6 +80,18 @@
                 </select>
               </div>
 
+              {{!-- Acquisition Mode Selection --}}
+              <div class="field-group cat-group">
+                <label class="field-lbl"><i class="fas fa-hand-holding-magic"></i> Acquisition Mode</label>
+                <select name="compendiums.{{comp.index}}.acquisition" class="acq-select">
+                  {{#each comp.acquisitionOptions as |acq|}}
+                    <option value="{{acq.key}}" {{#if acq.selected}}selected{{/if}}>
+                      {{acq.label}}
+                    </option>
+                  {{/each}}
+                </select>
+              </div>
+
               {{!-- Delete Button --}}
               <button type="button" 
                       class="delete-comp-btn" 
@@ -72,30 +103,30 @@
             </div>
 
             <div class="card-row-details">
-              {{!-- Parent Class / Stack / Discipline Name --}}
+              {{!-- Parent Class / Lineage / Stack / Discipline Name --}}
               <div class="field-group parent-group">
                 <label class="field-lbl">
                   <i class="fas fa-sitemap"></i>
-                  Parent Name (Class / Stack / Discipline)
+                  Parent Name (Class / Lineage / Stack / Discipline)
                 </label>
                 <input type="text"
                        name="compendiums.{{comp.index}}.parentName"
                        value="{{comp.parentName}}"
-                       placeholder="e.g. Warrior, Combat, Arcane, or Custom Class..."
-                       title="Assigns this compendium's tracks under a parent class, specialization stack, or magic discipline" />
+                       placeholder="e.g. Elf, Dwarf, Warrior, Combat Stack, Arcane..."
+                       title="Assigns this compendium's items under a parent lineage, class, specialization stack, or magic discipline" />
               </div>
 
-              {{!-- Optional Track Name Override --}}
+              {{!-- Optional Track / Sublineage Name Override --}}
               <div class="field-group track-group">
                 <label class="field-lbl">
                   <i class="fas fa-route"></i>
-                  Custom Track Name (Optional)
+                  Custom Track / Sublineage Name (Optional)
                 </label>
                 <input type="text"
                        name="compendiums.{{comp.index}}.trackName"
                        value="{{comp.trackName}}"
                        placeholder="Auto-detect from compendium folders"
-                       title="Optional: Force a specific track title instead of reading folder names" />
+                       title="Optional: Force a specific track or sublineage title instead of reading folder names" />
               </div>
             </div>
 
@@ -107,7 +138,7 @@
                 </div>
                 <div class="folders-tags-list">
                   {{#each comp.detectedFolders as |folderName|}}
-                    <span class="folder-chip" title="Automatically mapped to Classes and Subclasses"><i class="fas fa-folder"></i> {{folderName}}</span>
+                    <span class="folder-chip" title="Automatically mapped according to folder hierarchy"><i class="fas fa-folder"></i> {{folderName}}</span>
                   {{/each}}
                 </div>
               </div>
@@ -120,7 +151,7 @@
       <div class="empty-compendiums-state">
         <i class="fas fa-folder-open"></i>
         <h3>No Custom Compendiums Configured</h3>
-        <p>Click <strong>Add Compendium</strong> above to register homebrew or third-party talent packs into your skill trees.</p>
+        <p>Click <strong>Add Compendium</strong> above to register homebrew or third-party content packs for ancestries, classes, and talents.</p>
       </div>
     {{/if}}
 

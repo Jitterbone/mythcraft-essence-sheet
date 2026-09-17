@@ -25,6 +25,8 @@ import {
   resolveLineageFeatures,
   groupTalentsByStack,
   buildTalentTrees,
+  getDocumentFolderChain,
+  parseExplicitItemTags,
 } from "../features/compendium-parser.mjs";
 import {
   resolveEquipmentIcon,
@@ -162,11 +164,45 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.data.allLineageDocs = allLineageDocs;
 
     // Lineage folders contain features as well as the actual lineage item.
+    // A document is a Lineage if it is NOT inside a child features subfolder (e.g. "Starting Features" or "All Features")
+    // and its name matches the parent folder / ends with "lineage" / has type/category "lineage".
     const filteredLineages = allLineageDocs.filter(d => {
+      const rawChain = d._folderChain || getDocumentFolderChain(d) || [];
+      const filteredChain = rawChain.filter(f => !/^(lineages?|ancestries?|compendium|items?)$/i.test(f.trim()));
+
+      // If inside a child folder (e.g. "Starting Features", "All Features", "Features"), it is a feature, NOT a lineage
+      if (filteredChain.length >= 2) {
+        const subFolder = filteredChain[1].toLowerCase();
+        if (/^(starting|base|core|all|unique|choice|features|talents|traits|milestones)/i.test(subFolder) || subFolder.includes("features")) {
+          return false;
+        }
+      }
+
       const name = String(d.name || "").trim().toLowerCase();
+      const tags = parseExplicitItemTags(d);
+      if (tags.feature) return false; // Explicit feature tag
+
+      if (d.type === "lineage" || d.type === "ancestry" || d.system?.category === "lineage" || d.system?.category === "ancestry") {
+        return true;
+      }
+
+      if (name.endsWith(" lineage") || name.endsWith(" ancestry")) return true;
+
+      // If at root of a lineage folder (e.g. folder "Bhrunai", item "Bhrunai")
+      if (filteredChain.length === 1) {
+        const folderBase = filteredChain[0].toLowerCase().replace(/lineage/i, "").trim();
+        const itemBase = name.replace(/lineage/i, "").trim();
+        if (folderBase && itemBase === folderBase) return true;
+      }
+
       const folderName = String(d.folder?.name || d._source?.folder?.name || "").trim().toLowerCase();
-      const expectedName = folderName ? `${folderName} lineage` : "";
-      return (folderName && name === expectedName) || (!folderName && name.endsWith(" lineage"));
+      if (folderName) {
+        const folderBase = folderName.replace(/lineage/i, "").trim();
+        const itemBase = name.replace(/lineage/i, "").trim();
+        if (folderBase && itemBase === folderBase) return true;
+      }
+
+      return false;
     });
     this.data.lineages = filteredLineages;
     this.data.lineages.sort((a, b) => a.name.localeCompare(b.name));
@@ -633,7 +669,12 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       filteredProfessions,
       selectedLineage,
       lineageParsed,
-      baseStartingFeatures: lineageParsed.baseStartingFeatures || [],
+      baseStartingFeatures: (lineageParsed.baseStartingFeatures || []).map(f => ({
+        id: f.id || f._id,
+        name: f.name,
+        img: resolveItemIcon(f, f.img, "feature"),
+        description: f.system?.description?.value ?? f.system?.description ?? "",
+      })),
       sublineages: (lineageParsed.sublineages || []).map(s => ({
         ...s,
         isSelected: s.name === this.data.selectedSublineageName,
@@ -973,11 +1014,15 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
   static _onSelectLineageFeature(event, target) {
     const id = target.dataset.featureId || target.value;
     if (!id) return;
-    const isLocked = target.classList.contains("locked") || target.dataset.locked === "true";
-    if (isLocked) {
-      const tooltip = target.dataset.tooltip || "Prerequisites not met";
-      ui.notifications.warn(tooltip);
-      return;
+
+    const selectedLineage = this.data.lineages.find(l => l.id === this.data.selectedLineageId);
+    const featureDoc = (this.data.allLineageDocs || []).find(d => (d.id || d._id) === id);
+    if (featureDoc) {
+      const avail = checkTalentAvailability(featureDoc, [selectedLineage, ...(this.data.lineageStartingFeatures || [])]);
+      if (!avail.isAvailable) {
+        ui.notifications.warn(avail.prereqTooltip || "Prerequisites not met for this feature.");
+        return;
+      }
     }
 
     const maxCount = Number(target.dataset.maxCount) || this.data.lineageUniqueCount || 1;

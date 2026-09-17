@@ -62,22 +62,24 @@ export default class EssenceItemSheet extends MythCraftItemSheet {
     const library = getActiveTagsLibrary();
     const itemType = this.item.type || "item";
 
-    // Extract structured tags from subheader / description / properties in memory
-    const structured = extractTalentStructuredTags(this.item);
-    if (structured.directTags.length > 0) {
-      if (Array.isArray(context.system?.tags)) {
-        for (const t of structured.directTags) {
-          if (!context.system.tags.includes(t)) context.system.tags.push(t);
-        }
-      } else if (context.system?.tags && typeof context.system.tags === "object") {
-        let maxIdx = Object.keys(context.system.tags).length;
-        for (const t of structured.directTags) {
-          if (!Object.values(context.system.tags).includes(t)) {
-            context.system.tags[maxIdx++] = t;
+    // Extract structured tags from subheader / description / properties in memory ONLY for talents
+    if (this.item.type === "talent") {
+      const structured = extractTalentStructuredTags(this.item);
+      if (structured.directTags.length > 0) {
+        if (Array.isArray(context.system?.tags)) {
+          for (const t of structured.directTags) {
+            if (!context.system.tags.includes(t)) context.system.tags.push(t);
           }
+        } else if (context.system?.tags && typeof context.system.tags === "object") {
+          let maxIdx = Object.keys(context.system.tags).length;
+          for (const t of structured.directTags) {
+            if (!Object.values(context.system.tags).includes(t)) {
+              context.system.tags[maxIdx++] = t;
+            }
+          }
+        } else if (context.system && !context.system.tags) {
+          context.system.tags = [...structured.directTags];
         }
-      } else if (context.system && !context.system.tags) {
-        context.system.tags = [...structured.directTags];
       }
     }
 
@@ -293,8 +295,8 @@ export default class EssenceItemSheet extends MythCraftItemSheet {
     }
 
     // 4. Inject Claimed Souls & Soul Damage panel in Details tab (for weapon items)
-    if (detailsTab && this.item.type === "weapon" && !this.element.querySelector('.essence-item-claimed-souls-panel')) {
-      const isSoulDamageEnabled = getSetting("enableSoulDamage", false);
+    const isSoulDamageEnabled = getSetting("enableSoulDamage", false);
+    if (isSoulDamageEnabled && detailsTab && this.item.type === "weapon" && !this.element.querySelector('.essence-item-claimed-souls-panel')) {
       const isSoulWeapon = Boolean(
         this.item.flags?.["mythcraft-essence-sheet"]?.isSoulDamage ??
         this.item.system?.isSoulDamage ??
@@ -437,23 +439,25 @@ export default class EssenceItemSheet extends MythCraftItemSheet {
     }
 
     // 5. Inject Soul option into damage type select elements if not already present
-    const damageSelects = this.element.querySelectorAll("select[name*='damage'][name*='type'], select[name='system.damageType'], select[name='system.damage.type'], select[name='system.damage.0.type']");
-    damageSelects.forEach(sel => {
-      if (!sel.querySelector("option[value='soul']")) {
-        const opt = document.createElement("option");
-        opt.value = "soul";
-        opt.textContent = "Soul";
-        sel.appendChild(opt);
-      }
-      const isSoul = Boolean(
-        this.item.flags?.["mythcraft-essence-sheet"]?.isSoulDamage ||
-        this.item.flags?.["mythcraft-essence-sheet"]?.damageType === "soul" ||
-        this.item.system?.damage?.type === "soul" ||
-        this.item.system?.damageType === "soul"
-      );
-      if (isSoul && sel.value !== "soul") {
-        sel.value = "soul";
-      }
-    });
+    const isSoulWeapon = Boolean(
+      this.item.flags?.["mythcraft-essence-sheet"]?.isSoulDamage ||
+      this.item.flags?.["mythcraft-essence-sheet"]?.damageType === "soul" ||
+      this.item.system?.damage?.type === "soul" ||
+      this.item.system?.damageType === "soul"
+    );
+    if (isSoulDamageEnabled || isSoulWeapon) {
+      const damageSelects = this.element.querySelectorAll("select[name*='damage'][name*='type'], select[name='system.damageType'], select[name='system.damage.type'], select[name='system.damage.0.type']");
+      damageSelects.forEach(sel => {
+        if (!sel.querySelector("option[value='soul']")) {
+          const opt = document.createElement("option");
+          opt.value = "soul";
+          opt.textContent = "Soul";
+          sel.appendChild(opt);
+        }
+        if (isSoulWeapon && sel.value !== "soul") {
+          sel.value = "soul";
+        }
+      });
+    }
   }
 }

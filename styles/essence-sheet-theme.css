@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Signika:wght@400;600;700&display=swap');
+
 /* ============================================================
    MythCraft Essence Sheet — Theme CSS
    All rules scoped to .essence-sheet
@@ -15,7 +17,7 @@
      --mc-success:    #27ae60
    ============================================================ */
 
-/* ── Custom Properties ─────────────────────────────────────── */
+/* ── Custom Properties (Default Cyan Theme) ─────────────────── */
 .essence-sheet {
   --mc-bg:          #1a1a1a;
   --mc-bg-mid:      #222222;
@@ -45,9 +47,16 @@
   --mc-shadow-sm:   0 1px 4px rgba(0, 0, 0, 0.4);
   --mc-transition:  0.18s ease;
   --mc-font:        'Signika', 'Arial Narrow', sans-serif;
+  --mc-font-heading: 'Cinzel', serif;
+  --mc-font-header: 'Cinzel', serif;
 }
 
+
 /* ── Window Chrome ─────────────────────────────────────────── */
+:root {
+  --essence-sheet-scale: 1;
+}
+
 .essence-sheet {
   background: var(--mc-bg);
   color: var(--mc-text);
@@ -57,6 +66,7 @@
   border: 1px solid var(--mc-teal-dark);
   border-radius: var(--mc-radius-lg);
   overflow: hidden;
+  zoom: var(--essence-sheet-scale, 1);
 }
 
 .essence-sheet .window-content {
@@ -6284,12 +6294,106 @@
 .essence-item-sheet {
   background: linear-gradient(180deg, #1a1a1a 0%, #111111 40%, #0f0f0f 100%) !important;
   color: #fdfaf3;
+  overflow: hidden !important;
 }
 
 .essence-sheet.item .window-content,
 .essence-item-sheet .window-content {
   background: transparent !important;
-  padding: 12px 14px;
+  padding: 12px 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+.essence-sheet.item form,
+.essence-item-sheet form {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+.essence-sheet.item .sheet-header,
+.essence-item-sheet .sheet-header {
+  flex: 0 0 auto !important;
+}
+
+.essence-sheet.item nav.sheet-tabs,
+.essence-item-sheet nav.sheet-tabs,
+.essence-sheet.item nav.tabs,
+.essence-item-sheet nav.tabs {
+  flex: 0 0 auto !important;
+}
+
+.essence-sheet.item .sheet-body,
+.essence-item-sheet .sheet-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+.essence-sheet.item .tab,
+.essence-item-sheet .tab {
+  display: none;
+  box-sizing: border-box !important;
+}
+
+.essence-sheet.item .tab.active,
+.essence-item-sheet .tab.active {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding-right: 8px !important;
+  padding-bottom: 28px !important;
+  box-sizing: border-box !important;
+}
+
+/* Custom Scrollbar for Item Sheet Tabs */
+.essence-sheet.item .tab::-webkit-scrollbar,
+.essence-item-sheet .tab::-webkit-scrollbar,
+.essence-sheet.item .tab.active::-webkit-scrollbar,
+.essence-item-sheet .tab.active::-webkit-scrollbar {
+  width: 6px;
+}
+
+.essence-sheet.item .tab::-webkit-scrollbar-track,
+.essence-item-sheet .tab::-webkit-scrollbar-track,
+.essence-sheet.item .tab.active::-webkit-scrollbar-track,
+.essence-item-sheet .tab.active::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 3px;
+}
+
+.essence-sheet.item .tab::-webkit-scrollbar-thumb,
+.essence-item-sheet .tab::-webkit-scrollbar-thumb,
+.essence-sheet.item .tab.active::-webkit-scrollbar-thumb,
+.essence-item-sheet .tab.active::-webkit-scrollbar-thumb {
+  background: var(--mc-teal, #3a7a7f);
+  border-radius: 3px;
+}
+
+.essence-sheet.item .tab::-webkit-scrollbar-thumb:hover,
+.essence-item-sheet .tab::-webkit-scrollbar-thumb:hover,
+.essence-sheet.item .tab.active::-webkit-scrollbar-thumb:hover,
+.essence-item-sheet .tab.active::-webkit-scrollbar-thumb:hover {
+  background: var(--mc-gold, #FEEBB3);
 }
 
 /* ── Item Header ── */
@@ -6599,6 +6703,9 @@
   border-radius: 8px !important;
   padding: 12px 14px !important;
   margin: 12px 0 !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 100% !important;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(155, 215, 229, 0.2);
 }
 
@@ -13932,9 +14039,78 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
 }
 
 .extra-count-badge.complete {
-  background: rgba(34, 197, 94, 0.2);
-  color: #4ade80;
+  background: rgba(39, 174, 96, 0.25);
+  color: #2ecc71;
   border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+/* ── Lineage Milestone Features Grid (Level-Up Dialog) ── */
+.lineage-milestone-box {
+  border-color: #a855f7 !important;
+  background: linear-gradient(135deg, rgba(88, 28, 135, 0.25) 0%, #151e24 100%) !important;
+}
+
+.lineage-milestone-box h4 i {
+  color: #c084fc;
+}
+
+.milestone-features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.milestone-feature-card {
+  display: flex;
+  flex-direction: column;
+  background: #1e293b;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.milestone-feature-card:hover {
+  background: #334155;
+  border-color: #38bdf8;
+}
+
+.milestone-feature-card.selected {
+  background: rgba(45, 212, 191, 0.2);
+  border-color: #2dd4bf;
+  box-shadow: 0 0 8px rgba(45, 212, 191, 0.3);
+}
+
+.milestone-feature-card.locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-style: dashed;
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.milestone-feature-card.locked:hover {
+  border-color: #ef4444;
+}
+
+.milestone-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.milestone-name {
+  font-size: 11.5px;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.milestone-feature-card.selected .milestone-name {
+  color: #2dd4bf;
 }
 
 .locked-discipline-notice {

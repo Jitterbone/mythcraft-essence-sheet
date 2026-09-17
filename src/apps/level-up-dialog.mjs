@@ -23,6 +23,7 @@ import {
   checkTalentAvailability,
   parseTalentData,
   parseProfessionData,
+  resolveLineageFeatures,
 } from "../features/compendium-parser.mjs";
 import { resolveItemIcon, isDefaultIcon } from "../features/equipment-icons.mjs";
 import { getSetting } from "../settings.mjs";
@@ -76,6 +77,8 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       openTalentPicker: this.#onOpenTalentPicker,
       clearSelectedTalent: this.#onClearSelectedTalent,
       toggleExtraTalent: this.#onToggleExtraTalent,
+      selectMilestoneFeature: this.#onSelectMilestoneFeature,
+      clearSelectedMilestoneFeature: this.#onClearSelectedMilestoneFeature,
     },
   };
 
@@ -125,6 +128,10 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
     this._selectedTalent = null;
     this._selectedExtraTalentIds = [];
     this._cachedMagicTalents = null;
+
+    // Lineage Milestone Feature (Levels 5, 10, 15, 20, 25, 29)
+    this._selectedMilestoneFeatureId = null;
+    this._cachedLineageDocs = null;
   }
 
   /* ───────────────────────────────────────────────────────────────────────────
@@ -279,6 +286,54 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       };
     }
 
+    // Lineage Milestone Feature Options (Levels 5, 10, 15, 20, 25, 29)
+    let milestoneOptions = [];
+    let lineageName = "Lineage";
+    let selectedMilestoneFeature = null;
+
+    if (isLineageMilestone) {
+      const actorLineage = this.actor.items.find(i =>
+        i.type === "lineage" ||
+        (i.type === "feature" && (/lineage/i.test(i.name) || i.system?.category === "lineage" || i.flags?.["mythcraft-essence-sheet"]?.category === "lineage"))
+      );
+
+      if (actorLineage) {
+        lineageName = actorLineage.name.replace(/lineage/i, "").trim();
+        if (!this._cachedLineageDocs) {
+          const packs = getAvailableCompendiums();
+          this._cachedLineageDocs = await loadPacksDocuments(packs.lineages);
+        }
+        const lineageParsed = resolveLineageFeatures(actorLineage, this._cachedLineageDocs || []);
+        const allPool = lineageParsed.uniqueFeatures || [];
+
+        const ownedIds = new Set(this.actor.items.map(i => (i.id || i._id || "").toLowerCase()));
+        const ownedNames = new Set(this.actor.items.map(i => String(i.name || "").toLowerCase().trim()));
+
+        const unownedPool = allPool.filter(f =>
+          !ownedIds.has((f.id || f._id || "").toLowerCase()) &&
+          !ownedNames.has(String(f.name || "").toLowerCase().trim())
+        );
+
+        milestoneOptions = unownedPool.map(f => {
+          const fid = f.id || f._id;
+          const avail = checkTalentAvailability(f, this.actor.items, { effectiveLevel: tgtLvl });
+          const isSelected = this._selectedMilestoneFeatureId === fid;
+          if (isSelected) selectedMilestoneFeature = f;
+          return {
+            id: fid,
+            name: f.name,
+            img: resolveItemIcon(f, f.img, "feature"),
+            description: f.system?.description?.value ?? f.system?.description ?? "",
+            isAvailable: avail.isAvailable,
+            missingPrereqs: avail.missingPrereqs,
+            prereqTooltip: avail.prereqTooltip,
+            isSelected,
+            item: f,
+          };
+        }).sort((a, b) => a.name.localeCompare(b.name));
+      }
+    }
+
     return {
       actor: this.actor,
       currentLevel: curLvl,
@@ -296,6 +351,9 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       totalAttrPointsGained,
       attributesList,
       isLineageMilestone,
+      lineageName,
+      milestoneOptions,
+      selectedMilestoneFeature,
       increaseProfessionRank: this._increaseProfessionRank,
       selectedTalent: this._selectedTalent,
       currentHpMax: curHpMax,
@@ -427,6 +485,34 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       }
       this._selectedExtraTalentIds.push(id);
     }
+    this.render();
+  }
+
+  static #onSelectMilestoneFeature(event, target) {
+    const id = target.dataset.featureId;
+    if (!id) return;
+
+    if (this._selectedMilestoneFeatureId === id) {
+      this._selectedMilestoneFeatureId = null;
+      this.render();
+      return;
+    }
+
+    const featureDoc = (this._cachedLineageDocs || []).find(d => (d.id || d._id) === id);
+    if (featureDoc) {
+      const avail = checkTalentAvailability(featureDoc, this.actor.items, { effectiveLevel: this._targetLevel });
+      if (!avail.isAvailable) {
+        ui.notifications.warn(avail.prereqTooltip || "Prerequisites not met for this lineage feature.");
+        return;
+      }
+    }
+
+    this._selectedMilestoneFeatureId = id;
+    this.render();
+  }
+
+  static #onClearSelectedMilestoneFeature(event, target) {
+    this._selectedMilestoneFeatureId = null;
     this.render();
   }
 
@@ -578,9 +664,23 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
         if (stackTag && !this.actor.system?.powerLevel?.[stackTag]) {
           updates[`system.powerLevel.${stackTag}`] = parsed.magicPowerBonus || 1;
         }
-        if (parsed.magicAttribute && !this.actor.system?.attributes?.magic) {
-          updates["system.attributes.magic"] = parsed.magicAttribute;
+      }
+    }
+
+    // Apply selected lineage milestone feature (Levels 5, 10, 15, 20, 25, 29)
+    const isLineageMilestone = isLevelUp && [5, 10, 15, 20, 25, 29].includes(tgtLvl);
+    if (isLineageMilestone) {
+      if (this._selectedMilestoneFeatureId) {
+        const milestoneDoc = (this._cachedLineageDocs || []).find(d => (d.id || d._id) === this._selectedMilestoneFeatureId);
+        if (milestoneDoc?.toObject) {
+          const itemObj = milestoneDoc.toObject();
+          if (isDefaultIcon(itemObj.img)) {
+            itemObj.img = resolveItemIcon(itemObj, itemObj.img, "feature");
+          }
+          await this.actor.createEmbeddedDocuments("Item", [itemObj]);
         }
+      } else {
+        ui.notifications.warn("No lineage milestone feature was selected for this level-up. You can choose one later from compendiums.");
       }
     }
 

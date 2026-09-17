@@ -184,6 +184,42 @@
           </div>
         {{/if}}
 
+        {{#if isLineageMilestone}}
+          <div class="extra-talents-box level-up-extra-box lineage-milestone-box">
+            <h4>
+              <i class="fas fa-dna"></i> Level {{targetLevel}} Lineage Milestone: Choose 1 Feature from All {{lineageName}} Features:
+              <span class="extra-count-badge {{#if selectedMilestoneFeature}}complete{{/if}}">
+                {{#if selectedMilestoneFeature}}1 / 1 Selected{{else}}0 / 1 Selected{{/if}}
+              </span>
+            </h4>
+            {{#if milestoneOptions.length}}
+              <div class="milestone-features-grid">
+                {{#each milestoneOptions as |opt|}}
+                  <div class="milestone-feature-card {{#if opt.isSelected}}selected{{/if}} {{#unless opt.isAvailable}}locked{{/unless}}"
+                       data-action="selectMilestoneFeature"
+                       data-feature-id="{{opt.id}}"
+                       {{#unless opt.isAvailable}}title="{{opt.prereqTooltip}}"{{/unless}}>
+                    <div class="milestone-card-top">
+                      <img class="milestone-img" src="{{opt.img}}" alt="{{opt.name}}" width="24" height="24" style="width:24px; height:24px; min-width:24px; max-width:24px; object-fit:contain; border-radius:3px;" />
+                      <span class="milestone-name"><strong>{{opt.name}}</strong></span>
+                      {{#if opt.isSelected}}
+                        <i class="fas fa-check-circle milestone-status-icon selected" style="color:#2dd4bf; margin-left:auto;"></i>
+                      {{else if (not opt.isAvailable)}}
+                        <i class="fas fa-lock milestone-status-icon locked" style="color:#ef4444; margin-left:auto;" title="{{opt.prereqTooltip}}"></i>
+                      {{/if}}
+                    </div>
+                    {{#if opt.missingPrereqs.length}}
+                      <div class="milestone-req-badge" style="font-size:10px; color:#f87171; margin-top:2px;">Req: {{#each opt.missingPrereqs}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</div>
+                    {{/if}}
+                  </div>
+                {{/each}}
+              </div>
+            {{else}}
+              <p class="no-milestone-features-msg" style="font-size:11px; color:#94a3b8; font-style:italic; margin:4px 0;">No unacquired lineage features found in loaded compendiums.</p>
+            {{/if}}
+          </div>
+        {{/if}}
+
         <div class="prof-rank-toggle">
           <label>
             <input type="checkbox" name="increaseProfessionRank" {{#if increaseProfessionRank}}checked{{/if}} data-action="toggleProfessionRank" />

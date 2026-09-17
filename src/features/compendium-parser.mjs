@@ -16,8 +16,11 @@ import {
   isDisallowedTalentItem,
   resolveTalentTrackInfo,
   extractTalentStructuredTags,
+  parseExplicitItemTags,
 } from "./talent-canonical-map.mjs";
 import { resolveItemIcon } from "./equipment-icons.mjs";
+
+export { parseExplicitItemTags };
 
 /**
  * Recognized compendium titles and package IDs for official MythCraft content.
@@ -849,6 +852,12 @@ export function getAvailableCompendiums() {
         if (!grouped.magic.includes(pack)) grouped.magic.push(pack);
       } else if (customEntry.category === "specialization") {
         if (!grouped.specTalents.includes(pack)) grouped.specTalents.push(pack);
+      } else if (customEntry.category === "lineage" || customEntry.category === "lineage-starting" || customEntry.category === "lineage-all") {
+        if (!grouped.lineages.includes(pack)) grouped.lineages.push(pack);
+      } else if (customEntry.category === "bops" || customEntry.category === "background" || customEntry.category === "profession") {
+        if (!grouped.bops.includes(pack)) grouped.bops.push(pack);
+      } else if (customEntry.category === "equipment") {
+        if (!grouped.equipment.includes(pack)) grouped.equipment.push(pack);
       }
       continue;
     }
@@ -973,9 +982,11 @@ export async function loadPacksDocuments(packs, filter = {}) {
         doc._customCategory = pack._customCategory || null;
         doc._customParent = pack._customParent || null;
         doc._customTrack = pack._customTrack || null;
-        const structured = extractTalentStructuredTags(doc);
-        if (structured.directTags.length > 0) {
-          doc._synthesizedTags = structured.directTags;
+        if (doc.type === "talent") {
+          const structured = extractTalentStructuredTags(doc);
+          if (structured.directTags.length > 0) {
+            doc._synthesizedTags = structured.directTags;
+          }
         }
         documents.push(doc);
       }
@@ -1840,11 +1851,25 @@ export function resolveLineageFeatures(selectedLineage, allLineageDocs = []) {
 
   const rawDesc = String(selectedLineage.system?.description?.value ?? selectedLineage.system?.description ?? "");
   const baseName = selectedLineage.name.replace(/lineage/i, "").trim().toLowerCase();
+  const lineageFullName = String(selectedLineage.name || "").trim().toLowerCase();
 
-  // 1. Gather all documents belonging to this lineage
-  const candidates = allLineageDocs.filter(d => (d.id || d._id) !== (selectedLineage.id || selectedLineage._id));
+  // 1. Gather all candidate documents belonging to this lineage, strictly excluding the lineage item itself
+  const selectedId = String(selectedLineage.id || selectedLineage._id || "").toLowerCase();
+  const candidates = allLineageDocs.filter(d => {
+    const dId = String(d.id || d._id || "").toLowerCase();
+    if (dId && dId === selectedId) return false;
+    const dName = String(d.name || "").trim().toLowerCase();
+    const dBase = dName.replace(/lineage/i, "").trim();
+    if (dName === baseName || dName === lineageFullName || dBase === baseName) {
+      return false; // Exclude lineage document itself
+    }
+    if (d.type === "lineage" || d.type === "ancestry" || d.system?.category === "lineage" || d.system?.category === "ancestry") {
+      return false;
+    }
+    return true;
+  });
+
   const docMap = new Map();
-
   for (const doc of candidates) {
     const docId = (doc.id || doc._id || "").toLowerCase();
     const docName = String(doc.name || "").toLowerCase().trim();
@@ -1868,7 +1893,7 @@ export function resolveLineageFeatures(selectedLineage, allLineageDocs = []) {
     return null;
   };
 
-  // 2. Base Starting Features (strictly under "Starting Features" heading)
+  // 2. Base Starting Features (strictly under "Starting Features" heading in HTML description)
   const baseStartingFeatures = [];
   const startingMatch = rawDesc.match(/<h[23][^>]*>[^<]*starting features[^<]*<\/h[23]>([\s\S]*?)(?=<h[23]|$)/i);
   if (startingMatch) {
@@ -1878,13 +1903,13 @@ export function resolveLineageFeatures(selectedLineage, allLineageDocs = []) {
     const matches = [...beforeUnique.matchAll(/@UUID\[([^\]]+)\](?:\{([^}]+)\})?/gi)];
     for (const m of matches) {
       const item = resolveDoc(m[1], m[2]);
-      if (item && !baseStartingFeatures.some(f => f.id === item.id || f.name === item.name)) {
+      if (item && !baseStartingFeatures.some(f => (f.id || f._id) === (item.id || item._id) || f.name === item.name)) {
         baseStartingFeatures.push(item);
       }
     }
   }
 
-  // 3. Sublineages (under "Sublineage" heading, divided by <h4>)
+  // 3. Sublineages (under "Sublineage" heading in HTML, divided by <h4>)
   const sublineages = [];
   const subMatch = rawDesc.match(/<h[23][^>]*>[^<]*sublineage[^<]*<\/h[23]>([\s\S]*?)(?=<h[23]|$)/i);
   if (subMatch) {
@@ -1895,6 +1920,9 @@ export function resolveLineageFeatures(selectedLineage, allLineageDocs = []) {
       const hEnd = part.indexOf("</h4>");
       if (hEnd === -1) continue;
       const subName = part.substring(0, hEnd).replace(/<[^>]+>/g, "").trim();
+      const normSub = subName.toLowerCase().replace(/lineage/i, "").trim();
+      if (!normSub || normSub === baseName || normSub === lineageFullName) continue; // Lineage name is NOT a sublineage!
+
       const content = part.substring(hEnd + 5);
       const subDescMatch = content.match(/<p>([\s\S]*?)<\/p>/i);
       const subDesc = subDescMatch ? subDescMatch[1].replace(/<[^>]+>/g, "").trim() : "";
@@ -1903,7 +1931,7 @@ export function resolveLineageFeatures(selectedLineage, allLineageDocs = []) {
       const matches = [...content.matchAll(/@UUID\[([^\]]+)\](?:\{([^}]+)\})?/gi)];
       for (const m of matches) {
         const item = resolveDoc(m[1], m[2]);
-        if (item && !feats.some(f => f.id === item.id || f.name === item.name)) {
+        if (item && !feats.some(f => (f.id || f._id) === (item.id || item._id) || f.name === item.name)) {
           feats.push(item);
         }
       }
@@ -1925,7 +1953,7 @@ export function resolveLineageFeatures(selectedLineage, allLineageDocs = []) {
     const matches = [...gHtml.matchAll(/@UUID\[([^\]]+)\](?:\{([^}]+)\})?/gi)];
     for (const m of matches) {
       const item = resolveDoc(m[1], m[2]);
-      if (item && !choices.some(c => c.id === item.id)) {
+      if (item && !choices.some(c => c.id === (item.id || item._id))) {
         choices.push({
           id: item.id || item._id,
           name: m[2] || item.name,
@@ -1942,21 +1970,70 @@ export function resolveLineageFeatures(selectedLineage, allLineageDocs = []) {
     }
   }
 
-  // 5. Unique Feature Count
-  let uniqueCount = 0;
-  if (/choose\s+(?:two|2)\s+(?:additional\s+)?options/i.test(rawDesc)) {
-    uniqueCount = 2;
-  } else if (/unique\s+features?/i.test(rawDesc) || /choose\s+(?:one|1)\s+(?:additional\s+)?(?:feature|option)/i.test(rawDesc)) {
-    uniqueCount = 1;
+  // 5. Folder Hierarchy & Explicit Tag Integration (Homebrew / Compendium Folder structure)
+  // Hierarchy: Parent folder = Ancestry Name, Secondary folder = "(Lineage Name) Starting Features", "All (Lineage Name) Features", or Sublineage Name
+  const uniqueFolderFeatures = [];
+  for (const doc of candidates) {
+    const tags = parseExplicitItemTags(doc);
+    const rawChain = doc._folderChain || getDocumentFolderChain(doc) || [];
+    const filteredChain = rawChain.filter(f => !/^(lineages?|ancestries?|compendium|items?)$/i.test(f.trim()));
+
+    // Check if doc belongs to this ancestry via tags or folder chain
+    const tagAncestry = (tags.ancestry || tags.lineage || "").toLowerCase().replace(/lineage/i, "").trim();
+    const folderAncestry = filteredChain.length > 0 ? filteredChain[0].toLowerCase().replace(/lineage/i, "").trim() : "";
+    const belongsToLineage = (tagAncestry && (tagAncestry === baseName || tagAncestry === lineageFullName))
+      || (folderAncestry && (folderAncestry === baseName || folderAncestry === lineageFullName))
+      || filteredChain.some(f => f.toLowerCase().includes(baseName));
+
+    if (!belongsToLineage) continue;
+
+    const featureTag = tags.feature ? tags.feature.toLowerCase() : "";
+
+    // A) Starting / Core Features: "(Lineage Name) Starting Features", "Starting Features", "Core Features"
+    const isStartingFolder = filteredChain.some(f => /starting/i.test(f) || /^(base|core)\s+features?/i.test(f))
+      || (doc.folder?.name && /starting/i.test(doc.folder.name));
+    const isStartingTag = featureTag === "starting" || featureTag === "base" || featureTag === "core";
+    if (isStartingTag || isStartingFolder) {
+      if (!baseStartingFeatures.some(f => (f.id || f._id) === (doc.id || doc._id) || f.name === doc.name)) {
+        baseStartingFeatures.push(doc);
+      }
+      continue;
+    }
+
+    // B) All Features / Milestone / Unique: "All (Lineage Name) Features", "All Features", "Unique Features", "Choice Features"
+    const isAllFeaturesFolder = filteredChain.some(f => /^all\s+/i.test(f) || /all\s+.*features?/i.test(f) || /^(unique|choice|milestones?)(\s+features?|\s+options?)?$/i.test(f))
+      || (doc.folder?.name && (/^all\s+/i.test(doc.folder.name) || /all\s+.*features?/i.test(doc.folder.name)));
+    const isAllFeaturesTag = featureTag === "all" || featureTag === "unique" || featureTag === "choice" || featureTag === "milestone";
+    if (isAllFeaturesTag || isAllFeaturesFolder) {
+      if (!uniqueFolderFeatures.some(f => (f.id || f._id) === (doc.id || doc._id) || f.name === doc.name)) {
+        uniqueFolderFeatures.push(doc);
+      }
+      continue;
+    }
+
+    // C) Sublineages (Sublineage folder or tag e.g. "Wood Elf", "High Elf")
+    // Note: The lineage name itself or generic feature folders are NEVER sublineages
+    const subFolder = filteredChain.find(f => {
+      const norm = f.toLowerCase().replace(/lineage/i, "").trim();
+      return norm && norm !== baseName && norm !== lineageFullName && !/^(starting|base|core|all|unique|choice|features|talents|traits|milestones)/i.test(f) && !f.toLowerCase().endsWith("features");
+    });
+    const subName = tags.sublineage || subFolder;
+    if (subName) {
+      const normSub = subName.toLowerCase().replace(/lineage/i, "").trim();
+      if (normSub && normSub !== baseName && normSub !== lineageFullName && !/^(starting|base|core|all|unique|choice|features|talents|traits|milestones)/i.test(subName) && !subName.toLowerCase().endsWith("features")) {
+        let sub = sublineages.find(s => s.name.toLowerCase() === subName.toLowerCase());
+        if (!sub) {
+          sub = { name: subName, description: "", features: [] };
+          sublineages.push(sub);
+        }
+        if (!sub.features.some(f => (f.id || f._id) === (doc.id || doc._id) || f.name === doc.name)) {
+          sub.features.push(doc);
+        }
+      }
+    }
   }
 
   // 6. Unique Features Pool
-  const lineageFolderDocs = candidates.filter(doc => {
-    const chain = (doc._folderChain || getDocumentFolderChain(doc)).map(f => f.toLowerCase().trim());
-    const docName = String(doc.name || "").toLowerCase().trim();
-    return chain.some(f => f.includes(baseName)) || docName.includes(baseName);
-  });
-
   const assignedIds = new Set([
     ...baseStartingFeatures.map(f => (f.id || f._id || "").toLowerCase()),
     ...baseStartingFeatures.map(f => String(f.name || "").toLowerCase().trim()),
@@ -1964,17 +2041,37 @@ export function resolveLineageFeatures(selectedLineage, allLineageDocs = []) {
     ...choiceGroups.flatMap(g => g.choices.flatMap(c => [(c.id || "").toLowerCase(), String(c.name || "").toLowerCase().trim()])),
   ]);
 
-  const uniqueFeatures = [];
-  for (const doc of lineageFolderDocs) {
+  const uniqueFeatures = [...uniqueFolderFeatures];
+  for (const doc of candidates) {
     const dId = (doc.id || doc._id || "").toLowerCase();
     const dName = String(doc.name || "").toLowerCase().trim();
+    const dBase = dName.replace(/lineage/i, "").trim();
+    if (dName === baseName || dName === lineageFullName || dBase === baseName) continue; // Exclude lineage itself
     if (assignedIds.has(dId) || assignedIds.has(dName)) continue;
+
+    // Check if doc belongs to this lineage's folder chain
+    const chain = (doc._folderChain || getDocumentFolderChain(doc)).map(f => f.toLowerCase().trim());
+    const tags = parseExplicitItemTags(doc);
+    const tagAncestry = (tags.ancestry || tags.lineage || "").toLowerCase().replace(/lineage/i, "").trim();
+    const belongs = chain.some(f => f.includes(baseName)) || (tagAncestry && (tagAncestry === baseName || tagAncestry === lineageFullName));
+    if (!belongs) continue;
+
     if (uniqueFeatures.some(u => (u.id || u._id) === (doc.id || doc._id) || String(u.name || "").toLowerCase().trim() === dName)) continue;
     uniqueFeatures.push(doc);
   }
 
   // Sort unique features alphabetically
   uniqueFeatures.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+
+  // 7. Unique Feature Count
+  let uniqueCount = 0;
+  if (/choose\s+(?:two|2)\s+(?:additional\s+)?options/i.test(rawDesc)) {
+    uniqueCount = 2;
+  } else if (/unique\s+features?/i.test(rawDesc) || /choose\s+(?:one|1)\s+(?:additional\s+)?(?:feature|option)/i.test(rawDesc)) {
+    uniqueCount = 1;
+  } else if (uniqueFeatures.length > 0) {
+    uniqueCount = 1;
+  }
 
   return {
     baseStartingFeatures,

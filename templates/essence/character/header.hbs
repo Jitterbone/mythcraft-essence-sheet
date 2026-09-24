@@ -881,12 +881,108 @@
 
         {{!-- TALENTS TAB CONTENT (Flowchart Skill Tree in Side Drawer) --}}
         {{else if (eq sideDrawer.activeTab 'talents')}}
-          {{#if sideDrawer.talents.followedTracks.length}}
+          {{#if (or sideDrawer.talents.classTrees.length sideDrawer.talents.otherTrees.length)}}
             <div class="drawer-talents-container">
-              {{#each sideDrawer.talents.followedTracks as |track|}}
-                <div class="srd-flowchart-track-card drawer-track-flowchart">
+              
+              {{!-- CLASS TREES (Class Name -> Entry Talents -> Subclasses -> Flowchart Nodes) --}}
+              {{#each sideDrawer.talents.classTrees as |classTree|}}
+                <div class="srd-flowchart-track-card drawer-track-flowchart class-master-card">
                   
-                  {{!-- Ornate SRD Track Banner (Exact Match to Pop-up) --}}
+                  {{!-- Master Class Header Banner --}}
+                  <div class="srd-diagram-header-banner drawer-diagram-banner class-master-banner">
+                    <div class="ornate-corner top-left"></div>
+                    <div class="ornate-corner top-right"></div>
+                    <div class="ornate-corner bottom-left"></div>
+                    <div class="ornate-corner bottom-right"></div>
+                    
+                    <div class="banner-inner-content">
+                      <h4 class="srd-diagram-track-title"><i class="fas fa-shield-halved"></i> {{classTree.className}}</h4>
+                      <div class="track-summary-pills">
+                        <span class="track-pill owned"><i class="fas fa-check"></i> {{classTree.totalTalentsCount}} Talents</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {{!-- Entry Talent(s) Section Directly Below Header --}}
+                  {{#if classTree.entryTalents.length}}
+                    <div class="class-entry-talents-section">
+                      <div class="entry-section-label"><i class="fas fa-sparkles"></i> Entry Talent{{#if (gt classTree.entryTalents.length 1)}}s{{/if}}</div>
+                      <div class="srd-flowchart-nodes-cluster entry-cluster">
+                        {{#each classTree.entryTalents as |node|}}
+                          <div class="srd-badge-node node-owned drawer-badge-node item is-entry-node"
+                               data-item-id="{{node.id}}"
+                               data-document-class="Item"
+                               data-talent-id="{{node.id}}">
+                            <div class="badge-node-body" data-action="viewDoc" data-item-id="{{node.id}}" data-document-class="Item" title="Inspect {{node.name}}">
+                              <span class="badge-node-title">{{node.name}}</span>
+                              <span class="badge-status-icon owned" title="Acquired"><i class="fas fa-check-circle"></i></span>
+                            </div>
+                            <div class="badge-node-actions">
+                              <button type="button" class="badge-btn view" data-action="viewDoc" data-item-id="{{node.id}}" data-document-class="Item" title="Inspect Rules">
+                                <i class="fas fa-eye"></i>
+                              </button>
+                              <button type="button" class="badge-btn chat" data-action="postItemToChat" data-item-id="{{node.id}}" data-document-class="Item" title="Share to Chat">
+                                <i class="fas fa-comment-alt"></i>
+                              </button>
+                            </div>
+                          </div>
+                        {{/each}}
+                      </div>
+                    </div>
+                  {{/if}}
+
+                  {{!-- Subclasses with Subheader & Flowchart Tree Format --}}
+                  {{#each classTree.subclasses as |subclass|}}
+                    <div class="drawer-subclass-section">
+                      <div class="drawer-subclass-subheader">
+                        <span class="subclass-name"><i class="fas fa-code-branch"></i> {{subclass.subclassName}}</span>
+                        <span class="subclass-count-pill">{{subclass.talents.length}}</span>
+                      </div>
+
+                      <div class="srd-flowchart-canvas drawer-flowchart-canvas">
+                        {{#each subclass.tiers as |tier|}}
+                          <div class="srd-flowchart-tier-row" data-tier="{{tier.tierNumber}}">
+                            {{#unless @first}}
+                              <div class="srd-flowchart-tier-stem">
+                                <div class="stem-line"></div>
+                                <i class="fas fa-chevron-down stem-arrow"></i>
+                              </div>
+                            {{/unless}}
+
+                            <div class="srd-flowchart-nodes-cluster multi-branch-cluster">
+                              {{#each tier.nodes as |node|}}
+                                <div class="srd-badge-node node-owned drawer-badge-node item"
+                                     data-item-id="{{node.id}}"
+                                     data-document-class="Item"
+                                     data-talent-id="{{node.id}}">
+                                  <div class="badge-node-body" data-action="viewDoc" data-item-id="{{node.id}}" data-document-class="Item" title="Inspect {{node.name}}">
+                                    <span class="badge-node-title">{{node.name}}</span>
+                                    <span class="badge-status-icon owned" title="Acquired"><i class="fas fa-check-circle"></i></span>
+                                  </div>
+                                  <div class="badge-node-actions">
+                                    <button type="button" class="badge-btn view" data-action="viewDoc" data-item-id="{{node.id}}" data-document-class="Item" title="Inspect Rules">
+                                      <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button type="button" class="badge-btn chat" data-action="postItemToChat" data-item-id="{{node.id}}" data-document-class="Item" title="Share to Chat">
+                                      <i class="fas fa-comment-alt"></i>
+                                    </button>
+                                  </div>
+                                </div>
+                              {{/each}}
+                            </div>
+
+                          </div>
+                        {{/each}}
+                      </div>
+                    </div>
+                  {{/each}}
+
+                </div>
+              {{/each}}
+
+              {{!-- OTHER TRACKS (Magic, Specializations, etc.) --}}
+              {{#each sideDrawer.talents.otherTrees as |track|}}
+                <div class="srd-flowchart-track-card drawer-track-flowchart">
                   <div class="srd-diagram-header-banner drawer-diagram-banner">
                     <div class="ornate-corner top-left"></div>
                     <div class="ornate-corner top-right"></div>
@@ -901,11 +997,9 @@
                     </div>
                   </div>
 
-                  {{!-- Flowchart Graph Canvas (Horizontal & Tiered Distribution) --}}
                   <div class="srd-flowchart-canvas drawer-flowchart-canvas">
                     {{#each track.tiers as |tier|}}
                       <div class="srd-flowchart-tier-row" data-tier="{{tier.tierNumber}}">
-                        
                         {{#unless @first}}
                           <div class="srd-flowchart-tier-stem">
                             <div class="stem-line"></div>
@@ -919,12 +1013,10 @@
                                  data-item-id="{{node.id}}"
                                  data-document-class="Item"
                                  data-talent-id="{{node.id}}">
-                              
                               <div class="badge-node-body" data-action="viewDoc" data-item-id="{{node.id}}" data-document-class="Item" title="Inspect {{node.name}}">
                                 <span class="badge-node-title">{{node.name}}</span>
                                 <span class="badge-status-icon owned" title="Acquired"><i class="fas fa-check-circle"></i></span>
                               </div>
-
                               <div class="badge-node-actions">
                                 <button type="button" class="badge-btn view" data-action="viewDoc" data-item-id="{{node.id}}" data-document-class="Item" title="Inspect Rules">
                                   <i class="fas fa-eye"></i>
@@ -936,13 +1028,13 @@
                             </div>
                           {{/each}}
                         </div>
-
                       </div>
                     {{/each}}
                   </div>
 
                 </div>
               {{/each}}
+
             </div>
           {{else}}
             <p class="drawer-empty-msg">No talents acquired on this character yet.</p>

@@ -325,11 +325,22 @@ export default class EssenceNPCSheet extends NPCSheet {
     const attackBonus = Number(item.system?.attackBonus ?? item.system?.toHit ?? item.system?.attackModifier ?? 0);
     const defenseTarget = (item.system?.defense || item.system?.defenseTarget || "ar").toLowerCase();
 
-    // Claimed Souls Modifier (Soul Harvest)
-    const enableClaimed = Boolean(item.flags?.["mythcraft-essence-sheet"]?.enableClaimedSouls || item.system?.enableClaimedSouls);
-    const claimedSouls = enableClaimed ? Math.min(5, Math.max(0, Number(item.flags?.["mythcraft-essence-sheet"]?.claimedSouls ?? item.system?.claimedSouls ?? 0))) : 0;
+    // Consumed Souls Modifier only affects damage, not attack modifier
+    const enableClaimed = Boolean(
+      item.flags?.["mythcraft-essence-sheet"]?.enableClaimedSouls ||
+      item.flags?.["mythcraft-essence-sheet"]?.enableConsumedSouls ||
+      item.system?.enableClaimedSouls ||
+      item.system?.enableConsumedSouls
+    );
+    const claimedSouls = enableClaimed ? Math.min(5, Math.max(0, Number(
+      item.flags?.["mythcraft-essence-sheet"]?.consumedSouls ??
+      item.flags?.["mythcraft-essence-sheet"]?.claimedSouls ??
+      item.system?.consumedSouls ??
+      item.system?.claimedSouls ??
+      0
+    ))) : 0;
 
-    const totalBonus = attackBonus + claimedSouls;
+    const totalBonus = attackBonus;
     const formula = totalBonus !== 0 ? (totalBonus > 0 ? `1d20 + ${totalBonus}` : `1d20 - ${Math.abs(totalBonus)}`) : "1d20";
 
     const critHit = getActorCritHit(this.actor);

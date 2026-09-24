@@ -31,6 +31,7 @@ import {
   isDisallowedTalentItem,
   resolveTalentTrackInfo,
   extractTalentStructuredTags,
+  parseExplicitItemTags,
 } from "../features/talent-canonical-map.mjs";
 import { parseTalentData } from "../features/compendium-parser.mjs";
 import { RestDialog } from "../features/rest-automation.mjs";
@@ -293,9 +294,20 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
                           item.system?.affinity === true;
   const affinityBonus = hasItemAffinity ? 3 : 0;
 
-  // 4. Claimed Souls bonus (+X)
-  const enableClaimed = Boolean(item.flags?.["mythcraft-essence-sheet"]?.enableClaimedSouls || item.system?.enableClaimedSouls);
-  const claimedSouls = (isWeapon && enableClaimed) ? Math.min(5, Math.max(0, Number(item.flags?.["mythcraft-essence-sheet"]?.claimedSouls ?? item.system?.claimedSouls ?? 0))) : 0;
+  // 4. Consumed Souls bonus (+X Damage, max +5)
+  const enableClaimed = Boolean(
+    item.flags?.["mythcraft-essence-sheet"]?.enableClaimedSouls ||
+    item.flags?.["mythcraft-essence-sheet"]?.enableConsumedSouls ||
+    item.system?.enableClaimedSouls ||
+    item.system?.enableConsumedSouls
+  );
+  const claimedSouls = enableClaimed ? Math.min(5, Math.max(0, Number(
+    item.flags?.["mythcraft-essence-sheet"]?.consumedSouls ??
+    item.flags?.["mythcraft-essence-sheet"]?.claimedSouls ??
+    item.system?.consumedSouls ??
+    item.system?.claimedSouls ??
+    0
+  ))) : 0;
 
   // 5. Luck score (added on crits for weapons & spells)
   const luckScore = Number(actor.system?.attributes?.luck ?? 0);
@@ -392,7 +404,7 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
   if (isWeapon && weaponData?.isTwoHandedGrip) notes.push("2H Grip");
   if (attrModLabel) notes.push(attrModLabel);
   if (hasItemAffinity) notes.push("+3 Affinity");
-  if (claimedSouls > 0) notes.push(`+${claimedSouls} Claimed Souls`);
+  if (claimedSouls > 0) notes.push(`+${claimedSouls} Consumed Souls`);
   if (isCrit && luckScore) notes.push(`+${luckScore} LUCK`);
   const flavorSuffix = notes.length ? ` (Includes ${notes.join(", ")})` : "";
 
@@ -416,7 +428,9 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
         isDamageRoll: true,
         apDeducted: true,
         claimedSouls,
+        consumedSouls: claimedSouls,
         enableClaimedSouls: enableClaimed,
+        enableConsumedSouls: enableClaimed,
         attackerActorId: actor.id,
         attackerActorUuid: actor.uuid,
       },
@@ -445,8 +459,21 @@ export async function rollSpellItem(actor, item, { rollMode = null } = {}) {
     if (!allowed) return;
   }
 
-  const spellcastingAbility = actor.system?.sp?.attribute ?? "int";
-  let abilityMod = Number(actor.system?.attributes?.[spellcastingAbility] ?? 0);
+  const actorSpellAttrs = actor.flags?.["mythcraft-essence-sheet"]?.spellAttributes || {};
+  const spellItemAttr = actorSpellAttrs[item.id]
+    || item.flags?.["mythcraft-essence-sheet"]?.spellcastingAttribute
+    || item.system?.spellcastingAttribute
+    || item.system?.attribute;
+  const globalMagicAttr = actor.flags?.["mythcraft-essence-sheet"]?.magicAttribute
+    || actor.system?.sp?.attribute
+    || actor.system?.attributes?.magic
+    || "int";
+  const spellcastingAbility = String(spellItemAttr || globalMagicAttr).toLowerCase().trim();
+  const rawAttrVal = actor.system?.attributes?.[spellcastingAbility]?.value 
+    ?? actor.system?.attributes?.[spellcastingAbility] 
+    ?? (spellcastingAbility === "luck" ? actor.system?.attributes?.lck : (spellcastingAbility === "lck" ? actor.system?.attributes?.luck : undefined))
+    ?? 0;
+  let abilityMod = Number(rawAttrVal || 0);
 
   const powerLevels = actor.system?.powerLevel ?? {};
   const primarySource = Object.entries(powerLevels)
@@ -879,12 +906,23 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     const modifier = Number(item.system?.attackModifierValue ?? item.system?.attackModifier ?? 0);
     const luck = Number(this.actor.system?.attributes?.luck?.value ?? this.actor.system?.attributes?.luck ?? 0);
 
-    // Claimed Souls Modifier (Soul Harvest)
-    const enableClaimed = Boolean(item.flags?.["mythcraft-essence-sheet"]?.enableClaimedSouls || item.system?.enableClaimedSouls);
-    const claimedSouls = enableClaimed ? Math.min(5, Math.max(0, Number(item.flags?.["mythcraft-essence-sheet"]?.claimedSouls ?? item.system?.claimedSouls ?? 0))) : 0;
+    // Consumed Souls Modifier only affects damage, not attack modifier
+    const enableClaimed = Boolean(
+      item.flags?.["mythcraft-essence-sheet"]?.enableClaimedSouls ||
+      item.flags?.["mythcraft-essence-sheet"]?.enableConsumedSouls ||
+      item.system?.enableClaimedSouls ||
+      item.system?.enableConsumedSouls
+    );
+    const claimedSouls = enableClaimed ? Math.min(5, Math.max(0, Number(
+      item.flags?.["mythcraft-essence-sheet"]?.consumedSouls ??
+      item.flags?.["mythcraft-essence-sheet"]?.claimedSouls ??
+      item.system?.consumedSouls ??
+      item.system?.claimedSouls ??
+      0
+    ))) : 0;
 
     // MythCraft Rule: If LUCK < 0, subtract LUCK from every d20 roll
-    let formula = `1d20 + ${attrValue + modifier + claimedSouls}`;
+    let formula = `1d20 + ${attrValue + modifier}`;
     if (luck < 0) {
       formula = `${formula} - ${Math.abs(luck)}`;
     }
@@ -2168,9 +2206,39 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     if (magicAttrSelect) {
       magicAttrSelect.addEventListener("change", async (event) => {
         event.stopPropagation();
-        await this.actor.update({ "system.attributes.magic": event.target.value });
+        const val = event.target.value;
+        await this.actor.update({
+          "flags.mythcraft-essence-sheet.magicAttribute": val,
+          "system.sp.attribute": val,
+          "system.attributes.magic": val,
+        });
       });
     }
+
+    // Per-Spell Attribute dropdown listener
+    const spellAttrSelects = this.element.querySelectorAll(".spell-attribute-dropdown, [data-spell-attribute]");
+    spellAttrSelects.forEach(sel => {
+      sel.addEventListener("change", async (event) => {
+        event.stopPropagation();
+        event.preventDefault();
+        const itemId = event.currentTarget.dataset.itemId;
+        const val = event.currentTarget.value || "";
+        if (itemId) {
+          const currentFlags = foundry.utils.deepClone(this.actor.flags?.["mythcraft-essence-sheet"]?.spellAttributes || {});
+          if (val) {
+            currentFlags[itemId] = val;
+          } else {
+            delete currentFlags[itemId];
+          }
+          await this.actor.update({
+            "flags.mythcraft-essence-sheet.spellAttributes": currentFlags,
+          });
+        }
+      });
+      sel.addEventListener("click", (event) => {
+        event.stopPropagation();
+      });
+    });
 
     // Max HP manual input listener (ensures true manual Max HP persists)
     const maxHpInput = this.element.querySelector("input[name='system.hp.max']");
@@ -3227,46 +3295,10 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       return false;
     });
 
-    const drawerTrackMap = new Map();
-    for (const item of drawerTalentItems) {
-      const trackInfo = resolveTalentTrackInfo(item, { customTalentMap, customPackMap });
-      const category = trackInfo.category;
-      const rootName = trackInfo.rootName;
-      const trackName = trackInfo.trackName;
-      const isEntry = trackInfo.isEntry;
-
-      let groupKey;
-      if (category === "class" || category === "magic") {
-        groupKey = rootName.toUpperCase();
-      } else if (trackName && trackName.toLowerCase() !== "general" && trackName.toLowerCase() !== rootName.toLowerCase()) {
-        groupKey = `${rootName} — ${trackName}`.toUpperCase();
-      } else {
-        groupKey = rootName.toUpperCase();
-      }
-
-      if (!drawerTrackMap.has(groupKey)) {
-        drawerTrackMap.set(groupKey, {
-          groupKey,
-          rootName: rootName.toUpperCase(),
-          trackName: trackName.toUpperCase(),
-          category,
-          talents: [],
-        });
-      }
-      drawerTrackMap.get(groupKey).talents.push({
-        id: item.id,
-        item,
-        name: item.name,
-        img: item.img || "icons/svg/aura.svg",
-        essenceCost: Number(item.flags?.["mythcraft-essence-sheet"]?.essenceCost ?? item.system?.essenceCost ?? 0),
-        isEntry,
-      });
-    }
-
-    // Compute hierarchical flowchart tiers for each followed track in the drawer
-    for (const group of drawerTrackMap.values()) {
+    // Helper function to build tiered flowchart graph for a talent list
+    function buildTiersForDrawerTalents(talentList) {
       const nodeMap = new Map();
-      for (const t of group.talents) {
+      for (const t of talentList) {
         const parsed = parseTalentData(t.item);
         nodeMap.set(t.name.toLowerCase().trim(), {
           ...t,
@@ -3293,18 +3325,6 @@ export default class EssenceCharacterSheet extends CharacterSheet {
           if (pNode && pNode !== node && !node.parents.includes(pNode)) {
             pNode.children.push(node);
             node.parents.push(pNode);
-          }
-        }
-      }
-
-      // If this group is a class or magic track and has an entry node,
-      // any non-entry node that still has no parents branches from the entry node
-      const entryNode = Array.from(nodeMap.values()).find(n => n.isEntry);
-      if (entryNode && (group.category === "class" || group.category === "magic")) {
-        for (const node of nodeMap.values()) {
-          if (node !== entryNode && node.parents.length === 0) {
-            entryNode.children.push(node);
-            node.parents.push(entryNode);
           }
         }
       }
@@ -3338,7 +3358,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         tierMap.get(tNum).push(n);
       }
 
-      group.tiers = Array.from(tierMap.entries())
+      return Array.from(tierMap.entries())
         .sort((a, b) => a[0] - b[0])
         .map(([tierNumber, nodes]) => ({
           tierNumber,
@@ -3346,7 +3366,202 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         }));
     }
 
-    const drawerFollowedTracks = Array.from(drawerTrackMap.values()).sort((a, b) => a.groupKey.localeCompare(b.groupKey));
+    function cleanClassName(name) {
+      if (!name) return "";
+      let s = String(name).trim();
+      s = s.replace(/\s*entry\s*talents?$/i, "")
+           .replace(/\s*entry$/i, "")
+           .replace(/\s*talents?$/i, "")
+           .replace(/\s*class$/i, "")
+           .trim();
+      return s || name;
+    }
+
+    // Gather active class entry names / class identities on the actor
+    const actorEntryClasses = [];
+    for (const item of drawerTalentItems) {
+      const rawName = String(item.name || "").trim();
+      const norm = normalizeTalentName(rawName);
+      if (/entry\b/i.test(rawName) || /entry\b/i.test(norm)) {
+        const cls = cleanClassName(rawName);
+        if (cls && !actorEntryClasses.some(c => c.toLowerCase() === cls.toLowerCase())) {
+          actorEntryClasses.push(cls);
+        }
+      }
+    }
+    const actorDetailClass = cleanClassName(String(this.actor.system?.details?.class || this.actor.system?.class || "").trim());
+    if (actorDetailClass && !actorEntryClasses.some(c => c.toLowerCase() === actorDetailClass.toLowerCase())) {
+      actorEntryClasses.push(actorDetailClass);
+    }
+
+    const classTreeMap = new Map();
+    const otherTrackMap = new Map();
+
+    for (const item of drawerTalentItems) {
+      const trackInfo = resolveTalentTrackInfo(item, { customTalentMap, customPackMap });
+      const category = trackInfo.category;
+      let rootName = trackInfo.rootName;
+      let trackName = trackInfo.trackName;
+      const isEntry = trackInfo.isEntry || /entry\b/i.test(item.name);
+
+      const talentEntry = {
+        id: item.id,
+        item,
+        name: item.name,
+        img: item.img || "icons/svg/aura.svg",
+        essenceCost: Number(item.flags?.["mythcraft-essence-sheet"]?.essenceCost ?? item.system?.essenceCost ?? 0),
+        isEntry,
+      };
+
+      if (category === "class") {
+        let finalClassName = cleanClassName(rootName);
+        let finalSubclassName = trackName;
+
+        // If rootName is generic (e.g. "Class", "Classes", "General") or matches an entry class
+        const isGenericRoot = !finalClassName || /^(class|classes|general|specialization|class\s*talents?)$/i.test(finalClassName.trim());
+        if (isGenericRoot) {
+          if (actorEntryClasses.length > 0) {
+            finalClassName = actorEntryClasses[0];
+          } else {
+            finalClassName = "Class";
+          }
+        }
+
+        if (isEntry || /entry\b/i.test(item.name)) {
+          finalClassName = cleanClassName(item.name) || finalClassName;
+          finalSubclassName = `${finalClassName} Entry`;
+        } else {
+          // Check explicit item tags or direct tags for subclass name (e.g. "Spellblade")
+          const explicitTags = parseExplicitItemTags(item);
+          const { directTags } = extractTalentStructuredTags(item);
+          const subclassTag = explicitTags.track || directTags.find(t => {
+            const tLow = t.toLowerCase().trim();
+            return !/^(class|classes|talent|talents|feature|features|crb|heroic|entry|specialization|general)$/i.test(tLow) && tLow !== finalClassName.toLowerCase();
+          });
+
+          if (subclassTag) {
+            finalSubclassName = subclassTag;
+          } else if (actorEntryClasses.some(c => c.toLowerCase() === finalClassName.toLowerCase())) {
+            // finalClassName is already the class (e.g. "Mage")
+          } else if (actorEntryClasses.length > 0 && finalClassName && !/^(class|classes)$/i.test(finalClassName)) {
+            // finalClassName was actually the subclass name
+            finalSubclassName = finalClassName;
+            finalClassName = actorEntryClasses[0];
+          }
+
+          // If subclassName is generic or identical to className, resolve from folders or prerequisites
+          const isGenericSub = !finalSubclassName || /^(class|classes|general|class\s*talents?|specialization)$/i.test(finalSubclassName.trim()) || finalSubclassName.toLowerCase() === finalClassName.toLowerCase();
+          if (isGenericSub) {
+            const rawChain = item._folderChain || (typeof item.folder === "object" ? [item.folder?.name] : []);
+            const validFolder = (Array.isArray(rawChain) ? rawChain : [])
+              .map(f => String(f || "").trim())
+              .find(f => f && !/^(compendiums?|items?|core\s*rulebook|crb|talents?|class\s*talents?|classes?|subclasses?|specializations?|magic\s*talents?|magic|disciplines?|features?)$/i.test(f) && f.toLowerCase() !== finalClassName.toLowerCase());
+
+            if (validFolder) {
+              finalSubclassName = validFolder;
+            } else {
+              const parsed = parseTalentData(item);
+              if (parsed.prerequisites && parsed.prerequisites.length > 0) {
+                finalSubclassName = parsed.prerequisites[0];
+              } else {
+                finalSubclassName = item.name;
+              }
+            }
+          }
+        }
+
+        const clsKey = finalClassName.toUpperCase();
+        if (!classTreeMap.has(clsKey)) {
+          classTreeMap.set(clsKey, {
+            className: finalClassName,
+            entryTalents: [],
+            subclassMap: new Map(),
+            talents: [],
+          });
+        }
+        const classObj = classTreeMap.get(clsKey);
+        classObj.talents.push(talentEntry);
+
+        if (isEntry || /entry\b/i.test(item.name) || /entry\b/i.test(finalSubclassName)) {
+          classObj.entryTalents.push(talentEntry);
+        } else {
+          const subKey = finalSubclassName.toUpperCase();
+          if (!classObj.subclassMap.has(subKey)) {
+            classObj.subclassMap.set(subKey, {
+              subclassName: finalSubclassName,
+              talents: [],
+            });
+          }
+          classObj.subclassMap.get(subKey).talents.push(talentEntry);
+        }
+      } else {
+        let groupKey;
+        if (category === "magic") {
+          groupKey = rootName.toUpperCase();
+        } else if (trackName && trackName.toLowerCase() !== "general" && trackName.toLowerCase() !== rootName.toLowerCase()) {
+          groupKey = `${rootName} — ${trackName}`.toUpperCase();
+        } else {
+          groupKey = rootName.toUpperCase();
+        }
+
+        if (!otherTrackMap.has(groupKey)) {
+          otherTrackMap.set(groupKey, {
+            groupKey,
+            rootName: rootName.toUpperCase(),
+            trackName: trackName.toUpperCase(),
+            category,
+            talents: [],
+          });
+        }
+        otherTrackMap.get(groupKey).talents.push(talentEntry);
+      }
+    }
+
+    // Unify subclass clusters if multiple fragments share a common root talent
+    for (const classObj of classTreeMap.values()) {
+      const nonEntryTalents = classObj.talents.filter(t => !t.isEntry);
+      if (nonEntryTalents.length > 0 && classObj.subclassMap.size > 1) {
+        // Find if all non-entry talents connect to a single root node or tag
+        const allParsed = nonEntryTalents.map(t => ({ talent: t, parsed: parseTalentData(t.item) }));
+        const rootCandidate = allParsed.find(p => p.parsed.prerequisites.length === 0);
+        if (rootCandidate) {
+          const unifiedName = rootCandidate.talent.name;
+          const unifiedTalents = Array.from(classObj.subclassMap.values()).flatMap(s => s.talents);
+          classObj.subclassMap.clear();
+          classObj.subclassMap.set(unifiedName.toUpperCase(), {
+            subclassName: unifiedName,
+            talents: unifiedTalents,
+          });
+        }
+      }
+    }
+
+    const classTrees = Array.from(classTreeMap.values())
+      .sort((a, b) => a.className.localeCompare(b.className))
+      .map(c => {
+        const subclasses = Array.from(c.subclassMap.values())
+          .sort((a, b) => a.subclassName.localeCompare(b.subclassName))
+          .map(sub => ({
+            subclassName: sub.subclassName,
+            talents: sub.talents,
+            tiers: buildTiersForDrawerTalents(sub.talents),
+          }));
+        return {
+          className: c.className,
+          entryTalents: c.entryTalents.sort((a, b) => a.name.localeCompare(b.name)),
+          subclasses,
+          totalTalentsCount: c.talents.length,
+        };
+      });
+
+    const otherTrees = Array.from(otherTrackMap.values())
+      .sort((a, b) => a.groupKey.localeCompare(b.groupKey))
+      .map(track => ({
+        ...track,
+        tiers: buildTiersForDrawerTalents(track.talents),
+      }));
+
+    const drawerFollowedTracks = [...otherTrees];
 
     context.sideDrawer = {
       activeTab: this.activeSideDrawerTab || null,
@@ -3378,9 +3593,11 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         hasAny: equippedHandList.length > 0,
       },
       talents: {
+        classTrees,
+        otherTrees,
         followedTracks: drawerFollowedTracks,
         count: drawerTalentItems.length,
-        tracksCount: drawerFollowedTracks.length,
+        tracksCount: classTrees.length + otherTrees.length,
       },
     };
 
@@ -3442,7 +3659,10 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     };
 
     if (partId === "spells") {
-      const curMagicAttr = this.actor.system?.attributes?.magic || "int";
+      const curMagicAttr = this.actor.flags?.["mythcraft-essence-sheet"]?.magicAttribute
+        || this.actor.system?.sp?.attribute
+        || this.actor.system?.attributes?.magic
+        || "int";
       context.magicAttribute = curMagicAttr;
       context.magicAttributeOptions = getMagicAttributeOptions(curMagicAttr);
 
@@ -3571,12 +3791,28 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         }
 
         const tags = getEnrichedItemTags(item);
+        const actorSpellAttrs = this.actor.flags?.["mythcraft-essence-sheet"]?.spellAttributes || {};
+        const spellAttr = actorSpellAttrs[item.id]
+          || item.flags?.["mythcraft-essence-sheet"]?.spellcastingAttribute
+          || item.system?.spellcastingAttribute
+          || item.system?.attribute
+          || "";
+
+        const spellAttributeOptions = getMagicAttributeOptions(spellAttr).map(opt => ({
+          key: opt.key,
+          abbr: opt.abbr,
+          name: opt.name,
+          label: opt.label,
+          selected: opt.key === spellAttr || (opt.key === "luck" && spellAttr === "lck") || (opt.key === "lck" && spellAttr === "luck"),
+        }));
 
         return {
           item,
           expanded,
           magicSourceKey: sourceKey,
           magicSourceLabel: cleanSourceLabel(rawSource),
+          spellcastingAttribute: spellAttr,
+          spellAttributeOptions,
           inlineTags,
           allTags,
           tags,

@@ -419,7 +419,9 @@ export function getMagicAttributeOptions(currentSelected = "int") {
 
   return baseOptions.map(opt => ({
     key: opt.key,
-    label: `${opt.abbr} (${opt.name})`,
+    abbr: opt.abbr || opt.key.toUpperCase(),
+    name: opt.name || opt.key,
+    label: `${opt.abbr || opt.key.toUpperCase()} (${opt.name || opt.key})`,
     selected: opt.key === normSelected || (opt.key === "luck" && normSelected === "lck") || (opt.key === "lck" && normSelected === "luck"),
   }));
 }

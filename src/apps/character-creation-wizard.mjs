@@ -1469,6 +1469,8 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
         updates[`system.powerLevel.${stackTag}`] = parsedStartingTalent.magicPowerBonus || 1;
       }
       if (this.data.magicAttribute) {
+        updates["flags.mythcraft-essence-sheet.magicAttribute"] = this.data.magicAttribute;
+        updates["system.sp.attribute"] = this.data.magicAttribute;
         updates["system.attributes.magic"] = this.data.magicAttribute;
       }
     }

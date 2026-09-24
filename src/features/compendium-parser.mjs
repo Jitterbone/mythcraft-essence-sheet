@@ -937,6 +937,32 @@ export function getDocumentFolderChain(doc, pack = null) {
       : (f.folder?.id || f.folder?._id || f.parent?.id || f._source?.folder);
   }
 
+  // 3. Compendium source lookup for embedded actor items
+  if (chain.length === 0) {
+    const sourceId = doc.flags?.core?.sourceId || doc._stats?.compendiumSource || (doc.pack ? `Compendium.${doc.pack}.Item.${doc.id}` : "");
+    if (sourceId && globalThis.game?.packs) {
+      const match = sourceId.match(/^Compendium\.([^.]+)\.([^.]+)\.(?:Item|Document)\.([^.]+)$/i) || sourceId.match(/^Compendium\.([^.]+)\.([^.]+)$/i);
+      if (match) {
+        const packKey = `${match[1]}.${match[2]}`;
+        const packObj = globalThis.game.packs.get(packKey);
+        if (packObj) {
+          const entryId = match[3] || doc.id || doc._id;
+          const entry = packObj.index?.get?.(entryId);
+          let fId = entry?.folder || (typeof doc.folder === "string" ? doc.folder : null);
+          const folderCollection = packObj.folders || globalThis.game.folders;
+          const visitedSource = new Set();
+          while (fId && !visitedSource.has(fId)) {
+            visitedSource.add(fId);
+            const f = folderCollection?.get?.(fId) || globalThis.game.folders?.get?.(fId);
+            if (!f) break;
+            if (f.name) chain.unshift(String(f.name).trim());
+            fId = typeof f.folder === "string" ? f.folder : (f.folder?.id || f.folder?._id || f.parent?.id);
+          }
+        }
+      }
+    }
+  }
+
   return chain;
 }
 

@@ -1,3 +1,5 @@
+import { getDocumentFolderChain } from "./compendium-parser.mjs";
+
 // Complete canonical tracks for all 13 MythCraft classes
 export const CANONICAL_CLASS_SUBCLASSES = {
   "Berzerker": ["Exile", "Fearless", "Juggernaut", "Rage", "Branded", "Berzerker Entry"],
@@ -2743,6 +2745,23 @@ export function parseExplicitItemTags(item) {
       result.feature = "starting";
     } else if (/^(all|all\s+features?|all\s+lineage\s+features?|unique\s+features?|choice\s+features?|unique)$/i.test(str)) {
       result.feature = "all";
+    } else {
+      const strLow = str.toLowerCase();
+      if (MYTHCRAFT_CANONICAL_CLASSES.some(c => c.toLowerCase() === strLow)) {
+        if (!result.class) result.class = str;
+        if (!result.category) result.category = "class";
+      } else if (MYTHCRAFT_CANONICAL_MAGIC.some(m => m.toLowerCase() === strLow)) {
+        if (!result.class) result.class = str;
+        if (!result.category) result.category = "magic";
+      } else if (SUBCLASS_TO_CLASS[strLow]) {
+        if (!result.track) result.track = str;
+        if (!result.class) result.class = SUBCLASS_TO_CLASS[strLow];
+        if (!result.category) result.category = "class";
+      } else if (!/^(talent|talents|feature|features|crb|heroic|specialization|spec|items?|core|class|classes)$/i.test(strLow)) {
+        // Bare subclass tag (e.g. "Spellblade", "Tarot Reader", "Warmage")
+        if (!result.track) result.track = str;
+        if (!result.category) result.category = "class";
+      }
     }
   }
 
@@ -2776,6 +2795,20 @@ export function resolveTalentTrackInfo(item, { customTalentMap = new Map(), cust
   let trackName = "General";
   let isEntry = /entry\b/i.test(docNameClean);
 
+  // Folder Hierarchy extraction (Precomputed or retrieved from Document / Compendium)
+  const cleanFolder = (f) => String(f || "").trim()
+    .replace(/^\d+[\.\s:_-]*/, "")
+    .replace(/^chapter\s*\d+[\s:_-]*/i, "")
+    .replace(/^part\s*\d+[\s:_-]*/i, "")
+    .trim();
+
+  const rawChain = (item._folderChain && item._folderChain.length > 0)
+    ? item._folderChain
+    : (typeof getDocumentFolderChain === "function" ? getDocumentFolderChain(item) : (typeof item?.folder === "object" ? [item.folder?.name] : []));
+  const filteredChain = (Array.isArray(rawChain) ? rawChain : [])
+    .map(cleanFolder)
+    .filter(f => f && !/^(compendiums?|items?|core\s*rulebook|crb|talents?|class\s*talents?|classes?|subclasses?|specializations?|magic\s*talents?|magic|disciplines?|features?)$/i.test(f));
+
   // 1. Explicit Item Tags (Highest Precision)
   const explicitTags = parseExplicitItemTags(item);
   if (explicitTags.class || explicitTags.track || explicitTags.category) {
@@ -2788,8 +2821,14 @@ export function resolveTalentTrackInfo(item, { customTalentMap = new Map(), cust
       cat = MYTHCRAFT_CANONICAL_MAGIC.some(m => m.toLowerCase() === root.toLowerCase()) ? "magic" : "class";
     }
     if (!cat) cat = "specialization";
-    if (!root) root = cat === "class" ? "Custom Class" : (cat === "magic" ? "Custom Magic" : "General");
-    if (!trk) trk = (entry || /entry\b/i.test(docNameClean)) ? `${root} Entry` : `${root} Track`;
+    if (!root) {
+      const folderRoot = filteredChain.length > 0 ? filteredChain[0] : "";
+      root = folderRoot || (cat === "class" ? "Class" : (cat === "magic" ? "Magic" : "General"));
+    }
+    if (!trk) {
+      const folderSub = filteredChain.length > 1 ? filteredChain[1] : (filteredChain.length === 1 ? filteredChain[0] : "");
+      trk = folderSub || ((entry || /entry\b/i.test(docNameClean)) ? `${root} Entry` : `${root} Talents`);
+    }
 
     return {
       category: cat,
@@ -2802,8 +2841,10 @@ export function resolveTalentTrackInfo(item, { customTalentMap = new Map(), cust
   // 2. Direct Custom Compendium flags/properties
   if (item?._customCategory) {
     category = item._customCategory === "subclass" ? "class" : item._customCategory;
-    rootName = item._customParent || (item._folderChain && item._folderChain.length > 0 ? item._folderChain[0] : (item._compendiumPack?.metadata?.label || item._compendiumPack?.title || "Custom"));
-    trackName = item._customTrack || (item._customCategory === "subclass" ? "Subclass Track" : "General");
+    const folderParent = filteredChain.length > 0 ? filteredChain[0] : "";
+    rootName = item._customParent || folderParent || (item._compendiumPack?.metadata?.label || item._compendiumPack?.title || (category === "class" ? "Class" : "Specialization"));
+    const folderTrack = filteredChain.length > 1 ? filteredChain[1] : (filteredChain.length === 1 ? filteredChain[0] : "");
+    trackName = item._customTrack || (item._customCategory === "subclass" ? (folderTrack || `${rootName} Talents`) : (folderTrack || "General"));
     isEntry = isEntry || trackName.toLowerCase().includes("entry");
     return { category, rootName, trackName, isEntry };
   }
@@ -2834,17 +2875,6 @@ export function resolveTalentTrackInfo(item, { customTalentMap = new Map(), cust
   }
 
   // 4. Compendium Folder Hierarchy (Parent folder = Class, Secondary folder = Subclass/Track)
-  const cleanFolder = (f) => String(f || "").trim()
-    .replace(/^\d+[\.\s:_-]*/, "")
-    .replace(/^chapter\s*\d+[\s:_-]*/i, "")
-    .replace(/^part\s*\d+[\s:_-]*/i, "")
-    .trim();
-
-  const rawChain = item._folderChain || (typeof item.folder === "object" ? [item.folder?.name] : []);
-  const filteredChain = (Array.isArray(rawChain) ? rawChain : [])
-    .map(cleanFolder)
-    .filter(f => f && !/^(compendium|items?|core\s*rulebook|crb|talents?|class\s*talents?|classes|specializations?|magic\s*talents?|magic|disciplines?|features?)$/i.test(f));
-
   if (filteredChain.length >= 2) {
     const parentFolder = filteredChain[0];
     const secondaryFolder = filteredChain[1];
@@ -2884,6 +2914,14 @@ export function resolveTalentTrackInfo(item, { customTalentMap = new Map(), cust
         trackName: "General",
         isEntry: isEntry || /entry\b/i.test(docNameClean),
       };
+    } else {
+      // Custom single-folder track: default category to class, trackName to folder
+      return {
+        category: "class",
+        rootName: folder,
+        trackName: (isEntry || /entry\b/i.test(docNameClean)) ? `${folder} Entry` : folder,
+        isEntry: isEntry || /entry\b/i.test(docNameClean),
+      };
     }
   }
 
@@ -2901,13 +2939,16 @@ export function resolveTalentTrackInfo(item, { customTalentMap = new Map(), cust
   }
   if (matchedCustom) {
     category = matchedCustom.category === "subclass" ? "class" : (matchedCustom.category || "specialization");
-    rootName = matchedCustom.parentName || matchedCustom.parent || "Custom";
-    trackName = matchedCustom.trackName || matchedCustom.track || "General";
+    const packLabel = item._compendiumPack?.metadata?.label || item._compendiumPack?.title || "";
+    const folderParent = filteredChain.length > 0 ? filteredChain[0] : "";
+    rootName = matchedCustom.parentName || matchedCustom.parent || folderParent || packLabel || (category === "class" ? "Class" : "Specialization");
+    const folderTrack = filteredChain.length > 1 ? filteredChain[1] : (filteredChain.length === 1 ? filteredChain[0] : "");
+    trackName = matchedCustom.trackName || matchedCustom.track || folderTrack || (category === "class" ? `${rootName} Talents` : "General");
     isEntry = isEntry || trackName.toLowerCase().includes("entry");
     return { category, rootName, trackName, isEntry };
   }
 
-  // 3. Class Match (Checks 13 Canonical Classes)
+  // 6. Class Match (Checks 13 Canonical Classes)
   let matchedClass = null;
   for (const cls of MYTHCRAFT_CANONICAL_CLASSES) {
     const cLow = cls.toLowerCase();
@@ -2951,7 +2992,12 @@ export function resolveTalentTrackInfo(item, { customTalentMap = new Map(), cust
     }
 
     if (!matchedTrack) {
-      matchedTrack = (isEntry || /entry\b/i.test(docNameClean)) ? `${matchedClass} Entry` : `${matchedClass} Track`;
+      const folderSub = filteredChain.find(f => f.toLowerCase() !== matchedClass.toLowerCase());
+      if (folderSub) {
+        matchedTrack = folderSub;
+      } else {
+        matchedTrack = (isEntry || /entry\b/i.test(docNameClean)) ? `${matchedClass} Entry` : `${matchedClass} Talents`;
+      }
     }
 
     trackName = matchedTrack;

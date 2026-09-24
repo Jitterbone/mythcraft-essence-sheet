@@ -209,6 +209,8 @@ Hooks.once("init", () => {
     hasAstoundingCritical,
     makeExplodingDiceFormula,
     rollItemDamage,
+    executeRest,
+    RestDialog,
   };
 
   const handleChatMessageRender = async (arg1, arg2, arg3) => {

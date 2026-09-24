@@ -15825,6 +15825,97 @@ button.mini-hand-tag.hand-and-a-half-drawer-toggle:hover {
   max-width: 100%;
 }
 
+/* ── Class Master Banner & Subclass Drawer Flowchart Styles ──── */
+.class-master-card {
+  width: 100%;
+  max-width: 100%;
+}
+
+.class-master-banner {
+  background: linear-gradient(180deg, #1d3b48 0%, #0d1e25 100%);
+  border: 1.5px solid #FEEBB3;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(254, 235, 179, 0.3);
+}
+
+.class-master-banner .srd-diagram-track-title {
+  font-size: 15.5px;
+  letter-spacing: 2px;
+  color: #FEEBB3;
+  text-shadow: 0 0 10px rgba(254, 235, 179, 0.45);
+}
+
+.class-entry-talents-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 4px 0 12px 0;
+  padding: 8px 12px;
+  background: rgba(10, 20, 26, 0.5);
+  border-radius: 6px;
+  border: 1px solid rgba(254, 235, 179, 0.2);
+}
+
+.entry-section-label {
+  font-family: 'Cinzel', serif;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #FEEBB3;
+  letter-spacing: 1.2px;
+  margin-bottom: 6px;
+  text-shadow: 0 0 6px rgba(254, 235, 179, 0.3);
+}
+
+.srd-flowchart-nodes-cluster.entry-cluster {
+  gap: 8px;
+}
+
+.srd-badge-node.is-entry-node {
+  border-color: #FEEBB3;
+  box-shadow: 0 0 10px rgba(254, 235, 179, 0.35);
+}
+
+.drawer-subclass-section {
+  width: 100%;
+  margin-top: 10px;
+  border-top: 1px dashed rgba(42, 122, 127, 0.35);
+  padding-top: 8px;
+}
+
+.drawer-subclass-subheader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(90deg, rgba(20, 48, 58, 0.75) 0%, rgba(10, 24, 30, 0.4) 100%);
+  border-left: 3px solid #38bdf8;
+  border-radius: 4px;
+  padding: 4px 10px;
+  margin-bottom: 8px;
+}
+
+.drawer-subclass-subheader .subclass-name {
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #38bdf8;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  text-shadow: 0 0 6px rgba(56, 189, 248, 0.35);
+}
+
+.drawer-subclass-subheader .subclass-count-pill {
+  background: rgba(36, 105, 117, 0.5);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #FEEBB3;
+  font-family: 'Cinzel', serif;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+
 
 /* ── Character Sheet Compact Talents Tab Launcher ─────────── */
 .sheet-tree-launcher-card {

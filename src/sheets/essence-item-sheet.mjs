@@ -155,37 +155,6 @@ export default class EssenceItemSheet extends MythCraftItemSheet {
 
     const detailsTab = this.element.querySelector('.tab[data-tab="details"]') || this.element.querySelector('form.sheet-body') || this.element.querySelector('form');
 
-    // 0. Inject Detected & Configured Item Tags Panel in Details Tab
-    if (detailsTab && !this.element.querySelector('.essence-item-tags-panel')) {
-      const enrichedTags = context.enrichedTags || getEnrichedItemTags(this.item);
-      if (enrichedTags && enrichedTags.length > 0) {
-        const tagsCard = document.createElement("div");
-        tagsCard.className = "essence-item-tags-panel";
-        tagsCard.style.cssText = "background: rgba(8, 28, 36, 0.7); border: 1px solid rgba(88, 178, 192, 0.35); border-radius: 8px; padding: 8px 12px; margin-bottom: 10px;";
-        tagsCard.innerHTML = `
-          <div class="tags-panel-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; border-bottom:1px solid rgba(88, 178, 192, 0.25); padding-bottom:4px;">
-            <div class="tags-title" style="font-family:'Cinzel', Georgia, serif; color:#f1c40f; font-weight:700; font-size:0.82rem; letter-spacing:0.06em; text-transform:uppercase; display:flex; align-items:center; gap:6px;">
-              <i class="fas fa-tags tag-icon" style="color:#2dd4bf;"></i>
-              <span>ITEM TAGS</span>
-            </div>
-            <span class="tags-hint" style="font-size:0.7rem; color:rgba(254, 235, 179, 0.6);">Detected & configured tags</span>
-          </div>
-          <div class="essence-tags-pills-row" style="display:flex; flex-wrap:wrap; gap:6px; padding:4px 0;">
-            ${enrichedTags.map(tag => `
-              <span class="tag-badge-pill ${tag.category}" 
-                    style="--cat-color: ${tag.categoryMeta.color}; --cat-bg: ${tag.categoryMeta.bg}; --cat-border: ${tag.categoryMeta.border}; cursor:pointer;"
-                    data-tooltip="${(tag.tooltipHTML || tag.name).replace(/"/g, '&quot;')}"
-                    data-tooltip-direction="UP">
-                <i class="${tag.categoryMeta.icon}"></i>
-                <span class="tag-badge-name">${tag.name}</span>
-              </span>
-            `).join("")}
-          </div>
-        `;
-        detailsTab.prepend(tagsCard);
-      }
-    }
-
     // 1. Inject Essence Cost card in Details tab
     if (detailsTab && !this.element.querySelector('.essence-item-cost-panel')) {
       const essenceCost = Number(this.item.flags?.["mythcraft-essence-sheet"]?.essenceCost ?? this.item.system?.essenceCost ?? 0);
@@ -304,8 +273,19 @@ export default class EssenceItemSheet extends MythCraftItemSheet {
         (this.item.system?.damageType === "soul") ??
         (Array.isArray(this.item.system?.damage) && this.item.system.damage.some(d => d?.type === "soul"))
       );
-      const enableClaimed = Boolean(this.item.flags?.["mythcraft-essence-sheet"]?.enableClaimedSouls ?? this.item.system?.enableClaimedSouls);
-      const claimedSouls = Math.min(5, Math.max(0, Number(this.item.flags?.["mythcraft-essence-sheet"]?.claimedSouls ?? this.item.system?.claimedSouls ?? 0)));
+      const enableClaimed = Boolean(
+        this.item.flags?.["mythcraft-essence-sheet"]?.enableClaimedSouls ??
+        this.item.flags?.["mythcraft-essence-sheet"]?.enableConsumedSouls ??
+        this.item.system?.enableClaimedSouls ??
+        this.item.system?.enableConsumedSouls
+      );
+      const claimedSouls = Math.min(5, Math.max(0, Number(
+        this.item.flags?.["mythcraft-essence-sheet"]?.consumedSouls ??
+        this.item.flags?.["mythcraft-essence-sheet"]?.claimedSouls ??
+        this.item.system?.consumedSouls ??
+        this.item.system?.claimedSouls ??
+        0
+      )));
 
       const soulsCard = document.createElement("div");
       soulsCard.className = "essence-item-cost-panel essence-item-claimed-souls-panel";
@@ -314,9 +294,9 @@ export default class EssenceItemSheet extends MythCraftItemSheet {
         <div class="cost-panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
           <div class="cost-title" style="font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; color: #e9d5ff; display: flex; align-items: center; gap: 6px;">
             <i class="fas fa-ghost" style="color: #c084fc;"></i>
-            <span>CLAIMED SOULS & SOUL DAMAGE</span>
+            <span>CONSUMED SOULS & SOUL DAMAGE</span>
           </div>
-          <span class="cost-hint" style="font-size: 11px; color: #d8b4fe;">+1 Atk &amp; Dmg per soul (max +5)</span>
+          <span class="cost-hint" style="font-size: 11px; color: #d8b4fe;">+1 Dmg per soul (max +5)</span>
         </div>
         <div class="souls-content-body" style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px;">
           <label class="container-checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; color: #f3e8ff;">
@@ -331,10 +311,10 @@ export default class EssenceItemSheet extends MythCraftItemSheet {
                    name="flags.mythcraft-essence-sheet.enableClaimedSouls" 
                    ${enableClaimed ? "checked" : ""} 
                    class="essence-claimed-souls-checkbox" />
-            <span class="checkbox-text" style="font-weight: 600;">Enable Claimed Souls Modifier (+X Atk / +X Dmg)</span>
+            <span class="checkbox-text" style="font-weight: 600;">Enable Consumed Souls Modifier (+X Damage, max +5)</span>
           </label>
           <div class="souls-stepper-row" style="display: ${enableClaimed ? 'flex' : 'none'}; align-items: center; gap: 12px; padding: 6px 10px; background: rgba(0, 0, 0, 0.35); border-radius: 6px; border: 1px solid rgba(192, 132, 252, 0.25);">
-            <span style="font-size: 12px; color: #e9d5ff; font-weight: 600;">Current Souls:</span>
+            <span style="font-size: 12px; color: #e9d5ff; font-weight: 600;">Consumed Souls:</span>
             <div class="souls-stepper-controls" style="display: flex; align-items: center; gap: 6px;">
               <button type="button" class="souls-step-minus" style="width: 24px; height: 24px; border-radius: 4px; border: 1px solid #a855f7; background: rgba(168, 85, 247, 0.2); color: #e9d5ff; cursor: pointer; display: flex; align-items: center; justify-content: center;"><i class="fas fa-minus"></i></button>
               <input type="number" 
@@ -347,7 +327,7 @@ export default class EssenceItemSheet extends MythCraftItemSheet {
               <button type="button" class="souls-step-plus" style="width: 24px; height: 24px; border-radius: 4px; border: 1px solid #a855f7; background: rgba(168, 85, 247, 0.2); color: #e9d5ff; cursor: pointer; display: flex; align-items: center; justify-content: center;"><i class="fas fa-plus"></i></button>
             </div>
             <span class="souls-bonus-badge" style="margin-left: auto; font-size: 11px; font-weight: 700; color: #a855f7; background: rgba(168, 85, 247, 0.2); padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(168, 85, 247, 0.4);">
-              +${claimedSouls} Atk / +${claimedSouls} Dmg
+              +${claimedSouls} Dmg
             </span>
           </div>
         </div>
@@ -364,7 +344,7 @@ export default class EssenceItemSheet extends MythCraftItemSheet {
       const updateSoulsDisplay = (val) => {
         const clamped = Math.min(5, Math.max(0, val));
         if (numInput) numInput.value = clamped;
-        if (badge) badge.textContent = `+${clamped} Atk / +${clamped} Dmg`;
+        if (badge) badge.textContent = `+${clamped} Dmg`;
       };
 
       soulChk?.addEventListener("change", async (e) => {
@@ -385,7 +365,9 @@ export default class EssenceItemSheet extends MythCraftItemSheet {
         if (stepperRow) stepperRow.style.display = checked ? "flex" : "none";
         const updates = {
           "flags.mythcraft-essence-sheet.enableClaimedSouls": checked,
+          "flags.mythcraft-essence-sheet.enableConsumedSouls": checked,
           "system.enableClaimedSouls": checked,
+          "system.enableConsumedSouls": checked,
         };
         if (checked && !soulChk?.checked) {
           if (soulChk) soulChk.checked = true;
@@ -402,7 +384,9 @@ export default class EssenceItemSheet extends MythCraftItemSheet {
         updateSoulsDisplay(val);
         await this.item.update({
           "flags.mythcraft-essence-sheet.claimedSouls": val,
+          "flags.mythcraft-essence-sheet.consumedSouls": val,
           "system.claimedSouls": val,
+          "system.consumedSouls": val,
         });
       });
 
@@ -414,7 +398,9 @@ export default class EssenceItemSheet extends MythCraftItemSheet {
         updateSoulsDisplay(next);
         await this.item.update({
           "flags.mythcraft-essence-sheet.claimedSouls": next,
+          "flags.mythcraft-essence-sheet.consumedSouls": next,
           "system.claimedSouls": next,
+          "system.consumedSouls": next,
         });
       });
 
@@ -426,7 +412,9 @@ export default class EssenceItemSheet extends MythCraftItemSheet {
         updateSoulsDisplay(next);
         await this.item.update({
           "flags.mythcraft-essence-sheet.claimedSouls": next,
+          "flags.mythcraft-essence-sheet.consumedSouls": next,
           "system.claimedSouls": next,
+          "system.consumedSouls": next,
         });
       });
 

@@ -1384,9 +1384,9 @@ export function parseBackgroundData(item) {
   );
 
   let startingGear = [];
-  const bgGearMatch = desc.match(/(?:gain|receive)\s*(?:the\s*following\s*gear|the\s*following\s*items|starting\s*gear|starting\s*equipment)[^:]*:\s*([\s\S]*?)(?:Gain\s*\d|If\s*you\s*take|Professions\s*with|Tenure|Starting\s*Wealth|$)/i)
-    || desc.match(/(?:starting\s*(?:gear|equipment)[:\.]?)\s*([\s\S]*?)(?:Gain\s*\d|If\s*you\s*take|Professions\s*with|Tenure|Starting\s*Wealth|$)/i);
-  if (bgGearMatch) {
+  const bgGearMatch = desc.match(/(?:gain|receive)\s*(?:the\s*following\s*gear|the\s*following\s*items|starting\s*gear|starting\s*equipment)[^:]*:\s*([\s\S]*?)(?:Each\s*time|Gain\s*\d|If\s*you\s*take|Professions?\s*with|Tenure|Starting\s*Wealth|$)/i)
+    || desc.match(/(?:starting\s*(?:gear|equipment)[:\.]?)\s*([\s\S]*?)(?:Each\s*time|Gain\s*\d|If\s*you\s*take|Professions?\s*with|Tenure|Starting\s*Wealth|$)/i);
+  if (bgGearMatch && !/skill\s*points?|skills?\s*with\s*the/i.test(bgGearMatch[0])) {
     startingGear = parseProfessionStartingGear(bgGearMatch[1]);
   }
 
@@ -1520,7 +1520,7 @@ export function parseProfessionData(item) {
 
   // 1. Starting Gear List
   let startingGear = [];
-  const gearMatch = desc.match(/gain\s*the\s*following\s*gear[^:]*:\s*([\s\S]*?)(?:Each\s*time|Tenure|When\s*you\s*become|Starting\s*Wealth|At\s*1st\s*Level|$)/i);
+  const gearMatch = desc.match(/(?:gain|receive)\s*(?:the\s*following\s*gear|the\s*following\s*items|starting\s*gear|starting\s*equipment)\s*:\s*([\s\S]*?)(?:Each\s*time|Gain\s*\+?\d|Tenure|When\s*you\s*become|Starting\s*Wealth|At\s*1st\s*Level|\.\s*(?:Gain|Each|Tenure|When)|$)/i);
   if (gearMatch) {
     startingGear = parseProfessionStartingGear(gearMatch[1]);
   }

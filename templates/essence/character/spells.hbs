@@ -38,7 +38,7 @@
                  name="{{ml.name}}"
                  value="{{ml.value}}"
                  class="magic-level-input"
-                 min="0" max="20"
+                 min="0" max="30"
                  onclick="event.stopPropagation();" />
         </div>
       {{/each}}
@@ -66,11 +66,11 @@
     {{#if spells.length}}
       <ul class="item-list spell-list">
         {{#each spells as |spell|}}
-          <li class="item draggable item-row spell-row spell-source-{{spell.magicSourceKey}} {{#if spell.expanded}}expanded{{/if}}"
+          <li class="item draggable item-row spell-row spell-source-{{spell.magicSourceKey}} {{#if spell.expanded}}expanded{{/if}} {{#if spell.prereqUnmet}}spell-prereq-unmet{{/if}}"
               data-item-id="{{spell.item.id}}"
               data-document-class="Item">
 
-            {{!-- Left side: Spell Image, Name, and Special Tags --}}
+            {{!-- Left side: Spell Image, Name, Special Tags, and 1-Letter Requirements --}}
             <div class="spell-left-group">
               <img class="item-img spell-img"
                    src="{{spell.item.img}}"
@@ -79,56 +79,94 @@
                    data-document-class="Item"
                    data-item-id="{{spell.item.id}}" />
 
-              <span class="item-name spell-name"
-                    data-action="toggleItemEmbed"
-                    data-document-class="Item"
-                    data-item-id="{{spell.item.id}}"
-                    title="Click to Toggle Details">
-                {{spell.item.name}}
-              </span>
+              <div class="spell-title-stack">
+                <div class="spell-title-line">
+                  <span class="item-name spell-name"
+                        data-action="toggleItemEmbed"
+                        data-document-class="Item"
+                        data-item-id="{{spell.item.id}}"
+                        title="Click to Toggle Details">
+                    {{spell.item.name}}
+                  </span>
 
-              {{#if spell.inlineTags.length}}
-                <div class="spell-inline-tags">
-                  {{#each spell.inlineTags as |tag|}}
-                    <span class="spell-type-tag tag-{{tag.colorClass}}">{{tag.label}}</span>
-                  {{/each}}
+                  {{#if spell.inlineTags.length}}
+                    <div class="spell-inline-tags">
+                      {{#each spell.inlineTags as |tag|}}
+                        <span class="spell-type-tag tag-{{tag.colorClass}}">{{tag.label}}</span>
+                      {{/each}}
+                    </div>
+                  {{/if}}
+
+                  {{#if spell.requirementBadges.length}}
+                    <div class="spell-req-badges" title="Requirements: {{spell.requiresLabel}}">
+                      {{#each spell.requirementBadges as |req|}}
+                        <span class="spell-req-letter"
+                              data-tooltip="Requires: <strong>{{req.label}}</strong>"
+                              title="Requires: {{req.label}}">{{req.letter}}</span>
+                      {{/each}}
+                    </div>
+                  {{/if}}
                 </div>
-              {{/if}}
+
+                {{#if spell.prereqUnmet}}
+                  <div class="spell-prereq-warning" title="{{spell.prereqNote}}">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>{{spell.prereqNote}}</span>
+                  </div>
+                {{/if}}
+              </div>
             </div>
 
-            {{!-- Right side: Source Badge, AP, SP, Action Buttons --}}
+            {{!-- Right side: Source Badge, Target, AP, SP, Action Buttons --}}
             <div class="spell-right-group">
               {{#if spell.magicSourceLabel}}
                 <span class="spell-source-badge source-badge-{{spell.magicSourceKey}}">{{spell.magicSourceLabel}}</span>
               {{/if}}
 
-              {{#if spell.item.system.apc}}
-                <span class="spell-cost-badge" title="Action Points Cost">
-                  <i class="fas fa-bolt"></i>
-                  {{spell.item.system.apc}} AP
+              {{#if spell.targetDefenseConfig}}
+                <span class="spell-target-badge def-{{spell.targetDefenseConfig.key}}"
+                      style="--def-color: {{spell.targetDefenseConfig.color}}; --def-bg: {{spell.targetDefenseConfig.bg}}; --def-border: {{spell.targetDefenseConfig.border}};"
+                      data-tooltip="Target Defense: <strong>{{spell.targetDefenseConfig.label}} ({{spell.targetDefenseConfig.abbr}})</strong>"
+                      title="Target Defense: {{spell.targetDefenseConfig.label}} ({{spell.targetDefenseConfig.abbr}})">
+                  {{#if spell.isAttack}}<span class="vs-prefix">vs</span>{{/if}}
+                  <i class="{{spell.targetDefenseConfig.icon}} def-icon"></i>
+                  <span class="def-abbr">{{spell.targetDefenseConfig.abbr}}</span>
+                </span>
+              {{else if spell.targetDefense}}
+                <span class="spell-target-badge" title="Target Defense / Check: {{spell.targetDefense}}">
+                  {{#if spell.isAttack}}vs {{spell.targetDefense}}{{else}}{{spell.targetDefense}}{{/if}}
                 </span>
               {{/if}}
 
-              {{#if spell.item.system.spc}}
+              {{#if spell.displayApc}}
+                <span class="spell-cost-badge" title="Action Points Cost">
+                  <i class="fas fa-bolt"></i>
+                  {{spell.displayApc}} AP
+                </span>
+              {{/if}}
+
+              {{#if spell.displaySpc}}
                 <span class="spell-cost-badge sp-cost-badge" title="Spell Points Cost">
                   <i class="fas fa-hat-wizard"></i>
-                  {{spell.item.system.spc}} SP
+                  {{spell.displaySpc}} SP
                 </span>
               {{/if}}
 
               <div class="item-actions">
-                <select class="spell-attribute-dropdown" data-spell-attribute data-item-id="{{spell.item.id}}" title="Attribute used for this spell attack">
-                  <option value="" {{#unless spell.spellcastingAttribute}}selected{{/unless}}>Global</option>
-                  {{#each spell.spellAttributeOptions as |opt|}}
-                    <option value="{{opt.key}}" {{#if opt.selected}}selected{{/if}}>{{opt.abbr}}</option>
-                  {{/each}}
-                </select>
+                {{#if spell.isAttack}}
+                  <select class="spell-attribute-dropdown" data-spell-attribute data-item-id="{{spell.item.id}}" title="Attribute used for this spell attack">
+                    <option value="" {{#unless spell.spellcastingAttribute}}selected{{/unless}}>Global</option>
+                    {{#each spell.spellAttributeOptions as |opt|}}
+                      <option value="{{opt.key}}" {{#if opt.selected}}selected{{/if}}>{{opt.abbr}}</option>
+                    {{/each}}
+                  </select>
+                {{/if}}
                 <button type="button"
-                        class="item-action-btn roll-btn cast-btn"
+                        class="item-action-btn roll-btn cast-btn {{#unless spell.isAttack}}non-attack-cast-btn{{/unless}}"
                         data-action="rollSpell"
                         data-item-id="{{spell.item.id}}"
-                        title="Roll Spell">
-                  <i class="fas fa-dice-d20"></i>
+                        title="{{#if spell.isAttack}}Roll Spell Attack ({{spell.targetDefense}}){{else}}Cast Spell to Chat (Non-Attack){{/if}}">
+                  <i class="fas fa-{{#if spell.isAttack}}dice-d20{{else}}wand-magic-sparkles{{/if}}"></i>
                 </button>
                 <button type="button"
                         class="item-action-btn chat-btn post-spell-btn"
@@ -180,6 +218,24 @@
                     {{/each}}
                   </div>
                 {{/if}}
+
+                <div class="spell-library-meta-grid">
+                  {{#if spell.spellTypeLabel}}<span><strong>Type:</strong> {{spell.spellTypeLabel}}</span>{{/if}}
+                  {{#if spell.functionLabel}}<span><strong>Function:</strong> {{spell.functionLabel}}</span>{{/if}}
+                  {{#if spell.rangeLabel}}<span><strong>Range:</strong> {{spell.rangeLabel}}</span>{{/if}}
+                  {{#if spell.durationLabel}}<span><strong>Duration:</strong> {{spell.durationLabel}}</span>{{/if}}
+                  {{#if spell.requiresLabel}}<span><strong>Requires:</strong> {{spell.requiresLabel}}</span>{{/if}}
+                  {{#if spell.castingTimeLabel}}<span><strong>Casting Time:</strong> {{spell.castingTimeLabel}}</span>{{/if}}
+                  {{#if spell.prereqText}}<span class="{{#if spell.prereqUnmet}}prereq-unmet-text{{/if}}"><strong>Prerequisite:</strong> {{spell.prereqText}}</span>{{/if}}
+                  {{#if spell.materialsText}}<span><strong>Materials:</strong> {{spell.materialsText}}</span>{{/if}}
+                </div>
+
+                {{#if spell.upchargeText}}
+                  <div class="spell-library-upcharge-box">
+                    <strong><i class="fas fa-bolt"></i> Upcharge / Scaling:</strong> {{spell.upchargeText}}
+                  </div>
+                {{/if}}
+
                 <div class="spell-embed-body">
                   {{#if spell.descriptionHTML}}
                     {{{spell.descriptionHTML}}}

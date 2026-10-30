@@ -174,6 +174,76 @@ export const DEFAULT_TAGS_LIBRARY = [
     categoryLabel: "Arcane Tag",
     description: "Spells with the fundamental tag can only be dispelled using the Unravel Magic spell from the Arcane Source.",
   },
+  {
+    id: "conjuring",
+    name: "Conjuring",
+    category: "arcane",
+    categoryLabel: "Arcane Tag",
+    description: "A spell with the conjuring tag requires spending AP across turns or before completion to build up magical energy before the spell takes effect.",
+  },
+  {
+    id: "metamagic",
+    name: "Metamagic",
+    category: "arcane",
+    categoryLabel: "Arcane Tag",
+    description: "Metamagic spells modify the casting, range, power, or parameters of another spell you cast.",
+  },
+  {
+    id: "alchemy",
+    name: "Alchemy",
+    category: "arcane",
+    categoryLabel: "Magic Function",
+    description: "Magic function focused on transmuting matter, brewing concoctions, and manipulating physical substances.",
+  },
+  {
+    id: "divining",
+    name: "Divining",
+    category: "arcane",
+    categoryLabel: "Magic Function",
+    description: "Magic function focused on revealing information, perceiving distant places, reading minds, or foreseeing events.",
+  },
+  {
+    id: "enchanting",
+    name: "Enchanting",
+    category: "arcane",
+    categoryLabel: "Magic Function",
+    description: "Magic function focused on imbuing objects, weapons, or creatures with magical properties or mental influence.",
+  },
+  {
+    id: "evoking",
+    name: "Evoking",
+    category: "arcane",
+    categoryLabel: "Magic Function",
+    description: "Magic function focused on channeling raw elemental or magical energy to blast, burn, freeze, or heal.",
+  },
+  {
+    id: "illusory",
+    name: "Illusory",
+    category: "arcane",
+    categoryLabel: "Magic Function",
+    description: "Magic function focused on deceiving the senses with phantasms, disguises, invisibility, or false sounds and images.",
+  },
+  {
+    id: "necromancy",
+    name: "Necromancy",
+    category: "arcane",
+    categoryLabel: "Magic Function",
+    description: "Magic function focused on manipulating life force, death, corpses, decay, and necrotic energy.",
+  },
+  {
+    id: "summoning",
+    name: "Summoning",
+    category: "arcane",
+    categoryLabel: "Magic Function",
+    description: "Magic function focused on calling forth creatures, spirits, or planar entities or teleporting across space.",
+  },
+  {
+    id: "warding",
+    name: "Warding",
+    category: "arcane",
+    categoryLabel: "Magic Function",
+    description: "Magic function focused on protective barriers, magical shields, abjuration, and dispelling or sealing magic.",
+  },
 
   // ── DIVINE MAGIC TYPES & TAGS ──────────────────────────────────────────────
   {
@@ -632,7 +702,18 @@ export const TAG_CATEGORIES = {
 export function getActiveTagsLibrary() {
   try {
     const saved = game.settings.get("mythcraft-essence-sheet", "customTags");
-    if (Array.isArray(saved) && saved.length > 0) return saved;
+    if (Array.isArray(saved) && saved.length > 0) {
+      const seenIds = new Set(saved.map(t => (t.id || t.name || "").toLowerCase().replace(/[^a-z0-9]/g, "")));
+      const merged = [...saved];
+      for (const def of DEFAULT_TAGS_LIBRARY) {
+        const norm = (def.id || def.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (!seenIds.has(norm)) {
+          merged.push(def);
+          seenIds.add(norm);
+        }
+      }
+      return merged;
+    }
   } catch (e) {
     // Settings not ready yet
   }

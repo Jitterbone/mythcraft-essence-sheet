@@ -84,6 +84,18 @@ import {
 } from "../features/container-utils.mjs";
 import { applyMessageRollMode, getActiveRollMode } from "../features/roll-privacy.mjs";
 import { getMagicAttributeOptions } from "../features/homebrew-attributes.mjs";
+import {
+  SPELL_LIBRARY,
+  getSpellLibraryEntry,
+  getSpellRequirementsBadges,
+  checkSpellPrerequisite,
+  evaluateSpellScalingAndUpcharge,
+} from "../data/spell-library.mjs";
+import {
+  checkAndEnforceSp,
+  deductAp,
+  deductSp,
+} from "../features/sp-ap-rolls.mjs";
 
 
 const MODULE_PATH = (p) => `modules/mythcraft-essence-sheet/templates/essence/character/${p}`;
@@ -113,8 +125,19 @@ export async function enrichText(content, options = {}) {
 export function getEnrichedItemTags(item) {
   if (!item) return [];
   const isTalent = item.type === "talent";
+  const isSpell = item.type === "spell";
+  const spellLibEntry = isSpell ? getSpellLibraryEntry(item) : null;
   const structured = isTalent ? extractTalentStructuredTags(item) : { directTags: [] };
   let tagNames = structured.directTags.length > 0 ? [...structured.directTags] : [];
+  if (spellLibEntry?.tags?.length) {
+    tagNames.push(...spellLibEntry.tags);
+  }
+  if (spellLibEntry?.spellType && spellLibEntry.spellType !== "Spell") {
+    tagNames.push(spellLibEntry.spellType);
+  }
+  if (spellLibEntry?.function) {
+    tagNames.push(spellLibEntry.function);
+  }
 
   const rawTags = item.system?.tags ?? item.system?.tagList ?? item.system?.properties ?? (isTalent ? item._synthesizedTags : []) ?? [];
   if (Array.isArray(rawTags)) {
@@ -210,7 +233,7 @@ export { getSafeWeaponApc };
  * @param {string|null} [options.rollMode=null]
  * @returns {Promise<ChatMessage|void>}
  */
-export async function rollItemDamage(actor, item, { isCrit = false, rollMode = null } = {}) {
+export async function rollItemDamage(actor, item, { isCrit = false, rollMode = null, customFormula = null, customDamageType = null, isHeal = false, upchargeLabel = null } = {}) {
   if (!actor || !item) return;
 
   const rollData = actor.getRollData();
@@ -266,6 +289,23 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
     damages = [{ formula: sys.damageFormula, type: defaultType }];
   } else if (typeof sys.damage === "string" && sys.damage.trim()) {
     damages = [{ formula: sys.damage.trim(), type: defaultType }];
+  }
+
+  if (customFormula) {
+    damages = [{
+      formula: String(customFormula).trim(),
+      type: customDamageType || (isHeal ? "heal" : defaultType),
+      isHeal: Boolean(isHeal || customDamageType === "heal"),
+    }];
+  } else if (isSpell) {
+    const spellScaling = evaluateSpellScalingAndUpcharge(actor, item);
+    if (spellScaling.effectiveDamage?.length > 0) {
+      damages = spellScaling.effectiveDamage.map(d => ({
+        formula: d.formula,
+        type: isSoul ? "soul" : (d.type || defaultType),
+        isHeal: Boolean(d.isHeal || d.type === "heal"),
+      }));
+    }
   }
 
   if (!damages.length) {
@@ -399,6 +439,7 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
   // 7. Build Chat Message
   const flavorPrefix = isCrit ? `💥 CRITICAL HIT: ${item.name}` : `${item.name}`;
   const notes = [];
+  if (upchargeLabel) notes.push(upchargeLabel);
   if (isCrit) notes.push("Critical Damage");
   if (isCrit && hasAstoundingCritical(actor)) notes.push("Astounding Crit (Exploding Dice)");
   if (isWeapon && weaponData?.isTwoHandedGrip) notes.push("2H Grip");
@@ -450,14 +491,420 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
  * @param {string|null} [options.rollMode=null]
  * @returns {Promise<ChatMessage|void>}
  */
+/**
+ * Combine a base dice formula (e.g. "2d12") with bonus dice per stack (e.g. "1d12" * stacks)
+ * @param {string} baseFormula
+ * @param {string} bonusDicePerStack
+ * @param {number} stacks
+ * @returns {string}
+ */
+export function computeUpchargedFormula(baseFormula, bonusDicePerStack, stacks = 1) {
+  const count = Math.max(1, Number(stacks) || 1);
+  if (!bonusDicePerStack) return baseFormula || "1d6";
+  const bonusMatch = String(bonusDicePerStack).trim().match(/^(\d+)d(\d+)$/i);
+  const baseMatch = String(baseFormula || "").trim().match(/^(\d+)d(\d+)(.*)$/i);
+  if (bonusMatch && baseMatch && bonusMatch[2] === baseMatch[2]) {
+    const newNum = parseInt(baseMatch[1], 10) + parseInt(bonusMatch[1], 10) * count;
+    return `${newNum}d${baseMatch[2]}${baseMatch[3] || ""}`;
+  }
+  if (bonusMatch) {
+    const addedNum = parseInt(bonusMatch[1], 10) * count;
+    return baseFormula ? `${baseFormula} + ${addedNum}d${bonusMatch[2]}` : `${addedNum}d${bonusMatch[2]}`;
+  }
+  return baseFormula ? `${baseFormula} + ${bonusDicePerStack}` : bonusDicePerStack;
+}
+
+/**
+ * Build the HTML block for Spell Library details, Power Scaling notes, and Interactive Upcharge controls
+ * @param {Actor} actor
+ * @param {Item} item
+ * @param {object|null} libEntry
+ * @param {object} scalingInfo
+ * @param {object} [options={}]
+ * @returns {string}
+ */
+export function buildSpellLibraryChatControlsHTML(actor, item, libEntry, scalingInfo, { isCrit = false, includeBaseDamageBtn = false } = {}) {
+  const prereqStatus = checkSpellPrerequisite(actor, libEntry || item);
+  const prereqBannerHTML = (!prereqStatus.met && prereqStatus.note)
+    ? `<div class="spell-chat-prereq-unmet" style="margin:6px 0; padding:5px 8px; background:rgba(220, 38, 38, 0.22); border:1px solid #ef4444; border-radius:4px; color:#fca5a5; font-size:11px; font-weight:700;">
+        <i class="fas fa-exclamation-triangle"></i> ${prereqStatus.note}
+       </div>`
+    : "";
+
+  const scalingBannerHTML = (scalingInfo?.activeScalingNotes?.length > 0)
+    ? `<div class="spell-chat-scaling-banner" style="margin:6px 0; padding:5px 8px; background:rgba(36, 105, 117, 0.28); border:1px solid #38bdf8; border-radius:4px; color:#bae6fd; font-size:11px;">
+        <strong style="color:#facc15;"><i class="fas fa-arrow-up-right-dots"></i> Active Power Scaling:</strong>
+        <span>${scalingInfo.activeScalingNotes.join(" • ")}</span>
+       </div>`
+    : "";
+
+  const manifestationBannerHTML = scalingInfo?.manifestationZeroSp
+    ? `<div class="spell-chat-manifestation-banner" style="margin:4px 0; padding:3px 8px; background:rgba(155, 114, 207, 0.22); border:1px solid #9b72cf; border-radius:4px; color:#e9d5ff; font-size:11px;">
+        <i class="fas fa-brain"></i> <strong>Manifestation:</strong> 0 SP base cost applied for Psionic Aptitude.
+       </div>`
+    : "";
+
+  let baseDamageBtnHTML = "";
+  const effectiveDmg = scalingInfo?.effectiveDamage || [];
+  if (includeBaseDamageBtn && effectiveDmg.length > 0) {
+    const primary = effectiveDmg[0];
+    const isHeal = Boolean(primary.isHeal || primary.type === "heal");
+    const dmgLabel = effectiveDmg.map(d => `${d.formula} ${d.type || ""}`.trim()).join(" + ");
+    baseDamageBtnHTML = `
+      <div class="chat-damage-action-wrap revealed" style="margin-top:6px;">
+        <button type="button" class="essence-chat-damage-btn ${isCrit ? "crit-damage-btn" : ""}"
+                data-action="rollEssenceDamage"
+                data-is-crit="${isCrit ? "true" : "false"}"
+                data-item-id="${item.id}"
+                data-actor-id="${actor.id}">
+          <i class="fas fa-${isHeal ? "heart-pulse" : (isCrit ? "burst" : "dice-d20")}"></i>
+          <span>${isHeal ? `Roll Healing (${dmgLabel})` : `${isCrit ? "Roll Critical Damage" : "Roll Damage"} (${dmgLabel})`}</span>
+        </button>
+      </div>
+    `;
+  }
+
+  let upchargeSectionHTML = "";
+  const availUpcharges = scalingInfo?.availableUpcharges || [];
+  const rawUpchargeText = libEntry?.upcharge || item.system?.upcharge || null;
+
+  if (availUpcharges.length > 0) {
+    const rowsHTML = availUpcharges.map(opt => {
+      const costParts = [];
+      if (opt.spCost > 0) costParts.push(`+${opt.spCost} SP`);
+      if (opt.apCost > 0) costParts.push(`+${opt.apCost} AP`);
+      const costLabel = costParts.length ? costParts.join(" / ") : "Free / Component";
+
+      let stackSelectHTML = "";
+      if (opt.repeatable && opt.maxStacks > 1) {
+        const opts = [];
+        for (let s = 1; s <= opt.maxStacks; s++) {
+          const sCost = [];
+          if (opt.spCost > 0) sCost.push(`-${opt.spCost * s} SP`);
+          if (opt.apCost > 0) sCost.push(`-${opt.apCost * s} AP`);
+          opts.push(`<option value="${s}">${s}x (${sCost.join(", ")})</option>`);
+        }
+        stackSelectHTML = `<select class="essence-upcharge-stacks" data-option-id="${opt.id}" style="background:#0f172a; color:#facc15; border:1px solid #3a7a7f; border-radius:4px; padding:3px 6px; font-size:11px; font-weight:700; width:auto !important; flex:0 0 auto; height:26px;">${opts.join("")}</select>`;
+      }
+
+      if (opt.isDamageUpcharge) {
+        const previewFormula = opt.formulaOverride
+          ? opt.formulaOverride
+          : computeUpchargedFormula(opt.baseFormula, opt.bonusDicePerStack, 1);
+        const btnActionLabel = opt.isHeal ? `Roll Upcharged Healing (${previewFormula})` : `Roll Upcharged Damage (${previewFormula})`;
+        return `
+          <div class="essence-upcharge-row" style="display:flex; flex-direction:column; gap:5px; margin-top:5px; padding:6px 8px; background:rgba(15, 23, 42, 0.75); border:1px solid rgba(250, 204, 21, 0.4); border-radius:4px; box-sizing:border-box; width:100%;">
+            <div style="font-size:11.5px; color:#fef08a; line-height:1.3; width:100%; word-break:normal; overflow-wrap:break-word;">
+              <strong>${opt.label}</strong> <span style="color:#94a3b8; font-weight:600;">(${costLabel})</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px; width:100%; box-sizing:border-box;">
+              ${stackSelectHTML}
+              <button type="button" class="essence-upcharge-roll-btn"
+                      data-action="rollSpellUpcharge"
+                      data-actor-id="${actor.id}"
+                      data-item-id="${item.id}"
+                      data-option-id="${opt.id}"
+                      data-is-crit="${isCrit ? "true" : "false"}"
+                      style="flex:1 1 auto; min-width:0; width:auto !important; display:inline-flex; align-items:center; justify-content:center; gap:5px; background:linear-gradient(135deg, #b45309 0%, #78350f 100%); color:#fef3c7; border:1px solid #f59e0b; border-radius:4px; padding:4px 8px; font-size:11px; font-weight:700; cursor:pointer; height:26px; box-sizing:border-box;">
+                <i class="fas fa-${opt.isHeal ? "heart-circle-plus" : "fire-flame-curved"}" style="flex-shrink:0;"></i>
+                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${btnActionLabel}</span>
+              </button>
+            </div>
+          </div>
+        `;
+      } else {
+        return `
+          <div class="essence-upcharge-row" style="display:flex; flex-direction:column; gap:5px; margin-top:5px; padding:6px 8px; background:rgba(15, 23, 42, 0.75); border:1px solid rgba(56, 189, 248, 0.4); border-radius:4px; box-sizing:border-box; width:100%;">
+            <div style="font-size:11.5px; color:#e0f2fe; line-height:1.3; width:100%; word-break:normal; overflow-wrap:break-word;">
+              <strong>${opt.label}</strong> <span style="color:#94a3b8; font-weight:600;">(${costLabel})</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px; width:100%; box-sizing:border-box;">
+              ${stackSelectHTML}
+              <button type="button" class="essence-upcharge-apply-btn"
+                      data-action="applySpellUpcharge"
+                      data-actor-id="${actor.id}"
+                      data-item-id="${item.id}"
+                      data-option-id="${opt.id}"
+                      style="flex:1 1 auto; min-width:0; width:auto !important; display:inline-flex; align-items:center; justify-content:center; gap:5px; background:linear-gradient(135deg, #0369a1 0%, #0c4a6e 100%); color:#e0f2fe; border:1px solid #38bdf8; border-radius:4px; padding:4px 8px; font-size:11px; font-weight:700; cursor:pointer; height:26px; box-sizing:border-box;">
+                <i class="fas fa-bolt" style="flex-shrink:0;"></i>
+                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Spend &amp; Upcharge</span>
+              </button>
+            </div>
+          </div>
+        `;
+      }
+    }).join("");
+
+    upchargeSectionHTML = `
+      <div class="spell-chat-upcharge-panel" style="margin-top:8px; padding:6px 8px; background:rgba(234, 179, 8, 0.1); border:1px solid rgba(250, 204, 21, 0.4); border-radius:6px;">
+        <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:#facc15; letter-spacing:0.5px; margin-bottom:2px;">
+          <i class="fas fa-bolt"></i> Upcharge Available (Requirements Met)
+        </div>
+        ${rawUpchargeText ? `<div style="font-size:11px; color:#cbd5e1; margin-bottom:4px;">${rawUpchargeText}</div>` : ""}
+        ${rowsHTML}
+      </div>
+    `;
+  } else if (rawUpchargeText) {
+    upchargeSectionHTML = `
+      <div class="spell-chat-upcharge-info" style="margin-top:6px; padding:4px 8px; background:rgba(15, 23, 42, 0.5); border-left:3px solid #64748b; border-radius:3px; font-size:11px; color:#94a3b8;">
+        <strong style="color:#cbd5e1;">Upcharge / Special:</strong> ${rawUpchargeText}
+      </div>
+    `;
+  }
+
+  return `${prereqBannerHTML}${scalingBannerHTML}${manifestationBannerHTML}${baseDamageBtnHTML}${upchargeSectionHTML}`;
+}
+
+/**
+ * Execute an interactive Spell Upcharge from a Chat Card button
+ * @param {Actor} actor
+ * @param {Item} item
+ * @param {string} optionId
+ * @param {number} [stacks=1]
+ * @param {object} [options={}]
+ */
+export async function executeSpellUpchargeFromChat(actor, item, optionId, stacks = 1, { isCrit = false, rollMode = null } = {}) {
+  if (!actor || !item) return;
+  const libEntry = getSpellLibraryEntry(item);
+  const scalingInfo = evaluateSpellScalingAndUpcharge(actor, libEntry || item, { afterBaseDeduction: true });
+  const opt = (scalingInfo.allUpcharges || []).find(o => o.id === optionId);
+  if (!opt) {
+    ui.notifications.warn(`Upcharge option not found for ${item.name}.`);
+    return;
+  }
+
+  const count = Math.max(1, Number(stacks) || 1);
+  const totalSp = (opt.spCost || 0) * count;
+  const totalAp = (opt.apCost || 0) * count;
+
+  if (totalAp > 0) {
+    const canAp = await checkAndEnforceAp(actor, totalAp, `${item.name} (Upcharge)`);
+    if (!canAp) return;
+  }
+  if (totalSp > 0) {
+    const canSp = await checkAndEnforceSp(actor, totalSp);
+    if (!canSp) return;
+  }
+
+  if (totalAp > 0) await deductAp(actor, totalAp);
+  if (totalSp > 0) await deductSp(actor, totalSp);
+
+  const costSummary = [
+    totalSp > 0 ? `-${totalSp} SP` : null,
+    totalAp > 0 ? `-${totalAp} AP` : null,
+  ].filter(Boolean).join(", ");
+
+  if (opt.isDamageUpcharge) {
+    const upchargedFormula = opt.formulaOverride
+      ? opt.formulaOverride
+      : computeUpchargedFormula(opt.baseFormula, opt.bonusDicePerStack, count);
+    const upLabel = `Upcharge${count > 1 ? ` x${count}` : ""}: ${opt.label}${costSummary ? ` (${costSummary})` : ""}`;
+    await rollItemDamage(actor, item, {
+      isCrit,
+      rollMode,
+      customFormula: upchargedFormula,
+      customDamageType: opt.baseDamageType,
+      isHeal: opt.isHeal,
+      upchargeLabel: upLabel,
+    });
+  } else {
+    const content = `
+      <div class="mythcraft chat-card spell-card essence-spell-chat-card" style="padding:8px 10px; background:rgba(15, 23, 42, 0.9); border:1px solid #38bdf8; border-radius:6px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <strong style="color:#facc15; font-family:'Cinzel', serif; font-size:13px;"><i class="fas fa-bolt"></i> ${item.name} — Upcharged!</strong>
+          ${costSummary ? `<span style="font-size:11px; font-weight:700; color:#38bdf8; background:rgba(2,132,199,0.2); padding:2px 6px; border-radius:4px; border:1px solid rgba(56,189,248,0.4);">${costSummary}</span>` : ""}
+        </div>
+        <div style="margin-top:4px; font-size:12px; color:#e0f2fe;">
+          Applied <strong>${count > 1 ? `${count}x ` : ""}${opt.label}</strong>
+        </div>
+      </div>
+    `;
+    const msgData = {
+      speaker: ChatMessage.getSpeaker({ actor }),
+      content,
+      flavor: `${actor.name} upcharges ${item.name}`,
+    };
+    const activeRollMode = applyMessageRollMode(msgData, rollMode);
+    await ChatMessage.create(msgData, { rollMode: activeRollMode });
+  }
+}
+
+/**
+ * Post a Spell's full card & description to Chat (used automatically for Non-Attack spells
+ * and when clicking the Post Spell to Chat button).
+ * @param {Actor} actor
+ * @param {Item} item
+ * @param {object} [options={}]
+ * @param {boolean} [options.deductResources=false]
+ * @param {string|null} [options.rollMode=null]
+ */
+export async function postSpellDescriptionCard(actor, item, { deductResources = false, rollMode = null } = {}) {
+  if (!actor || !item) return;
+  const sys = item.system || {};
+  const libEntry = getSpellLibraryEntry(item);
+  let scalingInfo = evaluateSpellScalingAndUpcharge(actor, libEntry || item, { afterBaseDeduction: false });
+
+  const apcVal = libEntry
+    ? (typeof libEntry.apc === "number" ? scalingInfo.effectiveApc : libEntry.apc)
+    : (sys.apc ?? sys.ap ?? null);
+  const spcVal = libEntry
+    ? (typeof libEntry.spc === "number" ? scalingInfo.effectiveSpc : libEntry.spc)
+    : (sys.spc ?? sys.sp ?? null);
+
+  if (deductResources) {
+    const numAp = typeof apcVal === "number" ? apcVal : Number(apcVal) || 0;
+    const numSp = typeof spcVal === "number" ? spcVal : Number(spcVal) || 0;
+
+    if (numAp > 0 && game.combat?.started) {
+      const allowedAp = await checkAndEnforceAp(actor, numAp, item.name);
+      if (!allowedAp) return;
+    }
+    if (numSp > 0) {
+      const allowedSp = await checkAndEnforceSp(actor, numSp);
+      if (!allowedSp) return;
+    }
+
+    if (numAp > 0 && game.combat?.started && getSetting("attackAPMode", "auto") !== "disabled") {
+      await deductAp(actor, numAp);
+    }
+    if (numSp > 0 && getSetting("spellSPMode", "auto") !== "disabled") {
+      await deductSp(actor, numSp);
+    }
+
+    scalingInfo = evaluateSpellScalingAndUpcharge(actor, libEntry || item, { afterBaseDeduction: true });
+  }
+
+  const magicSource = libEntry?.magicSource || (sys.magicSource ? (sys.magicSource.charAt(0).toUpperCase() + sys.magicSource.slice(1)) : "");
+  const spellType = libEntry?.spellType || "Spell";
+  const funcLabel = libEntry?.function || sys.function || null;
+  const rangeLabel = libEntry?.range || sys.rangeLabel || (sys.range?.value ? `${sys.range.value} ${sys.range.unit || "ft"}` : null);
+  const durationLabel = libEntry?.duration || sys.durationLabel || (sys.duration?.value ? `${sys.duration.value} ${sys.duration.unit || ""}` : null);
+  const requiresLabel = libEntry?.requires || null;
+  const castingTimeLabel = libEntry?.castingTime || sys.castingTime || null;
+  const prereqLabel = libEntry?.prerequisite || sys.recharge || null;
+  const materialsLabel = libEntry?.materials || null;
+  const targetDefense = libEntry?.target || sys.defenseTarget || sys.defense || "";
+
+  const description = await enrichText(sys.description?.value || sys.description || "", {
+    rollData: actor.getRollData(),
+  });
+
+  const enrichedTags = getEnrichedItemTags(item);
+  const tagsHTML = enrichedTags.length
+    ? `<div class="chat-tags-strip expanded-tags-strip" style="display:flex; flex-wrap:wrap; gap:4px; margin: 6px 0 8px;">
+        ${enrichedTags.map(tag => `
+          <span class="tag-badge-pill ${tag.category}" 
+                style="--cat-color: ${tag.categoryMeta.color}; --cat-bg: ${tag.categoryMeta.bg}; --cat-border: ${tag.categoryMeta.border};"
+                data-tooltip="${tag.tooltipHTML.replace(/"/g, '&quot;')}"
+                data-tooltip-direction="UP">
+            <i class="${tag.categoryMeta.icon}"></i>
+            <span class="tag-badge-name">${tag.name}</span>
+          </span>
+        `).join("")}
+       </div>`
+    : "";
+
+  const details = [];
+  if (magicSource) details.push(`<strong>Source:</strong> ${magicSource} ${spellType}`);
+  if (funcLabel) details.push(`<strong>Function:</strong> ${funcLabel}`);
+  if (apcVal !== undefined && apcVal !== null && apcVal !== "") details.push(`<strong>APC:</strong> ${apcVal}`);
+  if (spcVal !== undefined && spcVal !== null && spcVal !== "") details.push(`<strong>SPC:</strong> ${spcVal}`);
+  if (rangeLabel) details.push(`<strong>Range:</strong> ${rangeLabel}`);
+  if (durationLabel) details.push(`<strong>Duration:</strong> ${durationLabel}`);
+  if (requiresLabel) details.push(`<strong>Requires:</strong> ${requiresLabel}`);
+  if (castingTimeLabel) details.push(`<strong>Casting Time:</strong> ${castingTimeLabel}`);
+  if (prereqLabel) details.push(`<strong>Prerequisite:</strong> ${prereqLabel}`);
+  if (materialsLabel) details.push(`<strong>Materials:</strong> ${materialsLabel}`);
+
+  const detailsHTML = details.length
+    ? `<div class="spell-chat-details" style="display:flex; flex-wrap:wrap; gap:6px 14px; margin:6px 0 8px; font-size:11px; color:#cbd5e1; border-top:1px solid rgba(255,255,255,0.1); border-bottom:1px solid rgba(255,255,255,0.1); padding:5px 0;">
+        ${details.map(d => `<span>${d}</span>`).join("")}
+       </div>`
+    : "";
+
+  const defBadgeHTML = targetDefense ? renderDefenseTargetBadgeHTML(targetDefense) : "";
+  const controlsHTML = buildSpellLibraryChatControlsHTML(actor, item, libEntry, scalingInfo, {
+    isCrit: false,
+    includeBaseDamageBtn: true,
+  });
+
+  const content = `
+    <div class="mythcraft chat-card spell-card essence-spell-chat-card" data-non-attack-spell="true">
+      <header class="card-header" style="display:flex; align-items:center; justify-content:space-between; gap:8px; border-bottom:1px solid rgba(241,196,15,0.3); padding-bottom:6px; margin-bottom:6px;">
+        <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:0;">
+          <img src="${item.img}" alt="${item.name}" style="width:32px; height:32px; border-radius:4px; border:1px solid rgba(241,196,15,0.4); object-fit:cover; flex-shrink:0;" />
+          <div>
+            <h3 style="margin:0; font-size:14px; font-family:'Cinzel', serif; font-weight:700; color:#f1c40f; text-shadow:0 0 4px rgba(241,196,15,0.3);">${item.name}</h3>
+            <span style="font-size:10px; color:#58b2c0; font-weight:600; text-transform:uppercase;">${magicSource ? `${magicSource} ${spellType}` : spellType}${funcLabel ? ` • ${funcLabel}` : ""}</span>
+          </div>
+        </div>
+        ${defBadgeHTML}
+      </header>
+      ${tagsHTML}
+      ${detailsHTML}
+      <div class="card-description" style="font-size:12px; line-height:1.45; color:#f1f5f9; margin-top:6px;">
+        ${description || "<p><em>No description provided.</em></p>"}
+      </div>
+      ${controlsHTML}
+    </div>
+  `;
+
+  const msgData = {
+    speaker: ChatMessage.getSpeaker({ actor }),
+    content,
+    flavor: deductResources ? `${actor.name} casts ${item.name}` : `${actor.name} shares ${item.name}`,
+    flags: {
+      "mythcraft-essence-sheet": {
+        itemId: item.id,
+        itemUuid: item.uuid,
+        itemName: item.name,
+        defenseTarget: targetDefense || null,
+        isNonAttackSpell: true,
+      },
+    },
+  };
+  const activeRollMode = applyMessageRollMode(msgData, rollMode);
+  return await ChatMessage.create(msgData, { rollMode: activeRollMode });
+}
+
 export async function rollSpellItem(actor, item, { rollMode = null } = {}) {
   if (!actor || !item || item.type !== "spell") return;
 
-  const apc = Number(item.system?.apc ?? item.system?.ap ?? 0);
-  if (apc > 0) {
+  const libEntry = getSpellLibraryEntry(item);
+  const isAttackSpell = libEntry
+    ? Boolean(libEntry.isAttack)
+    : Boolean(item.system?.isAttack ?? (item.system?.defenseTarget || item.system?.defense));
+
+  // If the spell is NOT an attack spell (Column M = False), post its description & upcharge card to chat instead of rolling a d20 attack
+  if (!isAttackSpell) {
+    return await postSpellDescriptionCard(actor, item, { deductResources: true, rollMode });
+  }
+
+  let scalingInfo = evaluateSpellScalingAndUpcharge(actor, libEntry || item, { afterBaseDeduction: false });
+  const apc = libEntry
+    ? (typeof libEntry.apc === "number" ? scalingInfo.effectiveApc : 0)
+    : Number(item.system?.apc ?? item.system?.ap ?? 0);
+  const spc = libEntry
+    ? (typeof libEntry.spc === "number" ? scalingInfo.effectiveSpc : 0)
+    : Number(item.system?.spc ?? item.system?.sp ?? 0);
+
+  if (apc > 0 && game.combat?.started) {
     const allowed = await checkAndEnforceAp(actor, apc, item.name);
     if (!allowed) return;
   }
+  if (spc > 0) {
+    const allowedSp = await checkAndEnforceSp(actor, spc);
+    if (!allowedSp) return;
+  }
+
+  if (apc > 0 && game.combat?.started && getSetting("attackAPMode", "auto") !== "disabled") {
+    await deductAp(actor, apc);
+  }
+  if (spc > 0 && getSetting("spellSPMode", "auto") !== "disabled") {
+    await deductSp(actor, spc);
+  }
+
+  scalingInfo = evaluateSpellScalingAndUpcharge(actor, libEntry || item, { afterBaseDeduction: true });
 
   const actorSpellAttrs = actor.flags?.["mythcraft-essence-sheet"]?.spellAttributes || {};
   const spellItemAttr = actorSpellAttrs[item.id]
@@ -478,7 +925,8 @@ export async function rollSpellItem(actor, item, { rollMode = null } = {}) {
   const powerLevels = actor.system?.powerLevel ?? {};
   const primarySource = Object.entries(powerLevels)
     .sort(([, a], [, b]) => b - a)[0]?.[0];
-  const isPrimary = primarySource ? (item.system?.magicSource === primarySource) : true;
+  const spellSourceKey = libEntry?.sourceKey || String(item.system?.magicSource || "").toLowerCase();
+  const isPrimary = primarySource ? (spellSourceKey === primarySource.toLowerCase()) : true;
   if (primarySource && !isPrimary) abilityMod = Math.ceil(abilityMod / 2);
 
   const critHit = getActorCritHit(actor);
@@ -492,16 +940,17 @@ export async function rollSpellItem(actor, item, { rollMode = null } = {}) {
   }
 
   const SpellRollClass = mythcraft?.rolls?.SpellRoll || Roll;
-  const defenseTarget = item.system?.defenseTarget || item.system?.defense || "";
+  const defenseTarget = libEntry?.target || item.system?.defenseTarget || item.system?.defense || "AR";
   const roll = new SpellRollClass(formula, actor.getRollData(), {
     spellName: item.name,
-    source: item.system?.magicSource,
+    source: libEntry?.magicSource || item.system?.magicSource,
     isPrimary,
     critHit,
-    flavor: `${item.name} - Spell Roll`,
-    spc: item.system?.spc,
-    range: item.system?.rangeLabel,
-    duration: item.system?.durationLabel,
+    flavor: `${item.name} - Spell Attack`,
+    spc: libEntry ? scalingInfo.effectiveSpc : item.system?.spc,
+    range: libEntry?.range || item.system?.rangeLabel,
+    duration: libEntry?.duration || item.system?.durationLabel,
+    defenseTarget,
   });
 
   if (typeof roll.evaluate === "function" && !roll._evaluated) {
@@ -528,10 +977,167 @@ export async function rollSpellItem(actor, item, { rollMode = null } = {}) {
 
   const defBadgeHTML = defenseTarget ? renderDefenseTargetBadgeHTML(defenseTarget) : "";
   const resultClass = isCrit ? "crit-success" : (isFumble ? "crit-fail" : "");
-  const resultLabel = isCrit ? "CRITICAL SUCCESS" : (isFumble ? "CRITICAL FAILURE" : "SPELL ROLL");
+  const resultLabel = isCrit ? "CRITICAL SUCCESS" : (isFumble ? "CRITICAL FAILURE" : "SPELL ATTACK");
+
+  const details = [];
+  if (libEntry?.magicSource) details.push(`<strong>Source:</strong> ${libEntry.magicSource} ${libEntry.spellType || "Spell"}`);
+  if (libEntry?.function) details.push(`<strong>Function:</strong> ${libEntry.function}`);
+  if (libEntry?.apc !== null && libEntry?.apc !== undefined) details.push(`<strong>APC:</strong> ${scalingInfo.effectiveApc || libEntry.apc}`);
+  if (libEntry?.spc !== null && libEntry?.spc !== undefined) details.push(`<strong>SPC:</strong> ${scalingInfo.effectiveSpc}`);
+  if (libEntry?.range) details.push(`<strong>Range:</strong> ${libEntry.range}`);
+  if (libEntry?.duration) details.push(`<strong>Duration:</strong> ${libEntry.duration}`);
+  if (libEntry?.requires) details.push(`<strong>Requires:</strong> ${libEntry.requires}`);
+  if (libEntry?.materials) details.push(`<strong>Materials:</strong> ${libEntry.materials}`);
+
+  const detailsHTML = details.length
+    ? `<div class="spell-chat-details" style="display:flex; flex-wrap:wrap; gap:5px 12px; margin:6px 0; font-size:11px; color:#cbd5e1; border-top:1px solid rgba(255,255,255,0.1); border-bottom:1px solid rgba(255,255,255,0.1); padding:4px 0;">
+        ${details.map(d => `<span>${d}</span>`).join("")}
+       </div>`
+    : "";
+
+  const controlsHTML = buildSpellLibraryChatControlsHTML(actor, item, libEntry, scalingInfo, {
+    isCrit,
+    includeBaseDamageBtn: true,
+  });
 
   const content = `
-    <div class="mythcraft-statblock spell-card">
+    <div class="mythcraft-statblock spell-card essence-spell-chat-card">
+      <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+          <img src="${item.img}" style="border: 1px solid #a8d5e2; border-radius: 4px; height: 32px; width: 32px; object-fit: cover; margin-right: 8px; flex-shrink: 0;" />
+          <span class="card-title" style="font-family: 'Cinzel', serif; font-size: 14px; color: #FEEBB3; font-weight: 700;">${item.name}</span>
+        </div>
+        ${defBadgeHTML}
+      </div>
+      ${detailsHTML}
+      <div class="roll-result ${resultClass}">
+        <div class="roll-label">${resultLabel}</div>
+        <div class="roll-value">${roll.total}</div>
+        <div class="roll-formula">${roll.formula}</div>
+        ${(isFumble && isAstounding) ? '<div class="astounding-fumble-banner" style="margin-top: 6px; padding: 4px 8px; background: rgba(192, 57, 43, 0.35); border: 1px solid #e74c3c; border-radius: 4px; color: #ff9999; font-size: 11px; font-weight: 700; text-align: center;"><i class="fas fa-skull-crossbones"></i> Astounding Critical Failure: Turn Ended &amp; AP Lost!</div>' : ''}
+      </div>
+      ${controlsHTML}
+    </div>
+  `;
+
+  const msgData = {
+    user: game.user.id,
+    speaker: ChatMessage.getSpeaker({ actor }),
+    flavor: item.name,
+    content: content,
+    rolls: [roll],
+    flags: {
+      "mythcraft-essence-sheet": {
+        itemId: item.id,
+        itemUuid: item.uuid,
+        itemName: item.name,
+        defenseTarget,
+        isSpellCheck: true,
+        isAttack: true,
+        critHit,
+        isCrit,
+        isFumble,
+      },
+    },
+  };
+
+  const activeRollMode = applyMessageRollMode(msgData, rollMode);
+
+  if (CONST.CHAT_MESSAGE_STYLES) {
+    msgData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
+  }
+
+  return await ChatMessage.create(msgData, { rollMode: activeRollMode });
+}
+
+/**
+ * Execute a full Weapon Attack roll for an actor, matching the Essence Sheet chat card format
+ * @param {Actor} actor
+ * @param {Item} item
+ * @param {object} [options={}]
+ * @param {string|null} [options.rollMode=null]
+ */
+export async function rollWeaponItem(actor, item, { rollMode = null } = {}) {
+  if (!actor || !item || item.type !== "weapon") return;
+
+  const apc = getSafeWeaponApc(item, actor);
+  if (apc > 0 && game.combat?.started) {
+    const allowed = await checkAndEnforceAp(actor, apc, item.name);
+    if (!allowed) return;
+  }
+
+  if (apc > 0 && game.combat?.started && getSetting("attackAPMode", "auto") !== "disabled") {
+    await deductAp(actor, apc);
+  }
+
+  const attr = item.system?.attr || "str";
+  const attrValue = Number(actor.system?.attributes?.[attr]?.value ?? actor.system?.attributes?.[attr] ?? 0);
+  const critHit = getActorCritHit(actor);
+  const critFail = getActorCritFail(actor);
+  const modifier = Number(item.system?.attackModifierValue ?? item.system?.attackModifier ?? 0);
+  const luck = Number(actor.system?.attributes?.luck?.value ?? actor.system?.attributes?.luck ?? 0);
+
+  // Consumed Souls Modifier only affects damage, not attack modifier
+  const enableClaimed = Boolean(
+    item.flags?.["mythcraft-essence-sheet"]?.enableClaimedSouls ||
+    item.flags?.["mythcraft-essence-sheet"]?.enableConsumedSouls ||
+    item.system?.enableClaimedSouls ||
+    item.system?.enableConsumedSouls
+  );
+  const claimedSouls = enableClaimed ? Math.min(5, Math.max(0, Number(
+    item.flags?.["mythcraft-essence-sheet"]?.consumedSouls ??
+    item.flags?.["mythcraft-essence-sheet"]?.claimedSouls ??
+    item.system?.consumedSouls ??
+    item.system?.claimedSouls ??
+    0
+  ))) : 0;
+
+  // MythCraft Rule: If LUCK < 0, subtract LUCK from every d20 roll
+  let formula = `1d20 + ${attrValue + modifier}`;
+  if (luck < 0) {
+    formula = `${formula} - ${Math.abs(luck)}`;
+  }
+
+  const AttackRollClass = mythcraft?.rolls?.AttackRoll || Roll;
+  const roll = new AttackRollClass(formula, actor.getRollData(), {
+    weaponName: item.name,
+    weaponAttr: attr,
+    flavor: `${item.name} - Attack Roll`,
+    defenseTarget: item.system?.defenseTarget || "ar",
+    critHit,
+    critFail,
+    damage: item.system?.damage || [],
+  });
+
+  if (typeof roll.evaluate === "function" && !roll._evaluated) {
+    await roll.evaluate();
+  }
+
+  const d20Term = roll.terms?.find(t => t.faces === 20);
+  const d20Result = d20Term?.results?.find(r => r.active !== false)?.result ?? d20Term?.results?.[0]?.result ?? roll.dice?.[0]?.total;
+  const isCrit = typeof d20Result === "number" && d20Result >= critHit;
+  const isFumble = typeof d20Result === "number" && d20Result <= critFail;
+
+  const isAstounding = hasAstoundingCritical(actor);
+  if (isFumble && isAstounding) {
+    if (actor.system?.ap !== undefined) {
+      await actor.update({ "system.ap.value": 0 });
+    }
+    if (game.combat?.started && game.combat?.combatant?.actorId === actor.id) {
+      if (game.user.isGM || game.combat.combatant?.isOwner) {
+        await game.combat.nextTurn();
+      }
+    }
+    ui.notifications.warn(`${actor.name} suffered a Critical Failure! Turn ended immediately and remaining AP lost (Astounding Critical).`);
+  }
+
+  const defenseTarget = item.system?.defenseTarget || item.system?.defense || "ar";
+  const defBadgeHTML = renderDefenseTargetBadgeHTML(defenseTarget);
+  const resultClass = isCrit ? "crit-success" : (isFumble ? "crit-fail" : "");
+  const resultLabel = isCrit ? "CRITICAL HIT" : (isFumble ? "CRITICAL FAILURE" : "ATTACK ROLL");
+
+  const content = `
+    <div class="mythcraft-statblock attack-card">
       <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
         <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
           <img src="${item.img}" style="border: 1px solid #a8d5e2; border-radius: 4px; height: 32px; width: 32px; object-fit: cover; margin-right: 8px; flex-shrink: 0;" />
@@ -560,7 +1166,9 @@ export async function rollSpellItem(actor, item, { rollMode = null } = {}) {
         itemUuid: item.uuid,
         itemName: item.name,
         defenseTarget,
-        isSpellCheck: true,
+        isAttack: true,
+        claimedSouls,
+        enableClaimedSouls: enableClaimed,
         critHit,
         isCrit,
         isFumble,
@@ -894,125 +1502,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     const itemId = target.closest("[data-item-id]")?.dataset.itemId;
     const item = this.actor.items.get(itemId);
     if (!item || item.type !== "weapon") return;
-
-    const apc = getSafeWeaponApc(item, this.actor);
-    const allowed = await checkAndEnforceAp(this.actor, apc, item.name);
-    if (!allowed) return;
-
-    const attr = item.system?.attr || "str";
-    const attrValue = Number(this.actor.system?.attributes?.[attr] ?? 0);
-    const critHit = getActorCritHit(this.actor);
-    const critFail = getActorCritFail(this.actor);
-    const modifier = Number(item.system?.attackModifierValue ?? item.system?.attackModifier ?? 0);
-    const luck = Number(this.actor.system?.attributes?.luck?.value ?? this.actor.system?.attributes?.luck ?? 0);
-
-    // Consumed Souls Modifier only affects damage, not attack modifier
-    const enableClaimed = Boolean(
-      item.flags?.["mythcraft-essence-sheet"]?.enableClaimedSouls ||
-      item.flags?.["mythcraft-essence-sheet"]?.enableConsumedSouls ||
-      item.system?.enableClaimedSouls ||
-      item.system?.enableConsumedSouls
-    );
-    const claimedSouls = enableClaimed ? Math.min(5, Math.max(0, Number(
-      item.flags?.["mythcraft-essence-sheet"]?.consumedSouls ??
-      item.flags?.["mythcraft-essence-sheet"]?.claimedSouls ??
-      item.system?.consumedSouls ??
-      item.system?.claimedSouls ??
-      0
-    ))) : 0;
-
-    // MythCraft Rule: If LUCK < 0, subtract LUCK from every d20 roll
-    let formula = `1d20 + ${attrValue + modifier}`;
-    if (luck < 0) {
-      formula = `${formula} - ${Math.abs(luck)}`;
-    }
-
-    const AttackRollClass = mythcraft.rolls?.AttackRoll || Roll;
-    const roll = new AttackRollClass(formula, this.actor.getRollData(), {
-      weaponName: item.name,
-      weaponAttr: attr,
-      flavor: `${item.name} - Attack Roll`,
-      defenseTarget: item.system?.defenseTarget || "ar",
-      critHit,
-      critFail,
-      damage: item.system?.damage || [],
-    });
-
-    if (typeof roll.evaluate === "function" && !roll._evaluated) {
-      await roll.evaluate();
-    }
-
-    const d20Term = roll.terms?.find(t => t.faces === 20);
-    const d20Result = d20Term?.results?.find(r => r.active !== false)?.result ?? d20Term?.results?.[0]?.result ?? roll.dice?.[0]?.total;
-    const isCrit = typeof d20Result === "number" && d20Result >= critHit;
-    const isFumble = typeof d20Result === "number" && d20Result <= critFail;
-
-    const isAstounding = hasAstoundingCritical(this.actor);
-    if (isFumble && isAstounding) {
-      if (this.actor.system?.ap !== undefined) {
-        await this.actor.update({ "system.ap.value": 0 });
-      }
-      if (game.combat?.started && game.combat?.combatant?.actorId === this.actor.id) {
-        if (game.user.isGM || game.combat.combatant?.isOwner) {
-          await game.combat.nextTurn();
-        }
-      }
-      ui.notifications.warn(`${this.actor.name} suffered a Critical Failure! Turn ended immediately and remaining AP lost (Astounding Critical).`);
-    }
-
-    const defenseTarget = item.system?.defenseTarget || item.system?.defense || "ar";
-    const defBadgeHTML = renderDefenseTargetBadgeHTML(defenseTarget);
-    const resultClass = isCrit ? "crit-success" : (isFumble ? "crit-fail" : "");
-    const resultLabel = isCrit ? "CRITICAL HIT" : (isFumble ? "CRITICAL FAILURE" : "ATTACK ROLL");
-
-    // Standardized MythCraft Statblock Attack Card Layout (Matches MythCraft HUD & Sheet Design)
-    const content = `
-      <div class="mythcraft-statblock attack-card">
-        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-          <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
-            <img src="${item.img}" style="border: 1px solid #a8d5e2; border-radius: 4px; height: 32px; width: 32px; object-fit: cover; margin-right: 8px; flex-shrink: 0;" />
-            <span class="card-title" style="font-family: 'Cinzel', serif; font-size: 14px; color: #FEEBB3; font-weight: 700;">${item.name}</span>
-          </div>
-          ${defBadgeHTML}
-        </div>
-        <div class="roll-result ${resultClass}">
-          <div class="roll-label">${resultLabel}</div>
-          <div class="roll-value">${roll.total}</div>
-          <div class="roll-formula">${roll.formula}</div>
-          ${(isFumble && isAstounding) ? '<div class="astounding-fumble-banner" style="margin-top: 6px; padding: 4px 8px; background: rgba(192, 57, 43, 0.35); border: 1px solid #e74c3c; border-radius: 4px; color: #ff9999; font-size: 11px; font-weight: 700; text-align: center;"><i class="fas fa-skull-crossbones"></i> Astounding Critical Failure: Turn Ended &amp; AP Lost!</div>' : ''}
-        </div>
-      </div>
-    `;
-
-    const msgData = {
-      user: game.user.id,
-      speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-      flavor: item.name,
-      content: content,
-      rolls: [roll],
-      flags: {
-        "mythcraft-essence-sheet": {
-          itemId: item.id,
-          itemUuid: item.uuid,
-          itemName: item.name,
-          defenseTarget,
-          isAttack: true,
-          claimedSouls,
-          enableClaimedSouls: enableClaimed,
-          critHit,
-          isCrit,
-          isFumble,
-        },
-      },
-    };
-
-    const activeRollMode = applyMessageRollMode(msgData);
-
-    if (CONST.CHAT_MESSAGE_STYLES) {
-      msgData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
-    }
-
-    return await ChatMessage.create(msgData, { rollMode: activeRollMode });
+    return await rollWeaponItem(this.actor, item);
   }
 
 
@@ -1629,73 +2119,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     const itemId = target.closest("[data-item-id]")?.dataset.itemId;
     const item = this.actor.items.get(itemId);
     if (!item) return;
-
-    const sys = item.system || {};
-    const magicSource = sys.magicSource ? (sys.magicSource.charAt(0).toUpperCase() + sys.magicSource.slice(1)) : "";
-    const description = await enrichText(sys.description?.value || sys.description || "", { 
-      rollData: this.actor.getRollData(), 
-    });
-
-    // Collect enriched tags with interactive tooltips
-    const enrichedTags = getEnrichedItemTags(item);
-    const tagsHTML = enrichedTags.length 
-      ? `<div class="chat-tags-strip expanded-tags-strip" style="display:flex; flex-wrap:wrap; gap:4px; margin: 6px 0 8px;">
-          ${enrichedTags.map(tag => `
-            <span class="tag-badge-pill ${tag.category}" 
-                  style="--cat-color: ${tag.categoryMeta.color}; --cat-bg: ${tag.categoryMeta.bg}; --cat-border: ${tag.categoryMeta.border};"
-                  data-tooltip="${tag.tooltipHTML.replace(/"/g, '&quot;')}"
-                  data-tooltip-direction="UP">
-              <i class="${tag.categoryMeta.icon}"></i>
-              <span class="tag-badge-name">${tag.name}</span>
-            </span>
-          `).join("")}
-         </div>`
-      : "";
-
-    const details = [];
-    if (magicSource) details.push(`<strong>Source:</strong> ${magicSource}`);
-    if (sys.apc !== undefined && sys.apc !== null) details.push(`<strong>APC:</strong> ${sys.apc}`);
-    if (sys.spc !== undefined && sys.spc !== null) details.push(`<strong>SPC:</strong> ${sys.spc}`);
-    if (sys.rangeLabel || (sys.range?.value)) details.push(`<strong>Range:</strong> ${sys.rangeLabel || `${sys.range.value} ${sys.range.unit || "ft"}`}`);
-    if (sys.durationLabel || (sys.duration?.value)) details.push(`<strong>Duration:</strong> ${sys.durationLabel || `${sys.duration.value} ${sys.duration.unit || ""}`}`);
-    if (sys.castingTime) details.push(`<strong>Casting Time:</strong> ${sys.castingTime}`);
-    if (sys.recharge) details.push(`<strong>Recharge:</strong> ${sys.recharge}`);
-
-    const detailsHTML = details.length 
-      ? `<div class="spell-chat-details" style="display:flex; flex-wrap:wrap; gap:6px 14px; margin:6px 0 8px; font-size:11px; color:#cbd5e1; border-top:1px solid rgba(255,255,255,0.1); border-bottom:1px solid rgba(255,255,255,0.1); padding:5px 0;">
-          ${details.map(d => `<span>${d}</span>`).join("")}
-         </div>` 
-      : "";
-
-    const content = `
-      <div class="mythcraft chat-card spell-card essence-spell-chat-card">
-        <header class="card-header" style="display:flex; align-items:center; gap:8px; border-bottom:1px solid rgba(241,196,15,0.3); padding-bottom:6px; margin-bottom:6px;">
-          <img src="${item.img}" alt="${item.name}" style="width:32px; height:32px; border-radius:4px; border:1px solid rgba(241,196,15,0.4); object-fit:cover;" />
-          <div>
-            <h3 style="margin:0; font-size:14px; font-family:'Cinzel', serif; font-weight:700; color:#f1c40f; text-shadow:0 0 4px rgba(241,196,15,0.3);">${item.name}</h3>
-            ${magicSource ? `<span style="font-size:10px; color:#58b2c0; font-weight:600; text-transform:uppercase;">${magicSource} Spell</span>` : ""}
-          </div>
-        </header>
-        ${tagsHTML}
-        ${detailsHTML}
-        <div class="card-description" style="font-size:12px; line-height:1.45; color:#f1f5f9; margin-top:6px;">
-          ${description || "<p><em>No description provided.</em></p>"}
-        </div>
-      </div>
-    `;
-
-    await ChatMessage.create({
-      speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-      content,
-      flavor: `${this.actor.name} shares ${item.name}`,
-      flags: {
-        "mythcraft-essence-sheet": {
-          itemId: item.id,
-          itemUuid: item.uuid,
-          itemName: item.name,
-        },
-      },
-    });
+    return await postSpellDescriptionCard(this.actor, item, { deductResources: false });
   }
 
   static async #postItemToChat(event, target) {
@@ -3676,10 +4100,11 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       const powerLevels = this.actor.system?.powerLevel || {};
       const spellItems = this.actor.itemTypes.spell || [];
 
-      // Count known spells per magic source
+      // Count known spells per magic source (preferring Spell Library source)
       const sourceCounts = {};
       for (const spell of spellItems) {
-        const raw = typeof spell.system?.magicSource === "string" ? spell.system.magicSource : "";
+        const lib = getSpellLibraryEntry(spell);
+        const raw = lib?.sourceKey || (typeof spell.system?.magicSource === "string" ? spell.system.magicSource : "");
         const k = cleanSourceKey(raw);
         if (k) sourceCounts[k] = (sourceCounts[k] || 0) + 1;
       }
@@ -3712,8 +4137,10 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       };
 
       const sortedSpells = [...spellItems].sort((a, b) => {
-        const srcA = cleanSourceKey(typeof a.system?.magicSource === "string" ? a.system.magicSource : "");
-        const srcB = cleanSourceKey(typeof b.system?.magicSource === "string" ? b.system.magicSource : "");
+        const libA = getSpellLibraryEntry(a);
+        const libB = getSpellLibraryEntry(b);
+        const srcA = libA?.sourceKey || cleanSourceKey(typeof a.system?.magicSource === "string" ? a.system.magicSource : "");
+        const srcB = libB?.sourceKey || cleanSourceKey(typeof b.system?.magicSource === "string" ? b.system.magicSource : "");
         const orderA = SOURCE_ORDER[srcA] ?? 99;
         const orderB = SOURCE_ORDER[srcB] ?? 99;
         if (orderA !== orderB) return orderA - orderB;
@@ -3723,7 +4150,8 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       // Filter spells if any magic source filters are active
       const filteredSpells = (this.activeMagicFilters.size > 0)
         ? sortedSpells.filter(item => {
-            const raw = typeof item.system?.magicSource === "string" ? item.system.magicSource : "";
+            const lib = getSpellLibraryEntry(item);
+            const raw = lib?.sourceKey || (typeof item.system?.magicSource === "string" ? item.system.magicSource : "");
             const k = cleanSourceKey(raw);
             return this.activeMagicFilters.has(k);
           })
@@ -3741,19 +4169,30 @@ export default class EssenceCharacterSheet extends CharacterSheet {
 
       context.spells = await Promise.all(filteredSpells.map(async (item) => {
         const expanded = this.expandedItems.has(item.id);
-        const rawSource = typeof item.system?.magicSource === "string" ? item.system.magicSource : "";
-        const sourceKey = cleanSourceKey(rawSource);
+        const libEntry = getSpellLibraryEntry(item);
+        const scalingInfo = evaluateSpellScalingAndUpcharge(this.actor, libEntry || item);
+        const prereqStatus = checkSpellPrerequisite(this.actor, libEntry || item);
+        const requirementBadges = getSpellRequirementsBadges(libEntry || item);
+
+        const rawSource = libEntry?.magicSource || (typeof item.system?.magicSource === "string" ? item.system.magicSource : "");
+        const sourceKey = libEntry?.sourceKey || cleanSourceKey(rawSource);
         const descVal = item.system?.description?.value ?? item.system?.description ?? "";
 
-        // Extract raw tags from Set, Array, or Object
+        // Extract raw tags from Library + Item Set, Array, or Object
         let rawTags = [];
+        if (libEntry?.tags?.length) {
+          rawTags.push(...libEntry.tags);
+        }
+        if (libEntry?.spellType && libEntry.spellType !== "Spell") {
+          rawTags.push(libEntry.spellType);
+        }
         if (item.system?.tags) {
           if (item.system.tags instanceof Set) {
-            rawTags = Array.from(item.system.tags);
+            rawTags.push(...Array.from(item.system.tags));
           } else if (Array.isArray(item.system.tags)) {
-            rawTags = item.system.tags;
+            rawTags.push(...item.system.tags);
           } else if (typeof item.system.tags === "object") {
-            rawTags = Object.values(item.system.tags);
+            rawTags.push(...Object.values(item.system.tags));
           }
         }
 
@@ -3806,11 +4245,42 @@ export default class EssenceCharacterSheet extends CharacterSheet {
           selected: opt.key === spellAttr || (opt.key === "luck" && spellAttr === "lck") || (opt.key === "lck" && spellAttr === "luck"),
         }));
 
+        const displayApc = libEntry
+          ? (typeof libEntry.apc === "number" ? scalingInfo.effectiveApc : libEntry.apc)
+          : (item.system?.apc ?? null);
+        const displaySpc = libEntry
+          ? (typeof libEntry.spc === "number" ? scalingInfo.effectiveSpc : libEntry.spc)
+          : (item.system?.spc ?? null);
+        const isAttack = libEntry
+          ? Boolean(libEntry.isAttack)
+          : Boolean(item.system?.isAttack ?? (item.system?.defenseTarget || item.system?.defense));
+        const targetDefense = libEntry?.target || item.system?.defenseTarget || item.system?.defense || null;
+        const targetDefenseConfig = targetDefense ? getDefenseTargetConfig(targetDefense) : null;
+
         return {
           item,
+          libEntry,
           expanded,
           magicSourceKey: sourceKey,
-          magicSourceLabel: cleanSourceLabel(rawSource),
+          magicSourceLabel: libEntry?.magicSource || cleanSourceLabel(rawSource),
+          spellTypeLabel: libEntry?.spellType || "Spell",
+          functionLabel: libEntry?.function || null,
+          displayApc,
+          displaySpc,
+          rangeLabel: libEntry?.range || item.system?.rangeLabel || null,
+          durationLabel: libEntry?.duration || item.system?.durationLabel || null,
+          castingTimeLabel: libEntry?.castingTime || item.system?.castingTime || null,
+          requiresLabel: libEntry?.requires || null,
+          requirementBadges,
+          prereqUnmet: !prereqStatus.met,
+          prereqText: prereqStatus.prerequisiteText,
+          prereqNote: prereqStatus.note,
+          isAttack,
+          targetDefense,
+          targetDefenseConfig,
+          upchargeText: libEntry?.upcharge || null,
+          materialsText: libEntry?.materials || null,
+          activeScalingNotes: scalingInfo.activeScalingNotes || [],
           spellcastingAttribute: spellAttr,
           spellAttributeOptions,
           inlineTags,

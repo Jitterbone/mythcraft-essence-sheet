@@ -8,6 +8,7 @@
 import { getSetting } from "../settings.mjs";
 import { getActorCritHit, getActorCritFail, hasAstoundingCritical } from "./luck-points.mjs";
 import { applyMessageRollMode } from "./roll-privacy.mjs";
+import { getSpellLibraryEntry, evaluateSpellScalingAndUpcharge } from "../data/spell-library.mjs";
 
 /**
  * Evaluates an APC formula string (e.g. "8-STR, min 4", "5-DEX", "3")
@@ -57,6 +58,14 @@ export function evaluateApcFormula(formula, actor) {
 export function calculateItemAPC(item, actor, options = {}) {
   if (!item) return 0;
 
+  if (item.type === "spell") {
+    const libEntry = getSpellLibraryEntry(item);
+    if (libEntry && typeof libEntry.apc === "number") {
+      return evaluateSpellScalingAndUpcharge(actor, libEntry).effectiveApc;
+    }
+  }
+  if (!item) return 0;
+
   const rawApc = item._source?.system?.apc ?? item.system?._source?.apc;
   if (typeof rawApc === "number" && !isNaN(rawApc) && rawApc > 0) {
     return Number(rawApc);
@@ -80,7 +89,14 @@ export function calculateItemAPC(item, actor, options = {}) {
  * @param {Item} item
  * @returns {number}
  */
-export function calculateItemSP(item) {
+export function calculateItemSP(item, actor = null) {
+  if (!item) return 0;
+  if (item.type === "spell") {
+    const libEntry = getSpellLibraryEntry(item);
+    if (libEntry && typeof libEntry.spc === "number") {
+      return evaluateSpellScalingAndUpcharge(actor || item.actor, libEntry).effectiveSpc;
+    }
+  }
   if (!item) return 0;
   return Number(
     item.system?.spc ??
@@ -125,26 +141,41 @@ export async function checkAndEnforceAp(actor, cost, options = {}) {
   }
 
   // Default: Confirm dialog
-  return new Promise((resolve) => {
-    new Dialog({
-      title: "Insufficient Action Points",
-      content: `<p><strong>${actor.name}</strong> only has <strong>${availableAp} AP</strong> available, but this action costs <strong>${cost} AP</strong> (short by ${shortage} AP).</p><p>Do you want to proceed anyway?</p>`,
-      buttons: {
-        proceed: {
-          icon: '<i class="fas fa-check"></i>',
-          label: "Proceed Anyway",
-          callback: () => resolve(true),
+  const apModalContent = `<p><strong>${actor.name}</strong> only has <strong>${availableAp} AP</strong> available, but this action costs <strong>${cost} AP</strong> (short by ${shortage} AP).</p><p>Do you want to proceed anyway?</p>`;
+  const DialogV2 = foundry.applications?.api?.DialogV2;
+  if (DialogV2?.confirm) {
+    const confirmed = await DialogV2.confirm({
+      window: { title: "Insufficient Action Points" },
+      content: apModalContent,
+      yes: { label: "Proceed Anyway", icon: "fas fa-check" },
+      no: { label: "Cancel Action", icon: "fas fa-times", default: true },
+      rejectClose: false,
+    });
+    return Boolean(confirmed);
+  }
+  if (typeof globalThis.Dialog !== "undefined") {
+    return new Promise((resolve) => {
+      new globalThis.Dialog({
+        title: "Insufficient Action Points",
+        content: apModalContent,
+        buttons: {
+          proceed: {
+            icon: '<i class="fas fa-check"></i>',
+            label: "Proceed Anyway",
+            callback: () => resolve(true),
+          },
+          cancel: {
+            icon: '<i class="fas fa-times"></i>',
+            label: "Cancel Action",
+            callback: () => resolve(false),
+          },
         },
-        cancel: {
-          icon: '<i class="fas fa-times"></i>',
-          label: "Cancel Action",
-          callback: () => resolve(false),
-        },
-      },
-      default: "cancel",
-      close: () => resolve(false),
-    }).render(true);
-  });
+        default: "cancel",
+        close: () => resolve(false),
+      }).render(true);
+    });
+  }
+  return true;
 }
 
 /**
@@ -164,28 +195,42 @@ export async function checkAndEnforceSp(actor, cost) {
   if (currentSp >= cost) return true;
 
   const shortage = cost - currentSp;
-  const msg = `${actor.name} only has ${currentSp} SP (needs ${cost}, short by ${shortage}).`;
+  const spModalContent = `<p><strong>${actor.name}</strong> has <strong>${currentSp} SP</strong> available, but this spell costs <strong>${cost} SP</strong>.</p><p>Cast anyway?</p>`;
 
-  return new Promise((resolve) => {
-    new Dialog({
-      title: "Insufficient Spell Points",
-      content: `<p><strong>${actor.name}</strong> has <strong>${currentSp} SP</strong> available, but this spell costs <strong>${cost} SP</strong>.</p><p>Cast anyway?</p>`,
-      buttons: {
-        proceed: {
-          icon: '<i class="fas fa-check"></i>',
-          label: "Cast Anyway",
-          callback: () => resolve(true),
+  const DialogV2 = foundry.applications?.api?.DialogV2;
+  if (DialogV2?.confirm) {
+    const confirmed = await DialogV2.confirm({
+      window: { title: "Insufficient Spell Points" },
+      content: spModalContent,
+      yes: { label: "Cast Anyway", icon: "fas fa-check" },
+      no: { label: "Cancel Spell", icon: "fas fa-times", default: true },
+      rejectClose: false,
+    });
+    return Boolean(confirmed);
+  }
+  if (typeof globalThis.Dialog !== "undefined") {
+    return new Promise((resolve) => {
+      new globalThis.Dialog({
+        title: "Insufficient Spell Points",
+        content: spModalContent,
+        buttons: {
+          proceed: {
+            icon: '<i class="fas fa-check"></i>',
+            label: "Cast Anyway",
+            callback: () => resolve(true),
+          },
+          cancel: {
+            icon: '<i class="fas fa-times"></i>',
+            label: "Cancel Spell",
+            callback: () => resolve(false),
+          },
         },
-        cancel: {
-          icon: '<i class="fas fa-times"></i>',
-          label: "Cancel Spell",
-          callback: () => resolve(false),
-        },
-      },
-      default: "cancel",
-      close: () => resolve(false),
-    }).render(true);
-  });
+        default: "cancel",
+        close: () => resolve(false),
+      }).render(true);
+    });
+  }
+  return true;
 }
 
 /**

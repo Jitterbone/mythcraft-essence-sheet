@@ -28,6 +28,7 @@ import {
   getDocumentFolderChain,
   parseExplicitItemTags,
 } from "../features/compendium-parser.mjs";
+import { getSpellLibraryEntry } from "../data/spell-library.mjs";
 import {
   resolveEquipmentIcon,
   resolveTalentIcon,
@@ -575,6 +576,11 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     // Extra talents and spells for magic entry talents
     const stackTag = (parsedTalent?.magicStackTag || "").toLowerCase().replace(/\s*magic\s*$/i, "").trim();
     const isDocOfStack = (doc, tag) => {
+      if (!tag) return true;
+      if (doc.type === "spell") {
+        const lib = getSpellLibraryEntry(doc);
+        if (lib) return lib.sourceKey === tag;
+      }
       if (!tag) return true;
       const tName = (doc.name || "").toLowerCase();
       const tDesc = (doc.system?.description?.value ?? doc.system?.description ?? "").toLowerCase();
@@ -1541,10 +1547,6 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
       const searchPools = [
         this.data.allEquipmentDocs || [],
-        this.data.allBopsDocs || [],
-        this.data.allLineageDocs || [],
-        this.data.talents || [],
-        this.data.availableSpells || [],
       ];
 
       for (const pool of searchPools) {
@@ -1564,23 +1566,24 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
                  (invertedName && dName === invertedName) ||
                  (dBase && (dBase === baseName || dBase === singularName)) ||
                  (baseName && dName.includes(baseName)) ||
-                 (baseName && baseName.includes(dName));
+                 (baseName && baseName.length >= 4 && dName.length >= 4 && baseName.includes(dName));
         });
         if (match) return match;
       }
 
-      // If still not found, search all registered Foundry game packs
-      if (globalThis.game?.packs) {
-        for (const pack of game.packs.values()) {
-          if (pack.documentName !== "Item") continue;
-          if (pack.index) {
-            const entry = pack.index.find(e => {
-              const eName = (e.name || "").trim().toLowerCase();
-              return eName === lower || eName === baseName || (invertedName && eName === invertedName) || (baseName && eName.includes(baseName));
-            });
-            if (entry) {
-              const doc = await pack.getDocument(entry._id || entry.id);
-              if (doc) return doc;
+      // If still not found, search equipment packs only (never spell/talent/lineage/BOP packs)
+      const equipmentPacks = getAvailableCompendiums().equipment || [];
+      for (const pack of equipmentPacks) {
+        if (pack.documentName !== "Item") continue;
+        if (pack.index) {
+          const entry = pack.index.find(e => {
+            const eName = (e.name || "").trim().toLowerCase();
+            return eName === lower || eName === baseName || (invertedName && eName === invertedName) || (baseName && eName.includes(baseName));
+          });
+          if (entry) {
+            const doc = await pack.getDocument(entry._id || entry.id);
+            if (doc && !["spell", "talent", "lineage", "ancestry", "background", "profession"].includes(doc.type)) {
+              return doc;
             }
           }
         }

@@ -77,6 +77,19 @@ export const DEFENSE_TARGET_CONFIG = {
 export function getDefenseTargetConfig(rawDefense) {
   if (!rawDefense) return DEFENSE_TARGET_CONFIG.ar;
   const clean = String(rawDefense).trim().toLowerCase();
+
+  if (clean.includes("check")) {
+    const rawLabel = String(rawDefense).trim();
+    return {
+      key: "check",
+      abbr: rawLabel.toUpperCase(),
+      label: rawLabel,
+      icon: "fas fa-dice-d20",
+      color: "#a8d5e2",
+      bg: "rgba(36, 105, 117, 0.3)",
+      border: "rgba(168, 213, 226, 0.5)",
+    };
+  }
   
   if (clean.includes("ref")) return DEFENSE_TARGET_CONFIG.ref;
   if (clean.includes("fort")) return DEFENSE_TARGET_CONFIG.fort;

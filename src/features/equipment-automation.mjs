@@ -1714,55 +1714,69 @@ export async function checkAndEnforceAp(actor, cost, actionName = "Action") {
   // 2. Ask for Confirmation (Default)
   if (setting === "confirm") {
     const deficit = cost - totalAvailableAp;
-    const confirmed = await new Promise((resolve) => {
-      new Dialog({
-        title: "Insufficient Action Points",
-        content: `
-          <div class="insufficient-ap-modal-content">
-            <div class="ap-modal-banner">
-              <div class="ap-modal-icon"><i class="fas fa-bolt-lightning"></i></div>
-              <div class="ap-modal-text">
-                <p class="ap-modal-actor"><strong>${actor.name}</strong> has insufficient Action Points to use <strong class="ap-modal-action-name">${actionName}</strong>.</p>
-              </div>
-            </div>
-            <div class="ap-modal-breakdown">
-              <div class="ap-modal-row">
-                <span class="ap-modal-label"><i class="fas fa-bolt"></i> Required Cost:</span>
-                <span class="ap-modal-val cost">${cost} AP</span>
-              </div>
-              <div class="ap-modal-row">
-                <span class="ap-modal-label"><i class="fas fa-shield-halved"></i> Available:</span>
-                <span class="ap-modal-val avail">${totalAvailableAp} AP <small>(${currentAp} AP${specialAp > 0 ? ` + ${specialAp} SAP` : ""})</small></span>
-              </div>
-              <div class="ap-modal-row deficit-row">
-                <span class="ap-modal-label"><i class="fas fa-triangle-exclamation"></i> Deficit:</span>
-                <span class="ap-modal-val deficit">-${deficit} AP</span>
-              </div>
-            </div>
-            <p class="ap-modal-question">Do you wish to proceed and perform this action anyway?</p>
+    const modalContent = `
+      <div class="insufficient-ap-modal-content">
+        <div class="ap-modal-banner">
+          <div class="ap-modal-icon"><i class="fas fa-bolt-lightning"></i></div>
+          <div class="ap-modal-text">
+            <p class="ap-modal-actor"><strong>${actor.name}</strong> has insufficient Action Points to use <strong class="ap-modal-action-name">${actionName}</strong>.</p>
           </div>
-        `,
-        buttons: {
-          proceed: {
-            icon: '<i class="fas fa-check"></i>',
-            label: "Proceed Anyway",
-            callback: () => resolve(true),
+        </div>
+        <div class="ap-modal-breakdown">
+          <div class="ap-modal-row">
+            <span class="ap-modal-label"><i class="fas fa-bolt"></i> Required Cost:</span>
+            <span class="ap-modal-val cost">${cost} AP</span>
+          </div>
+          <div class="ap-modal-row">
+            <span class="ap-modal-label"><i class="fas fa-shield-halved"></i> Available:</span>
+            <span class="ap-modal-val avail">${totalAvailableAp} AP <small>(${currentAp} AP${specialAp > 0 ? ` + ${specialAp} SAP` : ""})</small></span>
+          </div>
+          <div class="ap-modal-row deficit-row">
+            <span class="ap-modal-label"><i class="fas fa-triangle-exclamation"></i> Deficit:</span>
+            <span class="ap-modal-val deficit">-${deficit} AP</span>
+          </div>
+        </div>
+        <p class="ap-modal-question">Do you wish to proceed and perform this action anyway?</p>
+      </div>
+    `;
+    const DialogV2 = foundry.applications?.api?.DialogV2;
+    if (DialogV2?.confirm) {
+      const confirmed = await DialogV2.confirm({
+        window: { title: "Insufficient Action Points" },
+        content: modalContent,
+        yes: { label: "Proceed Anyway", icon: "fas fa-check" },
+        no: { label: "Cancel", icon: "fas fa-times", default: true },
+        rejectClose: false,
+      });
+      return Boolean(confirmed);
+    }
+    if (typeof globalThis.Dialog !== "undefined") {
+      const confirmed = await new Promise((resolve) => {
+        new globalThis.Dialog({
+          title: "Insufficient Action Points",
+          content: modalContent,
+          buttons: {
+            proceed: {
+              icon: '<i class="fas fa-check"></i>',
+              label: "Proceed Anyway",
+              callback: () => resolve(true),
+            },
+            cancel: {
+              icon: '<i class="fas fa-times"></i>',
+              label: "Cancel",
+              callback: () => resolve(false),
+            },
           },
-          cancel: {
-            icon: '<i class="fas fa-times"></i>',
-            label: "Cancel",
-            callback: () => resolve(false),
-          },
-        },
-        default: "cancel",
-        close: () => resolve(false),
-      }, {
-        classes: ["dialog", "essence-dialog", "insufficient-ap-dialog"],
-        width: 420,
-      }).render(true);
-    });
-
-    return Boolean(confirmed);
+          default: "cancel",
+          close: () => resolve(false),
+        }, {
+          classes: ["dialog", "essence-dialog", "insufficient-ap-dialog"],
+          width: 420,
+        }).render(true);
+      });
+      return Boolean(confirmed);
+    }
+    return true;
   }
 
   // 3. Allow & Post Warning to Chat

@@ -1,4 +1,5 @@
 <div class="level-up-dialog-content">
+  <div class="level-up-dialog-body">
 
   {{!-- ── 1. Header & Level Progression ───────────────────────── --}}
   <div class="level-up-header-card">
@@ -255,4 +256,17 @@
     </button>
   </div>
 
+  {{!-- Dialog Form Buttons --}}
+  <footer class="level-up-dialog-footer">
+    <div class="dialog-form-buttons">
+      <button type="button" class="dialog-cancel-btn" data-action="close" onclick="this.closest('.application').querySelector('.close')?.click();">
+        <i class="fas fa-times"></i> Cancel
+      </button>
+      <button type="submit" class="dialog-apply-btn">
+        <i class="fas fa-check-double"></i> Apply Level {{targetLevel}} Advancement
+      </button>
+    </div>
+  </footer>
+
 </div>
+

@@ -559,8 +559,331 @@ export function calculateEffectiveResistances(actor) {
 }
 
 /**
- * Calculate effective weapon damage data including attribute modifier and affinity bonus
- * STRICT: If the item has no attribute assigned or is not a weapon with an attack roll, it gets NO bonus!
+ * Standard MythCraft unarmed / natural weapon die size progression ladder (max 1d12).
+ */
+export const UNARMED_DIE_LADDER = [4, 6, 8, 10, 12];
+
+/**
+ * Extracts a primary dice term (e.g. "1d4", "d6", "2d8") from a formula string, ignoring example parentheticals.
+ * @param {string} formula
+ * @returns {{ count: number, faces: number, raw: string }|null}
+ */
+export function parseDieTerm(formula) {
+  if (!formula || typeof formula !== "string") return null;
+  const cleaned = formula
+    .replace(/\([^)]*(?:e\.g\.|for example|max\s+1d\d+|from\s+1d\d+)[^)]*\)/gi, "")
+    .trim();
+  const match = cleaned.match(/\b(\d*)d(\d+)\b/i);
+  if (!match) return null;
+  const count = match[1] ? Math.max(1, parseInt(match[1], 10)) : 1;
+  const faces = parseInt(match[2], 10);
+  if (isNaN(faces) || faces <= 0) return null;
+  return { count, faces, raw: match[0] };
+}
+
+/**
+ * Increases a damage die formula by `steps` die sizes along the MythCraft die ladder
+ * (none/1 -> 1d4 -> 1d6 -> 1d8 -> 1d10 -> 1d12, max 1d12).
+ *
+ * Per MythCraft *Brass Knuckles rule:
+ * "Your unarmed and natural weapon damage increases by one die size (e.g., from 1d4 to 1d6, max 1d12).
+ *  If you did not have an unarmed damage die, it becomes 1d4."
+ *
+ * @param {string|null|undefined} formula
+ * @param {number} [steps=1]
+ * @returns {string}
+ */
+export function stepUpDieFormula(formula, steps = 1) {
+  const numSteps = Math.max(0, Number(steps) || 0);
+  const die = parseDieTerm(formula);
+
+  if (!die || die.faces < 4) {
+    if (numSteps <= 0) {
+      return (formula && String(formula).trim() && !/^\*+$/.test(String(formula).trim()))
+        ? String(formula).trim()
+        : "1d4";
+    }
+    // Step 1 turns "no unarmed damage die" (or < d4) into 1d4; additional steps climb [4, 6, 8, 10, 12]
+    const targetIdx = Math.min(UNARMED_DIE_LADDER.length - 1, numSteps - 1);
+    const count = die ? die.count : 1;
+    return `${count}d${UNARMED_DIE_LADDER[targetIdx]}`;
+  }
+
+  if (numSteps <= 0) {
+    return `${die.count}d${Math.min(12, die.faces)}`;
+  }
+
+  // Find current position in [4, 6, 8, 10, 12]
+  let currentIdx = 0;
+  for (let i = 0; i < UNARMED_DIE_LADDER.length; i++) {
+    if (die.faces >= UNARMED_DIE_LADDER[i]) {
+      currentIdx = i;
+    }
+  }
+  const nextIdx = Math.min(UNARMED_DIE_LADDER.length - 1, currentIdx + numSteps);
+  const nextFaces = UNARMED_DIE_LADDER[nextIdx];
+
+  const cleanBase = String(formula)
+    .replace(/\*/g, "")
+    .trim();
+  if (/^\d*d\d+$/i.test(cleanBase)) {
+    return `${die.count}d${nextFaces}`;
+  }
+  return cleanBase.replace(/\b\d*d\d+\b/i, `${die.count}d${nextFaces}`);
+}
+
+/**
+ * Checks whether an item is Brass Knuckles.
+ * @param {Item|object} item
+ * @returns {boolean}
+ */
+export function isBrassKnuckles(item) {
+  if (!item) return false;
+  if (item.flags?.["mythcraft-essence-sheet"]?.isBrassKnuckles === true) return true;
+  const name = String(item.name || "").toLowerCase().trim();
+  if (/\bbrass\s*knuckles?\b/i.test(name) || /\bknuckle\s*dusters?\b/i.test(name)) {
+    return true;
+  }
+  if (item.type === "weapon" || item.type === "gear" || item.type === "equipment") {
+    const desc = String(item.system?.description?.value ?? item.system?.description ?? "");
+    if (/\*?\s*brass\s*knuckles/i.test(desc) && /unarmed\s+and\s+natural\s+weapon\s+damage\s+increases\s+by\s+one\s+die\s+size/i.test(desc)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Extracts normalized lowercase tag strings from an item.
+ * @param {Item|object} item
+ * @returns {string[]}
+ */
+function extractNormalizedItemTags(item) {
+  if (!item) return [];
+  const rawTags = item.system?.tags ?? item.system?.tagList ?? item.system?.properties ?? [];
+  const tagList = Array.isArray(rawTags)
+    ? rawTags
+    : (rawTags instanceof Set
+      ? Array.from(rawTags)
+      : (typeof rawTags === "object" && rawTags !== null
+        ? Object.keys(rawTags).concat(Object.values(rawTags))
+        : String(rawTags).split(",")));
+  const result = [];
+  for (const t of tagList) {
+    if (!t) continue;
+    const str = typeof t === "string" ? t : (t.name || t.label || t.id || t.key || t.value || "");
+    if (str && typeof str === "string") {
+      result.push(str.trim().replace(/^MYTHCRAFT\.Item\.[a-zA-Z0-9_]+\.tags\./i, "").toLowerCase());
+    }
+  }
+  return result;
+}
+
+/**
+ * Checks whether a weapon has the "Light" tag (allowing DEX or STR).
+ * @param {Item|object} item
+ * @returns {boolean}
+ */
+export function isWeaponLight(item) {
+  if (!item) return false;
+  if (isBrassKnuckles(item)) return true;
+  const tags = extractNormalizedItemTags(item);
+  return tags.some(t => t === "light" || t.includes("light") || t === "natural" || t.includes("natural") || t === "unarmed");
+}
+
+/**
+ * Checks whether an item is an Unarmed attack or Natural Weapon (excluding Brass Knuckles itself).
+ * @param {Item|object} item
+ * @returns {boolean}
+ */
+export function isUnarmedOrNaturalWeapon(item) {
+  if (!item || isBrassKnuckles(item)) return false;
+
+  const tags = extractNormalizedItemTags(item);
+  if (tags.some(t => t === "unarmed" || t === "natural" || t === "natural-weapon" || t === "naturalweapon" || t.includes("natural weapon"))) {
+    return true;
+  }
+
+  const name = String(item.name || "").toLowerCase().trim();
+  if (item.type === "weapon" || item.type === "feature") {
+    if (/\b(?:unarmed|natural\s+weapon|claws?|bite|talons?|horns?|hooves|tail(?:\s+slap|\s+swipe|\s+strike|\s+spike|\s+stinger)?|gore|tusks?|fangs?|stinger|slam|fist|iron\s+fist|martial\s+arts|mandibles|pincers|tentacles?)\b/i.test(name)) {
+      return true;
+    }
+  }
+
+  if (item.type === "weapon") {
+    const desc = String(item.system?.description?.value ?? item.system?.description ?? "");
+    if (/\b(?:unarmed\s+(?:attack|strike|damage|weapon)|natural\s+weapon)\b/i.test(desc)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Checks whether an actor owns and has active (equipped or not explicitly stowed) Brass Knuckles.
+ * @param {Actor} actor
+ * @returns {boolean}
+ */
+export function actorHasActiveBrassKnuckles(actor) {
+  if (!actor?.items) return false;
+  const bkItems = actor.items.filter(i => isBrassKnuckles(i));
+  if (!bkItems.length) return false;
+  return bkItems.some(bk => {
+    const explicitEquipFlag = bk.flags?.["mythcraft-essence-sheet"]?.isEquipped;
+    if (explicitEquipFlag === false) return false;
+    return true;
+  });
+}
+
+/**
+ * Reads the untouched original damage formula from a weapon (before any derived-data overrides),
+ * stripping invalid placeholder characters like "*" or "Special" and redundant @ATTR tokens.
+ * @param {Item|object} weapon
+ * @returns {string}
+ */
+export function getCleanWeaponRawFormula(weapon) {
+  if (!weapon) return "";
+  const rawSource =
+    weapon._essenceOriginalDamageFormula !== undefined
+      ? weapon._essenceOriginalDamageFormula
+      : (weapon._source?.system?.damage?.[0]?.formula ??
+         weapon._source?.system?.damage?.formula ??
+         weapon._source?.system?.damageFormula ??
+         weapon.system?.damage?.formula ??
+         weapon.system?.damageFormula ??
+         (Array.isArray(weapon.system?.damage) ? weapon.system.damage[0]?.formula : "") ??
+         "");
+
+  let str = String(rawSource || "").trim();
+  if (!str) return "";
+
+  // Strip parenthetical examples and invalid non-dice placeholders (like "*" on Brass Knuckles)
+  str = str
+    .replace(/\([^)]*\)/g, "")
+    .replace(/^\*+.*$/g, "")
+    .replace(/\*/g, "")
+    .replace(/\b(?:special|see\s+text|none|n\/a)\b/gi, "")
+    .trim();
+
+  // If weaponDamageAttrModifier is active, strip redundant "+ @STR" / "+ @DEX" tokens from the base formula
+  if (getSetting("weaponDamageAttrModifier", true)) {
+    str = str
+      .replace(/[\+\-]\s*@(?:attributes\.)?(?:str|dex|end|awr|int|cha|luck|cor)(?:\.value)?\b/gi, "")
+      .replace(/^@(?:attributes\.)?(?:str|dex|end|awr|int|cha|luck|cor)(?:\.value)?\s*[\+\-]?\s*/gi, "")
+      .trim();
+  }
+
+  return str;
+}
+
+/**
+ * Determines the actor's base unarmed or natural weapon damage die (e.g. "1d4", "1d6", "1d8", "1d10", "1d12"),
+ * or null if the actor does not have an unarmed damage die, by inspecting other unarmed/natural weapons,
+ * lineage traits, class features, and talents on the actor (excluding Brass Knuckles itself).
+ *
+ * @param {Actor} actor
+ * @param {Item|null} [excludeItem=null]
+ * @returns {string|null}
+ */
+export function getActorBaseUnarmedDie(actor, excludeItem = null) {
+  if (!actor?.items) return null;
+
+  let traitBaseDie = null;
+  let traitBaseFaces = 0;
+  let traitStepUps = 0;
+
+  let otherWeaponDie = null;
+  let otherWeaponFaces = 0;
+
+  for (const item of actor.items) {
+    if (!item || (excludeItem && item.id === excludeItem.id)) continue;
+    if (isBrassKnuckles(item)) continue;
+
+    // 1. Check other Unarmed or Natural Weapon items on the actor
+    if (item.type === "weapon" && isUnarmedOrNaturalWeapon(item)) {
+      const rawF = getCleanWeaponRawFormula(item);
+      const die = parseDieTerm(rawF);
+      if (die && die.faces >= 4 && die.faces > otherWeaponFaces) {
+        otherWeaponFaces = die.faces;
+        otherWeaponDie = `${die.count}d${Math.min(12, die.faces)}`;
+      }
+      continue;
+    }
+
+    // 2. Check Talents, Features, Lineages, Ancestries, Classes, Specializations
+    const itemType = String(item.type || "").toLowerCase();
+    if (!["talent", "feature", "lineage", "ancestry", "class", "specialization"].includes(itemType)) {
+      continue;
+    }
+
+    // Check if feature/talent has a direct system.damage die and is an unarmed/natural weapon feature
+    if (isUnarmedOrNaturalWeapon(item)) {
+      const featRawF = getCleanWeaponRawFormula(item);
+      const featDie = parseDieTerm(featRawF);
+      if (featDie && featDie.faces >= 4 && featDie.faces > traitBaseFaces) {
+        traitBaseFaces = featDie.faces;
+        traitBaseDie = `${featDie.count}d${Math.min(12, featDie.faces)}`;
+      }
+    }
+
+    const rawDesc = String(item.system?.description?.value ?? item.system?.description ?? "");
+    if (!rawDesc) continue;
+
+    const plainDesc = rawDesc
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, "\n")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // Check if this talent/feature steps up unarmed/natural weapon damage by one die size
+    const isStepUpTalent =
+      /(?:unarmed|natural\s+weapon)[^.!?\n]*?increases?\s+by\s+(?:one|1|a)\s+(?:die\s+)?size/i.test(plainDesc) ||
+      /increases?\s+(?:the\s+die\s+size\s+of\s+)?(?:your\s+)?(?:unarmed|natural\s+weapon)[^.!?\n]*?(?:by\s+(?:one|1|a)\s+(?:die\s+)?size|die\s+size)/i.test(plainDesc) ||
+      /unarmed\s+damage\s+die\s+increases/i.test(plainDesc);
+
+    if (isStepUpTalent) {
+      traitStepUps += 1;
+    }
+
+    // Strip step-up example parentheticals and fallback clauses before searching for static base dice
+    const descWithoutExamples = plainDesc
+      .replace(/\([^)]*(?:e\.g\.|for example|from\s+1d\d+\s+to\s+1d\d+|max\s+1d\d+)[^)]*\)/gi, "")
+      .replace(/if\s+you\s+(?:did|do)\s+not\s+have\s+an\s+unarmed\s+damage\s+die[^.!?]*/gi, "")
+      .replace(/[^.!?]*increases?\s+by\s+(?:one|1|a)\s+(?:die\s+)?size[^.!?]*/gi, "");
+
+    const staticDieMatch =
+      descWithoutExamples.match(/(?:unarmed(?:\s+strike|\s+attack|\s+damage)?|natural\s+weapon|claws?|bite|talons?|horns?|hooves|tusks?|fangs?|gore)[^.!?\n]{0,80}?\b(?:deals?|is|becomes?|equal\s+to)\s+(\d*d(?:4|6|8|10|12))\b/i) ||
+      descWithoutExamples.match(/\b(\d*d(?:4|6|8|10|12))\s+(?:blunt|sharp|physical|unarmed|natural)?\s*damage\s+(?:with|on|for)\s+(?:your\s+)?(?:unarmed|natural\s+weapon|claws?|bite|talons?|horns?|hooves|tusks?)/i);
+
+    if (staticDieMatch) {
+      const d = parseDieTerm(staticDieMatch[1]);
+      if (d && d.faces >= 4 && d.faces > traitBaseFaces) {
+        traitBaseFaces = d.faces;
+        traitBaseDie = `${d.count}d${Math.min(12, d.faces)}`;
+      }
+    }
+  }
+
+  // Combine trait base die + any non-Brass-Knuckles step-up talents
+  let effectiveTraitDie = traitBaseDie;
+  if (traitStepUps > 0) {
+    const startDie = traitBaseDie || (otherWeaponFaces === 4 ? otherWeaponDie : null);
+    effectiveTraitDie = stepUpDieFormula(startDie, traitStepUps);
+  }
+
+  const traitParsed = parseDieTerm(effectiveTraitDie);
+  const weaponParsed = parseDieTerm(otherWeaponDie);
+
+  if (traitParsed && weaponParsed) {
+    return traitParsed.faces >= weaponParsed.faces ? effectiveTraitDie : otherWeaponDie;
+  }
+  return effectiveTraitDie || otherWeaponDie || null;
+}
+
 /**
  * Extracts the base two-handed damage formula for a hand-and-a-half weapon from system data, tags, or description.
  * (e.g. "Hand-and-a-Half (1d10)", "Hand in a Half (1d10)", "1d10 when wielded with two hands" -> "1d10")
@@ -568,7 +891,7 @@ export function calculateEffectiveResistances(actor) {
  * @returns {string|null}
  */
 export function getTwoHandedBaseFormula(weapon) {
-  if (!weapon) return null;
+  if (!weapon || isBrassKnuckles(weapon) || isUnarmedOrNaturalWeapon(weapon)) return null;
 
   // 1. Direct system/flag fields
   if (weapon.system?.twoHandedDamage) return String(weapon.system.twoHandedDamage).trim();
@@ -593,7 +916,7 @@ export function getTwoHandedBaseFormula(weapon) {
   // 3. Check weapon description
   const desc = String(weapon.system?.description?.value ?? weapon.system?.description ?? "");
   const descMatch = desc.match(/(?:hand(?:-|\s*)(?:and|in)(?:-|\s*)a(?:-|\s*)half|handhalf|1\.5h|two-handed|versatile)[^\(]*\(\s*([0-9]+d[0-9]+(?:\s*[\+\-]\s*[0-9]+)?)\s*\)/i) ||
-                    desc.match(/\(\s*([0-9]+d[0-9]+(?:\s*[\+\-]\s*[0-9]+)?)\s*(?:when|if)?\s*(?:two-handed|two handed|2h|in two hands)?\s*\)/i) ||
+                    desc.match(/\(\s*([0-9]+d[0-9]+(?:\s*[\+\-]\s*[0-9]+)?)\s*(?:when|if)\s*(?:two-handed|two handed|2h|in two hands)\s*\)/i) ||
                     desc.match(/(?:deals|deal|damage:?)\s*([0-9]+d[0-9]+(?:\s*[\+\-]\s*[0-9]+)?)\s*(?:when|if)?\s*(?:wielded with two hands|wielded two-handed|two-handed|in two hands)/i) ||
                     desc.match(/(?:when|if)\s*(?:wielded with two hands|wielded two-handed|two-handed|in two hands)[^.]*?([0-9]+d[0-9]+(?:\s*[\+\-]\s*[0-9]+)?)/i);
   if (descMatch) return descMatch[1].trim();
@@ -602,36 +925,99 @@ export function getTwoHandedBaseFormula(weapon) {
 }
 
 /**
- * Calculates effective weapon damage formula including assigned attribute modifiers, Affinity bonus, and 2H grip mode.
+ * Calculates effective weapon damage formula including Brass Knuckles unarmed/natural weapon die progression,
+ * assigned attribute modifiers, Affinity bonus, and 2H grip mode.
  * @param {Actor} actor
  * @param {Item} weapon
- * @returns {{ baseFormula: string, effectiveFormula: string, attrKey: string, attrMod: number, affinityBonus: number, totalMod: number, isTwoHandedGrip: boolean }}
+ * @returns {{ baseFormula: string, effectiveFormula: string, damageType: string, attrKey: string, attrMod: number, affinityBonus: number, totalMod: number, isTwoHandedGrip: boolean, isBrassKnucklesBoosted: boolean }}
  */
 export function getWeaponDamageData(actor, weapon) {
-  let baseFormula = weapon?.system?.damage?.formula || weapon?.system?.damageFormula || (Array.isArray(weapon?.system?.damage) && weapon.system.damage[0]?.formula) || "1d4";
-  
-  const effectiveGrip = getWeaponEffectiveGrip(weapon);
-  const isTwoHandedGrip = effectiveGrip === "2h";
+  const isBK = isBrassKnuckles(weapon);
+  const isUnarmedOrNat = !isBK && isUnarmedOrNaturalWeapon(weapon);
+  const rawCleanFormula = getCleanWeaponRawFormula(weapon);
 
-  if (isTwoHandedGrip) {
-    const twoHandedFormula = getTwoHandedBaseFormula(weapon);
-    if (twoHandedFormula) {
-      baseFormula = twoHandedFormula;
+  let baseFormula = rawCleanFormula || "1d4";
+  let isBrassKnucklesBoosted = false;
+
+  if (isBK) {
+    // *Brass Knuckles:
+    // "Your unarmed and natural weapon damage increases by one die size (e.g., from 1d4 to 1d6, max 1d12).
+    //  If you did not have an unarmed damage die, it becomes 1d4."
+    const actorBaseDie = getActorBaseUnarmedDie(actor, weapon);
+    const steppedDie = stepUpDieFormula(actorBaseDie, 1); // null -> "1d4", "1d4" -> "1d6", ..., max "1d12"
+
+    // If user manually entered a higher die (> 1d4) directly onto the Brass Knuckles item, respect whichever is higher
+    const ownDie = parseDieTerm(rawCleanFormula);
+    const steppedParsed = parseDieTerm(steppedDie);
+    if (ownDie && ownDie.faces > 4 && steppedParsed && ownDie.faces > steppedParsed.faces) {
+      baseFormula = `${ownDie.count}d${Math.min(12, ownDie.faces)}`;
+    } else {
+      baseFormula = steppedDie;
+    }
+    isBrassKnucklesBoosted = true;
+  } else if (isUnarmedOrNat) {
+    // Unarmed or Natural Weapon item on the actor
+    const actorBaseDie = getActorBaseUnarmedDie(actor, weapon);
+    const ownDie = parseDieTerm(rawCleanFormula);
+    const traitDie = parseDieTerm(actorBaseDie);
+
+    let preBkFormula = rawCleanFormula;
+    if (traitDie && (!ownDie || traitDie.faces > ownDie.faces)) {
+      preBkFormula = actorBaseDie;
+    }
+
+    if (actorHasActiveBrassKnuckles(actor)) {
+      baseFormula = stepUpDieFormula(preBkFormula, 1);
+      isBrassKnucklesBoosted = true;
+    } else {
+      baseFormula = preBkFormula || "1d4";
+    }
+  } else {
+    const effectiveGrip = getWeaponEffectiveGrip(weapon);
+    if (effectiveGrip === "2h") {
+      const twoHandedFormula = getTwoHandedBaseFormula(weapon);
+      if (twoHandedFormula) {
+        baseFormula = twoHandedFormula;
+      }
     }
   }
 
-  // Check if weapon has an attribute explicitly assigned
-  let rawAttr = (weapon?.system?.attr || "").toLowerCase().trim();
+  const effectiveGrip = getWeaponEffectiveGrip(weapon);
+  const isTwoHandedGrip = !isBK && !isUnarmedOrNat && effectiveGrip === "2h";
+
+  // Determine weapon damage type (Brass Knuckles and Unarmed default to "blunt")
+  const sys = weapon?.system || {};
+  const rawDmgType =
+    sys.damageType ||
+    (typeof sys.damage?.type === "string" ? sys.damage.type : null) ||
+    (Array.isArray(sys.damage?.types) && sys.damage.types[0]) ||
+    (Array.isArray(sys.damage) && (sys.damage[0]?.type || sys.damage[0]?.types?.[0])) ||
+    null;
+  const defaultDmgType = (isBK || /\b(?:unarmed|fist|knuckle|slam|hooves|club|mace|hammer|staff|quarterstaff|flail|sling)\b/i.test(weapon?.name || ""))
+    ? "blunt"
+    : "sharp";
+  const damageType = String(rawDmgType || defaultDmgType).toLowerCase().trim();
+
+  // Check if weapon has an attribute explicitly assigned (or resolve STR/DEX for Brass Knuckles / Unarmed / Light)
+  let rawAttr = (weapon?._essenceOriginalAttr !== undefined ? weapon._essenceOriginalAttr : (weapon?.system?.attr || "")).toLowerCase().trim();
   if (rawAttr.startsWith("my")) rawAttr = rawAttr.replace(/^mythcraft\.attributes\./i, "");
-  
+
   const validAttrs = new Set(["str", "dex", "end", "awr", "int", "cha", "luck", "cor"]);
+  if (!validAttrs.has(rawAttr) && (isBK || isUnarmedOrNat || isWeaponLight(weapon))) {
+    const actorAttrs = actor?.system?.attributes || {};
+    const strVal = Number(actorAttrs.str?.value ?? actorAttrs.str ?? 0);
+    const dexVal = Number(actorAttrs.dex?.value ?? actorAttrs.dex ?? 0);
+    rawAttr = dexVal > strVal ? "dex" : "str";
+  }
+
   const hasValidAttr = validAttrs.has(rawAttr);
 
   const autoAttrMod = getSetting("weaponDamageAttrModifier", true);
   let attrMod = 0;
   if (autoAttrMod && weapon?.type === "weapon" && hasValidAttr) {
     const actorAttrs = actor?.system?.attributes || {};
-    attrMod = Number(actorAttrs[rawAttr] ?? 0);
+    const rawVal = actorAttrs[rawAttr];
+    attrMod = Number(typeof rawVal === "object" && rawVal !== null ? (rawVal.value ?? 0) : (rawVal ?? 0));
   }
 
   // Affinity bonus (+3) is ONLY applied if the weapon/spell explicitly has Affinity enabled on it
@@ -652,11 +1038,13 @@ export function getWeaponDamageData(actor, weapon) {
   return {
     baseFormula,
     effectiveFormula,
+    damageType,
     attrKey: hasValidAttr ? rawAttr : "",
     attrMod,
     affinityBonus,
     totalMod,
     isTwoHandedGrip,
+    isBrassKnucklesBoosted,
   };
 }
 
@@ -923,6 +1311,50 @@ export async function syncArmorStrConditions(actor, donnedArmor, equippedEnhance
 }
 
 /**
+ * Synchronizes in-memory damage formulas and attributes for Brass Knuckles and Unarmed / Natural Weapons
+ * during Actor.prepareDerivedData so that external HUDs, macros, and system rolls see the valid formula.
+ * @param {Actor} actor
+ */
+export function applyEffectiveBrassKnucklesDamage(actor) {
+  if (!actor?.items) return;
+  for (const item of actor.items) {
+    if (!item || item.type !== "weapon") continue;
+    if (!isBrassKnuckles(item) && !isUnarmedOrNaturalWeapon(item)) continue;
+
+    if (item._essenceOriginalDamageFormula === undefined) {
+      item._essenceOriginalDamageFormula =
+        item._source?.system?.damage?.[0]?.formula ??
+        item._source?.system?.damage?.formula ??
+        item._source?.system?.damageFormula ??
+        item.system?.damage?.formula ??
+        item.system?.damageFormula ??
+        (Array.isArray(item.system?.damage) ? (item.system.damage[0]?.formula ?? "") : "");
+    }
+    if (item._essenceOriginalAttr === undefined) {
+      item._essenceOriginalAttr = item._source?.system?.attr ?? item.system?.attr ?? "";
+    }
+
+    const wData = getWeaponDamageData(actor, item);
+    if (item.system) {
+      if (!item.system.attr && wData.attrKey) {
+        item.system.attr = wData.attrKey;
+      }
+      if (Array.isArray(item.system.damage)) {
+        if (item.system.damage.length === 0) {
+          item.system.damage = [{ formula: wData.baseFormula, type: wData.damageType }];
+        } else {
+          item.system.damage[0] = {
+            ...item.system.damage[0],
+            formula: wData.baseFormula,
+            type: item.system.damage[0]?.type || wData.damageType,
+          };
+        }
+      }
+    }
+  }
+}
+
+/**
  * Initialize Equipment Automation by hooking into MythCraft actor lifecycle
  */
 export function initEquipmentAutomation() {
@@ -936,6 +1368,7 @@ export function initEquipmentAutomation() {
       original?.call(this);
       if (this.type === "character" || this.type === "npc") {
         applyEffectiveArmorAndDefenses(this);
+        applyEffectiveBrassKnucklesDamage(this);
         // Ensure starting, equipment, and talent items have mapped icons instead of default placeholders
         if (this.items) {
           for (const item of this.items) {
@@ -1154,42 +1587,69 @@ export function getTwoHandedApcRule(weapon) {
 export function getSafeWeaponApc(item, actor) {
   if (!item) return 3;
   const sys = item.system || {};
-  const srcSys = item._source?.system || {};
-  const flagFormula = item.flags?.["mythcraft-essence-sheet"]?.apcFormula;
+  const srcSys = item._source?.system || sys._source || {};
+  const defaultApc = (isBrassKnuckles(item) || isUnarmedOrNaturalWeapon(item)) ? 2 : 3;
 
-  const rawCandidate = flagFormula || sys.apcFormula || srcSys.apcFormula || sys.apc || srcSys.apc || sys.ap || "";
-  let baseApc = 3;
-
-  if (typeof rawCandidate === "string" && rawCandidate.trim().length > 0) {
-    const evaluated = evaluateApcFormula(rawCandidate, actor || item.actor || item.parent);
-    if (evaluated > 0) baseApc = evaluated;
-  } else if (typeof rawCandidate === "number" && rawCandidate > 0) {
-    baseApc = rawCandidate;
-  } else {
-    // Check description for standard APC formula (e.g. "4-STR, min 3")
-    const desc = String(sys.description?.value ?? sys.description ?? "");
-    const apcDescMatch = desc.match(/(?:apc|ap)\s*[:=]?\s*([0-9\s\+\-\*\/\@a-zA-Z_.]+(?:,\s*min\s*\d+)?)/i);
-    if (apcDescMatch) {
-      const evaluated = evaluateApcFormula(apcDescMatch[1], actor || item.actor || item.parent);
-      if (evaluated > 0) baseApc = evaluated;
-    }
+  // Re-entrancy guard to prevent infinite recursion when WeaponModel.prototype.apc getter calls getSafeWeaponApc
+  if (item._computingSafeApc || sys._computingSafeApc) {
+    const rawSrc = Number(srcSys.apc ?? srcSys.ap);
+    return (!isNaN(rawSrc) && rawSrc > 0) ? rawSrc : defaultApc;
   }
 
-  // Hand-and-a-Half 2H grip APC reduction
-  const grip = getWeaponEffectiveGrip(item);
-  if (grip === "2h") {
-    const apcRule = getTwoHandedApcRule(item);
-    if (apcRule) {
-      if (apcRule.overrideApc !== null && apcRule.overrideApc > 0) {
-        baseApc = apcRule.overrideApc;
-      } else if (apcRule.reduction > 0) {
-        const minVal = apcRule.minApc ?? 1;
-        baseApc = Math.max(minVal, baseApc - apcRule.reduction);
+  item._computingSafeApc = true;
+  if (typeof sys === "object" && sys !== null) sys._computingSafeApc = true;
+
+  try {
+    const flagFormula = item.flags?.["mythcraft-essence-sheet"]?.apcFormula;
+    // Read own data property on `sys` rather than triggering `WeaponModel.prototype.apc` getter
+    const ownSysApcDesc = Object.getOwnPropertyDescriptor(sys, "apc");
+    const ownSysApc = ownSysApcDesc && "value" in ownSysApcDesc ? ownSysApcDesc.value : undefined;
+
+    const rawCandidate =
+      flagFormula ||
+      sys.apcFormula ||
+      srcSys.apcFormula ||
+      ownSysApc ||
+      srcSys.apc ||
+      sys.ap ||
+      srcSys.ap ||
+      "";
+    let baseApc = defaultApc;
+
+    if (typeof rawCandidate === "string" && rawCandidate.trim().length > 0) {
+      const evaluated = evaluateApcFormula(rawCandidate, actor || item.actor || item.parent);
+      if (evaluated > 0) baseApc = evaluated;
+    } else if (typeof rawCandidate === "number" && rawCandidate > 0) {
+      baseApc = rawCandidate;
+    } else {
+      // Check description for standard APC formula (e.g. "4-STR, min 3")
+      const desc = String(sys.description?.value ?? sys.description ?? "");
+      const apcDescMatch = desc.match(/(?:apc|ap)\s*[:=]?\s*([0-9\s\+\-\*\/\@a-zA-Z_.]+(?:,\s*min\s*\d+)?)/i);
+      if (apcDescMatch) {
+        const evaluated = evaluateApcFormula(apcDescMatch[1], actor || item.actor || item.parent);
+        if (evaluated > 0) baseApc = evaluated;
       }
     }
-  }
 
-  return baseApc;
+    // Hand-and-a-Half 2H grip APC reduction
+    const grip = getWeaponEffectiveGrip(item);
+    if (grip === "2h") {
+      const apcRule = getTwoHandedApcRule(item);
+      if (apcRule) {
+        if (apcRule.overrideApc !== null && apcRule.overrideApc > 0) {
+          baseApc = apcRule.overrideApc;
+        } else if (apcRule.reduction > 0) {
+          const minVal = apcRule.minApc ?? 1;
+          baseApc = Math.max(minVal, baseApc - apcRule.reduction);
+        }
+      }
+    }
+
+    return baseApc;
+  } finally {
+    delete item._computingSafeApc;
+    if (typeof sys === "object" && sys !== null) delete sys._computingSafeApc;
+  }
 }
 
 /**
@@ -1208,6 +1668,10 @@ export function patchWeaponApcGetter() {
     try {
       Object.defineProperty(model.prototype, "apc", {
         get() {
+          if (this._computingSafeApc || this.parent?._computingSafeApc) {
+            const raw = Number(this._source?.apc ?? this.parent?._source?.system?.apc);
+            return (!isNaN(raw) && raw > 0) ? raw : 2;
+          }
           return getSafeWeaponApc(this.parent, this.parent?.actor ?? this.parent);
         },
         configurable: true,
@@ -1450,6 +1914,7 @@ export function isWeaponEquipped(item) {
   if (!isWeaponEquippable(item)) return false;
   const flag = item.flags?.["mythcraft-essence-sheet"]?.isEquipped;
   if (typeof flag === "boolean") return flag;
+  if (isBrassKnuckles(item)) return true;
   return item.system?.equipped === true;
 }
 

@@ -9,6 +9,7 @@ import { getSetting } from "../settings.mjs";
 import { getActorCritHit, getActorCritFail, hasAstoundingCritical } from "./luck-points.mjs";
 import { applyMessageRollMode } from "./roll-privacy.mjs";
 import { getSpellLibraryEntry, evaluateSpellScalingAndUpcharge } from "../data/spell-library.mjs";
+import { isBrassKnuckles, isUnarmedOrNaturalWeapon } from "./equipment-automation.mjs";
 
 /**
  * Evaluates an APC formula string (e.g. "8-STR, min 4", "5-DEX", "3")
@@ -372,7 +373,7 @@ export async function executeUnifiedAction(actor, item, options = {}) {
     isAstoundingFumble: isFumble && isAstounding,
     apCost,
     spCost,
-    hasDamage: !!(item.system?.damage?.formula || item.system?.damageFormula || (Array.isArray(item.system?.damage) && item.system.damage.length > 0)),
+    hasDamage: !!(isBrassKnuckles(item) || isUnarmedOrNaturalWeapon(item) || item.system?.damage?.formula || item.system?.damageFormula || (Array.isArray(item.system?.damage) && item.system.damage.length > 0)),
   };
 
   const template = "modules/mythcraft-essence-sheet/templates/essence/chat/attack-card.hbs";

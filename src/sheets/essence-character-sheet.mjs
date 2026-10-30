@@ -56,6 +56,9 @@ import {
   getArmorCategory,
   getWeaponDamageData,
   getTwoHandedBaseFormula,
+  isBrassKnuckles,
+  isUnarmedOrNaturalWeapon,
+  actorHasActiveBrassKnuckles,
   applyEffectiveArmorAndDefenses,
   syncArmorStrConditions,
   isItemClothes,
@@ -267,6 +270,7 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
     else if (Array.isArray(sys.damage?.types) && sys.damage.types.length > 0) defaultType = sys.damage.types[0];
     else if (Array.isArray(sys.damage) && sys.damage[0]?.type) defaultType = sys.damage[0].type;
     else if (Array.isArray(sys.damage) && sys.damage[0]?.types?.[0]) defaultType = sys.damage[0].types[0];
+    else if (weaponData?.damageType) defaultType = weaponData.damageType;
     else defaultType = "sharp";
   }
 
@@ -275,7 +279,10 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
     damages = [{ formula: weaponData.baseFormula, type: defaultType }];
     if (Array.isArray(sys.damage) && sys.damage.length > 1) {
       for (let i = 1; i < sys.damage.length; i++) {
-        if (sys.damage[i]?.formula) damages.push({ formula: sys.damage[i].formula, type: isSoul ? "soul" : (sys.damage[i].type || defaultType) });
+        const extraFormula = String(sys.damage[i]?.formula || "").trim();
+        if (extraFormula && !/^\*+$/.test(extraFormula)) {
+          damages.push({ formula: extraFormula, type: isSoul ? "soul" : (sys.damage[i].type || defaultType) });
+        }
       }
     }
   } else if (Array.isArray(sys.damage) && sys.damage.length > 0) {
@@ -317,12 +324,13 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
   const autoAttrMod = getSetting("weaponDamageAttrModifier", true);
   let attrMod = 0;
   let attrModLabel = "";
-  let rawAttr = (item.system?.attr || "").toLowerCase().trim();
+  let rawAttr = (weaponData?.attrKey || item.system?.attr || "").toLowerCase().trim();
   if (rawAttr.startsWith("my")) rawAttr = rawAttr.replace(/^mythcraft\.attributes\./i, "");
   const validAttrs = new Set(["str", "dex", "end", "awr", "int", "cha", "luck", "cor"]);
 
   if (autoAttrMod && isWeapon && validAttrs.has(rawAttr)) {
-    attrMod = Number(actor.system?.attributes?.[rawAttr] ?? 0);
+    const rawAttrVal = actor.system?.attributes?.[rawAttr];
+    attrMod = Number(typeof rawAttrVal === "object" && rawAttrVal !== null ? (rawAttrVal.value ?? 0) : (rawAttrVal ?? 0));
     if (attrMod !== 0) {
       attrModLabel = `${attrMod > 0 ? "+" : ""}${attrMod} ${rawAttr.toUpperCase()}`;
     }
@@ -443,6 +451,7 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
   if (isCrit) notes.push("Critical Damage");
   if (isCrit && hasAstoundingCritical(actor)) notes.push("Astounding Crit (Exploding Dice)");
   if (isWeapon && weaponData?.isTwoHandedGrip) notes.push("2H Grip");
+  if (isWeapon && weaponData?.isBrassKnucklesBoosted && !isBrassKnuckles(item)) notes.push("Brass Knuckles (+1 Die Size)");
   if (attrModLabel) notes.push(attrModLabel);
   if (hasItemAffinity) notes.push("+3 Affinity");
   if (claimedSouls > 0) notes.push(`+${claimedSouls} Consumed Souls`);
@@ -1070,7 +1079,8 @@ export async function rollWeaponItem(actor, item, { rollMode = null } = {}) {
     await deductAp(actor, apc);
   }
 
-  const attr = item.system?.attr || "str";
+  const weaponData = getWeaponDamageData(actor, item);
+  const attr = weaponData.attrKey || item.system?.attr || "str";
   const attrValue = Number(actor.system?.attributes?.[attr]?.value ?? actor.system?.attributes?.[attr] ?? 0);
   const critHit = getActorCritHit(actor);
   const critFail = getActorCritFail(actor);
@@ -1106,7 +1116,7 @@ export async function rollWeaponItem(actor, item, { rollMode = null } = {}) {
     defenseTarget: item.system?.defenseTarget || "ar",
     critHit,
     critFail,
-    damage: item.system?.damage || [],
+    damage: [{ formula: weaponData.baseFormula, type: weaponData.damageType || "blunt" }],
   });
 
   if (typeof roll.evaluate === "function" && !roll._evaluated) {
@@ -4367,8 +4377,13 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         const essenceCost = Number(item.flags?.["mythcraft-essence-sheet"]?.essenceCost ?? item.system?.essenceCost ?? 0);
         const isAttuned = item.flags?.["mythcraft-essence-sheet"]?.isAttuned ?? true;
 
+        // Damage formula & type (with attribute modifier, affinity check, & Brass Knuckles automation)
+        const weaponData = getWeaponDamageData(this.actor, item);
+        const isBK = isBrassKnuckles(item);
+        const isUnarmedOrNat = isUnarmedOrNaturalWeapon(item);
+
         // Attack modifier (only if weapon has an attribute assigned or defense target or attack modifier)
-        let rawAttr = (item.system?.attr || "").toLowerCase().trim();
+        let rawAttr = (weaponData.attrKey || item.system?.attr || "").toLowerCase().trim();
         if (rawAttr.startsWith("my")) rawAttr = rawAttr.replace(/^mythcraft\.attributes\./i, "");
         const validAttrs = new Set(["str", "dex", "end", "awr", "int", "cha", "luck", "cor"]);
         const hasAttackAttr = validAttrs.has(rawAttr);
@@ -4376,9 +4391,10 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         const hasDefenseTarget = Boolean(rawDefense);
         const itemAtkMod = Number(item.system?.attackModifierValue ?? item.system?.attackModifier ?? 0);
 
-        const hasAttackRoll = hasAttackAttr || hasDefenseTarget || itemAtkMod !== 0;
+        const hasAttackRoll = hasAttackAttr || hasDefenseTarget || itemAtkMod !== 0 || isBK || isUnarmedOrNat;
 
-        const attrVal = hasAttackAttr ? Number(this.actor.system?.attributes?.[rawAttr] ?? 0) : 0;
+        const rawAttrObj = hasAttackAttr ? this.actor.system?.attributes?.[rawAttr] : 0;
+        const attrVal = Number(typeof rawAttrObj === "object" && rawAttrObj !== null ? (rawAttrObj.value ?? 0) : (rawAttrObj ?? 0));
         
         let atkBonusDisplay = "";
         if (hasAttackRoll) {
@@ -4386,11 +4402,9 @@ export default class EssenceCharacterSheet extends CharacterSheet {
           atkBonusDisplay = totalAtk >= 0 ? `+${totalAtk}` : `${totalAtk}`;
         }
 
-        // Damage formula & type (with attribute modifier & affinity check)
-        const weaponData = getWeaponDamageData(this.actor, item);
-        const damages = (item.system?.damage ?? []).filter(d => d.formula);
+        const damages = (item.system?.damage ?? []).filter(d => d && d.formula && !/^\*+$/.test(String(d.formula).trim()));
         const damageParts = damages.map((d, idx) => {
-          const dmgType = String(d.type || "sharp").trim();
+          const dmgType = String(d.type || weaponData.damageType || "sharp").trim();
           let formulaDisplay = (idx === 0) ? weaponData.baseFormula : d.formula;
           if (idx === 0 && weaponData.attrMod !== 0) {
             formulaDisplay = `${formulaDisplay} ${weaponData.attrMod > 0 ? "+" : "-"} ${Math.abs(weaponData.attrMod)}`;
@@ -4401,7 +4415,8 @@ export default class EssenceCharacterSheet extends CharacterSheet {
           const typeLabel = dmgType.charAt(0).toUpperCase() + dmgType.slice(1);
           return `${formulaDisplay} ${typeLabel}`;
         });
-        const damageDisplay = damageParts.length ? damageParts.join(" + ") : `${weaponData.effectiveFormula} Sharp`;
+        const defaultTypeLabel = (weaponData.damageType || "sharp").charAt(0).toUpperCase() + (weaponData.damageType || "sharp").slice(1);
+        const damageDisplay = damageParts.length ? damageParts.join(" + ") : `${weaponData.effectiveFormula} ${defaultTypeLabel}`;
 
         // APC
         const apc = getSafeWeaponApc(item, this.actor);
@@ -4426,7 +4441,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         const handLabel = handType === "two-handed" ? "2H" : (handType === "hand-and-a-half" ? "1.5H" : (handType === "one-handed" ? "1H" : ""));
         const currentGripLabel = effectiveGrip.toUpperCase();
         const isHandAndHalf = handType === "hand-and-a-half";
-        const isEquipped = requiresEquip ? isWeaponEquipped(item) : Boolean(item.system?.equipped);
+        const isEquipped = requiresEquip ? isWeaponEquipped(item) : (isUnarmedOrNat ? true : Boolean(item.system?.equipped));
         const isUnwieldy = isWeaponUnwieldy(item);
         const defenseTarget = (item.system?.defenseTarget || item.system?.defense || "").toUpperCase();
 

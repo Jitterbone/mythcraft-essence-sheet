@@ -14,7 +14,7 @@ import {
   EssenceSiegeWeaponSheet,
 } from "./sheets/_module.mjs";
 import { initDamageAutomation, applyActorDamage, patchFeatureUsesMaxFormula } from "./features/damage-automation.mjs";
-import { initEquipmentAutomation, patchWeaponApcGetter } from "./features/equipment-automation.mjs";
+import { initEquipmentAutomation, patchWeaponApcGetter, isBrassKnuckles, isUnarmedOrNaturalWeapon, getWeaponDamageData } from "./features/equipment-automation.mjs";
 import { initCompendiumIconOverrides } from "./features/equipment-icons.mjs";
 import { patchSystemHpCalculation, getEnduranceThreshold, calculateApMax } from "./features/hp-automation.mjs";
 import { syncHomebrewAttributesToSystem, syncSoulDamageToSystem, patchAttributeSkillInput, getFullAttributeName } from "./features/homebrew-attributes.mjs";
@@ -789,7 +789,63 @@ Hooks.once("init", () => {
       }
     }
   }
-  if (isEssenceSpellCard || root.querySelector(".spell-card")) {
+  if (item && actor && !isDamageMessage && !isEssenceSpellCard) {
+    const isBK = isBrassKnuckles(item);
+    const isUnarmedOrNat = isUnarmedOrNaturalWeapon(item);
+    const hasDamage =
+      isBK ||
+      isUnarmedOrNat ||
+      (Array.isArray(item.system?.damage) && item.system.damage.some(d => d && d.formula)) ||
+      Boolean(item.system?.damageFormula);
+
+    if (hasDamage) {
+      let btnWrap = root.querySelector(".chat-damage-action-wrap");
+      const existingBtn = root.querySelector(".roll-damage, [data-action='rollEssenceDamage']");
+      const wData = item.type === "weapon" ? getWeaponDamageData(actor, item) : null;
+      const dmgHint = wData ? ` (${wData.effectiveFormula} ${wData.damageType || "blunt"})` : "";
+      const btnLabel = isCrit ? `Roll Critical Damage${dmgHint}` : `Roll Damage${dmgHint}`;
+
+      if (!btnWrap) {
+        btnWrap = document.createElement("div");
+        btnWrap.className = "chat-damage-action-wrap revealed";
+        btnWrap.innerHTML = `
+          <button type="button" class="essence-chat-damage-btn ${isCrit ? 'crit-damage-btn' : ''}" 
+                  data-action="rollEssenceDamage" 
+                  data-is-crit="${isCrit ? 'true' : 'false'}"
+                  data-item-id="${item.id}"
+                  data-actor-id="${actor.id}">
+            <i class="fas fa-${isCrit ? 'burst' : 'sword'}"></i>
+            <span>${btnLabel}</span>
+          </button>
+        `;
+
+        if (existingBtn && existingBtn.parentNode) {
+          existingBtn.replaceWith(btnWrap);
+        } else {
+          const body = root.querySelector(".mythcraft-statblock") || root.querySelector(".card-body") || root.querySelector(".message-content") || root;
+          body.appendChild(btnWrap);
+        }
+      } else {
+        btnWrap.classList.add("revealed");
+        const btn = btnWrap.querySelector("button");
+        if (btn) {
+          btn.dataset.action = "rollEssenceDamage";
+          btn.dataset.isCrit = isCrit ? "true" : "false";
+          btn.dataset.itemId = item.id;
+          btn.dataset.actorId = actor.id;
+          if (isCrit) {
+            btn.classList.add("crit-damage-btn");
+            btn.innerHTML = `<i class="fas fa-burst"></i> <span>${btnLabel}</span>`;
+          } else {
+            btn.classList.remove("crit-damage-btn");
+            btn.innerHTML = `<i class="fas fa-sword"></i> <span>${btnLabel}</span>`;
+          }
+        }
+      }
+    }
+  }
+
+  if (isEssenceSpellCard || root.querySelector(".spell-card") || (item?.type === "weapon" && !isDamageMessage)) {
     const cleanDuplicateSpellButtons = () => {
       root.querySelectorAll(".hud-action-button, .roll-spell-damage-btn").forEach(el => el.remove());
       root.querySelectorAll("button, a.button, [role='button']").forEach(btn => {
@@ -809,17 +865,17 @@ Hooks.once("init", () => {
         }
         const txt = (btn.textContent || "").replace(/\s+/g, " ").trim();
         if (/\broll\b.*\b(damage|healing)\b/i.test(txt)) {
-          let current = btn;
           const parent = btn.parentElement;
           btn.remove();
-          // Clean up any empty wrapper boxes left behind by external HUD modules
           let p = parent;
           while (
             p &&
             p !== root &&
             !p.classList.contains("message-content") &&
             !p.classList.contains("essence-spell-chat-card") &&
-            !p.classList.contains("spell-card")
+            !p.classList.contains("spell-card") &&
+            !p.classList.contains("attack-card") &&
+            !p.classList.contains("mythcraft-statblock")
           ) {
             const nextParent = p.parentElement;
             if (p.querySelectorAll("button, input, select, img").length === 0 && !(p.textContent || "").trim()) {
@@ -844,52 +900,6 @@ Hooks.once("init", () => {
     setTimeout(cleanDuplicateSpellButtons, 800);
     setTimeout(cleanDuplicateSpellButtons, 1800);
     setTimeout(cleanDuplicateSpellButtons, 3000);
-  }
-
-  if (item && actor && !isDamageMessage && !isEssenceSpellCard) {
-    const hasDamage = (Array.isArray(item.system?.damage) && item.system.damage.some(d => d && d.formula)) || Boolean(item.system?.damageFormula);
-    if (hasDamage) {
-      let btnWrap = root.querySelector(".chat-damage-action-wrap");
-      const existingBtn = root.querySelector(".roll-damage, [data-action='rollEssenceDamage']");
-
-      if (!btnWrap) {
-        btnWrap = document.createElement("div");
-        btnWrap.className = "chat-damage-action-wrap revealed";
-        btnWrap.innerHTML = `
-          <button type="button" class="essence-chat-damage-btn ${isCrit ? 'crit-damage-btn' : ''}" 
-                  data-action="rollEssenceDamage" 
-                  data-is-crit="${isCrit ? 'true' : 'false'}"
-                  data-item-id="${item.id}"
-                  data-actor-id="${actor.id}">
-            <i class="fas fa-${isCrit ? 'burst' : 'sword'}"></i>
-            <span>${isCrit ? 'Roll Critical Damage' : 'Roll Damage'}</span>
-          </button>
-        `;
-
-        if (existingBtn && existingBtn.parentNode) {
-          existingBtn.replaceWith(btnWrap);
-        } else {
-          const body = root.querySelector(".mythcraft-statblock") || root.querySelector(".card-body") || root.querySelector(".message-content") || root;
-          body.appendChild(btnWrap);
-        }
-      } else {
-        btnWrap.classList.add("revealed");
-        const btn = btnWrap.querySelector("button");
-        if (btn) {
-          btn.dataset.action = "rollEssenceDamage";
-          btn.dataset.isCrit = isCrit ? "true" : "false";
-          btn.dataset.itemId = item.id;
-          btn.dataset.actorId = actor.id;
-          if (isCrit) {
-            btn.classList.add("crit-damage-btn");
-            btn.innerHTML = `<i class="fas fa-burst"></i> <span>Roll Critical Damage</span>`;
-          } else {
-            btn.classList.remove("crit-damage-btn");
-            btn.innerHTML = `<i class="fas fa-sword"></i> <span>Roll Damage</span>`;
-          }
-        }
-      }
-    }
   }
   };
 

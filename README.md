@@ -1,4 +1,4 @@
-# MythCraft Essence Sheet (v0.7.1-beta) 📜✨
+# MythCraft Essence Sheet (v0.8.0-beta) 📜✨
 
 [![Latest Release](https://img.shields.io/github/v/release/Jitterbone/mythcraft-essence-sheet?style=flat&logo=github&logoColor=white&color=22c55e&label=Latest%20Release)](https://github.com/Jitterbone/mythcraft-essence-sheet/releases/latest)
 [![Foundry VTT](https://img.shields.io/badge/Foundry%20VTT-v14%20Verified-ff6400?style=flat)](https://foundryvtt.com)
@@ -200,6 +200,35 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 ---
 
 ## 📝 Changelog
+
+### v0.8.0-beta
+- **Comprehensive Spell Library Engine & Full Automation**:
+  - Implemented an exhaustive built-in spell library (`spell-library.mjs`) mapping canonical MythCraft spells with exact metadata: source, spell type, function, APC, SPC, range, duration, requirement codes, casting times, prerequisites, tags, targets, upcharges, and materials.
+  - **Attack Spells vs. Utility / Description Spells**:
+    - Spells marked as attacks automatically execute magic attack rolls keyed to the character's designated Magic Attribute against the target's defense (`vs AR`, `vs REF`, `vs FORT`, `vs ANT`, `vs LOG`, `vs WILL`).
+    - Non-attack spells (utility, rituals, buffs) post clean, informative chat cards directly to chat without rolling or throwing errors.
+  - **Prerequisite Validation & Warning Highlighting**:
+    - Spells whose prerequisites are not met by the actor display highlighted in red with an explicit prerequisite warning tooltip.
+  - **Interactive Upcharge Engine**:
+    - Chat cards dynamically detect available upcharge options; when requirements and SP/AP costs are satisfied, users can select an upcharge tier to automatically roll boosted damage and deduct appropriate resources.
+  - **Chat Card Formatting & Unified Hotbar Rolling**:
+    - Eliminated stray regex damage rolls from raw text parsing, ensuring only legitimate spell damage buttons appear on cards.
+    - Hotbar macros now produce unified Essence chat cards matching sheet-initiated rolls with full damage and upcharge buttons.
+  - **Target Defense Alignment**:
+    - Refined layout and contrast of target defense badges (`vs REF`, `vs ANT`, `vs AR`, etc.) across spell item list rows and header cards.
+- **Brass Knuckles & Natural Weapon Automation**:
+  - Automated official MythCraft damage scaling for Brass Knuckles: increases unarmed and natural weapon damage by one die size (e.g. 1d4 to 1d6, up to 1d12 max). If no unarmed damage die exists, it defaults to 1d4.
+  - Added recursion guards to APC getter overrides (`getSafeWeaponApc` & `patchWeaponApcGetter`) to prevent call stack overflow errors when opening sheets with Brass Knuckles.
+- **Character Creation Wizard Fixes**:
+  - Resolved a bug where the *Kill* spell was automatically added to newly created characters.
+
+### v0.7.1-beta
+- **Rest Automation & Recovery Safeguards**:
+  - Hardened recovery logic and resource calculations across short, full, and extended rests.
+- **Custom Compendium Content Enhancements**:
+  - Added sublineage category options to the Custom Compendium Content configuration.
+- **Header & Rest Dialog Polish**:
+  - Polished character header meters and status indicators for seamless theme consistency.
 
 ### v0.7.0-beta
 - **Item & Feature Explicit Tag Classification System**:

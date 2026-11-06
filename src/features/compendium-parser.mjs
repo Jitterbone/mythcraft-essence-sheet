@@ -759,6 +759,18 @@ export const BACKGROUND_CANON_DATA = {
     ],
     encouragedProfessions: null,
     dualProfession: true,
+    startingWealth: { formula: "5d20*2", average: 104 },
+    skillCategories: [],
+  },
+
+  "urchin": {
+    name: "Urchin",
+    skillPoints: 24,
+    defaultPerSkillCap: 6,
+    taggedCaps: {},
+    encouragedProfessions: null,
+    hasNoProfession: true,
+    startingWealth: { formula: "5d20", average: 52 },
     skillCategories: [],
   },
 };
@@ -1068,33 +1080,129 @@ export const MYTHCRAFT_SKILL_CATEGORIES = {
 };
 
 /**
- * Parses bonus skill points, matching tag, and individual per-skill cap increase from a feature.
+ * Parses bonus skill points, matching tags, eligible skill categories, fixed skill bonuses,
+ * and individual per-skill cap from a lineage feature or talent.
  * @param {string|Item} itemOrText
- * @returns {{ points: number, tag: string, perSkillCap: number|null }}
+ * @returns {{ name: string, points: number, tag: string, tags: Array<string>, perSkillCap: number|null, skillCategories: Array<{ category: string, skills: Array<{ name: string, key: string, hasStar: boolean }> }>, fixedSkills: Array<{ name: string, value: number }> }}
  */
 export function parseFeatureSkillData(itemOrText) {
-  const text = typeof itemOrText === "string"
-    ? itemOrText
-    : String(itemOrText?.system?.description?.value ?? itemOrText?.system?.description ?? "");
+  const featureName = typeof itemOrText === "object" && itemOrText?.name ? String(itemOrText.name).trim() : "Lineage Feature";
+  const desc = typeof itemOrText === "string"
+    ? itemOrText.replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|div|li|h[1-6]|tr)>/gi, "\n").replace(/<[^>]+>/g, " ").trim()
+    : descriptionText(itemOrText);
 
   let points = 0;
   let tag = "";
+  const tags = [];
   let perSkillCap = null;
+  const skillCategories = [];
+  const fixedSkills = [];
 
-  const ptMatch = text.match(/gain\s*\+?(\d+)\s*(?:additional\s*)?skill\s*points?(?:\s*(?:to\s*spend\s*on|in|that\s*you\s*can\s*spend\s*on)\s*(?:any\s*skills?\s*(?:with\s*the\s*)?)?([a-zA-Z\s]+?)(?:\s*tag|\s*skills|\.|\n|$))?/i);
+  const ptMatch = desc.match(/gain\s*\+?(\d+)\s*(?:additional\s*)?skill\s*points?(?:\s*(?:to\s*spend\s*on|to|in|that\s*you\s*can\s*spend\s*on)\s*(?:any\s*skills?\s*(?:with\s*the\s*)?|one\s*skill\s*(?:of\s*your\s*choice\s*)?(?:with\s*the\s*)?)?([a-zA-Z\s]+?)(?:\s*tags?|\s*skills?|\.|\n|$))?/i);
   if (ptMatch) {
     points = parseInt(ptMatch[1], 10);
     if (ptMatch[2]) {
-      tag = ptMatch[2].trim().toLowerCase().replace(/^(skills?\s*with\s*the|with\s*the)\s*/i, "").trim();
+      const rawTagPhrase = ptMatch[2]
+        .trim()
+        .toLowerCase()
+        .replace(/^(?:any\s*of\s*the\s*following|the\s*following|skills?\s*with\s*the|with\s*the|one\s*skill\s*of\s*your\s*choice\s*with\s*the|one\s*skill\s*with\s*the)\s*/i, "")
+        .trim();
+      if (rawTagPhrase && !/^(?:any|following|the\s*following)$/i.test(rawTagPhrase)) {
+        const splitTags = rawTagPhrase.split(/\s+or\s+|\s*,\s*|\s+and\s+/).map(s => s.trim()).filter(s => MYTHCRAFT_SKILL_CATEGORIES[s]);
+        if (splitTags.length > 0) {
+          tags.push(...splitTags);
+          tag = splitTags[0];
+        } else if (MYTHCRAFT_SKILL_CATEGORIES[rawTagPhrase]) {
+          tags.push(rawTagPhrase);
+          tag = rawTagPhrase;
+        }
+      }
     }
   }
 
-  const capMatch = text.match(/put\s*up\s*to\s*\+?(\d+)\s*points?\s*into\s*any\s*individual\s*skill/i);
+  const capMatch = desc.match(/put\s*up\s*to\s*\+?(\d+)\s*points?\s*into\s*any\s*individual\s*skill/i)
+    || desc.match(/cannot\s*(?:put|spend)\s*more\s*than\s*\+?(\d+)\s*points?\s*(?:into|on)\s*a\s*single\s*skill/i);
   if (capMatch) {
     perSkillCap = parseInt(capMatch[1], 10);
+  } else if (points > 0 && /on\s+one\s+skill|to\s+one\s+skill/i.test(desc)) {
+    perSkillCap = points;
+  } else if (points > 0) {
+    perSkillCap = 4;
   }
 
-  return { points, tag, perSkillCap };
+  // Parse explicit categorized skill lists if present (e.g. Forest Steward, Celestial Lorist, Star Gazer, Deep Dweller, Mountainborn, Ruin Dweller)
+  if (points > 0 && /following\s*skills/i.test(desc)) {
+    const afterHeader = desc.split(/(?:individual\s*skill|single\s*skill[^\.\n\r]*|following\s*skills)[\.\:]?/i);
+    const listBlock = afterHeader[afterHeader.length - 1] || "";
+    const lines = listBlock.split(/[\n\r]+/);
+    let currentCategory = "";
+    for (const rawLine of lines) {
+      const cleanLine = rawLine.replace(/^[•\-\*]\s*/, "").trim();
+      if (!cleanLine) continue;
+      if (cleanLine.endsWith(":") && cleanLine.length < 30) {
+        currentCategory = cleanLine.slice(0, -1).replace(/\*/g, "").trim();
+        continue;
+      }
+      const colonIdx = cleanLine.indexOf(":");
+      let catName = currentCategory || "Eligible Skills";
+      let skillsPart = cleanLine;
+      if (colonIdx !== -1 && colonIdx < 28) {
+        catName = cleanLine.slice(0, colonIdx).replace(/\*/g, "").trim();
+        skillsPart = cleanLine.slice(colonIdx + 1).trim();
+        currentCategory = "";
+      }
+      const parsedSkills = skillsPart.split(",").map(s => {
+        const raw = s.trim().replace(/[\.]+$/, "").trim();
+        const hasStar = raw.includes("*") || catName.includes("*");
+        let name = raw.replace(/\*/g, "").replace(/\s*\[choose\s+[^\]]+\]/i, "").replace(/\s+of\s*\[choose\s+[^\]]+\]/i, "").trim();
+        if (name.toLowerCase() === "forage") name = "Foraging";
+        return { name, key: name.toLowerCase(), hasStar };
+      }).filter(s => s.name && (MYTHCRAFT_SKILLS.has(s.key) || Array.from(MYTHCRAFT_SKILLS).some(k => s.key.startsWith(k))));
+
+      if (parsedSkills.length > 0) {
+        skillCategories.push({ category: catName, skills: parsedSkills });
+      }
+    }
+  }
+
+  // If no explicit skill list was found, build skillCategories from matched tags (e.g. "crafting", "athleticism or stamina")
+  if (points > 0 && skillCategories.length === 0 && tags.length > 0) {
+    const starSkills = new Set([
+      "alchemy", "brewing", "calligraphy", "carpentry", "cartography",
+      "cobbling", "cooking", "glassblowing", "jeweling", "leatherworking",
+      "masonry", "painting", "pottery", "smithing", "weaving", "woodcarving",
+      "disguising", "forging", "lockpicking", "instrument", "vehicles", "vehicles [land]", "vehicles [water]", "medicine", "navigating"
+    ]);
+    for (const t of tags) {
+      const catList = MYTHCRAFT_SKILL_CATEGORIES[t];
+      if (!catList) continue;
+      const catName = t.charAt(0).toUpperCase() + t.slice(1);
+      skillCategories.push({
+        category: catName,
+        skills: catList.map(sk => {
+          const cleanName = sk.replace(/\*/g, "").trim();
+          const titleName = cleanName.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+          return { name: titleName, key: cleanName.toLowerCase(), hasStar: starSkills.has(cleanName.toLowerCase()) };
+        }),
+      });
+    }
+  }
+
+  // Parse fixed unconditional skill bonuses (e.g. Plains Elf Keen Eye: "Gain +4 Perceiving.")
+  const fixedMatches = [...desc.matchAll(/gain\s*\+(\d+)\s+([a-zA-Z\s]+?)(?:\.|,|\n|$)/gi)];
+  for (const m of fixedMatches) {
+    const val = parseInt(m[1], 10);
+    const cand = m[2].trim().replace(/\*/g, "").trim();
+    const candLower = cand.toLowerCase();
+    if (val > 0 && MYTHCRAFT_SKILLS.has(candLower)) {
+      fixedSkills.push({
+        name: cand.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+        value: val,
+      });
+    }
+  }
+
+  return { name: featureName, points, tag, tags, perSkillCap, skillCategories, fixedSkills };
 }
 
 /**
@@ -1154,11 +1262,12 @@ export function parseLineageAttributeBonusSources(lineage = null, startingFeatur
 export function parseLineageMilestones(lineage) {
   if (!lineage) return "";
   const desc = descriptionText(lineage);
-  const match = desc.match(/(In addition to the unique feature you selected at level 1,[\s\S]*?Choose from All[^\.\n\r]*Features\.)/i);
-  if (match) return match[1].trim();
+  const match = desc.match(/(In addition to the unique feature you selected at level 1,[\s\S]*?Choose from (?:the )?All[^\.\n\r]*Features[^\.\n\r]*\.)/i)
+    || desc.match(/(You gain an additional feature at (?:the )?5th, 10th, 15th, 20th, 25th, and 29th levels\.[\s\S]*?Choose from (?:the )?All[^\.\n\r]*Features[^\.\n\r]*\.)/i);
+  if (match) return match[1].replace(/\s+/g, " ").trim();
 
   const lineageName = lineage.name?.replace(/ lineage$/i, "") || "Lineage";
-  return `In addition to the unique feature you selected at level 1, you gain more features at 5th, 10th, 15th, 20th, 25th, and 29th levels. Choose from All ${lineageName} Features.`;
+  return `You gain additional lineage features at 5th, 10th, 15th, 20th, 25th, and 29th levels. Choose from All ${lineageName} Features.`;
 }
 
 /**
@@ -1280,28 +1389,6 @@ export function parseBackgroundData(item) {
       }
     }
 
-    if (skillCategories.length === 0 && (skillPoints > 0 || /any\s*skills?\s*(?:of\s*your\s*choice)?/i.test(desc))) {
-      const starSkills = new Set([
-        "alchemy", "brewing", "calligraphy", "carpentry", "cartography",
-        "cobbling", "cooking", "glassblowing", "jeweling", "leatherworking",
-        "masonry", "painting", "pottery", "smithing", "weaving", "woodcarving",
-        "disguising", "forging", "lockpicking", "instrument", "vehicles", "vehicles [land]", "vehicles [water]"
-      ]);
-
-      for (const [catKey, skillNames] of Object.entries(MYTHCRAFT_SKILL_CATEGORIES)) {
-        const catName = catKey.charAt(0).toUpperCase() + catKey.slice(1);
-        const catSkills = skillNames.map(sk => {
-          const cleanName = sk.replace(/\*/g, "").trim();
-          const titleName = cleanName.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-          const key = cleanName.toLowerCase();
-          const hasStar = starSkills.has(key);
-          return { name: titleName, key, hasStar };
-        });
-        skillCategories.push({ category: catName, skills: catSkills });
-        eligibleSkills.push(...catSkills.map(s => s.name.toLowerCase()));
-      }
-    }
-
     // Check official MythCraft BackgroundModel schema (system.occupation)
     if (!encouragedTag && item?.system?.occupation?.tag) {
       encouragedTag = String(item.system.occupation.tag).trim().toLowerCase();
@@ -1354,10 +1441,33 @@ export function parseBackgroundData(item) {
     }
   }
 
+  // If canonical or custom background has skillPoints > 0 and no restricted skillCategories (e.g. Urchin), populate all skill categories
+  if (skillCategories.length === 0 && (skillPoints > 0 || /any\s*skills?\s*(?:of\s*your\s*choice)?/i.test(desc))) {
+    const starSkills = new Set([
+      "alchemy", "brewing", "calligraphy", "carpentry", "cartography",
+      "cobbling", "cooking", "glassblowing", "jeweling", "leatherworking",
+      "masonry", "painting", "pottery", "smithing", "weaving", "woodcarving",
+      "disguising", "forging", "lockpicking", "instrument", "vehicles", "vehicles [land]", "vehicles [water]", "medicine", "navigating"
+    ]);
+
+    for (const [catKey, skillNames] of Object.entries(MYTHCRAFT_SKILL_CATEGORIES)) {
+      const catName = catKey.charAt(0).toUpperCase() + catKey.slice(1);
+      const catSkills = skillNames.map(sk => {
+        const cleanName = sk.replace(/\*/g, "").trim();
+        const titleName = cleanName.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+        const key = cleanName.toLowerCase();
+        const hasStar = starSkills.has(key);
+        return { name: titleName, key, hasStar };
+      });
+      skillCategories.push({ category: catName, skills: catSkills });
+      eligibleSkills.push(...catSkills.map(s => s.name.toLowerCase()));
+    }
+  }
+
   // Starting Wealth
-  let wealthFormula = "5d20*2";
-  let wealthAverage = 104;
-  const wealthMatch = desc.match(/gain\s*([0-9d\*\+\-\s]+)\s*sc\s*\(or\s*take\s*the\s*average[,\s]*(\d+)\s*sc\)/i);
+  let wealthFormula = canon?.startingWealth?.formula || "5d20*2";
+  let wealthAverage = canon?.startingWealth?.average || 104;
+  const wealthMatch = desc.match(/gain\s*(?:\[\[\s*\/r\s*)?([0-9d\*\+\-\s]+?)(?:\]\]\s*)?\s*sc\s*\(or\s*take\s*the\s*average[,\s]*(\d+)\s*sc\)/i);
   if (wealthMatch) {
     wealthFormula = wealthMatch[1].trim();
     wealthAverage = parseInt(wealthMatch[2], 10);
@@ -1511,52 +1621,477 @@ function parseSingleGearToken(itemStr, rawToken) {
 }
 
 /**
- * Parses profession items for starting gear, skills, and tenure rank items.
+ * Canonical MythCraft Professions Library (all 17 core professions).
+ * Provides occupation tags, flavor description, Rank 1 benefit summary, fixed skill bonus,
+ * choice skill options, and starting gear.
+ */
+export const PROFESSION_CANON_DATA = {
+  "archivist": {
+    name: "Archivist",
+    tags: ["Academic"],
+    description: "You are passionate about preserving the past and uncovering the secrets of the ages. Through weeks of research sifting through dusty tomes, you seek to expand your understanding of the world and bring new knowledge to light.",
+    benefitTitle: "Academic Tenure",
+    benefitSummary: "Rank 1: Given 8 hours of research at a well-resourced library, you can uncover any written information available to the public.",
+    fixedSkills: [{ name: "History", value: 3 }],
+    choiceSkills: {
+      count: 3,
+      value: 1,
+      options: [
+        "calligraphy", "cartography", "masonry", "painting", "pottery", "woodcarving",
+        "empathy", "gossiping", "persuading",
+        "arcana", "art", "astrology", "astronomy", "biology", "chemistry", "economics", "engineering", "geography", "law", "military", "politics", "religion",
+        "appraising", "intuiting", "investigating", "perceiving",
+      ],
+    },
+    startingGearText: "satchel, scroll case, gambeson armor, tool or kit (1), lantern, robes, clothes (simple), flask of oil, small collection of books and scrolls, rations (2), inkpot, quill pen, parchment (10), waterskin",
+  },
+  "barrister": {
+    name: "Barrister",
+    tags: ["Academic", "Aristocratic"],
+    description: "Your studies of law and debate have made you an expert in mediation, selling your services as a lawyer, judge, or orator to ensure just and proper resolution of disputes through historical precedent and careful deliberation.",
+    benefitTitle: "Mediation",
+    benefitSummary: "Rank 1: While staying in a friendly settlement, you may sell your services as a lawyer or mediator to settle local disputes, earning 4d10 sc per week and +1 Goodwill at the end of each month.",
+    fixedSkills: [{ name: "Persuading", value: 3 }],
+    choiceSkills: {
+      count: 3,
+      value: 1,
+      options: [
+        "calligraphy", "cartography",
+        "deceiving", "empathy", "intimidating", "leadership", "persuading",
+        "economics", "history", "law", "medicine", "military", "politics", "religion",
+        "appraising", "eavesdropping", "intuiting", "investigating", "perceiving",
+        "savoir faire", "forging",
+      ],
+    },
+    startingGearText: "backpack, scroll case, brigandine armor, tool or kit (1), clothes (noble), book of laws, gavel, parchment (10), inkpot, quill pen, flask, waterskin",
+  },
+  "charlatan": {
+    name: "Charlatan",
+    tags: ["Mercantile", "Underworld"],
+    description: "You use your silver tongue and quick wit to deceive and manipulate others, moving from town to town to sell false remedies, perform illusions, or con unsuspecting marks out of their hard-earned coin.",
+    benefitTitle: "Scam Business",
+    benefitSummary: "Rank 1: You can create a fake identity with 1 hour of work. Once per day in a friendly settlement, you may run a scam to earn 2d20+20 sc (with a 20% base risk of exposure).",
+    fixedSkills: [{ name: "Deceiving", value: 3 }],
+    choiceSkills: {
+      count: 3,
+      value: 1,
+      options: [
+        "contorting",
+        "empathy", "gossiping", "intimidating", "leadership", "persuading",
+        "art", "economics", "history", "law", "medicine", "politics", "religion",
+        "appraising", "intuiting", "investigating", "perceiving",
+        "instrument", "savoir faire",
+        "disguising", "forging", "lockpicking", "sleight of hand",
+        "sneaking",
+      ],
+    },
+    startingGearText: "pocketed cloak, gear to run your con of choice, small hand cart or prop-up stand, belt pouches (3), brigandine armor, tool or kit (1), clothes (fine)",
+  },
+  "clergy": {
+    name: "Clergy",
+    tags: ["Academic", "Religious"],
+    description: "You are a member of the clergy in a religious order of your choosing, handling spiritual duties, preserving sacred texts, and maintaining your temple while deepening your understanding of your faith.",
+    benefitTitle: "Called to Serve",
+    benefitSummary: "Rank 1: Any religious center whose faith you share provides free food and shelter. Spending a week serving the poor in a friendly settlement grants +1 Goodwill.",
+    fixedSkills: [{ name: "Religion", value: 3 }],
+    choiceSkills: {
+      count: 3,
+      value: 1,
+      options: [
+        "alchemy", "brewing", "calligraphy", "cooking", "leatherworking", "painting", "weaving", "woodcarving",
+        "deceiving", "empathy", "gossiping", "persuading",
+        "arcana", "art", "economics", "geography", "history", "law", "medicine", "politics", "religion",
+        "eavesdropping", "intuiting",
+        "nature",
+      ],
+    },
+    startingGearText: "backpack, scroll case, tool or kit (1), gambeson armor, quarterstaff, clothes (simple), clothes (fine), candles (10), religious icon, small collection of scrolls, incense, rations (2), waterskin",
+  },
+  "entertainer": {
+    name: "Entertainer",
+    tags: ["Aristocratic", "Mercantile"],
+    description: "You are a master of creating beauty and inspiring emotion through your art—whether through paintings, sculptures, music, or performance—captivating audiences from royal courts to common taverns.",
+    benefitTitle: "Developing Talent",
+    benefitSummary: "Rank 1: Choose Artist (+3 to one Crafting skill; create art weekly for 1d10+20 sc) or Performer (+3 to Contorting, Dancing, Entertaining, Instrument, or Tumbling; perform weekly for 1d10+5 sc plus free room and board).",
+    fixedSkills: [{ name: "Entertaining", value: 3 }],
+    choiceSkills: {
+      count: 3,
+      value: 1,
+      options: [
+        "alchemy", "brewing", "calligraphy", "carpentry", "cartography", "cobbling", "cooking", "glassblowing", "jeweling", "leatherworking", "masonry", "painting", "pottery", "smithing", "weaving", "woodcarving",
+        "gossiping", "persuading",
+        "art", "geography", "history", "politics", "religion",
+        "appraising", "intuiting", "perceiving",
+        "dancing", "entertaining", "instrument", "savoir faire",
+        "disguising", "forging",
+      ],
+    },
+    startingGearText: "backpack, gambeson armor, tool or kit (1), clothes (fine), instruments (2), makeup (2), costumes/disguises (2), props",
+  },
+  "guard": {
+    name: "Guard",
+    tags: ["Mercantile", "Militant"],
+    description: "You are the first line of defense against danger and threats to the people and places you are sworn to protect—stationed at castle gates, patrolling city streets, or guarding convoys on dangerous roads.",
+    benefitTitle: "Private Security",
+    benefitSummary: "Rank 1: You guard a private location where you and up to five companions receive free food and lodging, and you earn up to 10 sc per week of guard duty.",
+    fixedSkills: [{ name: "Perceiving", value: 3 }],
+    choiceSkills: {
+      count: 3,
+      value: 1,
+      options: [
+        "applied force", "athletics", "sprinting",
+        "intimidating",
+        "economics", "geography", "history", "law", "medicine", "military", "politics",
+        "eavesdropping", "intuiting", "investigating",
+        "distance running", "forced march", "menacing",
+        "animal handling", "dungeoneering", "sheltering",
+      ],
+    },
+    startingGearText: "rucksack, spear, chainmail armor, clothes (simple), torch (10), deck of cards, manacles, insignia of rank, hooded lantern, flask of oil",
+  },
+  "honorable": {
+    name: "Honorable",
+    tags: ["Aristocratic"],
+    description: "You are a member of the upper echelons of society, born into privilege with access to fine education, training, and resources, and looked upon as a symbol of your noble heritage.",
+    benefitTitle: "Noble Title",
+    benefitSummary: "Rank 1: You own an upper-class residence with up to five attendants, can secure an audience with most city officials within 3 days, and have a personal attendant.",
+    fixedSkills: [{ name: "Intuiting", value: 3 }],
+    choiceSkills: {
+      count: 3,
+      value: 1,
+      options: [
+        "calligraphy", "cartography", "jeweling", "painting", "weaving",
+        "deceiving", "empathy", "gossiping", "intimidating", "persuading",
+        "art", "economics", "geography", "history", "law", "military", "politics", "religion",
+        "appraising", "eavesdropping", "perceiving",
+        "dancing", "entertaining", "instrument",
+      ],
+    },
+    startingGearText: "satchel, brigandine armor, tool or kit (1), two sets of clothes (noble), books (10), clothes (ceremonial), blank journal, quill pen, wineskin, signet ring, writ of status",
+  },
+  "inquisitor": {
+    name: "Inquisitor",
+    tags: ["Religious", "Militant"],
+    description: "Entrusted by your faith to protect its interests in the mortal realm, you root out and destroy twisted fiends, undead abominations, and heretical cults wherever they hide.",
+    benefitTitle: "Witchfinder",
+    benefitSummary: "Rank 1: Spending a week in any settlement allows you to locate one hidden cult, dark ritual, or forbidden magic user if present.",
+    fixedSkills: [{ name: "Investigating", value: 3 }],
+    choiceSkills: {
+      count: 3,
+      value: 1,
+      options: [
+        "applied force", "athletics", "sprinting",
+        "alchemy", "smithing", "woodcarving",
+        "deceiving", "intimidating", "persuading",
+        "arcana", "chemistry", "history", "medicine", "religion",
+        "fortuity",
+        "eavesdropping", "intuiting", "investigating", "perceiving",
+        "distance running", "forced march",
+        "disguising", "evading", "lockpicking",
+        "dungeoneering", "sneaking", "tracking",
+      ],
+    },
+    startingGearText: "traveler's pack, scale mail, clothes (fine), clothes (simple), signet ring, writ of religious authority, mess kit, rations (3), waterskin, manacles",
+  },
+  "knight": {
+    name: "Knight",
+    tags: ["Aristocratic", "Militant"],
+    description: "You are a defender of the innocent and a champion of justice, roaming the lands in shining armor to right wrongs, vanquish evil, and uphold valor.",
+    benefitTitle: "Coat of Arms",
+    benefitSummary: "Rank 1: Once per week in a friendly settlement, you may make a DC 12 CHA/Persuading or AWR/Perceiving check to find citizens in need of quests, earning +1 Goodwill upon completion.",
+    fixedSkills: [{ name: "Investigating", value: 3 }],
+    choiceSkills: {
+      count: 3,
+      value: 1,
+      options: [
+        "applied force", "athletics", "sprinting",
+        "leatherworking", "smithing", "weaving", "woodcarving",
+        "empathy", "intimidating", "leadership", "persuading",
+        "geography", "history", "law", "military", "politics", "religion",
+        "intuiting", "perceiving",
+        "instrument", "savoir faire",
+        "forced march", "distance running",
+        "animal handling",
+      ],
+    },
+    startingGearText: "rucksack, one large blade, chainmail armor, signet ring, bedroll, mess kit, clothes (simple), embroidered hooded cloak, rations (5), torches (5), tinderbox, 50 ft rope, waterskin",
+  },
+  "nomad": {
+    name: "Nomad",
+    tags: ["Wanderer"],
+    description: "Traveling from place to place with your tribe, you are self-sufficient and deeply connected to the land and its creatures, honed from a life of constant movement, tracking, and survival.",
+    benefitTitle: "Gather No Moss",
+    benefitSummary: "Rank 1: You can always locate food or water and know all roads in your home region, and you have a trained, loyal beast of burden steed.",
+    fixedSkills: [{ name: "Sheltering", value: 3 }],
+    choiceSkills: {
+      count: 3,
+      value: 1,
+      options: [
+        "applied force", "athletics", "sprinting",
+        "alchemy", "brewing", "carpentry", "cartography", "cobbling", "cooking", "leatherworking", "masonry", "painting", "pottery", "smithing", "weaving", "woodcarving",
+        "empathy", "gossiping", "intimidating", "leadership", "persuading",
+        "art", "astrology", "astronomy", "geography", "history", "medicine", "religion", "vehicles [land]",
+        "intuiting", "perceiving",
+        "instrument", "entertaining",
+        "distance running", "forced march",
+        "animal handling", "dungeoneering", "foraging", "nature", "navigating", "sneaking", "tracking",
+      ],
+    },
+    startingGearText: "Satchel and saddlebags, brigandine armor, tool or kit (1), clothes (simple), hooded cloak, bedroll, mess kit, rations (7), tinderbox, torches (5), waterskin, 50 ft rope",
+  },
+  "physician": {
+    name: "Physician",
+    tags: ["Academic", "Religious"],
+    description: "You are dedicated to healing the sick and alleviating suffering, having mastered medicine and scientific methods through years of study and practice to diagnose and treat ailments.",
+    benefitTitle: "Treatment",
+    benefitSummary: "Rank 1: Given two days at a well-resourced medical facility, you can make a DC 15 INT/Medicine check to cure one creature of a common disease.",
+    fixedSkills: [{ name: "Medicine", value: 3 }],
+    choiceSkills: {
+      count: 3,
+      value: 1,
+      options: [
+        "alchemy", "brewing", "woodcarving",
+        "empathy", "leadership",
+        "arcana", "biology", "chemistry", "history", "law",
+        "appraising", "intuiting",
+        "lockpicking", "sleight of hand",
+        "animal handling", "nature",
+      ],
+    },
+    startingGearText: "belt pouch and satchel, gambeson armor, tool or kit (1), clothes (simple), bandages (10), medicine (basic), rations (3), lamp, flask of oil, medicinal tome, ink, quill, waterskin",
+  },
+  "pioneer": {
+    name: "Pioneer",
+    tags: ["Aristocratic", "Wanderer"],
+    description: "Always pushing boundaries and charting new territories, you are a builder, farmer, and protector who carves out settlements in the frontier lands with resilience and resourcefulness.",
+    benefitTitle: "Homestead",
+    benefitSummary: "Rank 1: You own 20 acres of frontier land that sustains a household with food and water, with a residence for you and six companions.",
+    fixedSkills: [{ name: "Cartography", value: 3 }],
+    choiceSkills: {
+      count: 3,
+      value: 1,
+      options: [
+        "applied force", "athletics", "sprinting",
+        "carpentry", "cartography", "cooking", "glassblowing", "jeweling", "leatherworking", "masonry", "pottery", "smithing", "weaving", "woodcarving",
+        "empathy", "leadership", "persuading",
+        "geography", "medicine", "vehicles [land]", "vehicles [water]",
+        "scavenging",
+        "intuiting", "perceiving",
+        "distance running", "forced march",
+        "animal handling", "foraging", "nature", "navigating", "sheltering", "sneaking", "tracking",
+      ],
+    },
+    startingGearText: "Traveler's pack, wood- splitting axe, brigandine armor, tool or kit (1), clothes (simple), hooded cloak, two-person tent, mess kit, rations (7), torches (5), tinderbox, waterskin, 50 ft rope",
+  },
+  "sailor": {
+    name: "Sailor",
+    tags: ["Mercantile", "Underworld", "Wanderer"],
+    description: "You have spent considerable time as an explorer, freebooter, pirate, or mariner and define your life by the sea, equally at home in a raging storm or a pleasant breeze.",
+    benefitTitle: "Sea Legs",
+    benefitSummary: "Rank 1: You can secure a position on a trading, privateer, pirate, or exploratory vessel and earn 10 sc per week working in a friendly port.",
+    fixedSkills: [{ name: "Vehicles [water]", value: 3 }],
+    choiceSkills: {
+      count: 3,
+      value: 1,
+      options: [
+        "balancing",
+        "applied force", "athletics",
+        "cartography", "cooking", "woodcarving",
+        "intimidating", "leadership",
+        "astrology", "astronomy", "geography", "economics", "medicine", "military",
+        "fortuity", "scavenging",
+        "intuiting", "perceiving",
+        "instrument", "entertaining",
+        "menacing",
+        "evading", "sleight of hand",
+        "nature", "navigating",
+      ],
+    },
+    startingGearText: "rucksack, leather armor, tool or kit (1), clothes (simple), mess kit, rations (5), utensils, bowl, flask, 50 ft rope, compass",
+  },
+  "soldier": {
+    name: "Soldier",
+    tags: ["Militant"],
+    description: "You are a proud and dedicated warrior serving with honor and discipline, always ready to put your life on the line in the name of duty and protection.",
+    benefitTitle: "Military Ranking",
+    benefitSummary: "Rank 1: As a low-ranking infantry member, you receive free food and lodging wherever your military maintains a presence, plus a stipend of 5 sc per week.",
+    fixedSkills: [{ name: "Distance Running", value: 3 }],
+    choiceSkills: {
+      count: 3,
+      value: 1,
+      options: [
+        "balancing",
+        "applied force", "athletics", "sprinting",
+        "carpentry", "leatherworking", "smithing", "woodcarving",
+        "gossiping", "intimidating", "leadership",
+        "geography", "history", "law", "medicine", "military", "politics", "religion", "vehicles [land]",
+        "intuiting", "perceiving",
+        "forced march", "menacing",
+        "animal handling", "dungeoneering", "nature", "navigating",
+      ],
+    },
+    startingGearText: "rucksack, spear, chainmail armor, clothes (simple), torches (5), flask, bedroll, flint & steel, insignia of rank, rations (7), waterskin, bandages (2), 50 ft rope",
+  },
+  "thief": {
+    name: "Thief",
+    tags: ["Underworld"],
+    description: "You use your agility and cunning to steal from the wealthy and powerful, thriving in the shadows and slipping in and out of buildings and alleyways undetected.",
+    benefitTitle: "Second Story Work",
+    benefitSummary: "Rank 1: Given one day of thieving in a medium or large settlement, you earn 2d10 sc (with a cumulative 10% discovery risk per day each month).",
+    fixedSkills: [{ name: "Evading", value: 3 }],
+    choiceSkills: {
+      count: 3,
+      value: 1,
+      options: [
+        "balancing", "contorting", "tumbling",
+        "athletics", "sprinting",
+        "jeweling", "painting", "pottery", "weaving", "woodcarving",
+        "deceiving", "empathy", "gossiping", "intimidating",
+        "art", "economics", "geography", "history", "law", "politics",
+        "fortuity",
+        "appraising", "eavesdropping", "intuiting", "investigating", "perceiving",
+        "entertaining", "savoir faire",
+        "distance running",
+        "disguising", "forging", "lockpicking", "sleight of hand",
+        "dungeoneering", "sneaking",
+      ],
+    },
+    startingGearText: "daggers (4), pocketed cloak, belt pouches (3), brigandine armor, tool or kit (1), hooded lantern, flask of oil, tinderbox, clothes (simple), rations (2), 50 ft rope, crowbar, waterskin",
+  },
+  "thug": {
+    name: "Thug",
+    tags: ["Underworld", "Militant"],
+    description: "No stranger to the brutal struggle of urban life outside the law, you claim your territory through brute force, intimidation, cunning, and strength.",
+    benefitTitle: "Gang Leader",
+    benefitSummary: "Rank 1: You claim one city block of territory whose businesses pay you 3d10+30 sc per week, and you can recruit up to three ML 2 or lower henchmen.",
+    fixedSkills: [{ name: "Evading", value: 3 }],
+    choiceSkills: {
+      count: 3,
+      value: 1,
+      options: [
+        "balancing",
+        "applied force", "athletics", "sprinting",
+        "deceiving", "intimidating",
+        "fortuity", "scavenging",
+        "appraising", "eavesdropping", "intuiting", "investigating", "perceiving",
+        "distance running", "forced march", "menacing",
+        "disguising", "evading", "forging", "lockpicking", "sleight of hand",
+        "dungeoneering", "navigating", "sneaking", "tracking",
+      ],
+    },
+    startingGearText: "backpack, hooded lantern, flask of oil, tool or kit (1), clothes (simple), tinderbox, brass knuckles, brigandine armor, 50 ft rope, manacles, rations (2), torches (2)",
+  },
+  "trader": {
+    name: "Trader",
+    tags: ["Mercantile"],
+    description: "Constantly on the move in search of new markets and opportunities, you use a keen eye for profit and skilled negotiation to buy low, sell high, and grow your wealth and influence.",
+    benefitTitle: "Network",
+    benefitSummary: "Rank 1: Given one week of business dealings in a marketplace, you may engage in skillful trade to earn 2d10+20 sc.",
+    fixedSkills: [{ name: "Savoir Faire", value: 3 }],
+    choiceSkills: {
+      count: 3,
+      value: 1,
+      options: [
+        "alchemy", "brewing", "calligraphy", "carpentry", "cartography", "cobbling", "cooking", "glassblowing", "jeweling", "leatherworking", "masonry", "painting", "pottery", "smithing", "weaving", "woodcarving",
+        "deceiving", "empathy", "gossiping", "persuading",
+        "art", "economics", "history", "law", "medicine", "politics", "vehicles [land]", "vehicles [water]",
+        "appraising", "intuiting", "perceiving",
+        "animal handling",
+      ],
+    },
+    startingGearText: "traveler's pack, hanging lantern rod, gambeson armor, tool or kit (1), clothes (fine), blanket, bedroll, folding chair, scales, various pouches and bottles, magnifying lens, bolt of fabric (silk), spices (exotic)",
+  },
+};
+
+/**
+ * Parses profession items for occupation tags, description, rank 1 benefit, starting gear, skills, and tenure rank items.
+ * Uses PROFESSION_CANON_DATA first with intelligent fallback parsing for homebrew professions.
  * @param {Item} item
- * @returns {{ startingGear: Array<{ name: string, quantity: number, raw: string }>, fixedSkills: Array<{ name: string, value: number }>, choiceSkills: { count: number, value: number, options: Array<string> }, tenureUuids: Array<{ uuid: string, label: string, rank: number }> }}
+ * @returns {{ name: string, tags: Array<string>, description: string, benefitTitle: string, benefitSummary: string, startingGear: Array<{ name: string, quantity: number, raw: string }>, fixedSkills: Array<{ name: string, value: number }>, choiceSkills: { count: number, value: number, options: Array<string> }, tenureUuids: Array<{ uuid: string, label: string, rank: number }> }}
  */
 export function parseProfessionData(item) {
   const desc = descriptionText(item);
+  const rawName = String(item?.name || "").trim();
+  const profKey = rawName.toLowerCase().replace(/\s*profession$/i, "").trim();
+  const canon = PROFESSION_CANON_DATA[profKey] || null;
 
   // 1. Starting Gear List
   let startingGear = [];
-  const gearMatch = desc.match(/(?:gain|receive)\s*(?:the\s*following\s*gear|the\s*following\s*items|starting\s*gear|starting\s*equipment)\s*:\s*([\s\S]*?)(?:Each\s*time|Gain\s*\+?\d|Tenure|When\s*you\s*become|Starting\s*Wealth|At\s*1st\s*Level|\.\s*(?:Gain|Each|Tenure|When)|$)/i);
-  if (gearMatch) {
-    startingGear = parseProfessionStartingGear(gearMatch[1]);
-  }
-
-  // 2. Fixed and Choice Skills
-  const fixedSkills = [];
-  let choiceCount = 0;
-  let choiceValue = 1;
-  const choiceOptions = [];
-
-  const fixedMatch = desc.match(/gain\s*\+?(\d+)\s*([a-zA-Z\s]+?)(?:,?\s*and\s*\+?(\d+)\s*in\s*([a-zA-Z0-9]+)\s*of\s*the\s*following\s*skills|\.)/i);
-  if (fixedMatch) {
-    fixedSkills.push({
-      name: fixedMatch[2].trim(),
-      value: parseInt(fixedMatch[1], 10),
-    });
-  }
-
-  const choiceMatch = desc.match(/and\s*\+?(\d+)\s*in\s*(one|two|three|four|five|\d+)\s*of\s*the\s*following\s*skills[:\.]?([\s\S]*?)(?:Tenure|Rank|$)/i);
-  if (choiceMatch) {
-    choiceValue = parseInt(choiceMatch[1], 10);
-    const wordMap = { one: 1, two: 2, three: 3, four: 4, five: 5 };
-    choiceCount = wordMap[choiceMatch[2].toLowerCase()] || parseInt(choiceMatch[2], 10) || 1;
-
-    const lines = choiceMatch[3].split(/[\n\r]+/);
-    for (const line of lines) {
-      const clean = line.replace(/^[•\-\*]\s*/, "").trim();
-      if (!clean) continue;
-      const parts = clean.split(":");
-      const rawList = parts.length > 1 ? parts[1] : parts[0];
-      const skills = rawList.split(",").map(s => s.trim().replace(/[\.\*]+$/, "").trim().toLowerCase()).filter(Boolean);
-      choiceOptions.push(...skills);
+  if (canon?.startingGearText) {
+    startingGear = parseProfessionStartingGear(canon.startingGearText);
+  } else {
+    const gearMatch = desc.match(/(?:gain|receive)\s*(?:the\s*following\s*gear|the\s*following\s*items|starting\s*gear|starting\s*equipment)(?:,\s*in\s*addition\s*to\s*[^:]+)?\s*:\s*([\s\S]*?)(?:Skills|Each\s*time|Gain\s*\+?\d|Tenure|When\s*you\s*become|Starting\s*Wealth|At\s*1st\s*Level|\.\s*(?:Gain|Each|Tenure|When)|$)/i);
+    if (gearMatch) {
+      startingGear = parseProfessionStartingGear(gearMatch[1]);
     }
   }
 
-  // 3. Tenure Items UUIDs
+  // 2. Fixed and Choice Skills
+  let fixedSkills = canon?.fixedSkills ? canon.fixedSkills.map(s => ({ ...s })) : [];
+  let choiceCount = canon?.choiceSkills?.count ?? 0;
+  let choiceValue = canon?.choiceSkills?.value ?? 1;
+  let validChoiceOptions = canon?.choiceSkills?.options ? [...canon.choiceSkills.options] : [];
+
+  if (!canon) {
+    const fixedMatch = desc.match(/gain\s*\+?(\d+)\s*([a-zA-Z\*\[\]\s]+?)(?:,?\s*and\s*\+?(\d+)\s*in\s*([a-zA-Z0-9]+)\s*of\s*the\s*following\s*skills|\.\s*Each\s*time|\.)/i);
+    if (fixedMatch) {
+      const cleanFixedName = fixedMatch[2].replace(/\*/g, "").replace(/\s*\[choose\s+[^\]]+\]/i, "").trim();
+      fixedSkills.push({
+        name: cleanFixedName,
+        value: parseInt(fixedMatch[1], 10),
+      });
+    }
+
+    const choiceOptions = [];
+    const choiceMatch = desc.match(/(?:and\s*|\bgain\s*)\+?(\d+)\s*in\s*(one|two|three|four|five|\d+)\s*of\s*the\s*following\s*skills[:\.]?([\s\S]*?)(?:Unlike|Tenure|Mediation|Scam\s*Business|Called\s*to\s*Serve|Developing\s*Talent|Private\s*Security|Noble\s*Title|Witchfinder|Coat\s*of\s*Arms|Gather\s*No\s*Moss|Treatment|Homestead|Sea\s*Legs|Military\s*Ranking|Second\s*Story\s*Work|Gang\s*Leader|Network|Rank|$)/i);
+    if (choiceMatch) {
+      choiceValue = parseInt(choiceMatch[1], 10);
+      const wordMap = { one: 1, two: 2, three: 3, four: 4, five: 5 };
+      choiceCount = wordMap[choiceMatch[2].toLowerCase()] || parseInt(choiceMatch[2], 10) || 1;
+
+      const lines = choiceMatch[3].split(/[\n\r]+/);
+      for (const line of lines) {
+        const clean = line.replace(/^[•\-\*]\s*/, "").trim();
+        if (!clean || clean.endsWith(":")) continue;
+        const parts = clean.split(":");
+        const rawList = parts.length > 1 ? parts[1] : parts[0];
+        const skills = rawList.split(",").map(s => s.trim().replace(/[\.\*]+$/, "").replace(/\*/g, "").trim().toLowerCase()).filter(Boolean);
+        choiceOptions.push(...skills);
+      }
+    }
+
+    for (const s of choiceOptions) {
+      const norm = s.toLowerCase().replace(/[\.\*]+$/, "").replace(/\s*\[choose\s+[^\]]+\]/i, "").replace(/\s+of\s*\[choose\s+[^\]]+\]/i, "").trim();
+      if (MYTHCRAFT_SKILLS.has(norm)) {
+        validChoiceOptions.push(norm);
+      } else {
+        const match = Array.from(MYTHCRAFT_SKILLS).find(k => norm.startsWith(k) || k.startsWith(norm.split("[")[0].trim()));
+        if (match) validChoiceOptions.push(match);
+      }
+    }
+  }
+
+  // 3. Occupation Tags, Flavor Description, and Benefit Info
+  let tags = canon?.tags ? [...canon.tags] : [];
+  if (tags.length === 0) {
+    const tagMatch = desc.match(/Occupation\s*Tags?\s*:\s*([^\n\r]+)/i);
+    if (tagMatch) {
+      tags = tagMatch[1].split(",").map(t => t.trim()).filter(Boolean);
+    }
+  }
+
+  let description = canon?.description || "";
+  if (!description) {
+    const descMatch = desc.match(/Occupation\s*Tags?\s*:\s*[^\n\r]+[\n\r]+([\s\S]*?)(?=Starting\s*Equipment|Skills|$)/i);
+    if (descMatch) {
+      description = descMatch[1].replace(/\s+/g, " ").trim();
+    }
+  }
+
+  const benefitTitle = canon?.benefitTitle || "Profession Benefit";
+  const benefitSummary = canon?.benefitSummary || "";
+
+  // 4. Tenure Items UUIDs
   const tenureUuids = [];
   const tenureMatches = [...desc.matchAll(/@UUID\[([^\]]+)\]\{([^}]+)\}/gi)];
   let rankCounter = 1;
@@ -1568,19 +2103,12 @@ export function parseProfessionData(item) {
     });
   }
 
-  // Filter choiceOptions against the canonical skill list to remove prose fragments
-  const validChoiceOptions = [];
-  for (const s of choiceOptions) {
-    const norm = s.toLowerCase().replace(/[\.\*]+$/, "").trim();
-    if (MYTHCRAFT_SKILLS.has(norm)) {
-      validChoiceOptions.push(norm);
-    } else {
-      const match = Array.from(MYTHCRAFT_SKILLS).find(k => norm.startsWith(k) || k.startsWith(norm.split("[")[0].trim()));
-      if (match) validChoiceOptions.push(match);
-    }
-  }
-
   return {
+    name: canon?.name || rawName.replace(/\s*profession$/i, "").trim(),
+    tags,
+    description,
+    benefitTitle,
+    benefitSummary,
     startingGear,
     fixedSkills,
     choiceSkills: {
@@ -1998,11 +2526,21 @@ export function resolveLineageFeatures(selectedLineage, allLineageDocs = []) {
 
   // 5. Folder Hierarchy & Explicit Tag Integration (Homebrew / Compendium Folder structure)
   // Hierarchy: Parent folder = Ancestry Name, Secondary folder = "(Lineage Name) Starting Features", "All (Lineage Name) Features", or Sublineage Name
+  // IMPORTANT: Sublineage and Choice Group features also reside in the "(Lineage Name) Starting Features" compendium folder!
+  // Never add sublineage or choice-group features into baseStartingFeatures!
+  const sublineageAndChoiceIds = new Set([
+    ...sublineages.flatMap(s => s.features.flatMap(f => [(f.id || f._id || "").toLowerCase(), String(f.name || "").toLowerCase().trim()])),
+    ...choiceGroups.flatMap(g => g.choices.flatMap(c => [(c.id || "").toLowerCase(), String(c.name || "").toLowerCase().trim(), String(c.item?.name || "").toLowerCase().trim()])),
+  ]);
+  const parsedStartingFromHtml = baseStartingFeatures.length > 0;
+
   const uniqueFolderFeatures = [];
   for (const doc of candidates) {
+    const docIdLower = (doc.id || doc._id || "").toLowerCase();
+    const docNameLower = String(doc.name || "").toLowerCase().trim();
     const tags = parseExplicitItemTags(doc);
     const rawChain = doc._folderChain || getDocumentFolderChain(doc) || [];
-    const filteredChain = rawChain.filter(f => !/^(lineages?|ancestries?|compendium|items?)$/i.test(f.trim()));
+    const filteredChain = rawChain.filter(f => !/^(?:\d+\.\s*)?(?:lineages?|ancestries?|compendium|items?)$/i.test(f.trim()));
 
     // Check if doc belongs to this ancestry via tags or folder chain
     const tagAncestry = (tags.ancestry || tags.lineage || doc._customParent || "").toLowerCase().replace(/lineage/i, "").trim();
@@ -2014,6 +2552,11 @@ export function resolveLineageFeatures(selectedLineage, allLineageDocs = []) {
 
     if (!belongsToLineage) continue;
 
+    // Skip if already assigned to a sublineage or choice group
+    if (sublineageAndChoiceIds.has(docIdLower) || sublineageAndChoiceIds.has(docNameLower)) {
+      continue;
+    }
+
     const featureTag = tags.feature ? tags.feature.toLowerCase() : "";
 
     // A) Starting / Core Features: "(Lineage Name) Starting Features", "Starting Features", "Core Features"
@@ -2021,7 +2564,7 @@ export function resolveLineageFeatures(selectedLineage, allLineageDocs = []) {
       || (doc.folder?.name && /starting/i.test(doc.folder.name));
     const isStartingTag = featureTag === "starting" || featureTag === "base" || featureTag === "core";
     if (isStartingTag || isStartingFolder) {
-      if (!baseStartingFeatures.some(f => (f.id || f._id) === (doc.id || doc._id) || f.name === doc.name)) {
+      if ((isStartingTag || !parsedStartingFromHtml) && !baseStartingFeatures.some(f => (f.id || f._id) === (doc.id || doc._id) || f.name === doc.name)) {
         baseStartingFeatures.push(doc);
       }
       continue;
@@ -2061,7 +2604,7 @@ export function resolveLineageFeatures(selectedLineage, allLineageDocs = []) {
     }
   }
 
-  // 6. Unique Features Pool
+  // 6. Unique Features Pool (for Level 1 Unique Feature selection and Level 5/10/15/20/25/29 Milestones)
   const assignedIds = new Set([
     ...baseStartingFeatures.map(f => (f.id || f._id || "").toLowerCase()),
     ...baseStartingFeatures.map(f => String(f.name || "").toLowerCase().trim()),
@@ -2091,14 +2634,17 @@ export function resolveLineageFeatures(selectedLineage, allLineageDocs = []) {
   // Sort unique features alphabetically
   uniqueFeatures.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
-  // 7. Unique Feature Count
+  // 7. Unique Feature Count at Level 1
+  // Lineages with sublineages (Elf, Dwarf, Elemental, Fiendblood, Raedeen) or choice groups (Golem)
+  // do NOT gain an additional Unique Feature at level 1 — they gain their sublineage/choice features instead.
   let uniqueCount = 0;
-  if (/choose\s+(?:two|2)\s+(?:additional\s+)?options/i.test(rawDesc)) {
-    uniqueCount = 2;
-  } else if (/unique\s+features?/i.test(rawDesc) || /choose\s+(?:one|1)\s+(?:additional\s+)?(?:feature|option)/i.test(rawDesc)) {
-    uniqueCount = 1;
-  } else if (uniqueFeatures.length > 0) {
-    uniqueCount = 1;
+  if (sublineages.length === 0 && choiceGroups.length === 0) {
+    const beforeAllDesc = rawDesc.split(/<h[23][^>]*>[^<]*all\s+/i)[0];
+    if (/choose\s+(?:two|2)\s+(?:additional\s+)?(?:options?|features?)/i.test(beforeAllDesc)) {
+      uniqueCount = 2;
+    } else if (/unique\s+features?/i.test(beforeAllDesc) || /choose\s+(?:one|1)\s+(?:additional\s+)?(?:feature|option)/i.test(beforeAllDesc)) {
+      uniqueCount = 1;
+    }
   }
 
   return {

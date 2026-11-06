@@ -220,6 +220,9 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
   - Automated official MythCraft damage scaling for Brass Knuckles: increases unarmed and natural weapon damage by one die size (e.g. 1d4 to 1d6, up to 1d12 max). If no unarmed damage die exists, it defaults to 1d4.
   - Added recursion guards to APC getter overrides (`getSafeWeaponApc` & `patchWeaponApcGetter`) to prevent call stack overflow errors when opening sheets with Brass Knuckles.
 - **Character Creation Wizard Fixes**:
+  - **Lineages & Sublineages**: Fixed sublineage feature isolation so lineages with sublineages or choice groups (e.g. *Elf*, *Dwarf*, *Elemental*, *Fiendblood*, *Golem*, *Raedeen*) only receive their base starting traits plus the traits of the chosen sublineage, and do not prompt for an extra Level 1 unique feature.
+  - **Background Skill Points & Caps**: Fixed background skill pools so they strictly use their canonical values from `BACKGROUND_CANON_DATA` (e.g. 12, 16, 18, 24) and individual skill caps instead of inflating to 36 points from unchosen sublineage features; added a dedicated **Lineage Feature Skill Bonuses** allocator for lineage/sublineage skill points.
+  - **Professions Library, UI & Skill Selection**: Added `PROFESSION_CANON_DATA` covering all 17 official professions with occupation tags, descriptions, Rank 1 benefit summaries, fixed skills, and choice skills; added distinct emerald-green selection styling and a `✓ Selected` badge to distinguish selected professions from gold-highlighted encouraged professions, and fixed interactive choice skill checkboxes.
   - Resolved a bug where the *Kill* spell was automatically added to newly created characters.
 
 ### v0.7.1-beta

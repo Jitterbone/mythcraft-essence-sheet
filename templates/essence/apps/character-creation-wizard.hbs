@@ -424,7 +424,12 @@
                    data-card-id="{{bg.id}}">
                 <img src="{{bg.img}}" alt="{{bg.name}}" />
                 <div class="bops-item-info">
-                  <h5>{{bg.name}}</h5>
+                  <div class="bops-card-title-row">
+                    <h5>{{bg.name}}</h5>
+                    {{#if (eq ../data.selectedBackgroundId bg.id)}}
+                      <span class="selected-pill-badge"><i class="fas fa-circle-check"></i> Selected</span>
+                    {{/if}}
+                  </div>
                 </div>
               </div>
             {{/each}}
@@ -451,7 +456,10 @@
                   <span class="used-pill {{#if (eq backgroundSkillRemaining 0)}}complete{{else}}pending{{/if}}">
                     Spent: {{backgroundSkillSpent}} / {{backgroundSkillPool}} (Remaining: {{backgroundSkillRemaining}})
                   </span>
-                  <span class="cap-pill">Individual Cap: +{{effectivePerSkillCap}}</span>
+                  <span class="cap-pill">Default Cap: +{{effectivePerSkillCap}}</span>
+                  {{#each backgroundTaggedCaps as |tCap|}}
+                    <span class="cap-pill tagged-cap-pill">{{tCap.tag}} Cap: +{{tCap.cap}}</span>
+                  {{/each}}
                 </div>
               {{/if}}
             </div>
@@ -479,7 +487,7 @@
                       <div class="category-title"><i class="fas fa-tag"></i> {{cat.category}}</div>
                       <div class="category-skills-grid">
                         {{#each cat.skills as |sk|}}
-                          <div class="skill-tile-card {{#if (gt (lookup ../../data.allocatedSkills sk.name) 0)}}allocated{{/if}} {{#if sk.isFeatureBonus}}encouraged-gold{{/if}}">
+                          <div class="skill-tile-card {{#if (gt (lookup ../../data.allocatedSkills sk.name) 0)}}allocated{{/if}}">
                             <div class="skill-tile-info">
                               <span class="skill-tile-name">{{sk.name}}{{#if sk.hasStar}}<span class="star-mark" title="Specialized / Craft / Language Skill">*</span>{{/if}}</span>
                               {{#if (gt sk.cap 4)}}
@@ -527,6 +535,69 @@
               </div>
             {{/if}}
 
+            {{!-- Lineage Feature Skill Bonus Allocator (Separate from Background Pool) --}}
+            {{#if (or (gt lineageSkillPool 0) fixedLineageSkills.length)}}
+              <div class="lineage-skill-allocator-subbox">
+                <div class="stage-header">
+                  <h4><i class="fas fa-dna"></i> Lineage Feature Skill Bonuses ({{#each lineageSkillSourceNames as |sName|}}{{sName}}{{#unless @last}}, {{/unless}}{{/each}})</h4>
+                  {{#if (gt lineageSkillPool 0)}}
+                    <div class="skill-pool-tracker">
+                      <span>Bonus Points: <strong>{{lineageSkillPool}}</strong></span>
+                      <span class="used-pill {{#if (eq lineageSkillRemaining 0)}}complete{{else}}pending{{/if}}">
+                        Spent: {{lineageSkillSpent}} / {{lineageSkillPool}} (Remaining: {{lineageSkillRemaining}})
+                      </span>
+                      <span class="cap-pill">Per-Skill Cap: +{{lineageSkillCap}}</span>
+                    </div>
+                  {{/if}}
+                </div>
+
+                {{#if fixedLineageSkills.length}}
+                  <div class="fixed-skills-banner">
+                    <i class="fas fa-dna"></i>
+                    <div class="fixed-skills-content">
+                      <h5>Fixed Lineage Feature Skill Bonus:</h5>
+                      <div class="fixed-skills-pills">
+                        {{#each fixedLineageSkills as |fs|}}
+                          <span class="fixed-skill-pill"><i class="fas fa-plus"></i> {{fs.value}} {{fs.name}} <small>({{fs.source}})</small></span>
+                        {{/each}}
+                      </div>
+                    </div>
+                  </div>
+                {{/if}}
+
+                {{#if (gt lineageSkillPool 0)}}
+                  <div class="skill-categories-allocator">
+                    {{#each lineageSkillCategories as |cat|}}
+                      <div class="skill-category-block">
+                        <div class="category-title"><i class="fas fa-tag"></i> {{cat.category}}</div>
+                        <div class="category-skills-grid">
+                          {{#each cat.skills as |sk|}}
+                            <div class="skill-tile-card {{#if (gt (lookup ../../data.allocatedLineageSkills sk.name) 0)}}allocated{{/if}} encouraged-gold">
+                              <div class="skill-tile-info">
+                                <span class="skill-tile-name">{{sk.name}}{{#if sk.hasStar}}<span class="star-mark" title="Specialized / Craft / Language Skill">*</span>{{/if}}</span>
+                                <span class="skill-cap-badge" title="Lineage Cap: +{{sk.cap}}">+{{sk.cap}} max</span>
+                              </div>
+                              <div class="skill-tile-stepper">
+                                <button type="button" class="sk-btn minus" data-action="adjustLineageSkill" data-skill="{{sk.name}}" data-delta="-1"
+                                        {{#unless (gt (lookup ../../data.allocatedLineageSkills sk.name) 0)}}disabled{{/unless}}>
+                                  <i class="fas fa-minus"></i>
+                                </button>
+                                <span class="sk-val">{{#if (lookup ../../data.allocatedLineageSkills sk.name)}}{{lookup ../../data.allocatedLineageSkills sk.name}}{{else}}0{{/if}}</span>
+                                <button type="button" class="sk-btn plus" data-action="adjustLineageSkill" data-skill="{{sk.name}}" data-delta="1"
+                                        {{#if (or (gte (lookup ../../data.allocatedLineageSkills sk.name) sk.cap) (lte ../../lineageSkillRemaining 0))}}disabled{{/if}}>
+                                  <i class="fas fa-plus"></i>
+                                </button>
+                              </div>
+                            </div>
+                          {{/each}}
+                        </div>
+                      </div>
+                    {{/each}}
+                  </div>
+                {{/if}}
+              </div>
+            {{/if}}
+
             {{!-- Starting Wealth Picker --}}
             <div class="wealth-selector-box">
               <div class="wealth-header">
@@ -563,11 +634,11 @@
             <div class="bops-staged-section profession-stage">
               <div class="stage-header">
                 <h4><i class="fas fa-hammer"></i> 3. Choose Profession</h4>
-                {{#if data.professionConfirmed}}
-                  <span class="confirmed-badge"><i class="fas fa-check"></i> Confirmed: {{selectedProfession.name}}</span>
+                {{#if selectedProfession}}
+                  <span class="confirmed-badge"><i class="fas fa-check-circle"></i> Selected: {{selectedProfession.name}}</span>
                 {{/if}}
               </div>
-              <p class="choice-guidance">Professions highlighted in gold grant additional bonus skill points from your background.</p>
+              <p class="choice-guidance">Click a profession to view its description, Rank 1 benefit, and choose its bonus skills. Professions with a gold star badge grant additional bonus skill points from your {{selectedBackground.name}} background.</p>
 
               <div class="wizard-search-bar">
                 <i class="fas fa-search"></i>
@@ -582,10 +653,30 @@
                        data-card-id="{{prof.id}}">
                     <img src="{{prof.img}}" alt="{{prof.name}}" />
                     <div class="bops-item-info">
-                      <h5>{{prof.name}}</h5>
+                      <div class="bops-card-title-row">
+                        <h5>{{prof.name}}</h5>
+                        {{#if (eq ../data.selectedProfessionId prof.id)}}
+                          <span class="selected-pill-badge"><i class="fas fa-circle-check"></i> Selected</span>
+                        {{/if}}
+                      </div>
+                      {{#if prof.parsed.tags.length}}
+                        <div class="prof-card-tags">
+                          {{#each prof.parsed.tags as |tag|}}
+                            <span class="prof-tag-chip">{{tag}}</span>
+                          {{/each}}
+                        </div>
+                      {{/if}}
+                      <div class="prof-card-skill-summary">
+                        {{#each prof.parsed.fixedSkills as |sk|}}
+                          <span class="prof-mini-skill">+{{sk.value}} {{sk.name}}</span>
+                        {{/each}}
+                        {{#if prof.parsed.choiceSkills.count}}
+                          <span class="prof-mini-skill choice">{{prof.parsed.choiceSkills.count}}&times; +{{prof.parsed.choiceSkills.value}} Choice</span>
+                        {{/if}}
+                      </div>
                       {{#if prof.isEncouraged}}
                         <span class="encouraged-pill" data-tooltip="Grants background synergy bonus">
-                          <i class="fas fa-star"></i> +{{@root.parsedBackground.encouragedProfessions.bonusValue}} {{@root.parsedBackground.encouragedProfessions.bonusSkill}}
+                          <i class="fas fa-star"></i> +{{@root.parsedBackground.encouragedProfessions.bonusValue}} {{@root.parsedBackground.encouragedProfessions.bonusSkill}} ({{@root.selectedBackground.name}})
                         </span>
                       {{/if}}
                     </div>
@@ -593,49 +684,71 @@
                 {{/each}}
               </div>
 
-              {{#if selectedProfession}}
-                <div class="selection-confirm-row">
-                  <button type="button" class="wizard-confirm-btn {{#if data.professionConfirmed}}confirmed{{/if}}" data-action="confirmProfession">
-                    <i class="fas {{#if data.professionConfirmed}}fa-check-double{{else}}fa-check{{/if}}"></i>
-                    {{#if data.professionConfirmed}}Profession Confirmed{{else}}Confirm Profession Selection{{/if}}
-                  </button>
-                </div>
-              {{/if}}
-
-              {{#if (and parsedProfession data.professionConfirmed)}}
+              {{#if (and selectedProfession parsedProfession)}}
                 <div class="profession-detail-subpanel">
                   <div class="profession-summary-header">
-                    <h5>{{selectedProfession.name}} (Rank 1)</h5>
+                    <div class="prof-header-left">
+                      <h5><i class="fas fa-circle-check"></i> {{selectedProfession.name}} (Rank 1)</h5>
+                      {{#if parsedProfession.tags.length}}
+                        <div class="prof-card-tags">
+                          {{#each parsedProfession.tags as |tag|}}
+                            <span class="prof-tag-chip">{{tag}}</span>
+                          {{/each}}
+                        </div>
+                      {{/if}}
+                    </div>
+                    {{#if selectedProfession.isEncouraged}}
+                      <span class="encouraged-pill"><i class="fas fa-star"></i> Background Synergy: +{{parsedBackground.encouragedProfessions.bonusValue}} {{parsedBackground.encouragedProfessions.bonusSkill}}</span>
+                    {{/if}}
                   </div>
 
-                  {{#if professionRankItems.length}}
-                    <div class="rank-features-box">
-                      <h6 class="box-sub"><i class="fas fa-award"></i> Profession Rank 1 Abilities:</h6>
+                  {{#if parsedProfession.description}}
+                    <div class="prof-description-box">
+                      <p>{{parsedProfession.description}}</p>
+                    </div>
+                  {{/if}}
+
+                  <div class="rank-features-box">
+                    <h6 class="box-sub"><i class="fas fa-award"></i> Rank 1 Benefit{{#if parsedProfession.benefitTitle}} — {{parsedProfession.benefitTitle}}{{/if}}:</h6>
+                    {{#if parsedProfession.benefitSummary}}
+                      <div class="profession-rank-row">
+                        <p>{{parsedProfession.benefitSummary}}</p>
+                      </div>
+                    {{else if professionRankItems.length}}
                       {{#each professionRankItems as |rank|}}
                         <div class="profession-rank-row">
                           <strong>{{rank.name}}</strong>
                           <div>{{{rank.system.description.value}}}</div>
                         </div>
                       {{/each}}
-                    </div>
-                  {{/if}}
+                    {{/if}}
+                  </div>
 
                   <div class="prof-skills-box">
-                    <h6 class="box-sub"><i class="fas fa-book"></i> Profession Skills:</h6>
+                    <h6 class="box-sub"><i class="fas fa-book"></i> Automatic Profession Skills:</h6>
                     <div class="fixed-skills-row">
                       {{#each parsedProfession.fixedSkills as |skill|}}
-                        <span class="prof-skill-pill fixed">+{{skill.value}} {{skill.name}}</span>
+                        <span class="prof-skill-pill fixed"><i class="fas fa-plus"></i> {{skill.value}} {{skill.name}}</span>
                       {{/each}}
+                      {{#if selectedProfession.isEncouraged}}
+                        <span class="prof-skill-pill synergy"><i class="fas fa-star"></i> +{{parsedBackground.encouragedProfessions.bonusValue}} {{parsedBackground.encouragedProfessions.bonusSkill}} ({{selectedBackground.name}} Bonus)</span>
+                      {{/if}}
                     </div>
 
                     {{#if parsedProfession.choiceSkills.count}}
-                      <h6 class="box-sub">Choose {{parsedProfession.choiceSkills.count}} Choice Skills (+{{parsedProfession.choiceSkills.value}} each):</h6>
+                      <div class="choice-skills-header-row">
+                        <h6 class="box-sub"><i class="fas fa-hand-pointer"></i> Choose {{parsedProfession.choiceSkills.count}} Additional Skills (+{{parsedProfession.choiceSkills.value}} each):</h6>
+                        <span class="used-pill {{#if (eq data.selectedProfessionSkills.length parsedProfession.choiceSkills.count)}}complete{{else}}pending{{/if}}">
+                          Selected: {{data.selectedProfessionSkills.length}} / {{parsedProfession.choiceSkills.count}}
+                        </span>
+                      </div>
                       <div class="choice-skills-wrap">
                         {{#each parsedProfession.choiceSkills.options as |opt|}}
-                          <label class="choice-skill-toggle {{#if (lookup ../data.selectedProfessionSkills opt)}}checked{{/if}}">
+                          <label class="choice-skill-toggle {{#if (includes ../data.selectedProfessionSkills opt)}}checked{{/if}}">
                             <input type="checkbox" data-action="toggleProfessionSkill" data-skill="{{opt}}"
-                                   {{#if (lookup ../data.selectedProfessionSkills opt)}}checked{{/if}} />
-                            <span>{{opt}}</span>
+                                   {{#if (includes ../data.selectedProfessionSkills opt)}}checked{{/if}} />
+                            <i class="fas {{#if (includes ../data.selectedProfessionSkills opt)}}fa-check-square{{else}}fa-square{{/if}}"></i>
+                            <span>+{{../parsedProfession.choiceSkills.value}} {{opt}}</span>
                           </label>
                         {{/each}}
                       </div>
@@ -667,8 +780,8 @@
           <div class="bops-staged-section profession-stage knave-second-profession">
             <div class="stage-header">
               <h4><i class="fas fa-hammer"></i> 4. Choose Second Profession <span class="knave-badge"><i class="fas fa-mask"></i> Knave</span></h4>
-              {{#if data.professionConfirmed2}}
-                <span class="confirmed-badge"><i class="fas fa-check"></i> Confirmed: {{selectedProfession2.name}}</span>
+              {{#if selectedProfession2}}
+                <span class="confirmed-badge"><i class="fas fa-check-circle"></i> Selected: {{selectedProfession2.name}}</span>
               {{/if}}
             </div>
             <p class="choice-guidance">As a Knave, you gain two professions. Your second profession must be different from the first.</p>
@@ -681,55 +794,99 @@
                      data-card-id="{{prof.id}}-2">
                   <img src="{{prof.img}}" alt="{{prof.name}}" />
                   <div class="bops-item-info">
-                    <h5>{{prof.name}}</h5>
+                    <div class="bops-card-title-row">
+                      <h5>{{prof.name}}</h5>
+                      {{#if (eq ../data.selectedProfessionId2 prof.id)}}
+                        <span class="selected-pill-badge"><i class="fas fa-circle-check"></i> Selected</span>
+                      {{/if}}
+                    </div>
+                    {{#if prof.parsed.tags.length}}
+                      <div class="prof-card-tags">
+                        {{#each prof.parsed.tags as |tag|}}
+                          <span class="prof-tag-chip">{{tag}}</span>
+                        {{/each}}
+                      </div>
+                    {{/if}}
+                    <div class="prof-card-skill-summary">
+                      {{#each prof.parsed.fixedSkills as |sk|}}
+                        <span class="prof-mini-skill">+{{sk.value}} {{sk.name}}</span>
+                      {{/each}}
+                      {{#if prof.parsed.choiceSkills.count}}
+                        <span class="prof-mini-skill choice">{{prof.parsed.choiceSkills.count}}&times; +{{prof.parsed.choiceSkills.value}} Choice</span>
+                      {{/if}}
+                    </div>
+                    {{#if prof.isEncouraged}}
+                      <span class="encouraged-pill" data-tooltip="Grants background synergy bonus">
+                        <i class="fas fa-star"></i> +{{@root.parsedBackground.encouragedProfessions.bonusValue}} {{@root.parsedBackground.encouragedProfessions.bonusSkill}} ({{@root.selectedBackground.name}})
+                      </span>
+                    {{/if}}
                   </div>
                 </div>
               {{/each}}
             </div>
 
-            {{#if selectedProfession2}}
-              <div class="selection-confirm-row">
-                <button type="button" class="wizard-confirm-btn {{#if data.professionConfirmed2}}confirmed{{/if}}" data-action="confirmProfession2">
-                  <i class="fas {{#if data.professionConfirmed2}}fa-check-double{{else}}fa-check{{/if}}"></i>
-                  {{#if data.professionConfirmed2}}Second Profession Confirmed{{else}}Confirm Second Profession{{/if}}
-                </button>
-              </div>
-            {{/if}}
-
-            {{#if (and parsedProfession2 data.professionConfirmed2)}}
+            {{#if (and selectedProfession2 parsedProfession2)}}
               <div class="profession-detail-subpanel">
                 <div class="profession-summary-header">
-                  <h5>{{selectedProfession2.name}} (Rank 1)</h5>
+                  <div class="prof-header-left">
+                    <h5><i class="fas fa-circle-check"></i> {{selectedProfession2.name}} (Rank 1)</h5>
+                    {{#if parsedProfession2.tags.length}}
+                      <div class="prof-card-tags">
+                        {{#each parsedProfession2.tags as |tag|}}
+                          <span class="prof-tag-chip">{{tag}}</span>
+                        {{/each}}
+                      </div>
+                    {{/if}}
+                  </div>
+                  {{#if selectedProfession2.isEncouraged}}
+                    <span class="encouraged-pill"><i class="fas fa-star"></i> Background Synergy: +{{parsedBackground.encouragedProfessions.bonusValue}} {{parsedBackground.encouragedProfessions.bonusSkill}}</span>
+                  {{/if}}
                 </div>
 
-                {{#if professionRankItems2.length}}
-                  <div class="rank-features-box">
-                    <h6 class="box-sub"><i class="fas fa-award"></i> Profession Rank 1 Abilities:</h6>
+                {{#if parsedProfession2.description}}
+                  <div class="prof-description-box">
+                    <p>{{parsedProfession2.description}}</p>
+                  </div>
+                {{/if}}
+
+                <div class="rank-features-box">
+                  <h6 class="box-sub"><i class="fas fa-award"></i> Rank 1 Benefit{{#if parsedProfession2.benefitTitle}} — {{parsedProfession2.benefitTitle}}{{/if}}:</h6>
+                  {{#if parsedProfession2.benefitSummary}}
+                    <div class="profession-rank-row">
+                      <p>{{parsedProfession2.benefitSummary}}</p>
+                    </div>
+                  {{else if professionRankItems2.length}}
                     {{#each professionRankItems2 as |rank|}}
                       <div class="profession-rank-row">
                         <strong>{{rank.name}}</strong>
                         <div>{{{rank.system.description.value}}}</div>
                       </div>
                     {{/each}}
-                  </div>
-                {{/if}}
+                  {{/if}}
+                </div>
 
                 <div class="prof-skills-box">
-                  <h6 class="box-sub"><i class="fas fa-book"></i> Profession Skills:</h6>
+                  <h6 class="box-sub"><i class="fas fa-book"></i> Automatic Profession Skills:</h6>
                   <div class="fixed-skills-row">
                     {{#each parsedProfession2.fixedSkills as |skill|}}
-                      <span class="prof-skill-pill fixed">+{{skill.value}} {{skill.name}}</span>
+                      <span class="prof-skill-pill fixed"><i class="fas fa-plus"></i> {{skill.value}} {{skill.name}}</span>
                     {{/each}}
                   </div>
 
                   {{#if parsedProfession2.choiceSkills.count}}
-                    <h6 class="box-sub">Choose {{parsedProfession2.choiceSkills.count}} Choice Skills (+{{parsedProfession2.choiceSkills.value}} each):</h6>
+                    <div class="choice-skills-header-row">
+                      <h6 class="box-sub"><i class="fas fa-hand-pointer"></i> Choose {{parsedProfession2.choiceSkills.count}} Additional Skills (+{{parsedProfession2.choiceSkills.value}} each):</h6>
+                      <span class="used-pill {{#if (eq data.selectedProfessionSkills2.length parsedProfession2.choiceSkills.count)}}complete{{else}}pending{{/if}}">
+                        Selected: {{data.selectedProfessionSkills2.length}} / {{parsedProfession2.choiceSkills.count}}
+                      </span>
+                    </div>
                     <div class="choice-skills-wrap">
                       {{#each parsedProfession2.choiceSkills.options as |opt|}}
-                        <label class="choice-skill-toggle {{#if (lookup ../data.selectedProfessionSkills2 opt)}}checked{{/if}}">
+                        <label class="choice-skill-toggle {{#if (includes ../data.selectedProfessionSkills2 opt)}}checked{{/if}}">
                           <input type="checkbox" data-action="toggleProfessionSkill2" data-skill="{{opt}}"
-                                 {{#if (lookup ../data.selectedProfessionSkills2 opt)}}checked{{/if}} />
-                          <span>{{opt}}</span>
+                                 {{#if (includes ../data.selectedProfessionSkills2 opt)}}checked{{/if}} />
+                          <i class="fas {{#if (includes ../data.selectedProfessionSkills2 opt)}}fa-check-square{{else}}fa-square{{/if}}"></i>
+                          <span>+{{../parsedProfession2.choiceSkills.value}} {{opt}}</span>
                         </label>
                       {{/each}}
                     </div>

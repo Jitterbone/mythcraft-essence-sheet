@@ -13618,20 +13618,21 @@ form.level-up-dialog .window-content,
 
 .bops-list-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 8px;
-  max-height: 180px;
+  max-height: 240px;
   overflow-y: auto;
+  padding: 2px;
 }
 
 .bops-item-card {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   background: #11171d;
   border: 1px solid #246975;
   border-radius: 6px;
-  padding: 6px 8px;
+  padding: 8px 10px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -13641,10 +13642,11 @@ form.level-up-dialog .window-content,
   border-color: #38bdf8;
 }
 
-.bops-item-card.selected {
-  border-color: #FEEBB3;
-  background: #1e333d;
-  box-shadow: 0 0 8px rgba(254, 235, 179, 0.3);
+.bops-item-card.selected,
+.bops-item-card.selected.encouraged-gold {
+  border: 2px solid #22c55e !important;
+  background: linear-gradient(135deg, rgba(20, 83, 45, 0.65), rgba(15, 41, 30, 0.85)) !important;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.45), inset 0 0 8px rgba(34, 197, 94, 0.2) !important;
 }
 
 .bops-item-card.encouraged-gold {
@@ -13654,24 +13656,99 @@ form.level-up-dialog .window-content,
 }
 
 .bops-item-card img {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   border-radius: 4px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.bops-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.bops-card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
 }
 
 .bops-item-card h5 {
   margin: 0;
   color: #FEEBB3;
-  font-size: 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.selected-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.25);
+  border: 1px solid #22c55e;
+  color: #86efac;
+  font-size: 9.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.prof-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.prof-tag-chip {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(56, 189, 248, 0.14);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #7dd3fc;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.prof-card-skill-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.prof-mini-skill {
+  font-size: 9.5px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #e2e8f0;
+}
+
+.prof-mini-skill.choice {
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #bae6fd;
 }
 
 .encouraged-pill {
   font-size: 9.5px;
   color: #FEEBB3;
   font-weight: 700;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
+  background: rgba(254, 235, 179, 0.12);
+  border: 1px solid rgba(254, 235, 179, 0.35);
+  padding: 1px 6px;
+  border-radius: 4px;
+  width: fit-content;
 }
 
 .selection-confirm-row {
@@ -13856,54 +13933,113 @@ form.level-up-dialog .window-content,
 
 /* Profession Details Subpanel */
 .profession-detail-subpanel {
-  margin-top: 10px;
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(36, 105, 117, 0.4);
-  border-radius: 6px;
-  padding: 10px;
+  margin-top: 12px;
+  background: rgba(13, 22, 28, 0.85);
+  border: 1.5px solid #22c55e;
+  border-radius: 8px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.15);
+}
+
+.profession-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.25);
+  padding-bottom: 6px;
+}
+
+.prof-header-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 .profession-summary-header h5 {
   margin: 0;
-  color: #FEEBB3;
-  font-size: 13px;
+  color: #86efac;
+  font-size: 14px;
   font-family: 'Cinzel', serif;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.prof-description-box {
+  background: rgba(0, 0, 0, 0.25);
+  border-left: 3px solid #FEEBB3;
+  padding: 8px 10px;
+  border-radius: 0 4px 4px 0;
+  color: #e2e8f0;
+  font-size: 11.5px;
+  font-style: italic;
+  line-height: 1.45;
+}
+
+.prof-description-box p {
+  margin: 0;
 }
 
 .box-sub {
-  margin: 0 0 4px 0;
-  font-size: 11px;
+  margin: 0 0 6px 0;
+  font-size: 11.5px;
   color: #38bdf8;
   font-weight: 700;
 }
 
 .profession-rank-row {
-  padding: 6px 8px;
-  border-left: 2px solid #246975;
-  background: rgba(0, 0, 0, 0.2);
-  color: #cbd5e1;
-  font-size: 11px;
-  line-height: 1.4;
+  padding: 8px 10px;
+  border-left: 3px solid #38bdf8;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 0 4px 4px 0;
+  color: #e2e8f0;
+  font-size: 11.5px;
+  line-height: 1.45;
   margin-bottom: 4px;
+}
+
+.profession-rank-row p {
+  margin: 0;
 }
 
 .fixed-skills-row {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 6px;
+  margin-bottom: 10px;
 }
 
 .prof-skill-pill {
-  background: #1e293b;
-  border: 1px solid #475569;
-  color: #e2e8f0;
-  padding: 2px 8px;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid #22c55e;
+  color: #86efac;
+  padding: 3px 10px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 11.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.prof-skill-pill.synergy {
+  background: rgba(254, 235, 179, 0.15);
+  border-color: #FEEBB3;
+  color: #FEEBB3;
+}
+
+.choice-skills-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 
 .choice-skills-wrap {
@@ -13912,19 +14048,47 @@ form.level-up-dialog .window-content,
   gap: 6px;
 }
 
-.choice-skill-pill {
+.choice-skill-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: #151e24;
   border: 1px solid #246975;
-  color: #e2e8f0;
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-size: 11px;
+  color: #cbd5e1;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
   cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
 }
 
-.choice-skill-pill.active {
+.choice-skill-toggle input[type="checkbox"] {
+  display: none;
+}
+
+.choice-skill-toggle:hover {
+  background: #1e2d36;
+  border-color: #38bdf8;
+  color: #f8fafc;
+}
+
+.choice-skill-toggle.checked {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.22);
+  color: #86efac;
+  font-weight: 700;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.25);
+}
+
+.lineage-skill-allocator-subbox {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(254, 235, 179, 0.35);
+}
+
+.tagged-cap-pill {
   border-color: #FEEBB3;
-  background: #1e333d;
   color: #FEEBB3;
 }
 
@@ -14434,9 +14598,9 @@ form.level-up-dialog .window-content,
 }
 
 /* Encouraged Gold Shimmer on Cards */
-.bops-item-card.encouraged-gold,
-.talent-choice-card.encouraged-gold,
-.wizard-selection-card.encouraged-gold,
+.bops-item-card.encouraged-gold:not(.selected),
+.talent-choice-card.encouraged-gold:not(.selected),
+.wizard-selection-card.encouraged-gold:not(.selected),
 .skill-tile-card.encouraged-gold {
   position: relative !important;
   overflow: hidden !important;

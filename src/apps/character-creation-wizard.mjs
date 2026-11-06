@@ -85,6 +85,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       selectedBackgroundId: null,
       backgroundConfirmed: false,
       allocatedSkills: {}, // { [skillKey]: points }
+      allocatedLineageSkills: {}, // { [skillKey]: points }
       wealthMode: "average", // "average" | "roll"
 
       professions: [],
@@ -133,6 +134,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       selectBackground: this._onSelectBackground,
       confirmBackground: this._onConfirmBackground,
       adjustSkill: this._onAdjustSkill,
+      adjustLineageSkill: this._onAdjustLineageSkill,
       setWealthMode: this._onSetWealthMode,
       selectProfession: this._onSelectProfession,
       confirmProfession: this._onConfirmProfession,
@@ -169,7 +171,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     // and its name matches the parent folder / ends with "lineage" / has type/category "lineage".
     const filteredLineages = allLineageDocs.filter(d => {
       const rawChain = d._folderChain || getDocumentFolderChain(d) || [];
-      const filteredChain = rawChain.filter(f => !/^(lineages?|ancestries?|compendium|items?)$/i.test(f.trim()));
+      const filteredChain = rawChain.filter(f => !/^(?:\d+\.\s*)?(?:lineages?|ancestries?|compendium|items?)$/i.test(f.trim()));
 
       // If inside a child folder (e.g. "Starting Features", "All Features", "Features"), it is a feature, NOT a lineage
       if (filteredChain.length >= 2) {
@@ -232,11 +234,16 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       return String(rawTags).toLowerCase().includes(target);
     };
 
-    this.data.backgrounds = bopsDocs.filter(d => isDocOfCategory(d, "background") && !String(d.name || "").toLowerCase().includes(": rank"))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    this.data.backgrounds = bopsDocs.filter(d => {
+      const name = String(d.name || "").trim().toLowerCase();
+      if (name.includes(": rank") || name.includes(" list") || name.includes("modifications")) return false;
+      const bgKey = name.replace(/ background$/i, "").trim();
+      return d.type === "background" || d.system?.category === "background" || Boolean(BACKGROUND_CANON_DATA[bgKey]);
+    }).sort((a, b) => a.name.localeCompare(b.name));
+
     this.data.professions = bopsDocs.filter(d => {
       const name = String(d.name || "").trim().toLowerCase();
-      if (name.includes(": rank")) return false;
+      if (name.includes(": rank") || name.includes(" list") || name.includes("modifications")) return false;
       return d.type === "profession" || d.system?.category === "profession" || name.endsWith(" profession") || isDocOfCategory(d, "profession");
     }).sort((a, b) => a.name.localeCompare(b.name));
 
@@ -373,12 +380,21 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       };
     });
 
-    // Active granted starting features (base + chosen sublineage + chosen choice groups)
-    const activeStartingFeatures = [
+    // Active granted starting features (base + chosen sublineage + chosen choice groups), deduplicated
+    const rawActiveStarting = [
       ...lineageParsed.baseStartingFeatures,
       ...sublineageFeatures,
       ...selectedChoiceFeatures,
-    ];
+    ].filter(Boolean);
+    const seenStartingIds = new Set();
+    const activeStartingFeatures = [];
+    for (const feat of rawActiveStarting) {
+      const key = String(feat.id || feat._id || feat.name || "").toLowerCase().trim();
+      if (key && !seenStartingIds.has(key)) {
+        seenStartingIds.add(key);
+        activeStartingFeatures.push(feat);
+      }
+    }
     this.data.lineageStartingFeatures = activeStartingFeatures;
 
     // Unique feature count
@@ -444,13 +460,16 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       ? this.data.professions.map(profession => {
           const isEncouraged = isEncouragedProfession(profession);
           const pId = profession.id || profession._id;
+          const parsed = parseProfessionData(profession);
           return {
             id: pId,
             _id: pId,
             name: profession.name,
+            displayName: parsed.name || profession.name.replace(/\s*profession$/i, "").trim(),
             img: resolveItemIcon(profession, profession.img, "profession"),
             system: profession.system,
             isEncouraged,
+            parsed,
           };
         }).sort((a, b) => (b.isEncouraged ? 1 : 0) - (a.isEncouraged ? 1 : 0))
       : [];
@@ -464,7 +483,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       }
     }
     const professionRankItems = selectedProfession
-      ? (this.data.allBopsDocs || []).filter(item => String(item.name || "").toLowerCase().startsWith(`${selectedProfession.name.toLowerCase().replace(/ profession$/, "")}: rank`))
+      ? (this.data.allBopsDocs || []).filter(item => String(item.name || "").toLowerCase().startsWith(`${selectedProfession.name.toLowerCase().replace(/ profession$/, "")}: rank 1`))
           .sort((a, b) => a.name.localeCompare(b.name))
       : [];
 
@@ -483,7 +502,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       }
     }
     const professionRankItems2 = selectedProfession2
-      ? (this.data.allBopsDocs || []).filter(item => String(item.name || "").toLowerCase().startsWith(`${selectedProfession2.name.toLowerCase().replace(/ profession$/, "")}: rank`))
+      ? (this.data.allBopsDocs || []).filter(item => String(item.name || "").toLowerCase().startsWith(`${selectedProfession2.name.toLowerCase().replace(/ profession$/, "")}: rank 1`))
           .sort((a, b) => a.name.localeCompare(b.name))
       : [];
 
@@ -624,36 +643,72 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       };
     });
 
-    // Active lineage features for skill bonus parsing
-    const activeLineageFeatures = [
-      ...(activeStartingFeatures || []),
-      ...selectedUniqueFeatures,
-    ].filter(Boolean);
+    // Active lineage features for skill bonus parsing (deduplicated)
+    const seenLineageFeatIds = new Set();
+    const activeLineageFeatures = [];
+    for (const f of [...(activeStartingFeatures || []), ...selectedUniqueFeatures].filter(Boolean)) {
+      const k = String(f.id || f._id || f.name || "").toLowerCase().trim();
+      if (k && !seenLineageFeatIds.has(k)) {
+        seenLineageFeatIds.add(k);
+        activeLineageFeatures.push(f);
+      }
+    }
 
     const parsedFeatureSkillData = activeLineageFeatures.map(f => parseFeatureSkillData(f));
-    const featureSkillBonus = parsedFeatureSkillData.reduce((sum, f) => sum + f.points, 0);
-    const featureSkillCapOverride = Math.max(0, ...parsedFeatureSkillData.map(f => f.perSkillCap || 0));
-    const featureSkillTags = new Set(parsedFeatureSkillData.map(f => f.tag).filter(Boolean));
+    const lineageSkillPool = parsedFeatureSkillData.reduce((sum, f) => sum + f.points, 0);
+    const lineageSkillCap = Math.max(4, ...parsedFeatureSkillData.filter(f => f.points > 0).map(f => f.perSkillCap || 4));
+    const lineageSkillSourceNames = parsedFeatureSkillData.filter(f => f.points > 0).map(f => f.name).join(", ");
+    const fixedLineageSkills = parsedFeatureSkillData.flatMap(f => f.fixedSkills || []);
 
-    // Background skill allocator calculations
+    if (!this.data.allocatedLineageSkills) this.data.allocatedLineageSkills = {};
+    const lineageSkillSpent = Object.values(this.data.allocatedLineageSkills).reduce((sum, v) => sum + (Number(v) || 0), 0);
+    const lineageSkillRemaining = lineageSkillPool - lineageSkillSpent;
+
+    // Build merged lineage skill categories when a lineage/sublineage feature grants bonus skill points
+    const lineageCategoryMap = new Map();
+    for (const fData of parsedFeatureSkillData) {
+      if (fData.points <= 0) continue;
+      for (const cat of fData.skillCategories || []) {
+        const catKey = cat.category.toLowerCase().trim();
+        if (!lineageCategoryMap.has(catKey)) {
+          lineageCategoryMap.set(catKey, { category: cat.category, skillsMap: new Map() });
+        }
+        const entry = lineageCategoryMap.get(catKey);
+        for (const sk of cat.skills || []) {
+          const skKey = sk.name.toLowerCase().trim();
+          if (!entry.skillsMap.has(skKey)) {
+            entry.skillsMap.set(skKey, {
+              ...sk,
+              cap: fData.perSkillCap || lineageSkillCap,
+              value: Number(this.data.allocatedLineageSkills[sk.name] ?? 0),
+            });
+          }
+        }
+      }
+    }
+    const lineageSkillCategories = Array.from(lineageCategoryMap.values()).map(c => ({
+      category: c.category,
+      skills: Array.from(c.skillsMap.values()),
+    }));
+
+    // Background skill allocator calculations (strictly tied to BACKGROUND_CANON_DATA)
     const backgroundSkillSpent = Object.values(this.data.allocatedSkills).reduce((sum, v) => sum + (Number(v) || 0), 0);
-    const backgroundSkillPool = (parsedBackground?.skillPoints ?? 12) + featureSkillBonus;
+    const backgroundSkillPool = parsedBackground?.skillPoints ?? 12;
     const backgroundSkillRemaining = backgroundSkillPool - backgroundSkillSpent;
-    const effectivePerSkillCap = Math.max(parsedBackground?.perSkillCap ?? 4, featureSkillCapOverride);
+    const effectivePerSkillCap = parsedBackground?.perSkillCap ?? 4;
+    const backgroundTaggedCaps = parsedBackground?.taggedCaps
+      ? Object.entries(parsedBackground.taggedCaps).map(([tagKey, capVal]) => ({
+          tag: tagKey.charAt(0).toUpperCase() + tagKey.slice(1),
+          cap: capVal,
+        }))
+      : [];
 
-    // Decorate parsedBackground.skillCategories with feature bonus highlight flags, per-skill caps, and current allocated values
+    // Decorate parsedBackground.skillCategories with strict background per-skill caps and current allocated values
     if (parsedBackground?.skillCategories) {
       for (const cat of parsedBackground.skillCategories) {
-        const catKey = cat.category.toLowerCase().trim();
         for (const sk of cat.skills) {
-          const skName = sk.name.replace(/\*/g, "").toLowerCase().trim();
-          const matchesTag = Array.from(featureSkillTags).some(t => {
-            if (t === catKey) return true;
-            if (MYTHCRAFT_SKILL_CATEGORIES[t]?.includes(skName)) return true;
-            return skName.includes(t) || t.includes(skName);
-          });
-          sk.isFeatureBonus = matchesTag;
-          sk.cap = Math.max(getBackgroundSkillCap(parsedBackground, sk.name, cat.category), featureSkillCapOverride);
+          sk.isFeatureBonus = false;
+          sk.cap = getBackgroundSkillCap(parsedBackground, sk.name, cat.category);
           sk.value = Number(this.data.allocatedSkills[sk.name] ?? 0);
         }
       }
@@ -684,8 +739,22 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       sublineages: (lineageParsed.sublineages || []).map(s => ({
         ...s,
         isSelected: s.name === this.data.selectedSublineageName,
+        features: (s.features || []).map(f => ({
+          id: f.id || f._id,
+          name: f.name,
+          img: resolveItemIcon(f, f.img, "feature"),
+          description: f.system?.description?.value ?? f.system?.description ?? "",
+        })),
       })),
-      selectedSublineage,
+      selectedSublineage: selectedSublineage ? {
+        ...selectedSublineage,
+        features: (selectedSublineage.features || []).map(f => ({
+          id: f.id || f._id,
+          name: f.name,
+          img: resolveItemIcon(f, f.img, "feature"),
+          description: f.system?.description?.value ?? f.system?.description ?? "",
+        })),
+      } : null,
       choiceGroups: choiceGroupsWithState,
       selectedChoiceFeatures,
       lineageStartingFeatures: activeStartingFeatures,
@@ -707,6 +776,14 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       backgroundSkillPool,
       backgroundSkillRemaining,
       effectivePerSkillCap,
+      backgroundTaggedCaps,
+      lineageSkillPool,
+      lineageSkillCap,
+      lineageSkillSpent,
+      lineageSkillRemaining,
+      lineageSkillSourceNames,
+      lineageSkillCategories,
+      fixedLineageSkills,
       availableProfessions,
       selectedProfession,
       parsedProfession,
@@ -783,6 +860,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     if (sublineageSelect) {
       sublineageSelect.addEventListener("change", e => {
         this.data.selectedSublineageName = e.target.value || null;
+        this.data.allocatedLineageSkills = {};
         this.render();
       });
     }
@@ -799,6 +877,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
         } else {
           delete this.data.selectedLineageChoices[groupKey];
         }
+        this.data.allocatedLineageSkills = {};
         this.render();
       });
     });
@@ -995,12 +1074,14 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.data.selectedLineageChoices = {};
     this.data.selectedUniqueFeatureIds = [];
     this.data.selectedFeatureId = null;
+    this.data.allocatedLineageSkills = {};
     this.render();
   }
 
   static _onSelectSublineage(event, target) {
     const val = target.value ?? target.dataset.sublineage;
     this.data.selectedSublineageName = val || null;
+    this.data.allocatedLineageSkills = {};
     this.render();
   }
 
@@ -1014,6 +1095,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     } else {
       delete this.data.selectedLineageChoices[groupKey];
     }
+    this.data.allocatedLineageSkills = {};
     this.render();
   }
 
@@ -1049,6 +1131,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     }
     this.data.selectedUniqueFeatureIds = current;
     this.data.selectedFeatureId = current[0] || null;
+    this.data.allocatedLineageSkills = {};
     this.render();
   }
 
@@ -1122,23 +1205,15 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     const cur = Number(this.data.allocatedSkills[skill] ?? 0);
     const next = Math.max(0, cur + delta);
 
-    const activeLineageFeatures = [
-      ...(this.data.lineageStartingFeatures || []),
-      this.data.allLineageDocs?.find(f => f.id === this.data.selectedFeatureId),
-    ].filter(Boolean);
-    const parsedFeatureSkillData = activeLineageFeatures.map(f => parseFeatureSkillData(f));
-    const featureSkillBonus = parsedFeatureSkillData.reduce((sum, f) => sum + f.points, 0);
-    const featureSkillCapOverride = Math.max(0, ...parsedFeatureSkillData.map(f => f.perSkillCap || 0));
-
     const bg = this.data.backgrounds.find(b => b.id === this.data.selectedBackgroundId);
     const parsed = bg ? parseBackgroundData(bg) : null;
-    const cap = Math.max(getBackgroundSkillCap(parsed, skill, category), featureSkillCapOverride);
-    const maxPool = (parsed?.skillPoints ?? 12) + featureSkillBonus;
+    const cap = getBackgroundSkillCap(parsed, skill, category);
+    const maxPool = parsed?.skillPoints ?? 12;
 
     if (delta > 0) {
       const currentSpent = Object.values(this.data.allocatedSkills).reduce((sum, v) => sum + (Number(v) || 0), 0);
       if (currentSpent >= maxPool) {
-        ui.notifications.warn(`You have already spent all ${maxPool} available skill points.`);
+        ui.notifications.warn(`You have already spent all ${maxPool} available background skill points.`);
         return;
       }
       if (next > cap) {
@@ -1148,6 +1223,44 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     }
 
     this.data.allocatedSkills[skill] = next;
+    this.render();
+  }
+
+  static _onAdjustLineageSkill(event, target) {
+    const skill = target.dataset.skill;
+    const delta = parseInt(target.dataset.delta, 10);
+    if (!this.data.allocatedLineageSkills) this.data.allocatedLineageSkills = {};
+    const cur = Number(this.data.allocatedLineageSkills[skill] ?? 0);
+    const next = Math.max(0, cur + delta);
+
+    const rawActiveFeatures = [
+      ...(this.data.lineageStartingFeatures || []),
+      ...((this.data.selectedUniqueFeatureIds || []).map(id => (this.data.allLineageDocs || []).find(f => (f.id || f._id) === id))),
+    ].filter(Boolean);
+    const seenIds = new Set();
+    const activeLineageFeatures = rawActiveFeatures.filter(f => {
+      const id = f.id || f._id || f.name;
+      if (seenIds.has(id)) return false;
+      seenIds.add(id);
+      return true;
+    });
+    const parsedFeatureSkillData = activeLineageFeatures.map(f => parseFeatureSkillData(f)).filter(f => f.points > 0);
+    const maxPool = parsedFeatureSkillData.reduce((sum, f) => sum + f.points, 0);
+    const cap = Math.max(4, ...parsedFeatureSkillData.map(f => f.perSkillCap || 4));
+
+    if (delta > 0) {
+      const currentSpent = Object.values(this.data.allocatedLineageSkills).reduce((sum, v) => sum + (Number(v) || 0), 0);
+      if (currentSpent >= maxPool) {
+        ui.notifications.warn(`You have already spent all ${maxPool} available lineage feature skill points.`);
+        return;
+      }
+      if (next > cap) {
+        ui.notifications.warn(`"${skill}" is limited to a maximum of +${cap} points from your lineage feature.`);
+        return;
+      }
+    }
+
+    this.data.allocatedLineageSkills[skill] = next;
     this.render();
   }
 
@@ -1163,7 +1276,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.data.selectedProfessionId = profId;
     if (cardId) this.data.expandedCardIds.add(cardId);
     this.data.selectedProfessionSkills = [];
-    this.data.professionConfirmed = false;
+    this.data.professionConfirmed = Boolean(profId);
     this.render();
   }
 
@@ -1206,7 +1319,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.data.selectedProfessionId2 = id;
     if (cardId) this.data.expandedCardIds.add(cardId);
     this.data.selectedProfessionSkills2 = [];
-    this.data.professionConfirmed2 = false;
+    this.data.professionConfirmed2 = Boolean(id);
     this.render();
   }
 
@@ -1393,6 +1506,37 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       }
     }
 
+    // Apply allocated lineage feature skill points (e.g. Wood Elf Forest Steward, High Elf Celestial Lorist)
+    for (const [sName, pts] of Object.entries(this.data.allocatedLineageSkills || {})) {
+      if (pts > 0) {
+        const key = findSkillKey(sName);
+        if (key) {
+          const curVal = Number(skillUpdates[`system.skills.${key}.value`] ?? this.actor.system?.skills?.[key]?.value ?? this.actor.system?.skills?.[key]?.bonus ?? 0);
+          skillUpdates[`system.skills.${key}.value`] = curVal + pts;
+        }
+      }
+    }
+
+    // Apply fixed lineage feature skills (e.g. Plains Elf Keen Eye +4 Perceiving)
+    const rawActiveLineageFeatures = [
+      ...(this.data.lineageStartingFeatures || []),
+      ...((this.data.selectedUniqueFeatureIds || []).map(id => (this.data.allLineageDocs || []).find(f => (f.id || f._id) === id))),
+    ].filter(Boolean);
+    const seenLineageIds = new Set();
+    for (const feat of rawActiveLineageFeatures) {
+      const fid = feat.id || feat._id || feat.name;
+      if (seenLineageIds.has(fid)) continue;
+      seenLineageIds.add(fid);
+      const parsedFeatSkills = parseFeatureSkillData(feat);
+      for (const fSkill of parsedFeatSkills.fixedSkills || []) {
+        const key = findSkillKey(fSkill.name);
+        if (key) {
+          const curVal = Number(skillUpdates[`system.skills.${key}.value`] ?? this.actor.system?.skills?.[key]?.value ?? this.actor.system?.skills?.[key]?.bonus ?? 0);
+          skillUpdates[`system.skills.${key}.value`] = curVal + fSkill.value;
+        }
+      }
+    }
+
     // Apply fixed background skills (e.g. Knave +4 Savoir Faire)
     if (parsedBg?.fixedSkills?.length) {
       for (const fSkill of parsedBg.fixedSkills) {
@@ -1504,16 +1648,16 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     if (bg) itemsToCreate.push(bg.toObject());
     if (prof) {
       itemsToCreate.push(prof.toObject());
-      const professionBaseName = prof.name.replace(/ profession$/i, "");
-      const rankOne = (this.data.allBopsDocs || []).find(item => item.name.toLowerCase() === `${professionBaseName.toLowerCase()}: rank 1`);
+      const professionBaseName = prof.name.replace(/ profession$/i, "").trim().toLowerCase();
+      const rankOne = (this.data.allBopsDocs || []).find(item => item.name.toLowerCase().startsWith(`${professionBaseName}: rank 1`));
       if (rankOne) itemsToCreate.push(rankOne.toObject());
     }
 
     // Knave second profession items
     if (prof2) {
       itemsToCreate.push(prof2.toObject());
-      const prof2BaseName = prof2.name.replace(/ profession$/i, "");
-      const rankOne2 = (this.data.allBopsDocs || []).find(item => item.name.toLowerCase() === `${prof2BaseName.toLowerCase()}: rank 1`);
+      const prof2BaseName = prof2.name.replace(/ profession$/i, "").trim().toLowerCase();
+      const rankOne2 = (this.data.allBopsDocs || []).find(item => item.name.toLowerCase().startsWith(`${prof2BaseName}: rank 1`));
       if (rankOne2) itemsToCreate.push(rankOne2.toObject());
     }
 

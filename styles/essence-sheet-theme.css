@@ -14122,11 +14122,11 @@ form.level-up-dialog .window-content,
 }
 
 .talents-selection-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 220px;
-  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 10px;
+  max-height: none;
+  overflow: visible;
 }
 
 .talent-choice-card {
@@ -14135,10 +14135,11 @@ form.level-up-dialog .window-content,
   align-items: center;
   background: #151e24;
   border: 1px solid #246975;
-  border-radius: 6px;
-  padding: 8px 10px;
+  border-radius: 8px;
+  padding: 10px 14px;
+  min-height: 62px;
+  flex-shrink: 0;
   cursor: pointer;
-  transition: all 0.15s ease;
 }
 
 .talent-choice-card:hover:not(.locked) {
@@ -14162,15 +14163,18 @@ form.level-up-dialog .window-content,
 .talent-card-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex: 1;
   min-width: 0;
 }
 
 .talent-card-left img {
-  width: 32px;
-  height: 32px;
-  border-radius: 4px;
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid rgba(56, 189, 248, 0.35);
 }
 
 .talent-info {
@@ -14187,7 +14191,8 @@ form.level-up-dialog .window-content,
 .talent-info h4 {
   margin: 0;
   color: #FEEBB3;
-  font-size: 12.5px;
+  font-size: 13px;
+  line-height: 1.25;
 }
 
 .prereq-badge {
@@ -14200,12 +14205,15 @@ form.level-up-dialog .window-content,
 }
 
 .talent-short-desc {
-  margin: 2px 0 0 0;
-  font-size: 10.5px;
+  margin: 4px 0 0 0;
+  font-size: 11px;
+  line-height: 1.35;
   color: #94a3b8;
-  white-space: nowrap;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .talent-card-right i {
@@ -17202,3 +17210,2767 @@ tag-input .tag-chip-remove:hover {
   word-break: normal !important;
   overflow-wrap: break-word !important;
 }
+
+
+/* ============================================================================
+   FULL-SCREEN CHARACTER CREATION & LEVEL-UP EXPERIENCE (CRPG OVERHAUL)
+   ============================================================================ */
+
+.ccx-fullscreen-window {
+  min-width: 960px !important;
+  min-height: 640px !important;
+  border: 1.5px solid #246975 !important;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.88), 0 0 40px rgba(36, 105, 117, 0.35) !important;
+  background: #080d11 !important;
+}
+
+.ccx-fullscreen-window .window-content {
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: #080d11 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.ccx-experience-root,
+.lud-experience-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: radial-gradient(circle at 70% 20%, rgba(20, 56, 68, 0.38) 0%, rgba(8, 13, 17, 0.98) 70%);
+  color: #e2e8f0;
+}
+
+/* Ambient Animated Backdrop */
+.ccx-ambient-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.ccx-ambient-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(ellipse at center, black 35%, transparent 85%);
+}
+
+.ccx-ambient-orb {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.24;
+  pointer-events: none;
+}
+
+.ccx-ambient-orb.orb-teal {
+  width: 580px;
+  height: 580px;
+  top: -140px;
+  right: 8%;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.38) 0%, rgba(56, 189, 248, 0.1) 45%, transparent 72%);
+}
+
+.ccx-ambient-orb.orb-gold {
+  width: 500px;
+  height: 500px;
+  bottom: -150px;
+  left: 16%;
+  background: radial-gradient(circle, rgba(254, 235, 179, 0.28) 0%, rgba(254, 235, 179, 0.08) 45%, transparent 72%);
+}
+
+/* Split Workspace Architecture */
+.ccx-split-workspace,
+.lud-split-workspace {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 370px minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.lud-split-workspace {
+  grid-template-columns: 450px minmax(0, 1fr);
+}
+
+/* ── Left Sidebar: Live Build Hierarchy Map ─────────────────────────────── */
+.ccx-hierarchy-sidebar,
+.lud-left-deck {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: linear-gradient(180deg, rgba(11, 18, 24, 0.96) 0%, rgba(7, 12, 16, 0.98) 100%);
+  border-right: 1.5px solid rgba(36, 105, 117, 0.65);
+  box-shadow: 8px 0 32px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.ccx-hero-crown,
+.lud-hero-crown {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, rgba(22, 48, 58, 0.65), rgba(12, 20, 26, 0.92));
+  border-bottom: 1px solid rgba(254, 235, 179, 0.28);
+  flex-shrink: 0;
+}
+
+.ccx-portrait-ring {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  padding: 2px;
+  background: linear-gradient(135deg, #FEEBB3, #38bdf8);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.35);
+  flex-shrink: 0;
+}
+
+.ccx-portrait-ring img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  background: #0d1217;
+  border: none;
+}
+
+.ccx-level-pip {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0f172a;
+  border: 1px solid #FEEBB3;
+  color: #FEEBB3;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 999px;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.ccx-hero-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.ccx-kicker {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  color: #38bdf8;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ccx-hero-name {
+  margin: 0;
+  font-family: 'Cinzel', serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: #FEEBB3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ccx-forge-meter {
+  width: 100%;
+  height: 5px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.ccx-forge-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #246975, #38bdf8, #FEEBB3);
+  transition: width 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ccx-forge-caption {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.ccx-hierarchy-scroll,
+.lud-left-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px;
+}
+
+.ccx-hierarchy-tree {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* Hierarchy Node Cards */
+.ccx-h-node {
+  background: rgba(17, 25, 33, 0.88);
+  border: 1px solid rgba(36, 105, 117, 0.5);
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all 0.22s ease;
+  position: relative;
+}
+
+.ccx-h-node:hover {
+  border-color: #38bdf8;
+  background: rgba(24, 38, 49, 0.95);
+  transform: translateX(3px);
+}
+
+.ccx-h-node.is-current {
+  border: 1.5px solid #FEEBB3;
+  background: linear-gradient(135deg, rgba(36, 105, 117, 0.38), rgba(17, 25, 33, 0.95));
+  box-shadow: 0 0 18px rgba(254, 235, 179, 0.25), inset 0 0 10px rgba(56, 189, 248, 0.15);
+}
+
+.ccx-h-node.is-complete {
+  border-color: rgba(34, 197, 94, 0.65);
+  background: linear-gradient(135deg, rgba(20, 60, 42, 0.35), rgba(15, 23, 30, 0.92));
+}
+
+.ccx-h-node.is-locked {
+  opacity: 0.62;
+}
+
+.ccx-h-node-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ccx-h-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: rgba(36, 105, 117, 0.3);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #38bdf8;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.ccx-h-node.is-current .ccx-h-icon {
+  background: rgba(254, 235, 179, 0.18);
+  border-color: #FEEBB3;
+  color: #FEEBB3;
+}
+
+.ccx-h-node.is-complete .ccx-h-icon {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: #22c55e;
+  color: #86efac;
+}
+
+.ccx-h-title-col {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.ccx-h-step-tag {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  color: #7dd3fc;
+}
+
+.ccx-h-title {
+  margin: 0;
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #FEEBB3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ccx-h-status {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.ccx-h-node.is-complete .ccx-h-status {
+  color: #22c55e;
+}
+
+.ccx-pulse-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #FEEBB3;
+  box-shadow: 0 0 10px #FEEBB3;
+  animation: ccxPulseDot 1.6s infinite ease-in-out;
+}
+
+@keyframes ccxPulseDot {
+  0%, 100% { transform: scale(0.9); opacity: 0.75; }
+  50% { transform: scale(1.25); opacity: 1; }
+}
+
+/* Sub-Hierarchy Tree Branches inside Nodes */
+.ccx-h-branches {
+  margin-top: 8px;
+  padding-left: 12px;
+  border-left: 1.5px dashed rgba(56, 189, 248, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ccx-h-branch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(10, 16, 22, 0.72);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 5px;
+  padding: 3px 7px;
+  font-size: 11px;
+  color: #e2e8f0;
+  position: relative;
+}
+
+.ccx-h-branch .branch-elbow {
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  width: 10px;
+  height: 1.5px;
+  background: rgba(56, 189, 248, 0.45);
+}
+
+.ccx-h-branch img {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  object-fit: cover;
+  border: none;
+}
+
+.ccx-h-branch.sublineage,
+.ccx-h-branch.prof {
+  border-color: rgba(254, 235, 179, 0.45);
+  color: #FEEBB3;
+}
+
+.ccx-h-attr-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.ccx-mini-attr {
+  background: rgba(10, 16, 22, 0.75);
+  border: 1px solid rgba(71, 85, 105, 0.45);
+  border-radius: 4px;
+  padding: 2px 4px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+}
+
+.ccx-mini-attr .k {
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.ccx-mini-attr .v {
+  color: #e2e8f0;
+  font-weight: 800;
+}
+
+.ccx-mini-attr.pos {
+  border-color: rgba(254, 235, 179, 0.5);
+  background: rgba(254, 235, 179, 0.08);
+}
+
+.ccx-mini-attr.pos .v {
+  color: #FEEBB3;
+}
+
+.ccx-mini-attr.neg {
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+.ccx-mini-attr.neg .v {
+  color: #f87171;
+}
+
+.ccx-h-def-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.ccx-h-def-pills span {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(36, 105, 117, 0.25);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #bae6fd;
+}
+
+.ccx-h-skill-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.ccx-h-skill-tag {
+  font-size: 9.5px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.16);
+  border: 1px solid rgba(34, 197, 94, 0.45);
+  color: #86efac;
+  font-weight: 600;
+}
+
+.ccx-h-skill-tag.spell {
+  background: rgba(168, 85, 247, 0.18);
+  border-color: rgba(192, 132, 252, 0.45);
+  color: #e9d5ff;
+}
+
+/* Conduit Stems Connecting Hierarchy Nodes */
+.ccx-conduit-stem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 22px;
+  position: relative;
+}
+
+.ccx-conduit-stem .conduit-line {
+  width: 2px;
+  flex: 1;
+  background: rgba(71, 85, 105, 0.5);
+  transition: background 0.35s ease, box-shadow 0.35s ease;
+}
+
+.ccx-conduit-stem .conduit-arrow {
+  font-size: 9px;
+  color: rgba(71, 85, 105, 0.7);
+  margin-top: -3px;
+}
+
+.ccx-conduit-stem.energized .conduit-line {
+  background: linear-gradient(180deg, #22c55e, #38bdf8);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+}
+
+.ccx-conduit-stem.energized .conduit-arrow {
+  color: #38bdf8;
+}
+
+/* ── Right Main Stage & Smooth Camera Panning Track ─────────────────────── */
+.ccx-main-stage {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.ccx-top-stage-bar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 6px !important;
+  padding: 10px 20px !important;
+  background: rgba(11, 18, 24, 0.92) !important;
+  border-bottom: 1px solid rgba(36, 105, 117, 0.55) !important;
+  margin: 0 !important;
+  flex-shrink: 0;
+}
+
+.ccx-top-stage-bar .wizard-step-item {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ccx-top-stage-bar .wizard-step-item:hover {
+  border-color: #38bdf8;
+  transform: translateY(-1px);
+}
+
+.ccx-bar-connector {
+  flex: 1;
+  height: 2px;
+  background: rgba(71, 85, 105, 0.45);
+  border-radius: 2px;
+  transition: background 0.4s ease, box-shadow 0.4s ease;
+}
+
+.ccx-bar-connector.active {
+  background: linear-gradient(90deg, #22c55e, #38bdf8);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.45);
+}
+
+/* Continuous Camera Viewport & Track */
+.ccx-camera-viewport {
+  flex: 1 !important;
+  min-height: 0 !important;
+  width: 100% !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  position: relative !important;
+}
+
+.ccx-camera-track {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100%;
+}
+
+.ccx-stage-slide {
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ccx-stage-scroll {
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 22px 28px 36px;
+}
+
+/* Stage Hero Banner */
+.ccx-hero-stage-banner {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  padding: 16px 20px !important;
+  background: linear-gradient(135deg, rgba(22, 54, 66, 0.6), rgba(13, 21, 28, 0.9)) !important;
+  border: 1px solid rgba(56, 189, 248, 0.38) !important;
+  border-left: 4px solid #FEEBB3 !important;
+  border-radius: 10px !important;
+  margin-bottom: 16px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.ccx-stage-emblem {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  background: radial-gradient(circle, rgba(254, 235, 179, 0.22), rgba(36, 105, 117, 0.35));
+  border: 1.5px solid #FEEBB3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: #FEEBB3;
+  box-shadow: 0 0 16px rgba(254, 235, 179, 0.25);
+  flex-shrink: 0;
+}
+
+.ccx-stage-overline {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+  color: #38bdf8;
+  text-transform: uppercase;
+}
+
+.ccx-stage-banner-text h3 {
+  margin: 2px 0 4px !important;
+  font-family: 'Cinzel', serif !important;
+  font-size: 20px !important;
+  color: #FEEBB3 !important;
+}
+
+.ccx-stage-banner-text p {
+  margin: 0 !important;
+  font-size: 12.5px !important;
+  color: #cbd5e1 !important;
+}
+
+/* Subpanels render immediately without opacity-zero flash on re-render */
+.ccx-animated-reveal {
+  animation: none;
+}
+
+/* Stage Confirm & Pan Button Bar */
+.ccx-stage-confirm-bar {
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(56, 189, 248, 0.25);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.ccx-stage-advance-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 22px;
+  border-radius: 8px;
+  border: 1.5px solid #FEEBB3;
+  background: linear-gradient(135deg, rgba(36, 105, 117, 0.85), rgba(20, 83, 45, 0.85));
+  color: #FEEBB3;
+  font-family: 'Cinzel', serif;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.25), 0 0 12px rgba(254, 235, 179, 0.2);
+  transition: all 0.22s ease;
+}
+
+.ccx-stage-advance-btn:hover {
+  transform: translateY(-2px);
+  border-color: #22c55e;
+  color: #ffffff;
+  box-shadow: 0 8px 24px rgba(34, 197, 94, 0.45), 0 0 16px rgba(56, 189, 248, 0.4);
+}
+
+/* Stage 6: Full Build Hierarchy Constellation Diagram */
+.ccx-constellation-diagram {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(11, 18, 24, 0.8);
+  border: 1.5px solid rgba(254, 235, 179, 0.35);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: inset 0 0 30px rgba(36, 105, 117, 0.2);
+}
+
+.ccx-diagram-crown-node {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, rgba(36, 105, 117, 0.55), rgba(15, 23, 42, 0.95));
+  border: 2px solid #FEEBB3;
+  border-radius: 999px;
+  box-shadow: 0 0 20px rgba(254, 235, 179, 0.3);
+}
+
+.ccx-diagram-crown-node img {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid #FEEBB3;
+}
+
+.ccx-diagram-crown-node h4 {
+  margin: 0;
+  font-family: 'Cinzel', serif;
+  font-size: 16px;
+  color: #FEEBB3;
+}
+
+.ccx-diagram-crown-node span {
+  font-size: 11px;
+  color: #7dd3fc;
+}
+
+.ccx-diagram-trunk-stem {
+  width: 2px;
+  height: 24px;
+  background: linear-gradient(180deg, #FEEBB3, #38bdf8);
+}
+
+.ccx-diagram-pillars-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  width: 100%;
+  border-top: 2px solid rgba(56, 189, 248, 0.5);
+  padding-top: 16px;
+}
+
+.ccx-pillar-card {
+  background: rgba(15, 23, 32, 0.92);
+  border: 1px solid rgba(36, 105, 117, 0.65);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ccx-pillar-card:hover {
+  border-color: #FEEBB3;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+}
+
+.ccx-pillar-head {
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #38bdf8;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.25);
+  padding-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ccx-pillar-main {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.ccx-node-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  font-size: 11.5px;
+  color: #e2e8f0;
+}
+
+.ccx-node-pill img {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  object-fit: cover;
+  border: none;
+}
+
+.ccx-node-pill.gold {
+  border-color: #FEEBB3;
+  background: rgba(254, 235, 179, 0.12);
+  color: #FEEBB3;
+}
+
+.ccx-node-pill.teal {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.14);
+  color: #bae6fd;
+}
+
+.ccx-node-sub-arrow {
+  text-align: center;
+  font-size: 10px;
+  color: #38bdf8;
+  line-height: 1;
+}
+
+/* Bottom HUD Bar */
+.ccx-bottom-hud-bar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 10px 24px !important;
+  background: rgba(9, 14, 19, 0.96) !important;
+  border-top: 1px solid rgba(36, 105, 117, 0.55) !important;
+  flex-shrink: 0;
+}
+
+.ccx-hud-step-dots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ccx-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(71, 85, 105, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.ccx-dot.done {
+  background: #22c55e;
+  border-color: #86efac;
+}
+
+.ccx-dot.active {
+  width: 26px;
+  border-radius: 999px;
+  background: #FEEBB3;
+  border-color: #FEEBB3;
+  box-shadow: 0 0 10px rgba(254, 235, 179, 0.6);
+}
+
+/* ============================================================================
+   LEVEL-UP & TALENT BUILD HIERARCHY EXPERIENCE (.lud-experience-root)
+   ============================================================================ */
+
+.lud-quick-nav-bar {
+  display: flex;
+  gap: 6px;
+  padding: 8px 14px;
+  background: rgba(11, 18, 24, 0.92);
+  border-bottom: 1px solid rgba(36, 105, 117, 0.45);
+  flex-shrink: 0;
+}
+
+.lud-nav-pill {
+  flex: 1;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  background: rgba(20, 34, 44, 0.85);
+  color: #bae6fd;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.lud-nav-pill:hover {
+  border-color: #FEEBB3;
+  color: #FEEBB3;
+  background: rgba(36, 105, 117, 0.4);
+}
+
+.lud-pulse-highlight {
+  box-shadow: 0 0 24px rgba(254, 235, 179, 0.65) !important;
+  border-color: #FEEBB3 !important;
+}
+
+.lud-sticky-footer {
+  padding: 12px 16px !important;
+  background: rgba(9, 14, 19, 0.96) !important;
+  border-top: 1px solid rgba(36, 105, 117, 0.55) !important;
+  flex-shrink: 0;
+}
+
+.lud-popout-btn {
+  padding: 4px 10px !important;
+  font-size: 11px !important;
+}
+
+/* Right Column: Embedded Live Talent Build Hierarchy Canvas */
+.lud-hierarchy-canvas {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: transparent !important;
+}
+
+.lud-tree-topbar {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 10px !important;
+  padding: 12px 20px !important;
+  background: rgba(11, 18, 24, 0.92) !important;
+  border-bottom: 1px solid rgba(36, 105, 117, 0.55) !important;
+  flex-shrink: 0;
+}
+
+.lud-canvas-title-col h3 {
+  margin: 2px 0 0;
+  font-family: 'Cinzel', serif;
+  font-size: 16px;
+  color: #FEEBB3;
+}
+
+.lud-tree-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.lud-tree-canvas-scroll {
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  padding: 18px 22px !important;
+}
+
+/* Selected Talent Node Highlight inside the Build Hierarchy */
+.srd-badge-node.node-selected-levelup {
+  border: 2px solid #FEEBB3 !important;
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.32), rgba(20, 83, 45, 0.78)) !important;
+  box-shadow: 0 0 18px rgba(254, 235, 179, 0.55), inset 0 0 10px rgba(254, 235, 179, 0.25) !important;
+  transform: scale(1.02);
+}
+
+.badge-status-icon.selected-lv {
+  color: #FEEBB3 !important;
+  text-shadow: 0 0 8px rgba(254, 235, 179, 0.8);
+}
+
+.badge-btn.select.active-pick {
+  background: #22c55e !important;
+  border-color: #86efac !important;
+  color: #052e16 !important;
+  font-weight: 800 !important;
+}
+
+/* ==========================================================================
+   CHARACTER CREATOR EXPERIENCE — PREMIUM PIZAZZ ENHANCEMENTS
+   (Particles, Astral Loom, 3D Holo-Cards, Radar Wheel, Callouts, Finale)
+   ========================================================================== */
+
+/* 1. 60fps HTML5 Particle & Leyline Spark Canvas */
+.ccx-particle-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 2. Astral Constellation Leyline Map ("The Astral Loom") */
+.ccx-top-stage-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ccx-astral-loom-host {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ccx-astral-loom-bar {
+  width: 100%;
+  max-width: 960px;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ccx-astral-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.ccx-leyline-base {
+  stroke: rgba(36, 105, 117, 0.45);
+  stroke-width: 2.2;
+  stroke-dasharray: 5 5;
+}
+
+.ccx-leyline-base.unlocked {
+  stroke: rgba(56, 189, 248, 0.55);
+}
+
+.ccx-leyline-energy {
+  stroke: #FEEBB3;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-dasharray: 12 6;
+}
+
+.ccx-constellation-star {
+  cursor: pointer;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+.ccx-constellation-star.is-locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ccx-star-orbit-ring {
+  fill: none;
+  stroke: rgba(254, 235, 179, 0.65);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+  transform-origin: 0px 0px;
+}
+
+.ccx-constellation-star:hover .ccx-star-orbit-ring {
+  animation: ccxSpinRuneSlow 10s linear infinite;
+}
+
+.ccx-star-pulse-halo {
+  fill: rgba(254, 235, 179, 0.14);
+  stroke: rgba(56, 189, 248, 0.55);
+  stroke-width: 1.2;
+}
+
+.ccx-star-core {
+  fill: rgba(13, 25, 34, 0.95);
+  stroke: rgba(36, 105, 117, 0.8);
+  stroke-width: 2;
+  transition: all 0.3s ease;
+}
+
+.ccx-constellation-star:hover:not(.is-locked) .ccx-star-core {
+  stroke: #FEEBB3;
+}
+
+.ccx-constellation-star.is-done .ccx-star-core {
+  fill: rgba(6, 78, 59, 0.92);
+  stroke: #34d399;
+}
+
+.ccx-constellation-star.is-active .ccx-star-core {
+  fill: rgba(180, 130, 35, 0.38);
+  stroke: #FEEBB3;
+  stroke-width: 2.5;
+}
+
+.ccx-star-num {
+  fill: #e2e8f0;
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.ccx-constellation-star.is-active .ccx-star-num {
+  fill: #FEEBB3;
+}
+
+.ccx-constellation-star.is-done .ccx-star-num {
+  fill: #6ee7b7;
+}
+
+.ccx-star-title {
+  fill: #94a3b8;
+  font-family: 'Cinzel', serif;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  pointer-events: none;
+  transition: fill 0.25s ease;
+}
+
+.ccx-constellation-star.is-active .ccx-star-title {
+  fill: #FEEBB3;
+}
+
+.ccx-constellation-star.is-done .ccx-star-title {
+  fill: #a7f3d0;
+}
+
+/* Soundscape Mute Toggle Button */
+.ccx-sound-toggle-btn {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  border-radius: 50%;
+  background: rgba(13, 24, 33, 0.9);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  color: #7dd3fc;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.ccx-sound-toggle-btn.is-on {
+  border-color: rgba(254, 235, 179, 0.65);
+  color: #FEEBB3;
+  box-shadow: 0 0 10px rgba(254, 235, 179, 0.2);
+}
+
+.ccx-sound-toggle-btn.is-muted {
+  border-color: rgba(148, 163, 184, 0.3);
+  color: #64748b;
+}
+
+.ccx-sound-toggle-btn:hover {
+  transform: scale(1.08);
+  border-color: #FEEBB3;
+  color: #fff;
+}
+
+.lud-sound-btn {
+  margin-left: auto;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+}
+
+/* 3. 3D Holographic Tarot / Collector Cards & Zero-Flicker Button Overrides */
+.character-creation-wizard button,
+.character-creation-wizard .wizard-selection-card,
+.character-creation-wizard .bops-item-card,
+.character-creation-wizard .talent-choice-card,
+.character-creation-wizard .unique-feature-card,
+.character-creation-wizard .skill-tile-card,
+.character-creation-wizard .ccx-h-node,
+.character-creation-wizard .hp-mode-option,
+.character-creation-wizard .srd-action-btn,
+.level-up-dialog button,
+.level-up-dialog .hp-option-card,
+.level-up-dialog .srd-badge-node {
+  transition: none !important;
+}
+
+.character-creation-wizard button:hover,
+.character-creation-wizard .wizard-selection-card:hover,
+.character-creation-wizard .bops-item-card:hover,
+.character-creation-wizard .talent-choice-card:hover,
+.character-creation-wizard .unique-feature-card:hover,
+.character-creation-wizard .skill-tile-card:hover,
+.character-creation-wizard .ccx-h-node:hover,
+.character-creation-wizard .hp-mode-option:hover,
+.character-creation-wizard .srd-action-btn:hover,
+.level-up-dialog button:hover,
+.level-up-dialog .hp-option-card:hover,
+.level-up-dialog .srd-badge-node:hover {
+  transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.14s cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+.ccx-holo-enabled .wizard-selection-card,
+.ccx-holo-enabled .bops-item-card,
+.ccx-holo-enabled .talent-choice-card,
+.ccx-holo-enabled .unique-feature-card,
+.ccx-holo-enabled .ccx-pillar-card,
+.ccx-holo-enabled .srd-badge-node,
+.ccx-holo-enabled .hp-mode-option,
+.ccx-holo-enabled .hp-option-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.ccx-holo-enabled .wizard-selection-card:hover,
+.ccx-holo-enabled .bops-item-card:hover,
+.ccx-holo-enabled .talent-choice-card:hover,
+.ccx-holo-enabled .unique-feature-card:hover,
+.ccx-holo-enabled .ccx-pillar-card:hover,
+.ccx-holo-enabled .srd-badge-node:hover,
+.ccx-holo-enabled .hp-mode-option:hover,
+.ccx-holo-enabled .hp-option-card:hover {
+  transform: perspective(900px) rotateX(var(--ccx-rx, 0deg)) rotateY(var(--ccx-ry, 0deg));
+}
+
+.ccx-holo-enabled .wizard-selection-card::before,
+.ccx-holo-enabled .bops-item-card::before,
+.ccx-holo-enabled .talent-choice-card::before,
+.ccx-holo-enabled .unique-feature-card::before,
+.ccx-holo-enabled .ccx-pillar-card::before,
+.ccx-holo-enabled .srd-badge-node::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle 150px at var(--ccx-gx, 50%) var(--ccx-gy, 50%),
+    rgba(254, 235, 179, 0.22),
+    rgba(56, 189, 248, 0.12) 45%,
+    transparent 75%
+  );
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 2;
+}
+
+.ccx-holo-enabled .wizard-selection-card:hover::before,
+.ccx-holo-enabled .bops-item-card:hover::before,
+.ccx-holo-enabled .talent-choice-card:hover::before,
+.ccx-holo-enabled .unique-feature-card:hover::before,
+.ccx-holo-enabled .ccx-pillar-card:hover::before,
+.ccx-holo-enabled .srd-badge-node:hover::before {
+  opacity: 1;
+}
+
+/* Selection Shockwave Ring */
+.ccx-card-shockwave {
+  box-shadow: 0 0 0 0 rgba(254, 235, 179, 0.85), 0 0 28px rgba(56, 189, 248, 0.65) !important;
+  animation: ccxCardShockwavePulse 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes ccxCardShockwavePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(254, 235, 179, 0.85), 0 0 14px rgba(254, 235, 179, 0.7);
+  }
+  100% {
+    box-shadow: 0 0 0 18px rgba(254, 235, 179, 0), 0 0 28px rgba(56, 189, 248, 0);
+  }
+}
+
+/* 4. Live Animated SVG Attribute Radar & Arcane Rune Wheel */
+.ccx-attributes-split-layout.has-radar {
+  display: grid;
+  grid-template-columns: 1fr 330px;
+  gap: 20px;
+  align-items: center;
+}
+
+@media (max-width: 1180px) {
+  .ccx-attributes-split-layout.has-radar {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ccx-radar-showcase-panel {
+  background: radial-gradient(circle at 50% 50%, rgba(16, 36, 48, 0.9), rgba(8, 14, 20, 0.95));
+  border: 1px solid rgba(254, 235, 179, 0.35);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), inset 0 0 24px rgba(56, 189, 248, 0.08);
+}
+
+.ccx-radar-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #FEEBB3;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.ccx-radar-wheel-wrap {
+  width: 100%;
+  max-width: 290px;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ccx-radar-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.ccx-rune-circle-dashed {
+  fill: none;
+  stroke: rgba(254, 235, 179, 0.28);
+  stroke-width: 1.5;
+  stroke-dasharray: 8 6 2 6;
+  transform-origin: 160px 160px;
+}
+
+.ccx-rune-circle-thin {
+  fill: none;
+  stroke: rgba(56, 189, 248, 0.24);
+  stroke-width: 1.2;
+  stroke-dasharray: 4 8;
+  transform-origin: 160px 160px;
+}
+
+.ccx-radar-showcase-panel:hover .ccx-rune-circle-dashed,
+.lud-radar-wheel-embed:hover .ccx-rune-circle-dashed {
+  animation: ccxSpinRuneSlow 38s linear infinite;
+}
+
+.ccx-radar-showcase-panel:hover .ccx-rune-circle-thin,
+.lud-radar-wheel-embed:hover .ccx-rune-circle-thin {
+  animation: ccxSpinRuneReverse 26s linear infinite;
+}
+
+@keyframes ccxSpinRuneSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ccxSpinRuneReverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+.ccx-radar-ring-poly {
+  fill: none;
+  stroke: rgba(36, 105, 117, 0.35);
+  stroke-width: 1;
+}
+
+.ccx-radar-spoke {
+  stroke: rgba(36, 105, 117, 0.45);
+  stroke-width: 1;
+}
+
+.ccx-radar-active-poly {
+  transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ccx-radar-jewel {
+  fill: #38bdf8;
+  stroke: #0284c7;
+  stroke-width: 1.5;
+  transition: all 0.3s ease;
+}
+
+.ccx-radar-jewel.boosted {
+  fill: #FEEBB3;
+  stroke: #f59e0b;
+}
+
+.ccx-radar-core-dot {
+  fill: rgba(254, 235, 179, 0.85);
+}
+
+.ccx-radar-label-bg {
+  fill: rgba(9, 16, 23, 0.92);
+  stroke: rgba(36, 105, 117, 0.65);
+  stroke-width: 1;
+}
+
+.ccx-radar-label-group.pos .ccx-radar-label-bg {
+  stroke: rgba(254, 235, 179, 0.55);
+}
+
+.ccx-radar-label-group.neg .ccx-radar-label-bg {
+  stroke: rgba(248, 113, 113, 0.45);
+}
+
+.ccx-radar-label-k {
+  fill: #cbd5e1;
+  font-family: 'Cinzel', serif;
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.ccx-radar-label-v {
+  fill: #94a3b8;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.ccx-radar-label-group.pos .ccx-radar-label-v {
+  fill: #FEEBB3;
+}
+
+.ccx-radar-label-group.neg .ccx-radar-label-v {
+  fill: #f87171;
+}
+
+.ccx-pillar-radar-mini {
+  width: 100%;
+  max-width: 195px;
+  margin: 0 auto 8px;
+}
+
+.lud-radar-wheel-embed {
+  width: 100%;
+  max-width: 240px;
+  margin: 10px auto 6px;
+}
+
+/* 5. Cinematic Stage Callout Banner Overlay */
+.ccx-stage-callout-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+  animation: ccxCalloutFadeInOut 3.2s ease forwards;
+}
+
+@keyframes ccxCalloutFadeInOut {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  84% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.ccx-callout-inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 54px;
+  background: linear-gradient(90deg, transparent, rgba(8, 15, 23, 0.96) 18%, rgba(14, 32, 44, 0.98) 50%, rgba(8, 15, 23, 0.96) 82%, transparent);
+  border-top: 1px solid rgba(254, 235, 179, 0.72);
+  border-bottom: 1px solid rgba(254, 235, 179, 0.72);
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.8);
+  animation: ccxCalloutPop 3.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes ccxCalloutPop {
+  0% { transform: scale(0.9) translateY(8px); }
+  14% { transform: scale(1) translateY(0); }
+  84% { transform: scale(1.01) translateY(0); }
+  100% { transform: scale(1.03) translateY(-4px); }
+}
+
+.ccx-callout-kicker {
+  display: block;
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: #38bdf8;
+  margin-bottom: 4px;
+}
+
+.ccx-callout-title {
+  margin: 0;
+  font-family: 'Cinzel', serif;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: #FEEBB3;
+  text-shadow: 0 0 18px rgba(254, 235, 179, 0.6);
+}
+
+.ccx-callout-sub {
+  display: block;
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #cbd5e1;
+  letter-spacing: 0.6px;
+}
+
+/* 6. "Hero Awakening / Ascension" Finale Sequence Overlay */
+.ccx-awakening-finale-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  background: radial-gradient(circle at 50% 50%, rgba(14, 38, 52, 0.94), rgba(4, 8, 13, 0.98));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  animation: ccxFinaleOverlayFade 2.9s ease forwards;
+}
+
+@keyframes ccxFinaleOverlayFade {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  86% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.ccx-finale-magic-circle {
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  border: 2px dashed rgba(254, 235, 179, 0.55);
+  box-shadow: 0 0 40px rgba(254, 235, 179, 0.35), inset 0 0 30px rgba(56, 189, 248, 0.25);
+  animation: ccxSpinRuneSlow 12s linear infinite;
+  pointer-events: none;
+}
+
+.ccx-finale-magic-circle.inner {
+  width: 320px;
+  height: 320px;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  animation: ccxSpinRuneReverse 18s linear infinite;
+}
+
+.ccx-finale-centerpiece {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  z-index: 2;
+  animation: ccxFinaleRise 2.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes ccxFinaleRise {
+  0% { transform: scale(0.82) translateY(20px); opacity: 0; }
+  18% { opacity: 1; transform: scale(1) translateY(0); }
+  100% { transform: scale(1.04) translateY(0); opacity: 1; }
+}
+
+.ccx-finale-portrait-wrap {
+  width: 116px;
+  height: 116px;
+  border-radius: 50%;
+  border: 3px solid #FEEBB3;
+  box-shadow: 0 0 35px rgba(254, 235, 179, 0.75);
+  overflow: hidden;
+  margin-bottom: 18px;
+  background: #091118;
+}
+
+.ccx-finale-portrait-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ccx-finale-kicker {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  color: #FEEBB3;
+  text-shadow: 0 0 18px rgba(254, 235, 179, 0.8);
+  margin-bottom: 6px;
+}
+
+.ccx-finale-actor-name {
+  margin: 4px 0;
+  font-family: 'Cinzel', serif;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  color: #ffffff;
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.9);
+}
+
+.ccx-finale-subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: #7dd3fc;
+  letter-spacing: 1px;
+}
+
+/* 7. Classic Mode Fallback (when "Enable Full-Screen Character Creator Experience" is unchecked) */
+.ccx-classic-mode .ccx-ambient-backdrop,
+.ccx-classic-mode .ccx-hierarchy-sidebar {
+  display: none !important;
+}
+
+.ccx-classic-mode .ccx-split-workspace {
+  grid-template-columns: 1fr !important;
+}
+
+.ccx-classic-mode.lud-experience-root .lud-split-workspace {
+  grid-template-columns: 1fr !important;
+}
+
+.ccx-classic-mode.lud-experience-root .lud-hierarchy-canvas {
+  display: none !important;
+}
+
+/* ── 8. Unified 3D Astral Nebula ("Your Character" Tab) ── */
+.ccx-character-nebula-universe {
+  position: relative;
+  min-height: 100%;
+  padding: 20px 24px 36px;
+  border-radius: 16px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 22% 20%, rgba(56, 189, 248, 0.14) 0%, transparent 52%),
+    radial-gradient(ellipse at 78% 28%, rgba(192, 132, 252, 0.14) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 75%, rgba(254, 235, 179, 0.1) 0%, transparent 58%),
+    radial-gradient(circle at 50% 50%, #091522 0%, #040911 72%, #020408 100%);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.9);
+}
+
+.ccx-nebula-cosmic-clouds {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.ccx-nebula-cloud {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.34;
+  pointer-events: none;
+}
+
+.ccx-nebula-cloud.cloud-gold {
+  width: 520px;
+  height: 340px;
+  top: 4%;
+  left: 10%;
+  background: radial-gradient(circle, rgba(254, 235, 179, 0.35) 0%, rgba(254, 235, 179, 0.1) 45%, transparent 72%);
+}
+
+.ccx-nebula-cloud.cloud-cyan {
+  width: 560px;
+  height: 360px;
+  bottom: 8%;
+  right: 6%;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.35) 0%, rgba(56, 189, 248, 0.1) 45%, transparent 72%);
+}
+
+.ccx-nebula-cloud.cloud-violet {
+  width: 460px;
+  height: 460px;
+  top: 24%;
+  right: 24%;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.28) 0%, rgba(168, 85, 247, 0.08) 45%, transparent 72%);
+}
+
+.ccx-astrolabe-ring.grand-outer {
+  width: 680px;
+  height: 680px;
+  border: 1px dashed rgba(56, 189, 248, 0.14);
+}
+
+.ccx-astrolabe-ring.grand-inner {
+  width: 460px;
+  height: 460px;
+  border: 1px dashed rgba(254, 235, 179, 0.12);
+}
+
+.ccx-nebula-top-legend {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 16px;
+  margin-bottom: 22px;
+  background: rgba(8, 17, 26, 0.92);
+  border: 1px solid rgba(254, 235, 179, 0.35);
+  border-radius: 10px;
+}
+
+.nebula-legend-title {
+  font-family: 'Cinzel', serif;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #FEEBB3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nebula-legend-sub {
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.nebula-legend-sub strong {
+  color: #38bdf8;
+}
+
+/* Grid of Parent Star Pods & Expanded Track Constellations inside the Nebula */
+.ccx-nebula-tracks-grid {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+/* Collapsed State: Parent Star Pod (Start of the Track) */
+.ccx-nebula-parent-node-pod {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 16px 16px;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 50% 32%, rgba(254, 235, 179, 0.16) 0%, transparent 62%),
+    radial-gradient(circle at 50% 50%, rgba(12, 26, 38, 0.94) 0%, rgba(5, 11, 18, 0.98) 100%);
+  border: 1px solid rgba(254, 235, 179, 0.42);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.65);
+  contain: layout paint;
+}
+
+.ccx-nebula-parent-node-pod.category-magic {
+  background:
+    radial-gradient(circle at 50% 32%, rgba(192, 132, 252, 0.2) 0%, transparent 62%),
+    radial-gradient(circle at 50% 50%, rgba(18, 14, 36, 0.9) 0%, rgba(6, 5, 16, 0.95) 100%);
+  border-color: rgba(192, 132, 252, 0.48);
+}
+
+.ccx-nebula-parent-node-pod:hover {
+  transform: translateY(-4px);
+  border-color: #FEEBB3;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.8), 0 0 28px rgba(254, 235, 179, 0.28);
+}
+
+.ccx-parent-pod-track-tag {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #38bdf8;
+  text-align: center;
+  margin-bottom: 14px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.32);
+}
+
+/* Radiant Clickable Alpha Star Orb */
+.ccx-parent-alpha-star {
+  position: relative;
+  width: 86px;
+  height: 86px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin: 4px 0 14px;
+}
+
+.ccx-alpha-flare-rays {
+  position: absolute;
+  inset: -18px;
+  pointer-events: none;
+  background:
+    linear-gradient(0deg, transparent 46%, rgba(254, 235, 179, 0.85) 50%, transparent 54%),
+    linear-gradient(90deg, transparent 46%, rgba(254, 235, 179, 0.85) 50%, transparent 54%),
+    linear-gradient(45deg, transparent 47%, rgba(56, 189, 248, 0.6) 50%, transparent 53%),
+    linear-gradient(-45deg, transparent 47%, rgba(56, 189, 248, 0.6) 50%, transparent 53%);
+  opacity: 0.78;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.ccx-parent-alpha-star:hover .ccx-alpha-flare-rays {
+  transform: scale(1.22) rotate(15deg);
+  opacity: 1;
+}
+
+.ccx-alpha-orbit-outer {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(254, 235, 179, 0.7);
+  pointer-events: none;
+}
+
+.ccx-alpha-orbit-inner {
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  border: 1px solid rgba(56, 189, 248, 0.55);
+  box-shadow: 0 0 18px rgba(254, 235, 179, 0.38);
+  pointer-events: none;
+}
+
+.ccx-nebula-parent-node-pod:hover .ccx-alpha-orbit-outer {
+  animation: ccxSpinRuneSlow 16s linear infinite;
+}
+
+.ccx-nebula-parent-node-pod:hover .ccx-alpha-orbit-inner {
+  animation: ccxSpinRuneReverse 11s linear infinite;
+}
+
+.ccx-alpha-star-core {
+  position: relative;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #422006, #09121c);
+  border: 2.5px solid #FEEBB3;
+  box-shadow: 0 0 25px rgba(254, 235, 179, 0.75), inset 0 0 14px rgba(254, 235, 179, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ccx-alpha-star-core img {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
+  border-radius: 50%;
+  object-fit: cover;
+  border: none !important;
+}
+
+.ccx-alpha-check-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #422006;
+  border: 1.5px solid #FEEBB3;
+  color: #FEEBB3;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.85);
+}
+
+.ccx-parent-pod-plate {
+  width: 100%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.ccx-parent-start-kicker {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #94a3b8;
+}
+
+.ccx-parent-talent-name {
+  margin: 0;
+  font-family: 'Cinzel', serif;
+  font-size: 15px;
+  font-weight: 800;
+  color: #FEEBB3;
+  cursor: pointer;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+.ccx-parent-pod-pills {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 2px 0;
+}
+
+.ccx-parent-pod-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.ccx-expand-track-btn {
+  padding: 4px 10px !important;
+  font-weight: 700 !important;
+}
+
+/* Expanded Track Sector inside the Nebula (spans full width or 2 columns so stars have plenty of room) */
+.ccx-nebula-track-sector.is-expanded {
+  grid-column: 1 / -1;
+  background: rgba(6, 13, 22, 0.85);
+  border: 1px solid rgba(254, 235, 179, 0.55);
+  border-radius: 16px;
+  padding: 12px 16px 16px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.8), 0 0 32px rgba(56, 189, 248, 0.16);
+}
+
+.ccx-nebula-sector-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 14px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(20, 42, 58, 0.9), rgba(10, 20, 30, 0.9));
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  cursor: pointer;
+}
+
+.sector-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sector-bar-left i {
+  color: #FEEBB3;
+  font-size: 15px;
+}
+
+.sector-track-name {
+  font-family: 'Cinzel', serif;
+  font-size: 15px;
+  font-weight: 800;
+  color: #FEEBB3;
+  letter-spacing: 1.5px;
+}
+
+.sector-tree-origin {
+  font-size: 11px;
+  color: #7dd3fc;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.14);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+}
+
+.sector-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ccx-sector-collapse-btn {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(254, 235, 179, 0.5);
+  color: #FEEBB3;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ccx-sector-collapse-btn:hover {
+  background: rgba(36, 105, 117, 0.6);
+  border-color: #FEEBB3;
+}
+
+.ccx-star-tier-pip.root-pip {
+  background: rgba(254, 235, 179, 0.28);
+  color: #FEEBB3;
+  border-color: #FEEBB3;
+}
+
+.ccx-star-tier-pip.next-pip {
+  background: rgba(56, 189, 248, 0.24);
+  color: #7dd3fc;
+  border-color: #38bdf8;
+}
+
+.ccx-constellation-sky-card {
+  --sky-rx: 0deg;
+  --sky-ry: 0deg;
+  --sky-gx: 50%;
+  --sky-gy: 50%;
+  position: relative;
+  width: 100%;
+  min-height: 360px;
+  border-radius: 14px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at var(--sky-gx) var(--sky-gy), rgba(56, 189, 248, 0.16) 0%, transparent 55%),
+    radial-gradient(ellipse at 50% 25%, rgba(254, 235, 179, 0.1) 0%, transparent 65%),
+    radial-gradient(ellipse at 50% 50%, #0a1926 0%, #040911 75%, #020509 100%);
+  border: 1px solid rgba(56, 189, 248, 0.42);
+  box-shadow:
+    inset 0 0 65px rgba(2, 6, 14, 0.95),
+    0 14px 36px rgba(0, 0, 0, 0.65),
+    0 0 24px rgba(56, 189, 248, 0.14);
+  transform-style: preserve-3d;
+  transform: perspective(1100px) rotateX(var(--sky-rx)) rotateY(var(--sky-ry));
+  transition: transform 0.14s ease-out, border-color 0.25s ease, box-shadow 0.25s ease;
+  margin-top: 6px;
+}
+
+.ccx-constellation-sky-card.category-class {
+  background:
+    radial-gradient(circle at var(--sky-gx) var(--sky-gy), rgba(254, 235, 179, 0.17) 0%, transparent 55%),
+    radial-gradient(ellipse at 50% 30%, rgba(245, 158, 11, 0.12) 0%, transparent 65%),
+    radial-gradient(ellipse at 50% 50%, #131b29 0%, #060a12 75%, #020408 100%);
+  border-color: rgba(254, 235, 179, 0.45);
+}
+
+.ccx-constellation-sky-card.category-magic {
+  background:
+    radial-gradient(circle at var(--sky-gx) var(--sky-gy), rgba(192, 132, 252, 0.18) 0%, transparent 55%),
+    radial-gradient(ellipse at 50% 30%, rgba(56, 189, 248, 0.12) 0%, transparent 65%),
+    radial-gradient(ellipse at 50% 50%, #151129 0%, #070512 75%, #030208 100%);
+  border-color: rgba(192, 132, 252, 0.45);
+}
+
+.ccx-constellation-sky-card:hover {
+  border-color: rgba(254, 235, 179, 0.75);
+  box-shadow:
+    inset 0 0 55px rgba(2, 6, 14, 0.9),
+    0 18px 42px rgba(0, 0, 0, 0.78),
+    0 0 30px rgba(254, 235, 179, 0.22);
+}
+
+/* Deep 3D Rotating Celestial Astrolabe Rings */
+.ccx-sky-nebula-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateZ(-25px);
+}
+
+.ccx-astrolabe-ring {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.ccx-astrolabe-ring.outer {
+  width: 340px;
+  height: 340px;
+  border: 1px dashed rgba(56, 189, 248, 0.16);
+}
+
+.ccx-astrolabe-ring.inner {
+  width: 210px;
+  height: 210px;
+  border: 1px dashed rgba(254, 235, 179, 0.14);
+}
+
+/* SVG Constellation Leylines Layer */
+.ccx-constellation-lines-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 3D Foreground Interactive Star Nodes Layer */
+.ccx-constellation-nodes-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.ccx-star-constellation-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 176px;
+  z-index: 3;
+}
+
+.ccx-star-constellation-node:hover {
+  z-index: 15;
+}
+
+/* Glowing Celestial Star Orb */
+.ccx-star-orb-wrap {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.ccx-star-flare-cross {
+  position: absolute;
+  inset: -10px;
+  pointer-events: none;
+  background:
+    linear-gradient(0deg, transparent 46%, rgba(254, 235, 179, 0.75) 50%, transparent 54%),
+    linear-gradient(90deg, transparent 46%, rgba(254, 235, 179, 0.75) 50%, transparent 54%);
+  opacity: 0.45;
+  transform: scale(0.85);
+  transition: transform 0.22s ease, opacity 0.22s ease;
+}
+
+.ccx-star-constellation-node.node-owned .ccx-star-flare-cross,
+.ccx-star-constellation-node.node-selected-levelup .ccx-star-flare-cross {
+  opacity: 0.92;
+  transform: scale(1.15);
+}
+
+.ccx-star-constellation-node.node-available .ccx-star-flare-cross {
+  background:
+    linear-gradient(0deg, transparent 46%, rgba(56, 189, 248, 0.85) 50%, transparent 54%),
+    linear-gradient(90deg, transparent 46%, rgba(56, 189, 248, 0.85) 50%, transparent 54%);
+  opacity: 0.75;
+}
+
+.ccx-star-constellation-node:hover .ccx-star-flare-cross {
+  opacity: 1;
+  transform: scale(1.3) rotate(15deg);
+}
+
+.ccx-star-halo-ring {
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(56, 189, 248, 0.45);
+  pointer-events: none;
+}
+
+.ccx-star-constellation-node:hover .ccx-star-halo-ring {
+  animation: ccxSpinRuneSlow 14s linear infinite;
+}
+
+.ccx-star-constellation-node.node-owned .ccx-star-halo-ring {
+  border-color: rgba(254, 235, 179, 0.85);
+  box-shadow: 0 0 18px rgba(254, 235, 179, 0.45);
+}
+
+.ccx-star-constellation-node.node-selected-levelup .ccx-star-halo-ring {
+  border-color: #34d399;
+  box-shadow: 0 0 22px rgba(52, 211, 153, 0.65);
+}
+
+.ccx-star-constellation-node.node-locked .ccx-star-halo-ring {
+  border-color: rgba(100, 116, 139, 0.3);
+  animation: none;
+}
+
+.ccx-star-orb-core {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #1e293b, #090f17);
+  border: 2px solid #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.85);
+}
+
+.ccx-star-constellation-node.node-owned .ccx-star-orb-core {
+  border-color: #FEEBB3;
+  background: radial-gradient(circle at 35% 35%, #422006, #0f172a);
+  box-shadow: 0 0 20px rgba(254, 235, 179, 0.7), inset 0 0 10px rgba(254, 235, 179, 0.4);
+}
+
+.ccx-star-constellation-node.node-selected-levelup .ccx-star-orb-core {
+  border-color: #34d399;
+  background: radial-gradient(circle at 35% 35%, #064e3b, #0f172a);
+  box-shadow: 0 0 24px rgba(52, 211, 153, 0.85), inset 0 0 12px rgba(52, 211, 153, 0.45);
+}
+
+.ccx-star-constellation-node.node-available .ccx-star-orb-core {
+  border-color: #38bdf8;
+  background: radial-gradient(circle at 35% 35%, #0c4a6e, #09131c);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.6), inset 0 0 8px rgba(56, 189, 248, 0.35);
+}
+
+.ccx-star-constellation-node.node-locked .ccx-star-orb-core {
+  opacity: 0.62;
+  filter: grayscale(45%);
+}
+
+.ccx-star-talent-icon {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  max-width: 28px !important;
+  border-radius: 50%;
+  object-fit: cover;
+  border: none !important;
+}
+
+.ccx-star-corner-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #09121a;
+  border: 1px solid #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8.5px;
+  color: #94a3b8;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.8);
+}
+
+.ccx-star-constellation-node.node-owned .ccx-star-corner-badge {
+  background: #422006;
+  border-color: #FEEBB3;
+  color: #FEEBB3;
+}
+
+.ccx-star-constellation-node.node-selected-levelup .ccx-star-corner-badge {
+  background: #064e3b;
+  border-color: #34d399;
+  color: #6ee7b7;
+}
+
+.ccx-star-constellation-node.node-available .ccx-star-corner-badge {
+  background: #082f49;
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+/* Floating Star HUD Nameplate */
+.ccx-star-hud-plate {
+  margin-top: 5px;
+  background: rgba(7, 14, 22, 0.95);
+  border: 1px solid rgba(56, 189, 248, 0.38);
+  border-radius: 7px;
+  padding: 5px 8px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.72);
+}
+
+.ccx-star-constellation-node.node-owned .ccx-star-hud-plate {
+  border-color: rgba(254, 235, 179, 0.65);
+  background: linear-gradient(180deg, rgba(28, 22, 10, 0.94), rgba(9, 15, 23, 0.95));
+}
+
+.ccx-star-constellation-node.node-selected-levelup .ccx-star-hud-plate {
+  border-color: #34d399;
+  background: linear-gradient(180deg, rgba(6, 58, 45, 0.94), rgba(9, 15, 23, 0.95));
+}
+
+.ccx-star-constellation-node.node-locked .ccx-star-hud-plate {
+  border-color: rgba(71, 85, 105, 0.45);
+  opacity: 0.78;
+}
+
+.ccx-star-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.ccx-star-tier-pip {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(56, 189, 248, 0.16);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  flex-shrink: 0;
+}
+
+.ccx-star-constellation-node.node-owned .ccx-star-tier-pip {
+  background: rgba(254, 235, 179, 0.18);
+  color: #FEEBB3;
+  border-color: rgba(254, 235, 179, 0.4);
+}
+
+.ccx-star-name {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ccx-star-constellation-node.node-owned .ccx-star-name {
+  color: #FEEBB3;
+}
+
+.ccx-star-req-line {
+  font-size: 9.5px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.ccx-star-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+/* =========================================================================
+   GALAXY OVERVIEW MAP & ZOOM-IN CONSTELLATION TRANSITIONS
+   ========================================================================= */
+
+.ccx-galaxy-overview-map {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  min-height: 680px;
+  height: calc(100vh - 250px);
+  max-height: 860px;
+  overflow: hidden;
+  border-radius: 14px;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.23s ease;
+  will-change: transform, opacity;
+  animation: ccxGalaxyReveal 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ccx-galaxy-overview-map.is-zooming-into-constellation {
+  transform: scale(2.65);
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes ccxGalaxyReveal {
+  0% {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.ccx-galaxy-orbit-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Central Hero Core Nexus */
+.ccx-galaxy-core-nexus {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.ccx-core-nexus-halo {
+  position: absolute;
+  width: 128px;
+  height: 128px;
+  top: -22px;
+  border-radius: 50%;
+  border: 1px dashed rgba(254, 235, 179, 0.38);
+  background: radial-gradient(circle, rgba(254, 235, 179, 0.14) 0%, rgba(56, 189, 248, 0.06) 55%, transparent 72%);
+}
+
+.ccx-core-nexus-avatar {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 2.5px solid #FEEBB3;
+  background: #071019;
+  box-shadow: 0 0 28px rgba(254, 235, 179, 0.45), inset 0 0 14px rgba(56, 189, 248, 0.35);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ccx-core-nexus-avatar img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+  border: none !important;
+}
+
+.ccx-core-nexus-label {
+  margin-top: 7px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(6, 12, 20, 0.9);
+  border: 1px solid rgba(254, 235, 179, 0.45);
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #FEEBB3;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.75);
+}
+
+/* Floating Parent Star Clusters in the Galaxy */
+.ccx-galaxy-star-cluster {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 190px;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), z-index 0s;
+}
+
+.ccx-galaxy-star-cluster:hover {
+  transform: translate(-50%, -54%) scale(1.08);
+  z-index: 20;
+}
+
+.ccx-galaxy-track-ribbon {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7dd3fc;
+  background: rgba(8, 20, 34, 0.92);
+  border: 1px solid rgba(56, 189, 248, 0.42);
+  padding: 2px 10px;
+  border-radius: 999px;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.7);
+  transition: border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ccx-galaxy-star-cluster.category-magic .ccx-galaxy-track-ribbon {
+  color: #e9d5ff;
+  border-color: rgba(192, 132, 252, 0.5);
+  background: rgba(24, 12, 42, 0.92);
+}
+
+.ccx-galaxy-star-cluster:hover .ccx-galaxy-track-ribbon {
+  color: #FEEBB3;
+  border-color: rgba(254, 235, 179, 0.8);
+  box-shadow: 0 0 14px rgba(254, 235, 179, 0.35);
+}
+
+.ccx-galaxy-star-cluster .ccx-parent-alpha-star {
+  width: 92px;
+  height: 92px;
+  margin: 0;
+}
+
+.ccx-galaxy-star-cluster:hover .ccx-alpha-orbit-outer {
+  animation: ccxSpinRuneSlow 14s linear infinite;
+}
+
+.ccx-galaxy-star-cluster:hover .ccx-alpha-orbit-inner {
+  animation: ccxSpinRuneReverse 10s linear infinite;
+}
+
+.ccx-galaxy-star-cluster:hover .ccx-alpha-star-core {
+  transform: scale(1.1);
+  box-shadow: 0 0 34px rgba(254, 235, 179, 0.95), inset 0 0 16px rgba(254, 235, 179, 0.6);
+}
+
+.ccx-galaxy-star-caption {
+  margin-top: 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: rgba(6, 13, 22, 0.88);
+  border: 1px solid rgba(254, 235, 179, 0.32);
+  border-radius: 8px;
+  padding: 4px 10px;
+  max-width: 185px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.75);
+  transition: border-color 0.2s ease;
+}
+
+.ccx-galaxy-star-cluster:hover .ccx-galaxy-star-caption {
+  border-color: rgba(254, 235, 179, 0.75);
+}
+
+.ccx-galaxy-star-name {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: #FEEBB3;
+  text-align: center;
+  max-width: 165px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ccx-galaxy-star-counts {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+/* Zoomed-In Single Track Constellation View */
+.ccx-galaxy-focused-constellation {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: ccxFocusedConstellationZoomIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.22s ease, opacity 0.2s ease;
+  will-change: transform, opacity;
+}
+
+.ccx-galaxy-focused-constellation.is-zooming-out-to-galaxy {
+  transform: scale(0.68);
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes ccxFocusedConstellationZoomIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.ccx-galaxy-focused-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+  background: linear-gradient(90deg, rgba(8, 18, 30, 0.95), rgba(14, 29, 45, 0.92), rgba(8, 18, 30, 0.95));
+  border: 1px solid rgba(254, 235, 179, 0.45);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.65);
+}
+
+.ccx-galaxy-zoom-out-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  border-radius: 7px;
+  background: linear-gradient(180deg, rgba(14, 42, 62, 0.95), rgba(8, 24, 38, 0.95));
+  border: 1px solid rgba(56, 189, 248, 0.65);
+  color: #e0f2fe;
+  font-family: 'Cinzel', serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ccx-galaxy-zoom-out-btn:hover {
+  border-color: #FEEBB3;
+  color: #FEEBB3;
+  transform: translateX(-2px);
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.4);
+}
+
+.ccx-focused-track-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ccx-focused-track-heading > i {
+  color: #FEEBB3;
+  font-size: 14px;
+}
+
+.ccx-galaxy-quick-warp-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ccx-warp-star-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 5px;
+  border-radius: 999px;
+  background: rgba(9, 18, 28, 0.9);
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.ccx-warp-star-pill img {
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 50%;
+  object-fit: cover;
+  border: none !important;
+}
+
+.ccx-warp-star-pill:hover {
+  border-color: rgba(56, 189, 248, 0.75);
+  color: #e2e8f0;
+}
+
+.ccx-warp-star-pill.active {
+  background: rgba(42, 30, 10, 0.92);
+  border-color: #FEEBB3;
+  color: #FEEBB3;
+  box-shadow: 0 0 10px rgba(254, 235, 179, 0.3);
+}
+
+/* Subclass Badges under Class Nodes in the Gallery */
+.ccx-galaxy-subclass-badges {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 1px;
+}
+
+.ccx-galaxy-subclass-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(48, 34, 10, 0.95), rgba(24, 18, 6, 0.95));
+  border: 1px solid rgba(254, 235, 179, 0.65);
+  color: #FEEBB3;
+  font-family: 'Cinzel', serif;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.65);
+}
+
+.ccx-galaxy-subclass-pill > i {
+  font-size: 8.5px;
+  color: #38bdf8;
+}
+
+/* Subclass Branch Arm Hubs inside the Class Constellation */
+.ccx-constellation-subclass-hub {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.ccx-subclass-hub-gem {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 35% 35%, #0c4a6e, #07111a);
+  border: 1.5px solid #38bdf8;
+  color: #7dd3fc;
+  font-size: 11px;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.55);
+}
+
+.ccx-constellation-subclass-hub.is-started .ccx-subclass-hub-gem {
+  background: radial-gradient(circle at 35% 35%, #422006, #0f172a);
+  border-color: #FEEBB3;
+  color: #FEEBB3;
+  box-shadow: 0 0 18px rgba(254, 235, 179, 0.75);
+}
+
+.ccx-subclass-hub-plate {
+  margin-top: 4px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(6, 14, 24, 0.94);
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
+}
+
+.ccx-constellation-subclass-hub.is-started .ccx-subclass-hub-plate {
+  background: linear-gradient(180deg, rgba(36, 26, 8, 0.95), rgba(9, 15, 24, 0.96));
+  border-color: rgba(254, 235, 179, 0.8);
+  box-shadow: 0 0 16px rgba(254, 235, 179, 0.25), 0 4px 12px rgba(0, 0, 0, 0.85);
+}
+
+.ccx-subclass-hub-title {
+  font-family: 'Cinzel', serif;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #7dd3fc;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ccx-constellation-subclass-hub.is-started .ccx-subclass-hub-title {
+  color: #FEEBB3;
+}
+
+.ccx-subclass-hub-counts {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.hub-mini-pill {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 0 5px;
+  border-radius: 4px;
+}
+
+.hub-mini-pill.owned {
+  color: #FEEBB3;
+  background: rgba(254, 235, 179, 0.15);
+}
+
+.hub-mini-pill.available {
+  color: #7dd3fc;
+  background: rgba(56, 189, 248, 0.15);
+}
+
+
+
+

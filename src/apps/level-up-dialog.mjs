@@ -24,10 +24,27 @@ import {
   parseTalentData,
   parseProfessionData,
   resolveLineageFeatures,
+  buildTalentTrees,
 } from "../features/compendium-parser.mjs";
+import {
+  isDisallowedTalentItem,
+  normalizeTalentName,
+  CANONICAL_TALENTS,
+  NORMALIZED_CANONICAL_TALENTS,
+} from "../features/talent-canonical-map.mjs";
 import { resolveItemIcon, isDefaultIcon } from "../features/equipment-icons.mjs";
-import { getSetting } from "../settings.mjs";
+import { getSetting, setSetting } from "../settings.mjs";
 import TalentTreeViewer from "./talent-tree-viewer.mjs";
+import {
+  CcxSound,
+  setupCcxParticles,
+  attachCcxInteractiveEffects,
+  buildAttributeRadarSvg,
+  playAwakeningFinaleSequence,
+  decorateTreesWithConstellationLayout,
+  buildCharacterNebulaTracks,
+  playGalaxyZoomAnimation,
+} from "../features/ccx-experience-engine.mjs";
 
 const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
 
@@ -50,15 +67,15 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
   /** @inheritdoc */
   static DEFAULT_OPTIONS = {
     tag: "form",
-    classes: ["mythcraft", "essence-sheet", "level-up-dialog"],
+    classes: ["mythcraft", "essence-sheet", "level-up-dialog", "ccx-fullscreen-window", "lud-experience-window"],
     window: {
-      title: "Level Up & Progression",
+      title: "MythCraft — Ascension & Talent Build Hierarchy",
       icon: "fas fa-arrow-up-right-dots",
       resizable: true,
     },
     position: {
-      width: 720,
-      height: "auto",
+      width: 1520,
+      height: 920,
     },
     form: {
       handler: this.#onSubmitForm,
@@ -79,6 +96,14 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       toggleExtraTalent: this.#onToggleExtraTalent,
       selectMilestoneFeature: this.#onSelectMilestoneFeature,
       clearSelectedMilestoneFeature: this.#onClearSelectedMilestoneFeature,
+      filterTreeCategory: this.#onFilterTreeCategory,
+      toggleTreeRootExpand: this.#onToggleTreeRootExpand,
+      toggleTreeTrackExpand: this.#onToggleTreeTrackExpand,
+      chooseTreeTalent: this.#onChooseTreeTalent,
+      viewTreeTalent: this.#onViewTreeTalent,
+      postTreeTalent: this.#onPostTreeTalent,
+      focusSection: this.#onFocusSection,
+      toggleCcxSound: this.#onToggleCcxSound,
     },
   };
 
@@ -132,6 +157,15 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
     // Lineage Milestone Feature (Levels 5, 10, 15, 20, 25, 29)
     this._selectedMilestoneFeatureId = null;
     this._cachedLineageDocs = null;
+
+    // Embedded Talent Build Hierarchy state
+    this._allCompendiumTalents = null;
+    this._treeCategory = "character"; // "character" | "class" | "specialization" | "magic" | "all"
+    this._treeSearchTerm = "";
+    this._expandedRootIds = new Set();
+    this._collapsedRootIds = new Set();
+    this._expandedTrackTitles = new Set();
+    this._collapsedTrackTitles = new Set();
   }
 
   /* ───────────────────────────────────────────────────────────────────────────
@@ -334,6 +368,9 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       }
     }
 
+    // Embedded Live Talent Build Hierarchy preparation
+    const { rootTrees, characterNebulaTracks, focusedNebulaTrack, totalTreesCount, startedTreesCount } = await this.#prepareTalentHierarchy(tgtLvl);
+
     return {
       actor: this.actor,
       currentLevel: curLvl,
@@ -365,7 +402,292 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       previewMaxHp,
       previewGainText,
       extraTalents,
+      trees: rootTrees,
+      characterNebulaTracks,
+      focusedNebulaTrack,
+      totalTreesCount,
+      startedTreesCount: characterNebulaTracks.length || startedTreesCount,
+      hasStartedTrees: characterNebulaTracks.length > 0 || startedTreesCount > 0,
+      activeTreeCategory: this._treeCategory,
+      treeSearchTerm: this._treeSearchTerm,
+      ccxEnabled: Boolean(getSetting("ccxEnabled", true)),
+      ccxSoundEnabled: Boolean(getSetting("ccxSoundEnabled", true)),
+      attributeRadarSvg: buildAttributeRadarSvg(attributesList, levelCap),
     };
+  }
+
+  /**
+   * Builds and filters the character's live Talent Tree hierarchy for the embedded right-hand canvas.
+   * Caches built trees by targetLevel so expanding tracks, switching tabs, or adjusting HP/skills is instantaneous (<1ms).
+   */
+  async #prepareTalentHierarchy(targetLevel) {
+    if (!this._actorTalents) {
+      const actorItems = this.actor.items.filter(i => !isDisallowedTalentItem(i));
+      const customConfig = globalThis.game?.settings?.get("mythcraft-essence-sheet", "customTalentCompendiums") || [];
+      const customTalentNames = new Set();
+      for (const c of customConfig) {
+        if (!c.pack) continue;
+        const packKey = c.pack.toLowerCase().trim();
+        const p = game.packs?.get(c.pack) || game.packs?.find(pack => (pack.metadata?.id || pack.collection || "").toLowerCase() === packKey || (pack.metadata?.label || pack.title || "").toLowerCase() === packKey);
+        if (p?.index) {
+          for (const entry of p.index) {
+            customTalentNames.add(normalizeTalentName(entry.name));
+            customTalentNames.add(entry.name.toLowerCase().trim());
+          }
+        }
+      }
+
+      this._actorTalents = actorItems.filter(i => {
+        if (i.type === "talent") return true;
+        if (i.type === "feature") {
+          const rawName = String(i.name || "").trim();
+          const norm = normalizeTalentName(rawName);
+          return Boolean(NORMALIZED_CANONICAL_TALENTS[norm] || CANONICAL_TALENTS[rawName.toLowerCase()] || customTalentNames.has(norm) || customTalentNames.has(rawName.toLowerCase()));
+        }
+        return false;
+      });
+    }
+
+    if (!this._allCompendiumTalents) {
+      const packs = getAvailableCompendiums();
+      const classTalents = (await loadPacksDocuments(packs.classes)).filter(d => !isDisallowedTalentItem(d));
+      const specTalents = (await loadPacksDocuments(packs.specTalents)).filter(d => !isDisallowedTalentItem(d));
+      const magicTalents = (await loadPacksDocuments(packs.magic)).filter(d => !isDisallowedTalentItem(d));
+
+      const allTalents = [];
+      const seenNames = new Set();
+      for (const doc of classTalents) {
+        if (doc.type === "talent" || doc.type === "feature" || doc._customCategory) {
+          if (!doc._compCategory) doc._compCategory = "class";
+          allTalents.push(doc);
+          seenNames.add(normalizeTalentName(doc.name));
+        }
+      }
+      for (const doc of specTalents) {
+        if (doc.type === "talent" || doc.type === "feature" || doc._customCategory) {
+          if (!doc._compCategory) doc._compCategory = "specialization";
+          allTalents.push(doc);
+          seenNames.add(normalizeTalentName(doc.name));
+        }
+      }
+      for (const doc of magicTalents) {
+        if (doc.type === "talent" || doc.type === "feature" || doc._customCategory) {
+          if (!doc._compCategory) doc._compCategory = "magic";
+          allTalents.push(doc);
+          seenNames.add(normalizeTalentName(doc.name));
+        }
+      }
+      for (const doc of this._actorTalents) {
+        const cleanName = normalizeTalentName(doc.name);
+        if (!seenNames.has(cleanName)) {
+          allTalents.push(doc);
+          seenNames.add(cleanName);
+        }
+      }
+      this._allCompendiumTalents = allTalents;
+    }
+
+    // Only rebuild talent trees when targetLevel actually changes!
+    if (!this._builtTrees || this._builtTreesLevel !== targetLevel) {
+      const builtTrees = buildTalentTrees(this._allCompendiumTalents, this._actorTalents, { effectiveLevel: targetLevel });
+      for (const tree of builtTrees) {
+        tree.isStarted = tree.nodes.some(n => n.isOwned);
+        tree.ownedCount = tree.nodes.filter(n => n.isOwned).length;
+        tree.availableCount = tree.nodes.filter(n => n.isAvailable && !n.isOwned).length;
+        for (const track of tree.tracks) {
+          track.ownedCount = track.nodes.filter(n => n.isOwned).length;
+          track.availableCount = track.nodes.filter(n => n.isAvailable && !n.isOwned).length;
+        }
+      }
+      this._builtTrees = builtTrees;
+      this._builtTreesLevel = targetLevel;
+    }
+
+    const builtTrees = this._builtTrees;
+    const selectedId = this._selectedTalent ? (this._selectedTalent.id || this._selectedTalent._id) : null;
+    const selectedNorm = this._selectedTalent ? normalizeTalentName(this._selectedTalent.name) : "";
+
+    const startedTrees = builtTrees.filter(t =>
+      t.isStarted ||
+      t.nodes.some(n => (selectedId && n.id === selectedId) || (selectedNorm && normalizeTalentName(n.name) === selectedNorm))
+    );
+    const effectiveCategory = this._treeCategory;
+
+    let displayTrees = builtTrees;
+    if (effectiveCategory === "character") {
+      displayTrees = startedTrees.length > 0 ? startedTrees : builtTrees;
+    } else if (effectiveCategory !== "all") {
+      displayTrees = builtTrees.filter(t => t.category === effectiveCategory);
+    }
+
+    const decorateNode = (n) => ({
+      ...n,
+      isSelectedForLevelUp: Boolean(
+        (selectedId && n.id === selectedId) ||
+        (selectedNorm && normalizeTalentName(n.name) === selectedNorm)
+      ),
+    });
+
+    const rawRootTrees = displayTrees.map(tree => {
+      const hasSelectedInside = Boolean(selectedId || selectedNorm) && tree.nodes.some(n => (selectedId && n.id === selectedId) || (selectedNorm && normalizeTalentName(n.name) === selectedNorm));
+      const isExpanded = effectiveCategory === "character"
+        ? (startedTrees.length > 0 ? !this._collapsedRootIds.has(tree.id) : (this._expandedRootIds.has(tree.id) || hasSelectedInside))
+        : (this._expandedRootIds.has(tree.id) || hasSelectedInside);
+
+      const anyTrackStartedInTree = tree.tracks.some(tr =>
+        tr.isStarted || (Boolean(selectedId || selectedNorm) && tr.nodes.some(n => (selectedId && n.id === selectedId) || (selectedNorm && normalizeTalentName(n.name) === selectedNorm)))
+      );
+
+      const tracks = tree.tracks.map(track => {
+        const trackHasSelected = Boolean(selectedId || selectedNorm) && track.nodes.some(n => (selectedId && n.id === selectedId) || (selectedNorm && normalizeTalentName(n.name) === selectedNorm));
+        const isTrackExpanded = effectiveCategory === "character"
+          ? (((track.isStarted || trackHasSelected || !anyTrackStartedInTree) && !this._collapsedTrackTitles.has(track.trackTitle)) || this._expandedTrackTitles.has(track.trackTitle))
+          : !this._collapsedTrackTitles.has(track.trackTitle);
+
+        return {
+          ...track,
+          isExpanded: isTrackExpanded,
+          totalNodesCount: track.nodes.length,
+          nodes: selectedId ? track.nodes.map(decorateNode) : track.nodes,
+          tiers: (isExpanded && isTrackExpanded)
+            ? (track.tiers || []).map(tier => ({
+                ...tier,
+                nodes: selectedId ? (tier.nodes || []).map(decorateNode) : (tier.nodes || []),
+              }))
+            : [],
+        };
+      });
+
+      const isDisciplineLocked = tree.category === "magic" && !tree.isStarted;
+
+      return {
+        ...tree,
+        isExpanded,
+        isDisciplineLocked,
+        totalNodesCount: tree.nodes.length,
+        entryTalents: selectedId ? (tree.entryTalents || []).map(decorateNode) : (tree.entryTalents || []),
+        tracks,
+      };
+    });
+
+    const rootTrees = decorateTreesWithConstellationLayout(rawRootTrees);
+    const characterNebulaTracks = effectiveCategory === "character"
+      ? buildCharacterNebulaTracks(rawRootTrees, this._expandedTrackTitles)
+      : [];
+    const focusedNebulaTrack = characterNebulaTracks.find(t => t.isExpanded) || null;
+
+    return {
+      rootTrees,
+      characterNebulaTracks,
+      focusedNebulaTrack,
+      totalTreesCount: builtTrees.length,
+      startedTreesCount: startedTrees.length,
+    };
+  }
+
+  /** @inheritdoc */
+  _onFirstRender(context, options) {
+    super._onFirstRender?.(context, options);
+    try {
+      const ccxEnabled = Boolean(getSetting("ccxEnabled", true));
+      if (ccxEnabled) {
+        const vw = Math.max(1024, (globalThis.innerWidth || 1600) - 24);
+        const vh = Math.max(700, (globalThis.innerHeight || 960) - 24);
+        this.setPosition({
+          width: vw,
+          height: vh,
+          left: 12,
+          top: 12,
+        });
+      } else {
+        this.setPosition({
+          width: 720,
+          height: 760,
+        });
+      }
+    } catch (_) {}
+  }
+
+  /** @inheritdoc */
+  _preRender(context, options) {
+    if (!this._savedScrolls) this._savedScrolls = new Map();
+    if (this.element) {
+      const scrollEls = this.element.querySelectorAll(".lud-left-scroll, .lud-tree-canvas-scroll");
+      for (const el of scrollEls) {
+        this._savedScrolls.set(el.className, el.scrollTop);
+      }
+    }
+    return super._preRender?.(context, options);
+  }
+
+  /** @inheritdoc */
+  _onRender(context, options) {
+    super._onRender?.(context, options);
+
+    if (this.element) {
+      this._particleSystem = setupCcxParticles(this.element);
+      attachCcxInteractiveEffects(this.element, this._particleSystem);
+    }
+
+    if (this._savedScrolls && this.element) {
+      const scrollEls = this.element.querySelectorAll(".lud-left-scroll, .lud-tree-canvas-scroll");
+      for (const el of scrollEls) {
+        if (this._savedScrolls.has(el.className)) {
+          el.scrollTop = this._savedScrolls.get(el.className);
+        }
+      }
+    }
+
+    // Instant client-side search filter for embedded Talent Build Hierarchy
+    const searchInput = this.element?.querySelector("input.lud-tree-search-input");
+    if (searchInput) {
+      if (this._treeSearchTerm) searchInput.value = this._treeSearchTerm;
+
+      const performFilter = (term) => {
+        const cleanTerm = (term || "").toLowerCase().trim();
+        const nebulaItems = this.element.querySelectorAll(".ccx-galaxy-star-cluster, .ccx-nebula-parent-node-pod, .ccx-nebula-track-sector");
+        nebulaItems.forEach(item => {
+          if (!cleanTerm) {
+            item.style.display = "";
+            return;
+          }
+          const txt = (item.textContent || "").toLowerCase();
+          item.style.display = txt.includes(cleanTerm) ? "" : "none";
+        });
+
+        const rootSections = this.element.querySelectorAll(".lud-hierarchy-canvas .srd-root-tree-column");
+        rootSections.forEach(rootCol => {
+          if (!cleanTerm) {
+            rootCol.style.display = "";
+            rootCol.querySelectorAll(".srd-subclass-column-card, .srd-badge-node").forEach(el => { el.style.display = ""; });
+            return;
+          }
+          const rootTitle = (rootCol.querySelector(".srd-root-title")?.textContent || "").toLowerCase();
+          const rootMatches = rootTitle.includes(cleanTerm);
+          let anyNodeMatches = false;
+          rootCol.querySelectorAll(".srd-badge-node").forEach(node => {
+            const title = (node.querySelector(".badge-node-title")?.textContent || "").toLowerCase();
+            const match = rootMatches || title.includes(cleanTerm);
+            node.style.display = match ? "" : "none";
+            if (match) anyNodeMatches = true;
+          });
+          rootCol.style.display = (rootMatches || anyNodeMatches) ? "" : "none";
+        });
+      };
+
+      if (this._treeSearchTerm) performFilter(this._treeSearchTerm);
+      searchInput.addEventListener("input", (e) => {
+        this._treeSearchTerm = e.target.value;
+        performFilter(this._treeSearchTerm);
+      });
+    }
+  }
+
+  /** @inheritdoc */
+  _onClose(options) {
+    this._particleSystem?.destroy?.();
+    this._particleSystem = null;
+    return super._onClose?.(options);
   }
 
   /* ───────────────────────────────────────────────────────────────────────────
@@ -513,6 +835,160 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
 
   static #onClearSelectedMilestoneFeature(event, target) {
     this._selectedMilestoneFeatureId = null;
+    this.render();
+  }
+
+  static #onFilterTreeCategory(event, target) {
+    const cat = target.dataset.category;
+    if (!cat) return;
+    this._treeCategory = cat;
+    this.render();
+  }
+
+  static #onToggleTreeRootExpand(event, target) {
+    const rootId = target.dataset.rootId || target.closest("[data-root-id]")?.dataset.rootId;
+    if (!rootId) return;
+    const startedTrees = (this._builtTrees || []).filter(t => t.isStarted);
+    const effectiveCategory = (this._treeCategory === "character" && startedTrees.length === 0) ? "all" : this._treeCategory;
+    if (effectiveCategory === "character") {
+      if (this._collapsedRootIds.has(rootId)) this._collapsedRootIds.delete(rootId);
+      else this._collapsedRootIds.add(rootId);
+    } else {
+      if (this._expandedRootIds.has(rootId)) this._expandedRootIds.delete(rootId);
+      else this._expandedRootIds.add(rootId);
+    }
+    this.render();
+  }
+
+  static #onToggleTreeTrackExpand(event, target) {
+    event.preventDefault();
+    event.stopPropagation();
+    const trackTitle = target.dataset.trackTitle || target.closest("[data-track-title]")?.dataset.trackTitle;
+    if (!trackTitle) return;
+    if (this._treeCategory === "character") {
+      if (trackTitle === "__GALAXY_OVERVIEW__" || this._expandedTrackTitles.has(trackTitle)) {
+        playGalaxyZoomAnimation(this.element, target, "out", () => {
+          this._expandedTrackTitles.clear();
+          this.render();
+        });
+      } else {
+        const isSwitchingFromFocused = this._expandedTrackTitles.size > 0;
+        if (isSwitchingFromFocused) {
+          this._expandedTrackTitles.clear();
+          this._expandedTrackTitles.add(trackTitle);
+          this.render();
+        } else {
+          playGalaxyZoomAnimation(this.element, target, "in", () => {
+            this._expandedTrackTitles.clear();
+            this._expandedTrackTitles.add(trackTitle);
+            this.render();
+          });
+        }
+      }
+      return;
+    } else if (this._collapsedTrackTitles.has(trackTitle)) {
+      this._collapsedTrackTitles.delete(trackTitle);
+      this._expandedTrackTitles.add(trackTitle);
+    } else {
+      this._collapsedTrackTitles.add(trackTitle);
+      this._expandedTrackTitles.delete(trackTitle);
+    }
+    this.render();
+  }
+
+  static #onChooseTreeTalent(event, target) {
+    event.preventDefault();
+    event.stopPropagation();
+    const id = target.dataset.talentId || target.closest("[data-talent-id]")?.dataset.talentId;
+    if (!id) return;
+
+    let foundNode = null;
+    for (const tree of (this._builtTrees || [])) {
+      const node = tree.nodes.find(n => n.id === id);
+      if (node) {
+        foundNode = node;
+        break;
+      }
+    }
+
+    if (!foundNode?.item) return;
+    if (!foundNode.isAvailable) {
+      ui.notifications.warn(foundNode.prereqTooltip || "Prerequisites not met for this talent.");
+      return;
+    }
+
+    this._selectedTalent = foundNode.item;
+    this._selectedExtraTalentIds = [];
+    this.render();
+  }
+
+  static #onViewTreeTalent(event, target) {
+    event.preventDefault();
+    event.stopPropagation();
+    const id = target.dataset.talentId || target.closest("[data-talent-id]")?.dataset.talentId;
+    if (!id) return;
+    for (const tree of (this._builtTrees || [])) {
+      const node = tree.nodes.find(n => n.id === id);
+      if (node?.item?.sheet) {
+        node.item.sheet.render(true);
+        return;
+      }
+    }
+  }
+
+  static async #onPostTreeTalent(event, target) {
+    event.preventDefault();
+    event.stopPropagation();
+    const id = target.dataset.talentId || target.closest("[data-talent-id]")?.dataset.talentId;
+    if (!id) return;
+    let foundNode = null;
+    for (const tree of (this._builtTrees || [])) {
+      const node = tree.nodes.find(n => n.id === id);
+      if (node) {
+        foundNode = node;
+        break;
+      }
+    }
+    if (!foundNode?.item) return;
+    const item = foundNode.item;
+    const desc = item.system?.description?.value ?? item.system?.description ?? "";
+    const content = `
+      <div class="mythcraft chat-card talent-share-card">
+        <header class="card-header flexrow" style="display:flex;align-items:center;gap:8px;border-bottom:1px solid #246975;padding-bottom:6px;margin-bottom:6px;">
+          <img src="${item.img}" title="${item.name}" width="32" height="32" style="border-radius:4px;border:1px solid #d4af37;"/>
+          <h3 class="item-name" style="margin:0;color:#feebb3;font-family:'Cinzel',serif;">${item.name}</h3>
+        </header>
+        <div class="card-content" style="font-size:12px;line-height:1.4;">${desc}</div>
+      </div>
+    `;
+    const rollMode = globalThis.game?.settings?.get("core", "rollMode") || "publicroll";
+    const msgData = {
+      speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+      content,
+    };
+    if (typeof ChatMessage.applyRollMode === "function") {
+      ChatMessage.applyRollMode(msgData, rollMode);
+    }
+    await ChatMessage.create(msgData);
+  }
+
+  static #onFocusSection(event, target) {
+    const sel = target.dataset.targetSection;
+    if (!sel || !this.element) return;
+    const el = this.element.querySelector(sel);
+    if (el) {
+      CcxSound.playStagePan();
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      el.classList.add("lud-pulse-highlight");
+      setTimeout(() => el.classList.remove("lud-pulse-highlight"), 1200);
+    }
+  }
+
+  static async #onToggleCcxSound(event, target) {
+    event.preventDefault();
+    const cur = Boolean(getSetting("ccxSoundEnabled", true));
+    await setSetting("ccxSoundEnabled", !cur);
+    if (!cur) CcxSound.playConfirm();
     this.render();
   }
 
@@ -683,6 +1159,13 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
         ui.notifications.warn("No lineage milestone feature was selected for this level-up. You can choose one later from compendiums.");
       }
     }
+
+    await playAwakeningFinaleSequence(
+      this.element,
+      this.actor,
+      "ASCENSION COMPLETE",
+      `Advanced to Level ${tgtLvl}${this._selectedTalent ? ` • ${this._selectedTalent.name}` : ""}`
+    );
 
     await this.actor.update(updates);
 

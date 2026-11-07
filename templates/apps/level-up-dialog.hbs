@@ -1,272 +1,859 @@
-<div class="level-up-dialog-content">
-  <div class="level-up-dialog-body">
+{{!-- ============================================================
+     MythCraft Essence Sheet — Full-Screen Level-Up & Build Hierarchy Experience
+     ============================================================ --}}
+<div class="level-up-dialog-content lud-experience-root">
 
-  {{!-- ── 1. Header & Level Progression ───────────────────────── --}}
-  <div class="level-up-header-card">
-    <img class="actor-portrait" src="{{actor.img}}" alt="{{actor.name}}" />
-    
-    <div class="header-details">
-      <h2 class="actor-title">{{actor.name}}</h2>
-
-      <div class="level-progression-bar">
-        <div class="level-badge current-level-badge">
-          <span class="badge-label">Current</span>
-          <span class="badge-num">Lv {{currentLevel}}</span>
-        </div>
-
-        <i class="fas fa-arrow-right level-arrow"></i>
-
-        <div class="level-selector-group">
-          <span class="badge-label">New Level</span>
-          <div class="level-spinner">
-            <button type="button" class="spin-btn dec-btn" data-action="decreaseLevel" title="Decrease Level">
-              <i class="fas fa-minus"></i>
-            </button>
-            <input type="number"
-                   class="target-level-input"
-                   value="{{targetLevel}}"
-                   min="1" max="30"
-                   data-action="selectTargetLevel" />
-            <button type="button" class="spin-btn inc-btn" data-action="increaseLevel" title="Increase Level">
-              <i class="fas fa-plus"></i>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+  {{!-- Ambient Video-Game Backdrop --}}
+  <div class="ccx-ambient-backdrop" aria-hidden="true">
+    <div class="ccx-ambient-orb orb-teal"></div>
+    <div class="ccx-ambient-orb orb-gold"></div>
+    <div class="ccx-ambient-grid"></div>
   </div>
 
-  {{!-- ── 2. Mode Switcher (Level Up vs Full Rebuild) ─────────── --}}
-  {{#unless isInitialBuild}}
-    <div class="level-mode-nav">
-      <button type="button"
-              class="mode-btn {{#if (eq mode 'levelUp')}}active{{/if}}"
-              data-action="setMode"
-              data-mode="levelUp">
-        <i class="fas fa-turn-up"></i> Level Up Progression (+{{levelsGained}} Lv)
-      </button>
-      <button type="button"
-              class="mode-btn {{#if (eq mode 'recalculate')}}active{{/if}}"
-              data-action="setMode"
-              data-mode="recalculate">
-        <i class="fas fa-calculator"></i> Full Recalculate / Threshold Shift
-      </button>
-    </div>
-  {{/unless}}
+  <div class="lud-split-workspace">
 
-  {{!-- ── 3. Attribute Point Distribution ──────────────────────── --}}
-  {{#if isLevelUp}}
-    <div class="endurance-threshold-card attr-progression-card">
-      <div class="threshold-card-header">
-        <div class="th-header-left">
-          <i class="fas fa-chart-line"></i>
-          <span class="th-title">Attribute Advancement</span>
+    {{!-- ==========================================================
+         LEFT DECK: ASCENSION PROGRESSION & STAT HIERARCHY
+         ========================================================== --}}
+    <aside class="lud-left-deck">
+
+      {{!-- 1. Hero Ascension Crown Card --}}
+      <div class="level-up-header-card lud-hero-crown">
+        <div class="ccx-portrait-ring">
+          <img class="actor-portrait" src="{{actor.img}}" alt="{{actor.name}}" />
+          <span class="ccx-level-pip">LV {{targetLevel}}</span>
         </div>
-        <div class="end-stat-pill">
-          <span class="end-lbl">Points Remaining:</span>
-          <span class="end-val {{#if (lt attrPointsRemaining 0)}}negative{{/if}}">{{attrPointsRemaining}}</span>
-        </div>
-      </div>
-      <div class="attr-progression-grid">
-        {{#each attributesList as |attr|}}
-          <div class="attr-prog-row">
-            <span class="attr-prog-label">{{attr.label}}</span>
-            <div class="attr-prog-stepper">
-              <button type="button" class="spin-btn" data-action="adjustAttribute" data-attr="{{attr.key}}" data-delta="-1" {{#unless attr.canDecrease}}disabled title="Minimum attribute reached (-5)"{{/unless}}><i class="fas fa-minus"></i></button>
-              <span class="attr-prog-val {{#if attr.mod}}modified{{/if}}">{{attr.preview}}</span>
-              <button type="button" class="spin-btn" data-action="adjustAttribute" data-attr="{{attr.key}}" data-delta="1" {{#if attr.isAtCap}}disabled title="Attribute cap reached"{{/if}}><i class="fas fa-plus"></i></button>
+
+        <div class="header-details">
+          <span class="ccx-kicker"><i class="fas fa-angles-up"></i> CHARACTER ASCENSION</span>
+          <h2 class="actor-title">{{actor.name}}</h2>
+
+          <div class="level-progression-bar">
+            <div class="level-badge current-level-badge">
+              <span class="badge-label">Current</span>
+              <span class="badge-num">Lv {{currentLevel}}</span>
             </div>
-          </div>
-        {{/each}}
-      </div>
-      <div class="level-cap-note"><i class="fas fa-circle-info"></i> Max attribute at Level {{targetLevel}} is <strong>+{{levelCap}}</strong> (⌊Level/2⌋ + 1).</div>
-    </div>
-  {{/if}}
 
-  {{!-- ── 4. Endurance Threshold & HP Progression ─────────────── --}}
-  <div class="endurance-threshold-card">
-    <div class="threshold-card-header">
-      <div class="th-header-left">
-        <i class="fas fa-shield-heart"></i>
-        <span class="th-title">Endurance &amp; HP Threshold</span>
-      </div>
-      <div class="end-stat-pill">
-        <span class="end-lbl">Endurance (END):</span>
-        <span class="end-val">{{endValue}}</span>
-      </div>
-    </div>
+            <i class="fas fa-arrow-right level-arrow"></i>
 
-    <div class="active-threshold-banner">
-      <span class="active-th-name">{{activeThreshold.label}}</span>
-      <span class="active-th-range">({{activeThreshold.rangeLabel}} END)</span>
-      <div class="active-th-perks">
-        <span class="perk-badge set-perk"><i class="fas fa-equals"></i> Set HP: <strong>+{{activeThreshold.setHp}}</strong> / Lv</span>
-        <span class="perk-badge die-perk"><i class="fas fa-dice-d20"></i> HP Die: <strong>{{activeThreshold.dieLabel}}</strong> / Lv</span>
-      </div>
-    </div>
-  </div>
-
-  {{!-- HP Options (Set HP vs Roll Dice) --}}
-  <div class="hp-options-grid">
-    <div class="hp-option-card {{#if (eq chosenHpMethod 'set')}}selected{{/if}}"
-         data-action="selectMethod"
-         data-method="set">
-      <div class="option-header">
-        <div class="opt-radio">
-          <i class="fas {{#if (eq chosenHpMethod 'set')}}fa-circle-dot{{else}}fa-circle{{/if}}"></i>
-        </div>
-        <div class="opt-title-group">
-          <span class="opt-title">Take Set HP (Flat)</span>
-          <span class="opt-subtitle">Guaranteed consistent progression</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="hp-option-card {{#if (eq chosenHpMethod 'rolled')}}selected{{/if}} {{#unless activeThreshold.die}}disabled{{/unless}}"
-         data-action="selectMethod"
-         data-method="rolled">
-      <div class="option-header">
-        <div class="opt-radio">
-          <i class="fas {{#if (eq chosenHpMethod 'rolled')}}fa-circle-dot{{else}}fa-circle{{/if}}"></i>
-        </div>
-        <div class="opt-title-group">
-          <span class="opt-title">Roll HP Dice</span>
-          <span class="opt-subtitle">Rolls Endurance die in chat on apply</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  {{!-- ── 5. Talent Selection & Profession Rank Up ────────────── --}}
-  {{#if isLevelUp}}
-    <div class="endurance-threshold-card talent-progression-card">
-      <div class="threshold-card-header">
-        <div class="th-header-left">
-          <i class="fas fa-diagram-project"></i>
-          <span class="th-title">Talent &amp; Career Progression</span>
-        </div>
-      </div>
-
-      <div class="level-talents-section">
-        <div class="talent-choice-display">
-          {{#if selectedTalent}}
-            <div class="selected-talent-chip">
-              <img class="selected-talent-img" src="{{selectedTalent.img}}" alt="{{selectedTalent.name}}" width="28" height="28" style="width: 28px; height: 28px; min-width: 28px; max-width: 28px; max-height: 28px; object-fit: contain;" />
-              <span class="selected-talent-name"><strong>{{selectedTalent.name}}</strong></span>
-              <button type="button" class="remove-btn" data-action="clearSelectedTalent" title="Clear Selected Talent"><i class="fas fa-times"></i></button>
-            </div>
-          {{else}}
-            <span class="no-talent-selected">No talent selected for this level.</span>
-          {{/if}}
-          <button type="button" class="open-tree-btn" data-action="openTalentPicker">
-            <i class="fas fa-network-wired"></i> Open Talent Tree Picker
-          </button>
-        </div>
-
-        {{#if extraTalents}}
-          <div class="extra-talents-box level-up-extra-box">
-            <h4>
-              <i class="fas fa-wand-magic-sparkles"></i> Choose {{extraTalents.count}} Additional Talents from the {{extraTalents.discipline}} Magic Stack:
-              <span class="extra-count-badge {{#if extraTalents.isComplete}}complete{{/if}}">
-                {{extraTalents.selectedCount}} / {{extraTalents.count}} Selected
-              </span>
-            </h4>
-            <div class="extra-talents-list">
-              {{#each extraTalents.options as |opt|}}
-                <button type="button"
-                        class="extra-talent-btn {{#if opt.isSelected}}active{{/if}} {{#unless opt.isAvailable}}disabled{{/unless}}"
-                        data-action="toggleExtraTalent"
-                        data-talent-id="{{opt.id}}"
-                        {{#unless opt.isAvailable}}disabled title="{{opt.prereqTooltip}}"{{/unless}}>
-                  {{opt.name}} {{#unless opt.isAvailable}}<i class="fas fa-lock"></i>{{/unless}}
+            <div class="level-selector-group">
+              <span class="badge-label">Target</span>
+              <div class="level-spinner">
+                <button type="button" class="spin-btn dec-btn" data-action="decreaseLevel" title="Decrease Level">
+                  <i class="fas fa-minus"></i>
                 </button>
+                <input type="number"
+                       class="target-level-input"
+                       value="{{targetLevel}}"
+                       min="1" max="30"
+                       data-action="selectTargetLevel" />
+                <button type="button" class="spin-btn inc-btn" data-action="increaseLevel" title="Increase Level">
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {{!-- Quick Navigation Stepper Pills --}}
+      <div class="lud-quick-nav-bar">
+        {{#if isLevelUp}}
+          <button type="button" class="lud-nav-pill" data-action="focusSection" data-target-section="#lud-sec-attributes">
+            <i class="fas fa-chart-line"></i> 1. Attributes
+          </button>
+        {{/if}}
+        <button type="button" class="lud-nav-pill" data-action="focusSection" data-target-section="#lud-sec-vitality">
+          <i class="fas fa-shield-heart"></i> 2. Vitality
+        </button>
+        {{#if isLevelUp}}
+          <button type="button" class="lud-nav-pill" data-action="focusSection" data-target-section="#lud-sec-talents">
+            <i class="fas fa-diagram-project"></i> 3. Talents &amp; Career
+          </button>
+        {{/if}}
+        <button type="button" class="ccx-sound-toggle-btn lud-sound-btn {{#if ccxSoundEnabled}}is-on{{else}}is-muted{{/if}}"
+                data-action="toggleCcxSound"
+                title="{{#if ccxSoundEnabled}}Mute Arcane UI Soundscape{{else}}Enable Arcane UI Soundscape{{/if}}">
+          <i class="fas {{#if ccxSoundEnabled}}fa-volume-high{{else}}fa-volume-xmark{{/if}}"></i>
+        </button>
+      </div>
+
+      {{!-- Scrollable Progression Hierarchy Cards --}}
+      <div class="level-up-dialog-body lud-left-scroll">
+
+        {{!-- 2. Mode Switcher (Level Up vs Full Rebuild) --}}
+        {{#unless isInitialBuild}}
+          <div class="level-mode-nav">
+            <button type="button"
+                    class="mode-btn {{#if (eq mode 'levelUp')}}active{{/if}}"
+                    data-action="setMode"
+                    data-mode="levelUp">
+              <i class="fas fa-turn-up"></i> Level Up (+{{levelsGained}} Lv)
+            </button>
+            <button type="button"
+                    class="mode-btn {{#if (eq mode 'recalculate')}}active{{/if}}"
+                    data-action="setMode"
+                    data-mode="recalculate">
+              <i class="fas fa-calculator"></i> Full Recalculate
+            </button>
+          </div>
+        {{/unless}}
+
+        {{!-- 3. Attribute Point Distribution --}}
+        {{#if isLevelUp}}
+          <div id="lud-sec-attributes" class="endurance-threshold-card attr-progression-card lud-hierarchy-node">
+            <div class="threshold-card-header">
+              <div class="th-header-left">
+                <i class="fas fa-chart-line"></i>
+                <span class="th-title">01 &bull; Attribute Advancement</span>
+              </div>
+              <div class="end-stat-pill">
+                <span class="end-lbl">Points Left:</span>
+                <span class="end-val {{#if (lt attrPointsRemaining 0)}}negative{{/if}}">{{attrPointsRemaining}}</span>
+              </div>
+            </div>
+            <div class="attr-progression-grid">
+              {{#each attributesList as |attr|}}
+                <div class="attr-prog-row {{#if attr.mod}}modified{{/if}}">
+                  <span class="attr-prog-label">{{attr.label}}</span>
+                  <div class="attr-prog-stepper">
+                    <button type="button" class="spin-btn" data-action="adjustAttribute" data-attr="{{attr.key}}" data-delta="-1" {{#unless attr.canDecrease}}disabled title="Minimum attribute reached (-5)"{{/unless}}><i class="fas fa-minus"></i></button>
+                    <span class="attr-prog-val {{#if attr.mod}}modified{{/if}}">{{#if (gt attr.preview 0)}}+{{/if}}{{attr.preview}}</span>
+                    <button type="button" class="spin-btn" data-action="adjustAttribute" data-attr="{{attr.key}}" data-delta="1" {{#if attr.isAtCap}}disabled title="Attribute cap reached"{{/if}}><i class="fas fa-plus"></i></button>
+                  </div>
+                </div>
               {{/each}}
+            </div>
+            {{#if attributeRadarSvg}}
+              <div class="lud-radar-wheel-embed">
+                {{{attributeRadarSvg}}}
+              </div>
+            {{/if}}
+            <div class="level-cap-note"><i class="fas fa-circle-info"></i> Max attribute at Level {{targetLevel}} is <strong>+{{levelCap}}</strong> (&#8970;Level/2&#8971; + 1).</div>
+          </div>
+
+          <div class="ccx-conduit-stem energized">
+            <div class="conduit-line"></div>
+            <i class="fas fa-chevron-down conduit-arrow"></i>
+          </div>
+        {{/if}}
+
+        {{!-- 4. Endurance Threshold & HP Progression --}}
+        <div id="lud-sec-vitality" class="endurance-threshold-card lud-hierarchy-node">
+          <div class="threshold-card-header">
+            <div class="th-header-left">
+              <i class="fas fa-shield-heart"></i>
+              <span class="th-title">02 &bull; Endurance &amp; Vitality</span>
+            </div>
+            <div class="end-stat-pill">
+              <span class="end-lbl">Endurance (END):</span>
+              <span class="end-val">{{endValue}}</span>
+            </div>
+          </div>
+
+          <div class="active-threshold-banner">
+            <span class="active-th-name">{{activeThreshold.label}}</span>
+            <span class="active-th-range">({{activeThreshold.rangeLabel}} END)</span>
+            <div class="active-th-perks">
+              <span class="perk-badge set-perk"><i class="fas fa-equals"></i> Set HP: <strong>+{{activeThreshold.setHp}}</strong> / Lv</span>
+              <span class="perk-badge die-perk"><i class="fas fa-dice-d20"></i> HP Die: <strong>{{activeThreshold.dieLabel}}</strong> / Lv</span>
+            </div>
+          </div>
+
+          {{!-- HP Options (Set HP vs Roll Dice) --}}
+          <div class="hp-options-grid" style="margin-top: 8px;">
+            <div class="hp-option-card {{#if (eq chosenHpMethod 'set')}}selected{{/if}}"
+                 data-action="selectMethod"
+                 data-method="set">
+              <div class="option-header">
+                <div class="opt-radio">
+                  <i class="fas {{#if (eq chosenHpMethod 'set')}}fa-circle-dot{{else}}fa-circle{{/if}}"></i>
+                </div>
+                <div class="opt-title-group">
+                  <span class="opt-title">Take Set HP (Flat)</span>
+                  <span class="opt-subtitle">Guaranteed progression</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="hp-option-card {{#if (eq chosenHpMethod 'rolled')}}selected{{/if}} {{#unless activeThreshold.die}}disabled{{/unless}}"
+                 data-action="selectMethod"
+                 data-method="rolled">
+              <div class="option-header">
+                <div class="opt-radio">
+                  <i class="fas {{#if (eq chosenHpMethod 'rolled')}}fa-circle-dot{{else}}fa-circle{{/if}}"></i>
+                </div>
+                <div class="opt-title-group">
+                  <span class="opt-title">Roll HP Dice</span>
+                  <span class="opt-subtitle">Rolls Endurance die in chat</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {{!-- HP Preview Summary --}}
+          <div class="hp-preview-summary-card" style="margin-top: 8px;">
+            <div class="preview-left">
+              <span class="preview-label">Max HP:</span>
+              <div class="preview-hp-comparison">
+                <span class="prev-old-hp">{{currentHpMax}}</span>
+                <i class="fas fa-arrow-right-long prev-arrow"></i>
+                <span class="prev-new-hp">{{previewMaxHp}}</span>
+              </div>
+            </div>
+            <div class="preview-right">
+              <span class="preview-gain-details">{{previewGainText}}</span>
+            </div>
+          </div>
+        </div>
+
+        {{!-- 5. Talent Selection & Profession Rank Up --}}
+        {{#if isLevelUp}}
+          <div class="ccx-conduit-stem {{#if selectedTalent}}energized{{/if}}">
+            <div class="conduit-line"></div>
+            <i class="fas fa-chevron-down conduit-arrow"></i>
+          </div>
+
+          <div id="lud-sec-talents" class="endurance-threshold-card talent-progression-card lud-hierarchy-node">
+            <div class="threshold-card-header">
+              <div class="th-header-left">
+                <i class="fas fa-diagram-project"></i>
+                <span class="th-title">03 &bull; Selected Talent &amp; Career</span>
+              </div>
+              <button type="button" class="open-tree-btn lud-popout-btn" data-action="openTalentPicker" title="Open Standalone Talent Tree Window">
+                <i class="fas fa-up-right-from-square"></i> Pop Out
+              </button>
+            </div>
+
+            <div class="level-talents-section">
+              <div class="talent-choice-display">
+                {{#if selectedTalent}}
+                  <div class="selected-talent-chip">
+                    <img class="selected-talent-img" src="{{selectedTalent.img}}" alt="{{selectedTalent.name}}" width="28" height="28" style="width: 28px; height: 28px; min-width: 28px; max-width: 28px; max-height: 28px; object-fit: contain;" />
+                    <span class="selected-talent-name"><strong>{{selectedTalent.name}}</strong></span>
+                    <button type="button" class="remove-btn" data-action="clearSelectedTalent" title="Clear Selected Talent"><i class="fas fa-times"></i></button>
+                  </div>
+                {{else}}
+                  <span class="no-talent-selected"><i class="fas fa-hand-point-right"></i> Click <strong>+ Select</strong> on any available node in your Talent Build Hierarchy on the right.</span>
+                {{/if}}
+              </div>
+
+              {{#if extraTalents}}
+                <div class="extra-talents-box level-up-extra-box">
+                  <h4>
+                    <i class="fas fa-wand-magic-sparkles"></i> Choose {{extraTalents.count}} Additional Talents from the {{extraTalents.discipline}} Magic Stack:
+                    <span class="extra-count-badge {{#if extraTalents.isComplete}}complete{{/if}}">
+                      {{extraTalents.selectedCount}} / {{extraTalents.count}} Selected
+                    </span>
+                  </h4>
+                  <div class="extra-talents-list">
+                    {{#each extraTalents.options as |opt|}}
+                      <button type="button"
+                              class="extra-talent-btn {{#if opt.isSelected}}active{{/if}} {{#unless opt.isAvailable}}disabled{{/unless}}"
+                              data-action="toggleExtraTalent"
+                              data-talent-id="{{opt.id}}"
+                              {{#unless opt.isAvailable}}disabled title="{{opt.prereqTooltip}}"{{/unless}}>
+                        {{opt.name}} {{#unless opt.isAvailable}}<i class="fas fa-lock"></i>{{/unless}}
+                      </button>
+                    {{/each}}
+                  </div>
+                </div>
+              {{/if}}
+
+              {{#if isLineageMilestone}}
+                <div class="extra-talents-box level-up-extra-box lineage-milestone-box">
+                  <h4>
+                    <i class="fas fa-dna"></i> Level {{targetLevel}} Lineage Milestone: Choose 1 Feature from All {{lineageName}} Features:
+                    <span class="extra-count-badge {{#if selectedMilestoneFeature}}complete{{/if}}">
+                      {{#if selectedMilestoneFeature}}1 / 1 Selected{{else}}0 / 1 Selected{{/if}}
+                    </span>
+                  </h4>
+                  {{#if milestoneOptions.length}}
+                    <div class="milestone-features-grid">
+                      {{#each milestoneOptions as |opt|}}
+                        <div class="milestone-feature-card {{#if opt.isSelected}}selected{{/if}} {{#unless opt.isAvailable}}locked{{/unless}}"
+                             data-action="selectMilestoneFeature"
+                             data-feature-id="{{opt.id}}"
+                             {{#unless opt.isAvailable}}title="{{opt.prereqTooltip}}"{{/unless}}>
+                          <div class="milestone-card-top">
+                            <img class="milestone-img" src="{{opt.img}}" alt="{{opt.name}}" width="24" height="24" style="width:24px; height:24px; min-width:24px; max-width:24px; object-fit:contain; border-radius:3px;" />
+                            <span class="milestone-name"><strong>{{opt.name}}</strong></span>
+                            {{#if opt.isSelected}}
+                              <i class="fas fa-check-circle milestone-status-icon selected" style="color:#2dd4bf; margin-left:auto;"></i>
+                            {{else if (not opt.isAvailable)}}
+                              <i class="fas fa-lock milestone-status-icon locked" style="color:#ef4444; margin-left:auto;" title="{{opt.prereqTooltip}}"></i>
+                            {{/if}}
+                          </div>
+                          {{#if opt.missingPrereqs.length}}
+                            <div class="milestone-req-badge" style="font-size:10px; color:#f87171; margin-top:2px;">Req: {{#each opt.missingPrereqs}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</div>
+                          {{/if}}
+                        </div>
+                      {{/each}}
+                    </div>
+                  {{else}}
+                    <p class="no-milestone-features-msg" style="font-size:11px; color:#94a3b8; font-style:italic; margin:4px 0;">No unacquired lineage features found in loaded compendiums.</p>
+                  {{/if}}
+                </div>
+              {{/if}}
+
+              <div class="prof-rank-toggle">
+                <label>
+                  <input type="checkbox" name="increaseProfessionRank" {{#if increaseProfessionRank}}checked{{/if}} data-action="toggleProfessionRank" />
+                  <i class="fas fa-award"></i> Increase Profession Rank (+1 Rank &amp; Tenure)
+                </label>
+              </div>
             </div>
           </div>
         {{/if}}
 
-        {{#if isLineageMilestone}}
-          <div class="extra-talents-box level-up-extra-box lineage-milestone-box">
-            <h4>
-              <i class="fas fa-dna"></i> Level {{targetLevel}} Lineage Milestone: Choose 1 Feature from All {{lineageName}} Features:
-              <span class="extra-count-badge {{#if selectedMilestoneFeature}}complete{{/if}}">
-                {{#if selectedMilestoneFeature}}1 / 1 Selected{{else}}0 / 1 Selected{{/if}}
-              </span>
-            </h4>
-            {{#if milestoneOptions.length}}
-              <div class="milestone-features-grid">
-                {{#each milestoneOptions as |opt|}}
-                  <div class="milestone-feature-card {{#if opt.isSelected}}selected{{/if}} {{#unless opt.isAvailable}}locked{{/unless}}"
-                       data-action="selectMilestoneFeature"
-                       data-feature-id="{{opt.id}}"
-                       {{#unless opt.isAvailable}}title="{{opt.prereqTooltip}}"{{/unless}}>
-                    <div class="milestone-card-top">
-                      <img class="milestone-img" src="{{opt.img}}" alt="{{opt.name}}" width="24" height="24" style="width:24px; height:24px; min-width:24px; max-width:24px; object-fit:contain; border-radius:3px;" />
-                      <span class="milestone-name"><strong>{{opt.name}}</strong></span>
-                      {{#if opt.isSelected}}
-                        <i class="fas fa-check-circle milestone-status-icon selected" style="color:#2dd4bf; margin-left:auto;"></i>
-                      {{else if (not opt.isAvailable)}}
-                        <i class="fas fa-lock milestone-status-icon locked" style="color:#ef4444; margin-left:auto;" title="{{opt.prereqTooltip}}"></i>
-                      {{/if}}
-                    </div>
-                    {{#if opt.missingPrereqs.length}}
-                      <div class="milestone-req-badge" style="font-size:10px; color:#f87171; margin-top:2px;">Req: {{#each opt.missingPrereqs}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</div>
+      </div>
+
+      {{!-- Sticky Ascension Action Footer --}}
+      <footer class="level-up-dialog-footer lud-sticky-footer">
+        <div class="dialog-form-buttons">
+          <button type="button" class="dialog-cancel-btn" data-action="close" onclick="this.closest('.application').querySelector('.close')?.click();">
+            <i class="fas fa-times"></i> Cancel
+          </button>
+          <button type="submit" class="dialog-apply-btn">
+            <i class="fas fa-check-double"></i> Apply Level {{targetLevel}} Advancement
+          </button>
+        </div>
+      </footer>
+
+    </aside>
+
+    {{!-- ==========================================================
+         RIGHT STAGE: LIVE INTERACTIVE TALENT BUILD HIERARCHY
+         ========================================================== --}}
+    <main class="lud-hierarchy-canvas talent-tree-viewer-root srd-diagram-theme">
+
+      {{!-- Top Filter & Category Bar --}}
+      <div class="tree-category-bar lud-tree-topbar">
+        <div class="lud-canvas-title-col">
+          <span class="ccx-kicker"><i class="fas fa-sitemap"></i> INTERACTIVE TALENT BUILD HIERARCHY</span>
+          <h3>{{actor.name}}'s Talent Progression &amp; Available Branches (Level {{targetLevel}})</h3>
+        </div>
+
+        <div class="lud-tree-controls-row">
+          <div class="category-buttons-wrap">
+            <button type="button" class="tree-cat-btn {{#if (eq activeTreeCategory 'character')}}active{{/if}}" data-action="filterTreeCategory" data-category="character">
+              <i class="fas fa-star"></i> Your Character {{#if startedTreesCount}}({{startedTreesCount}}){{/if}}
+            </button>
+            <button type="button" class="tree-cat-btn {{#if (eq activeTreeCategory 'class')}}active{{/if}}" data-action="filterTreeCategory" data-category="class">
+              <i class="fas fa-shield"></i> Class Tracks
+            </button>
+            <button type="button" class="tree-cat-btn {{#if (eq activeTreeCategory 'specialization')}}active{{/if}}" data-action="filterTreeCategory" data-category="specialization">
+              <i class="fas fa-crosshairs"></i> Specialization
+            </button>
+            <button type="button" class="tree-cat-btn {{#if (eq activeTreeCategory 'magic')}}active{{/if}}" data-action="filterTreeCategory" data-category="magic">
+              <i class="fas fa-wand-magic-sparkles"></i> Magic
+            </button>
+            <button type="button" class="tree-cat-btn {{#if (eq activeTreeCategory 'all')}}active{{/if}}" data-action="filterTreeCategory" data-category="all">
+              <i class="fas fa-cubes"></i> All Tracks ({{totalTreesCount}})
+            </button>
+          </div>
+
+          <div class="tree-search-wrap">
+            <i class="fas fa-search"></i>
+            <input class="lud-tree-search-input tree-search-input" type="search" value="{{treeSearchTerm}}" placeholder="Filter talents, classes, or tracks..." />
+          </div>
+        </div>
+      </div>
+
+      {{!-- Interactive Flowchart / Nebula Canvas --}}
+      <div class="tree-canvas-container srd-style-canvas lud-tree-canvas-scroll">
+        {{#if (and ccxEnabled (eq activeTreeCategory 'character'))}}
+          {{!-- ========================================================
+               UNIFIED 3D ASTRAL GALAXY ("YOUR CHARACTER" TAB)
+               - Overview Mode: Open Galaxy sky with central Hero Nexus and
+                 floating Parent Star Nodes (no cards or boxes).
+               - Focused Mode: Clicking any Parent Star zooms smoothly into
+                 that single track's Constellation of Taken & Next Talents.
+               ======================================================== --}}
+          <div class="ccx-character-nebula-universe">
+            <div class="ccx-nebula-cosmic-clouds" aria-hidden="true">
+              <div class="ccx-nebula-cloud cloud-gold"></div>
+              <div class="ccx-nebula-cloud cloud-cyan"></div>
+              <div class="ccx-nebula-cloud cloud-violet"></div>
+              <div class="ccx-astrolabe-ring grand-outer"></div>
+              <div class="ccx-astrolabe-ring grand-inner"></div>
+            </div>
+
+            {{#if focusedNebulaTrack}}
+              {{!-- ========================================================
+                   ZOOMED-IN CONSTELLATION MODE (Single Track)
+                   ======================================================== --}}
+              <div class="ccx-galaxy-focused-constellation category-{{focusedNebulaTrack.category}}" data-track-title="{{focusedNebulaTrack.trackKey}}">
+                <div class="ccx-galaxy-focused-topbar">
+                  <button type="button" class="ccx-galaxy-zoom-out-btn" data-action="toggleTreeTrackExpand" data-track-title="__GALAXY_OVERVIEW__">
+                    <i class="fas fa-arrow-left"></i> Zoom Out to Gallery
+                  </button>
+
+                  <div class="ccx-focused-track-heading">
+                    <i class="fas fa-star"></i>
+                    <span class="sector-track-name">{{focusedNebulaTrack.trackTitle}}</span>
+                    {{#each focusedNebulaTrack.startedSubclasses as |subName|}}
+                      <span class="ccx-galaxy-subclass-pill"><i class="fas fa-compass"></i> {{subName}}</span>
+                    {{/each}}
+                    <span class="track-pill owned"><i class="fas fa-check"></i> {{focusedNebulaTrack.takenCount}} Taken</span>
+                    {{#if focusedNebulaTrack.availableCount}}
+                      <span class="track-pill available"><i class="fas fa-sparkles"></i> {{focusedNebulaTrack.availableCount}} Next Available</span>
                     {{/if}}
+                  </div>
+
+                  <div class="ccx-galaxy-quick-warp-bar">
+                    {{#each characterNebulaTracks as |qtrack|}}
+                      <button type="button"
+                              class="ccx-warp-star-pill {{#if qtrack.isExpanded}}active{{/if}} category-{{qtrack.category}}"
+                              data-action="toggleTreeTrackExpand"
+                              data-track-title="{{qtrack.trackKey}}"
+                              title="Warp to {{qtrack.trackTitle}}">
+                        <img src="{{qtrack.parentNode.img}}" alt="{{qtrack.trackTitle}}" />
+                        <span>{{qtrack.trackTitle}}</span>
+                      </button>
+                    {{/each}}
+                  </div>
+                </div>
+
+                <div class="ccx-constellation-sky-card is-full-galaxy-zoom category-{{focusedNebulaTrack.category}}" style="height: {{focusedNebulaTrack.constellation.canvasHeight}}px;">
+                  <div class="ccx-sky-nebula-layer" aria-hidden="true">
+                    <div class="ccx-astrolabe-ring outer"></div>
+                    <div class="ccx-astrolabe-ring inner"></div>
+                  </div>
+
+                  <svg class="ccx-constellation-lines-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
+                    {{#each focusedNebulaTrack.constellation.bgStars as |bstar|}}
+                      <circle cx="{{bstar.cx}}" cy="{{bstar.cy}}" r="{{bstar.r}}" fill="{{bstar.fill}}" />
+                    {{/each}}
+
+                    <ellipse cx="500" cy="500" rx="390" ry="390" fill="none" stroke="rgba(56, 189, 248, 0.1)" stroke-width="1" stroke-dasharray="4 10" />
+                    <ellipse cx="500" cy="500" rx="240" ry="240" fill="none" stroke="rgba(254, 235, 179, 0.08)" stroke-width="1" stroke-dasharray="2 8" />
+
+                    {{#each focusedNebulaTrack.constellation.edges as |edge|}}
+                      {{#if edge.isEnergized}}
+                        <line x1="{{edge.x1}}" y1="{{edge.y1}}" x2="{{edge.x2}}" y2="{{edge.y2}}"
+                              stroke="rgba(254, 235, 179, 0.3)" stroke-width="8" stroke-linecap="round" />
+                      {{else}}
+                        <line x1="{{edge.x1}}" y1="{{edge.y1}}" x2="{{edge.x2}}" y2="{{edge.y2}}"
+                              stroke="rgba(56, 189, 248, 0.24)" stroke-width="6" stroke-linecap="round" />
+                      {{/if}}
+                      <line x1="{{edge.x1}}" y1="{{edge.y1}}" x2="{{edge.x2}}" y2="{{edge.y2}}"
+                            stroke="{{edge.stroke}}" stroke-width="{{edge.strokeWidth}}" stroke-linecap="round"
+                            {{#if edge.dashArray}}stroke-dasharray="{{edge.dashArray}}"{{/if}}
+                            class="ccx-constellation-edge {{edge.stateClass}}" />
+                      <circle cx="{{edge.midX}}" cy="{{edge.midY}}" r="2.8" fill="{{edge.stroke}}" />
+                    {{/each}}
+                  </svg>
+
+                  <div class="ccx-constellation-nodes-layer">
+                    {{#each focusedNebulaTrack.constellation.branchHeaders as |hub|}}
+                      <div class="ccx-constellation-subclass-hub {{#if hub.isStarted}}is-started{{else}}is-available{{/if}}"
+                           style="left: {{hub.xPct}}%; top: {{hub.yPct}}%;">
+                        <div class="ccx-subclass-hub-gem">
+                          <i class="fas {{#if hub.isStarted}}fa-compass{{else}}fa-sparkles{{/if}}"></i>
+                        </div>
+                        <div class="ccx-subclass-hub-plate">
+                          <span class="ccx-subclass-hub-title">{{hub.title}}</span>
+                          <div class="ccx-subclass-hub-counts">
+                            {{#if hub.takenCount}}
+                              <span class="hub-mini-pill owned"><i class="fas fa-check"></i> {{hub.takenCount}} Taken</span>
+                            {{/if}}
+                            {{#if hub.availableCount}}
+                              <span class="hub-mini-pill available"><i class="fas fa-sparkles"></i> {{hub.availableCount}} Next</span>
+                            {{/if}}
+                          </div>
+                        </div>
+                      </div>
+                    {{/each}}
+
+                    {{#each focusedNebulaTrack.constellation.nodes as |node|}}
+                      <div class="ccx-star-constellation-node {{#if node.isParentRoot}}is-parent-root{{/if}} {{#if node.isSelectedForLevelUp}}node-selected-levelup{{/if}} {{#if node.isOwned}}node-owned{{else if node.isAvailable}}node-available{{else}}node-locked{{/if}}"
+                           style="left: {{node.xPct}}%; top: {{node.yPct}}%;"
+                           data-talent-id="{{node.id}}">
+
+                        <div class="ccx-star-orb-wrap"
+                             {{#if node.isParentRoot}}
+                               data-action="toggleTreeTrackExpand" data-track-title="__GALAXY_OVERVIEW__" title="Click Parent Star to zoom out to Gallery"
+                             {{else}}
+                               data-action="viewTreeTalent" data-talent-id="{{node.id}}"
+                             {{/if}}>
+                          <div class="ccx-star-flare-cross"></div>
+                          <div class="ccx-star-halo-ring"></div>
+                          <div class="ccx-star-orb-core">
+                            <img src="{{node.img}}" alt="{{node.name}}" class="ccx-star-talent-icon" />
+                            <span class="ccx-star-corner-badge">
+                              {{#if node.isSelectedForLevelUp}}
+                                <i class="fas fa-star"></i>
+                              {{else if node.isOwned}}
+                                <i class="fas fa-check"></i>
+                              {{else}}
+                                <i class="fas fa-sparkles"></i>
+                              {{/if}}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div class="ccx-star-hud-plate">
+                          <div class="ccx-star-title-row" data-action="viewTreeTalent" data-talent-id="{{node.id}}">
+                            {{#if node.isParentRoot}}
+                              <span class="ccx-star-tier-pip root-pip">START</span>
+                            {{else if node.isOwned}}
+                              <span class="ccx-star-tier-pip">TAKEN</span>
+                            {{else}}
+                              <span class="ccx-star-tier-pip next-pip">NEXT</span>
+                            {{/if}}
+                            <span class="ccx-star-name" title="{{node.name}}">{{node.name}}</span>
+                          </div>
+
+                          <div class="ccx-star-actions-row">
+                            <button type="button" class="badge-btn view" data-action="viewTreeTalent" data-talent-id="{{node.id}}" title="Inspect Talent">
+                              <i class="fas fa-eye"></i>
+                            </button>
+                            <button type="button" class="badge-btn chat" data-action="postTreeTalent" data-talent-id="{{node.id}}" title="Share to Chat">
+                              <i class="fas fa-comment-alt"></i>
+                            </button>
+                            {{#if node.isParentRoot}}
+                              <button type="button" class="badge-btn select" data-action="toggleTreeTrackExpand" data-track-title="__GALAXY_OVERVIEW__" title="Zoom Out to Gallery">
+                                <i class="fas fa-compress-arrows-alt"></i> Gallery
+                              </button>
+                            {{else unless node.isOwned}}
+                              {{#if node.isSelectedForLevelUp}}
+                                <button type="button" class="badge-btn select active-pick" data-action="clearSelectedTalent" title="Selected for Level Up (Click to clear)">
+                                  <i class="fas fa-check"></i> Selected
+                                </button>
+                              {{else if node.isAvailable}}
+                                <button type="button" class="badge-btn select" data-action="chooseTreeTalent" data-talent-id="{{node.id}}" title="Select for Level Up">
+                                  <i class="fas fa-plus"></i> Select
+                                </button>
+                              {{/if}}
+                            {{/if}}
+                          </div>
+                        </div>
+
+                      </div>
+                    {{/each}}
+                  </div>
+                </div>
+              </div>
+            {{else if characterNebulaTracks.length}}
+              {{!-- ========================================================
+                   GALAXY OVERVIEW MODE (Default)
+                   All character tracks orbiting as floating Star Clusters
+                   ======================================================== --}}
+              <div class="ccx-nebula-top-legend">
+                <span class="nebula-legend-title"><i class="fas fa-sparkles"></i> {{actor.name}}'s Gallery</span>
+                <span class="nebula-legend-sub">Click any <strong>Track Node</strong> in the gallery to zoom into its acquired &amp; next available talents.</span>
+              </div>
+
+              <div class="ccx-galaxy-overview-map">
+                <svg class="ccx-galaxy-orbit-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
+                  <ellipse cx="500" cy="500" rx="345" ry="315" fill="none" stroke="rgba(254, 235, 179, 0.14)" stroke-width="1.2" stroke-dasharray="6 12" />
+                  <ellipse cx="500" cy="500" rx="225" ry="205" fill="none" stroke="rgba(56, 189, 248, 0.12)" stroke-width="1" stroke-dasharray="3 9" />
+                  <ellipse cx="500" cy="500" rx="430" ry="395" fill="none" stroke="rgba(56, 189, 248, 0.07)" stroke-width="1" />
+
+                  {{#each characterNebulaTracks as |ntrack|}}
+                    <line x1="500" y1="500" x2="{{ntrack.galaxySvgX}}" y2="{{ntrack.galaxySvgY}}"
+                          stroke="rgba(254, 235, 179, 0.16)" stroke-width="4" stroke-linecap="round" />
+                    <line x1="500" y1="500" x2="{{ntrack.galaxySvgX}}" y2="{{ntrack.galaxySvgY}}"
+                          stroke="rgba(56, 189, 248, 0.42)" stroke-width="1.4" stroke-dasharray="5 7" stroke-linecap="round" />
+                  {{/each}}
+                </svg>
+
+                {{!-- Central Character Core Nexus --}}
+                <div class="ccx-galaxy-core-nexus" aria-hidden="true">
+                  <div class="ccx-core-nexus-halo"></div>
+                  <div class="ccx-core-nexus-avatar">
+                    <img src="{{actor.img}}" alt="{{actor.name}}" />
+                  </div>
+                  <span class="ccx-core-nexus-label">{{actor.name}}</span>
+                </div>
+
+                {{!-- Floating Constellation Parent Stars around the Galaxy --}}
+                {{#each characterNebulaTracks as |ntrack|}}
+                  <div class="ccx-galaxy-star-cluster category-{{ntrack.category}}"
+                       style="left: {{ntrack.galaxyX}}%; top: {{ntrack.galaxyY}}%;"
+                       data-track-title="{{ntrack.trackKey}}"
+                       data-galaxy-x="{{ntrack.galaxyX}}"
+                       data-galaxy-y="{{ntrack.galaxyY}}">
+
+                    <div class="ccx-galaxy-track-ribbon"
+                         data-action="toggleTreeTrackExpand"
+                         data-track-title="{{ntrack.trackKey}}">
+                      {{ntrack.trackTitle}}
+                    </div>
+
+                    <div class="ccx-parent-alpha-star"
+                         data-action="toggleTreeTrackExpand"
+                         data-track-title="{{ntrack.trackKey}}"
+                         title="Click to zoom into {{ntrack.trackTitle}} constellation">
+                      <div class="ccx-alpha-flare-rays"></div>
+                      <div class="ccx-alpha-orbit-outer"></div>
+                      <div class="ccx-alpha-orbit-inner"></div>
+                      <div class="ccx-alpha-star-core">
+                        <img src="{{ntrack.parentNode.img}}" alt="{{ntrack.parentNode.name}}" />
+                        <span class="ccx-alpha-check-badge"><i class="fas fa-star"></i></span>
+                      </div>
+                    </div>
+
+                    <div class="ccx-galaxy-star-caption"
+                         data-action="toggleTreeTrackExpand"
+                         data-track-title="{{ntrack.trackKey}}">
+                      <span class="ccx-galaxy-star-name" title="{{ntrack.parentNode.name}}">{{ntrack.parentNode.name}}</span>
+                      {{#if ntrack.startedSubclasses.length}}
+                        <div class="ccx-galaxy-subclass-badges">
+                          {{#each ntrack.startedSubclasses as |subName|}}
+                            <span class="ccx-galaxy-subclass-pill"><i class="fas fa-compass"></i> {{subName}}</span>
+                          {{/each}}
+                        </div>
+                      {{/if}}
+                      <div class="ccx-galaxy-star-counts">
+                        <span class="track-pill owned"><i class="fas fa-check"></i> {{ntrack.takenCount}} Taken</span>
+                        {{#if ntrack.availableCount}}
+                          <span class="track-pill available"><i class="fas fa-sparkles"></i> {{ntrack.availableCount}} Next</span>
+                        {{/if}}
+                      </div>
+                    </div>
+
                   </div>
                 {{/each}}
               </div>
             {{else}}
-              <p class="no-milestone-features-msg" style="font-size:11px; color:#94a3b8; font-style:italic; margin:4px 0;">No unacquired lineage features found in loaded compendiums.</p>
+              <div class="empty-tree-state">
+                <i class="fas fa-star"></i>
+                <p>No talent tracks started yet. Click <strong>Class Tracks</strong>, <strong>Specialization</strong>, or <strong>Magic</strong> above to choose a starting talent!</p>
+              </div>
             {{/if}}
           </div>
+        {{else if trees.length}}
+          <div class="srd-tracks-viewport">
+            {{#each trees as |tree|}}
+              <div class="srd-root-tree-column {{#if tree.isStarted}}root-active{{/if}} {{#if tree.isExpanded}}expanded{{else}}collapsed{{/if}}"
+                   data-root-id="{{tree.id}}">
+
+                {{!-- Collapsible Ornate Root Tree Header Banner --}}
+                <div class="srd-root-banner" data-action="toggleTreeRootExpand" data-root-id="{{tree.id}}">
+                  <div class="banner-corner top-left"></div>
+                  <div class="banner-corner top-right"></div>
+                  <div class="banner-corner bottom-left"></div>
+                  <div class="banner-corner bottom-right"></div>
+
+                  <div class="banner-content-row">
+                    <div class="root-crest-icon">
+                      {{#if (eq tree.category 'class')}}<i class="fas fa-shield-halved"></i>{{/if}}
+                      {{#if (eq tree.category 'magic')}}<i class="fas fa-wand-magic-sparkles"></i>{{/if}}
+                      {{#if (eq tree.category 'specialization')}}<i class="fas fa-crosshairs"></i>{{/if}}
+                    </div>
+
+                    <div class="banner-title-wrap">
+                      <h3 class="srd-root-title">{{tree.displayTitle}}</h3>
+                      <div class="track-summary-pills">
+                        {{#if tree.ownedCount}}
+                          <span class="track-pill owned"><i class="fas fa-check"></i> {{tree.ownedCount}} Acquired</span>
+                        {{/if}}
+                        {{#if tree.availableCount}}
+                          <span class="track-pill available"><i class="fas fa-sparkles"></i> {{tree.availableCount}} Available</span>
+                        {{/if}}
+                        <span class="track-pill total">{{tree.totalNodesCount}} Talents</span>
+                        {{#if tree.tracks.length}}
+                          <span class="track-pill subtracks">{{tree.tracks.length}} Subclass Tracks</span>
+                        {{/if}}
+                      </div>
+                    </div>
+
+                    <div class="root-expand-action">
+                      <span class="expand-label">{{#if tree.isExpanded}}Collapse Tree{{else}}Expand Tree{{/if}}</span>
+                      <i class="fas {{#if tree.isExpanded}}fa-chevron-up{{else}}fa-chevron-down{{/if}}"></i>
+                    </div>
+                  </div>
+                </div>
+
+                {{!-- Expanded Skill Tree Body --}}
+                {{#if tree.isExpanded}}
+                  <div class="srd-root-body visual-skill-tree-body">
+
+                    {{!-- Central Gateway / Required Entry Talents Altar --}}
+                    {{#if tree.entryTalents.length}}
+                      <div class="gateway-altar-container">
+                        <div class="gateway-altar-heading">
+                          <i class="fas fa-crown"></i> {{tree.title}} Gateway &amp; Entry Talents
+                        </div>
+                        <div class="gateway-nodes-row">
+                          {{#each tree.entryTalents as |node|}}
+                            <div class="srd-badge-node gateway-badge-node {{#if node.isSelectedForLevelUp}}node-selected-levelup{{/if}} {{#if node.isOwned}}node-owned{{else if node.isAvailable}}node-available{{else}}node-locked{{/if}}"
+                                 data-talent-id="{{node.id}}"
+                                 {{#unless node.isAvailable}}data-tooltip="{{node.prereqTooltip}}"{{/unless}}>
+                              <div class="badge-node-body" data-action="viewTreeTalent" data-talent-id="{{node.id}}">
+                                <span class="badge-node-title">{{node.name}}</span>
+                                {{#if node.isSelectedForLevelUp}}
+                                  <span class="badge-status-icon selected-lv" title="Selected for Level {{@root.targetLevel}}"><i class="fas fa-star"></i></span>
+                                {{else if node.isOwned}}
+                                  <span class="badge-status-icon owned" title="Acquired"><i class="fas fa-check-circle"></i></span>
+                                {{else if (not node.isAvailable)}}
+                                  <span class="badge-status-icon locked" title="{{node.prereqTooltip}}"><i class="fas fa-lock"></i></span>
+                                {{else}}
+                                  <span class="badge-status-icon available" title="Available to learn"><i class="fas fa-sparkles"></i></span>
+                                {{/if}}
+                              </div>
+                              <div class="badge-node-actions">
+                                <button type="button" class="badge-btn view" data-action="viewTreeTalent" data-talent-id="{{node.id}}" title="Inspect Rules">
+                                  <i class="fas fa-eye"></i>
+                                </button>
+                                <button type="button" class="badge-btn chat" data-action="postTreeTalent" data-talent-id="{{node.id}}" title="Share to Chat">
+                                  <i class="fas fa-comment-alt"></i>
+                                </button>
+                                {{#unless node.isOwned}}
+                                  {{#if node.isSelectedForLevelUp}}
+                                    <button type="button" class="badge-btn select active-pick" data-action="clearSelectedTalent" title="Selected for Level Up (Click to clear)">
+                                      <i class="fas fa-check"></i> Selected
+                                    </button>
+                                  {{else if node.isAvailable}}
+                                    <button type="button" class="badge-btn select" data-action="chooseTreeTalent" data-talent-id="{{node.id}}" title="Select for Level Up">
+                                      <i class="fas fa-plus"></i> Select
+                                    </button>
+                                  {{else}}
+                                    <button type="button" class="badge-btn select disabled" disabled title="{{node.prereqTooltip}}">
+                                      <i class="fas fa-lock"></i> Locked
+                                    </button>
+                                  {{/if}}
+                                {{/unless}}
+                              </div>
+                            </div>
+                          {{/each}}
+                        </div>
+                        {{#if tree.tracks.length}}
+                          <div class="tree-trunk-splitter-wrap">
+                            <div class="tree-trunk-line"></div>
+                            <div class="tree-branch-splitter-bar"></div>
+                          </div>
+                        {{/if}}
+                      </div>
+                    {{/if}}
+
+                    {{!-- Subclass Flowchart Tracks Grid --}}
+                    {{#if tree.isDisciplineLocked}}
+                      <div class="locked-discipline-notice">
+                        <i class="fas fa-lock"></i>
+                        <span>Select <strong>{{#each tree.entryTalents}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}}</strong> above to unlock the {{tree.title}} Magic stack and its talents.</span>
+                      </div>
+                    {{else if tree.tracks.length}}
+                      <div class="srd-subclasses-parallel-grid">
+                        {{#each tree.tracks as |track|}}
+                          <div class="srd-subclass-column-card {{#if track.isStarted}}track-active{{/if}} {{#if track.isExpanded}}expanded{{else}}collapsed{{/if}}"
+                               data-track-title="{{track.trackTitle}}">
+
+                            <div class="subclass-feeder-stem">
+                              <div class="feeder-line"></div>
+                              <i class="fas fa-chevron-down feeder-arrow"></i>
+                            </div>
+
+                            <div class="srd-diagram-header-banner" data-action="toggleTreeTrackExpand" data-track-title="{{track.trackTitle}}">
+                              <div class="ornate-corner top-left"></div>
+                              <div class="ornate-corner top-right"></div>
+                              <div class="ornate-corner bottom-left"></div>
+                              <div class="ornate-corner bottom-right"></div>
+
+                              <div class="banner-inner-content">
+                                <h3 class="srd-diagram-track-title">{{track.trackTitle}}</h3>
+                                <div class="track-summary-pills">
+                                  {{#if track.ownedCount}}
+                                    <span class="track-pill owned"><i class="fas fa-check"></i> {{track.ownedCount}}</span>
+                                  {{/if}}
+                                  {{#if track.availableCount}}
+                                    <span class="track-pill available"><i class="fas fa-sparkles"></i> {{track.availableCount}}</span>
+                                  {{/if}}
+                                  <span class="track-pill total">{{track.totalNodesCount}} Talents</span>
+                                </div>
+                                <div class="track-expand-chevron">
+                                  <i class="fas {{#if track.isExpanded}}fa-chevron-down{{else}}fa-chevron-right{{/if}}"></i>
+                                </div>
+                              </div>
+                            </div>
+
+                            {{#if track.isExpanded}}
+                              <div class="srd-flowchart-canvas">
+                                {{#each track.tiers as |tier|}}
+                                  <div class="srd-flowchart-tier-row" data-tier="{{tier.tierNumber}}">
+                                    {{#unless @first}}
+                                      <div class="srd-flowchart-tier-stem">
+                                        <div class="stem-line"></div>
+                                        <i class="fas fa-chevron-down stem-arrow"></i>
+                                      </div>
+                                    {{/unless}}
+
+                                    <div class="srd-flowchart-nodes-cluster {{#if (gt tier.nodes.length 1)}}multi-branch-cluster{{/if}}">
+                                      {{#each tier.nodes as |node|}}
+                                        <div class="srd-badge-node {{#if node.isSelectedForLevelUp}}node-selected-levelup{{/if}} {{#if node.isOwned}}node-owned{{else if node.isAvailable}}node-available{{else}}node-locked{{/if}}"
+                                             data-talent-id="{{node.id}}"
+                                             {{#unless node.isAvailable}}data-tooltip="{{node.prereqTooltip}}"{{/unless}}>
+                                          <div class="badge-node-body" data-action="viewTreeTalent" data-talent-id="{{node.id}}">
+                                            <span class="badge-node-title">{{node.name}}</span>
+                                            {{#if node.isSelectedForLevelUp}}
+                                              <span class="badge-status-icon selected-lv" title="Selected for Level {{@root.targetLevel}}"><i class="fas fa-star"></i></span>
+                                            {{else if node.isOwned}}
+                                              <span class="badge-status-icon owned" title="Acquired"><i class="fas fa-check-circle"></i></span>
+                                            {{else if (not node.isAvailable)}}
+                                              <span class="badge-status-icon locked" title="{{node.prereqTooltip}}"><i class="fas fa-lock"></i></span>
+                                            {{/if}}
+                                          </div>
+
+                                          <div class="badge-node-actions">
+                                            <button type="button" class="badge-btn view" data-action="viewTreeTalent" data-talent-id="{{node.id}}" title="Inspect Talent">
+                                              <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button type="button" class="badge-btn chat" data-action="postTreeTalent" data-talent-id="{{node.id}}" title="Share to Chat">
+                                              <i class="fas fa-comment-alt"></i>
+                                            </button>
+                                            {{#unless node.isOwned}}
+                                              {{#if node.isSelectedForLevelUp}}
+                                                <button type="button" class="badge-btn select active-pick" data-action="clearSelectedTalent" title="Selected for Level Up (Click to clear)">
+                                                  <i class="fas fa-check"></i> Selected
+                                                </button>
+                                              {{else if node.isAvailable}}
+                                                <button type="button" class="badge-btn select" data-action="chooseTreeTalent" data-talent-id="{{node.id}}" title="Select for Level Up">
+                                                  <i class="fas fa-plus"></i> Select
+                                                </button>
+                                              {{else}}
+                                                <button type="button" class="badge-btn select disabled" disabled title="{{node.prereqTooltip}}">
+                                                  <i class="fas fa-lock"></i> Locked
+                                                </button>
+                                              {{/if}}
+                                            {{/unless}}
+                                          </div>
+
+                                          {{#if node.prerequisites.length}}
+                                            <div class="badge-req-hint" title="Prerequisites: {{#each node.prerequisites}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}">
+                                              Req: {{#each node.prerequisites}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}
+                                            </div>
+                                          {{/if}}
+                                        </div>
+                                      {{/each}}
+                                    </div>
+                                  </div>
+                                {{/each}}
+                              </div>
+                            {{/if}}
+
+                          </div>
+                        {{/each}}
+                      </div>
+                    {{/if}}
+
+                  </div>
+                {{/if}}
+
+              </div>
+            {{/each}}
+          </div>
+        {{else}}
+          <div class="empty-tree-state">
+            <i class="fas fa-shield-halved"></i>
+            <p>No active talent tracks started yet. Click <strong>Class Tracks</strong>, <strong>Specialization</strong>, or <strong>Magic</strong> above to begin a new branch!</p>
+          </div>
         {{/if}}
-
-        <div class="prof-rank-toggle">
-          <label>
-            <input type="checkbox" name="increaseProfessionRank" {{#if increaseProfessionRank}}checked{{/if}} data-action="toggleProfessionRank" />
-            <i class="fas fa-award"></i> Increase Profession Rank (+1 Rank &amp; Tenure)
-          </label>
-        </div>
       </div>
-    </div>
-  {{/if}}
 
-  {{!-- ── 6. Preview Summary & Action Buttons ─────────────────── --}}
-  <div class="hp-preview-summary-card">
-    <div class="preview-left">
-      <span class="preview-label">New Maximum HP:</span>
-      <div class="preview-hp-comparison">
-        <span class="prev-old-hp">{{currentHpMax}}</span>
-        <i class="fas fa-arrow-right-long prev-arrow"></i>
-        <span class="prev-new-hp">{{previewMaxHp}}</span>
-      </div>
-    </div>
-    <div class="preview-right">
-      <span class="preview-gain-details">{{previewGainText}}</span>
-    </div>
+    </main>
+
   </div>
-
-  {{!-- Dialog Form Buttons --}}
-  <div class="dialog-form-buttons">
-    <button type="button" class="dialog-cancel-btn" data-action="close" onclick="this.closest('.application').querySelector('.close')?.click();">
-      <i class="fas fa-times"></i> Cancel
-    </button>
-    <button type="submit" class="dialog-apply-btn">
-      <i class="fas fa-check-double"></i> Apply Level {{targetLevel}} Advancement
-    </button>
-  </div>
-
-  {{!-- Dialog Form Buttons --}}
-  <footer class="level-up-dialog-footer">
-    <div class="dialog-form-buttons">
-      <button type="button" class="dialog-cancel-btn" data-action="close" onclick="this.closest('.application').querySelector('.close')?.click();">
-        <i class="fas fa-times"></i> Cancel
-      </button>
-      <button type="submit" class="dialog-apply-btn">
-        <i class="fas fa-check-double"></i> Apply Level {{targetLevel}} Advancement
-      </button>
-    </div>
-  </footer>
 
 </div>
-

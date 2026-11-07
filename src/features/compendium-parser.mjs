@@ -2286,7 +2286,7 @@ export function parseTalentData(item) {
  * @param {number|null} [options.effectiveLevel=null] - Target character level when advancing
  * @returns {{ isAvailable: boolean, missingPrereqs: Array<string>, conflictingTalents: Array<string> }}
  */
-export function checkTalentAvailability(talent, actorTalents = [], { effectiveLevel = null } = {}) {
+export function checkTalentAvailability(talent, actorTalents = [], { effectiveLevel = null, attributes = null } = {}) {
   const data = parseTalentData(talent);
   const ownedNames = new Set();
   for (const t of actorTalents) {
@@ -2301,6 +2301,30 @@ export function checkTalentAvailability(talent, actorTalents = [], { effectiveLe
     });
     ownedNames.add(arabic);
   }
+
+  const resolvedAttrs = attributes || (
+    typeof actorTalents[0] === "object" && actorTalents[0]?.parent?.system?.attributes
+      ? actorTalents[0].parent.system.attributes
+      : null
+  );
+  const getAttrScore = (k) => {
+    if (!resolvedAttrs) return null;
+    const alt = k === "luck" ? "lck" : k === "lck" ? "luck" : k;
+    const raw = resolvedAttrs[k] ?? resolvedAttrs[alt];
+    if (raw === undefined || raw === null) return 0;
+    return typeof raw === "object" && "value" in raw ? Number(raw.value) || 0 : Number(raw) || 0;
+  };
+  const attrAliasMap = {
+    str: "str", strength: "str",
+    dex: "dex", dexterity: "dex",
+    end: "end", endurance: "end",
+    awr: "awr", awareness: "awr",
+    int: "int", intellect: "int",
+    cha: "cha", charisma: "cha",
+    lck: "lck", luck: "lck",
+    cor: "cor", coordination: "cor",
+    san: "san", sanity: "san",
+  };
 
   const missingPrereqs = [];
 
@@ -2329,6 +2353,20 @@ export function checkTalentAvailability(talent, actorTalents = [], { effectiveLe
     // Ignore descriptive/negative clause prerequisites like "no other class entry talents"
     if (/^(no\s+other|cannot\s+have|must\s+not|without)\b/i.test(clean)) {
       continue;
+    }
+
+    // Check attribute prerequisites (e.g. "STR 2", "LUCK 2", "Dexterity 1")
+    const attrPrereqMatch = clean.match(/^(str|strength|dex|dexterity|end|endurance|awr|awareness|int|intellect|cha|charisma|lck|luck|cor|coordination|san|sanity)\s*\+?(-?\d+)$/i);
+    if (attrPrereqMatch && resolvedAttrs) {
+      const attrKey = attrAliasMap[attrPrereqMatch[1].toLowerCase()];
+      const reqVal = parseInt(attrPrereqMatch[2], 10);
+      const curVal = getAttrScore(attrKey);
+      if (curVal !== null && curVal >= reqVal) {
+        continue;
+      } else {
+        missingPrereqs.push(p);
+        continue;
+      }
     }
 
     // Check level prerequisites (e.g. "Level 2", "Character Level 2", "2nd Level", "Level 2 or higher")
@@ -2932,11 +2970,13 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
     const allRootNodes = [...entryNodes, ...tracks.flatMap(tr => tr.nodes)];
     const isRootStarted = allRootNodes.some(n => n.isOwned);
     const categorySuffix = root.category === "class" ? "CLASS" : root.category === "magic" ? "MAGIC" : "SPECIALIZATION";
+    const upperRootTitle = root.title.toUpperCase();
+    const displayTitle = upperRootTitle.endsWith(categorySuffix) ? upperRootTitle : `${upperRootTitle} ${categorySuffix}`;
 
     rootTrees.push({
       id: root.id,
       title: root.title,
-      displayTitle: `${root.title.toUpperCase()} ${categorySuffix}`,
+      displayTitle,
       category: root.category,
       entryTalents: entryNodes,
       tracks: tracks.sort((a, b) => a.trackTitle.localeCompare(b.trackTitle)),

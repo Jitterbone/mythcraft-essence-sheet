@@ -29,10 +29,258 @@
     </div>
   </div>
 
-  {{!-- Trees Canvas --}}
+  {{!-- Trees / Nebula Canvas --}}
   <div class="tree-canvas-container srd-style-canvas">
-    {{#if trees.length}}
-      <div class="srd-tracks-viewport {{#if (eq activeCategory 'character')}}character-focus-view{{/if}}">
+    {{#if (and ccxEnabled (eq activeCategory 'character'))}}
+      {{!-- ========================================================
+           UNIFIED 3D ASTRAL GALAXY ("YOUR CHARACTER" TAB)
+           - Overview Mode: Open Galaxy sky with central Hero Nexus and
+             floating Parent Star Nodes (no cards or boxes).
+           - Focused Mode: Clicking any Parent Star zooms smoothly into
+             that single track's Constellation of Taken & Next Talents.
+           ======================================================== --}}
+      <div class="ccx-character-nebula-universe">
+        <div class="ccx-nebula-cosmic-clouds" aria-hidden="true">
+          <div class="ccx-nebula-cloud cloud-gold"></div>
+          <div class="ccx-nebula-cloud cloud-cyan"></div>
+          <div class="ccx-nebula-cloud cloud-violet"></div>
+          <div class="ccx-astrolabe-ring grand-outer"></div>
+          <div class="ccx-astrolabe-ring grand-inner"></div>
+        </div>
+
+        {{#if focusedNebulaTrack}}
+          <div class="ccx-galaxy-focused-constellation category-{{focusedNebulaTrack.category}}" data-track-title="{{focusedNebulaTrack.trackKey}}">
+            <div class="ccx-galaxy-focused-topbar">
+              <button type="button" class="ccx-galaxy-zoom-out-btn" data-action="toggleTrackExpand" data-track-title="__GALAXY_OVERVIEW__">
+                <i class="fas fa-arrow-left"></i> Zoom Out to Gallery
+              </button>
+
+              <div class="ccx-focused-track-heading">
+                <i class="fas fa-star"></i>
+                <span class="sector-track-name">{{focusedNebulaTrack.trackTitle}}</span>
+                {{#each focusedNebulaTrack.startedSubclasses as |subName|}}
+                  <span class="ccx-galaxy-subclass-pill"><i class="fas fa-compass"></i> {{subName}}</span>
+                {{/each}}
+                <span class="track-pill owned"><i class="fas fa-check"></i> {{focusedNebulaTrack.takenCount}} Taken</span>
+                {{#if focusedNebulaTrack.availableCount}}
+                  <span class="track-pill available"><i class="fas fa-sparkles"></i> {{focusedNebulaTrack.availableCount}} Next Available</span>
+                {{/if}}
+              </div>
+
+              <div class="ccx-galaxy-quick-warp-bar">
+                {{#each characterNebulaTracks as |qtrack|}}
+                  <button type="button"
+                          class="ccx-warp-star-pill {{#if qtrack.isExpanded}}active{{/if}} category-{{qtrack.category}}"
+                          data-action="toggleTrackExpand"
+                          data-track-title="{{qtrack.trackKey}}"
+                          title="Warp to {{qtrack.trackTitle}}">
+                    <img src="{{qtrack.parentNode.img}}" alt="{{qtrack.trackTitle}}" />
+                    <span>{{qtrack.trackTitle}}</span>
+                  </button>
+                {{/each}}
+              </div>
+            </div>
+
+            <div class="ccx-constellation-sky-card is-full-galaxy-zoom category-{{focusedNebulaTrack.category}}" style="height: {{focusedNebulaTrack.constellation.canvasHeight}}px;">
+              <div class="ccx-sky-nebula-layer" aria-hidden="true">
+                <div class="ccx-astrolabe-ring outer"></div>
+                <div class="ccx-astrolabe-ring inner"></div>
+              </div>
+
+              <svg class="ccx-constellation-lines-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
+                {{#each focusedNebulaTrack.constellation.bgStars as |bstar|}}
+                  <circle cx="{{bstar.cx}}" cy="{{bstar.cy}}" r="{{bstar.r}}" fill="{{bstar.fill}}" />
+                {{/each}}
+
+                <ellipse cx="500" cy="500" rx="390" ry="390" fill="none" stroke="rgba(56, 189, 248, 0.1)" stroke-width="1" stroke-dasharray="4 10" />
+                <ellipse cx="500" cy="500" rx="240" ry="240" fill="none" stroke="rgba(254, 235, 179, 0.08)" stroke-width="1" stroke-dasharray="2 8" />
+
+                {{#each focusedNebulaTrack.constellation.edges as |edge|}}
+                  {{#if edge.isEnergized}}
+                    <line x1="{{edge.x1}}" y1="{{edge.y1}}" x2="{{edge.x2}}" y2="{{edge.y2}}"
+                          stroke="rgba(254, 235, 179, 0.3)" stroke-width="8" stroke-linecap="round" />
+                  {{else}}
+                    <line x1="{{edge.x1}}" y1="{{edge.y1}}" x2="{{edge.x2}}" y2="{{edge.y2}}"
+                          stroke="rgba(56, 189, 248, 0.24)" stroke-width="6" stroke-linecap="round" />
+                  {{/if}}
+                  <line x1="{{edge.x1}}" y1="{{edge.y1}}" x2="{{edge.x2}}" y2="{{edge.y2}}"
+                        stroke="{{edge.stroke}}" stroke-width="{{edge.strokeWidth}}" stroke-linecap="round"
+                        {{#if edge.dashArray}}stroke-dasharray="{{edge.dashArray}}"{{/if}}
+                        class="ccx-constellation-edge {{edge.stateClass}}" />
+                  <circle cx="{{edge.midX}}" cy="{{edge.midY}}" r="2.8" fill="{{edge.stroke}}" />
+                {{/each}}
+              </svg>
+
+              <div class="ccx-constellation-nodes-layer">
+                {{#each focusedNebulaTrack.constellation.branchHeaders as |hub|}}
+                  <div class="ccx-constellation-subclass-hub {{#if hub.isStarted}}is-started{{else}}is-available{{/if}}"
+                       style="left: {{hub.xPct}}%; top: {{hub.yPct}}%;">
+                    <div class="ccx-subclass-hub-gem">
+                      <i class="fas {{#if hub.isStarted}}fa-compass{{else}}fa-sparkles{{/if}}"></i>
+                    </div>
+                    <div class="ccx-subclass-hub-plate">
+                      <span class="ccx-subclass-hub-title">{{hub.title}}</span>
+                      <div class="ccx-subclass-hub-counts">
+                        {{#if hub.takenCount}}
+                          <span class="hub-mini-pill owned"><i class="fas fa-check"></i> {{hub.takenCount}} Taken</span>
+                        {{/if}}
+                        {{#if hub.availableCount}}
+                          <span class="hub-mini-pill available"><i class="fas fa-sparkles"></i> {{hub.availableCount}} Next</span>
+                        {{/if}}
+                      </div>
+                    </div>
+                  </div>
+                {{/each}}
+
+                {{#each focusedNebulaTrack.constellation.nodes as |node|}}
+                  <div class="ccx-star-constellation-node {{#if node.isParentRoot}}is-parent-root{{/if}} {{#if node.isOwned}}node-owned{{else if node.isAvailable}}node-available{{else}}node-locked{{/if}}"
+                       style="left: {{node.xPct}}%; top: {{node.yPct}}%;"
+                       data-talent-id="{{node.id}}">
+
+                    <div class="ccx-star-orb-wrap"
+                         {{#if node.isParentRoot}}
+                           data-action="toggleTrackExpand" data-track-title="__GALAXY_OVERVIEW__" title="Click Parent Star to zoom out to Gallery"
+                         {{else}}
+                           data-action="viewTalent" data-talent-id="{{node.id}}"
+                         {{/if}}>
+                      <div class="ccx-star-flare-cross"></div>
+                      <div class="ccx-star-halo-ring"></div>
+                      <div class="ccx-star-orb-core">
+                        <img src="{{node.img}}" alt="{{node.name}}" class="ccx-star-talent-icon" />
+                        <span class="ccx-star-corner-badge">
+                          {{#if node.isOwned}}
+                            <i class="fas fa-check"></i>
+                          {{else}}
+                            <i class="fas fa-sparkles"></i>
+                          {{/if}}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div class="ccx-star-hud-plate">
+                      <div class="ccx-star-title-row" data-action="viewTalent" data-talent-id="{{node.id}}">
+                        {{#if node.isParentRoot}}
+                          <span class="ccx-star-tier-pip root-pip">START</span>
+                        {{else if node.isOwned}}
+                          <span class="ccx-star-tier-pip">TAKEN</span>
+                        {{else}}
+                          <span class="ccx-star-tier-pip next-pip">NEXT</span>
+                        {{/if}}
+                        <span class="ccx-star-name" title="{{node.name}}">{{node.name}}</span>
+                      </div>
+
+                      <div class="ccx-star-actions-row">
+                        <button type="button" class="badge-btn view" data-action="viewTalent" data-talent-id="{{node.id}}" title="Inspect Talent">
+                          <i class="fas fa-eye"></i>
+                        </button>
+                        <button type="button" class="badge-btn chat" data-action="postTalent" data-talent-id="{{node.id}}" title="Share to Chat">
+                          <i class="fas fa-comment-alt"></i>
+                        </button>
+                        {{#if node.isParentRoot}}
+                          <button type="button" class="badge-btn select" data-action="toggleTrackExpand" data-track-title="__GALAXY_OVERVIEW__" title="Zoom Out to Gallery">
+                            <i class="fas fa-compress-arrows-alt"></i> Gallery
+                          </button>
+                        {{else if @root.isPickerMode}}
+                          {{#if node.isAvailable}}
+                            <button type="button" class="badge-btn select" data-action="chooseTalent" data-talent-id="{{node.id}}" title="Select for Level Up">
+                              <i class="fas fa-plus"></i> Select
+                            </button>
+                          {{/if}}
+                        {{/if}}
+                      </div>
+                    </div>
+
+                  </div>
+                {{/each}}
+              </div>
+            </div>
+          </div>
+        {{else if characterNebulaTracks.length}}
+          <div class="ccx-nebula-top-legend">
+            <span class="nebula-legend-title"><i class="fas fa-sparkles"></i> {{actor.name}}'s Gallery</span>
+            <span class="nebula-legend-sub">Click any <strong>Track Node</strong> in the gallery to zoom into its acquired &amp; next available talents.</span>
+          </div>
+
+          <div class="ccx-galaxy-overview-map">
+            <svg class="ccx-galaxy-orbit-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
+              <ellipse cx="500" cy="500" rx="345" ry="315" fill="none" stroke="rgba(254, 235, 179, 0.14)" stroke-width="1.2" stroke-dasharray="6 12" />
+              <ellipse cx="500" cy="500" rx="225" ry="205" fill="none" stroke="rgba(56, 189, 248, 0.12)" stroke-width="1" stroke-dasharray="3 9" />
+              <ellipse cx="500" cy="500" rx="430" ry="395" fill="none" stroke="rgba(56, 189, 248, 0.07)" stroke-width="1" />
+
+              {{#each characterNebulaTracks as |ntrack|}}
+                <line x1="500" y1="500" x2="{{ntrack.galaxySvgX}}" y2="{{ntrack.galaxySvgY}}"
+                      stroke="rgba(254, 235, 179, 0.16)" stroke-width="4" stroke-linecap="round" />
+                <line x1="500" y1="500" x2="{{ntrack.galaxySvgX}}" y2="{{ntrack.galaxySvgY}}"
+                      stroke="rgba(56, 189, 248, 0.42)" stroke-width="1.4" stroke-dasharray="5 7" stroke-linecap="round" />
+              {{/each}}
+            </svg>
+
+            <div class="ccx-galaxy-core-nexus" aria-hidden="true">
+              <div class="ccx-core-nexus-halo"></div>
+              <div class="ccx-core-nexus-avatar">
+                <img src="{{actor.img}}" alt="{{actor.name}}" />
+              </div>
+              <span class="ccx-core-nexus-label">{{actor.name}}</span>
+            </div>
+
+            {{#each characterNebulaTracks as |ntrack|}}
+              <div class="ccx-galaxy-star-cluster category-{{ntrack.category}}"
+                   style="left: {{ntrack.galaxyX}}%; top: {{ntrack.galaxyY}}%;"
+                   data-track-title="{{ntrack.trackKey}}"
+                   data-galaxy-x="{{ntrack.galaxyX}}"
+                   data-galaxy-y="{{ntrack.galaxyY}}">
+
+                <div class="ccx-galaxy-track-ribbon"
+                     data-action="toggleTrackExpand"
+                     data-track-title="{{ntrack.trackKey}}">
+                  {{ntrack.trackTitle}}
+                </div>
+
+                <div class="ccx-parent-alpha-star"
+                     data-action="toggleTrackExpand"
+                     data-track-title="{{ntrack.trackKey}}"
+                     title="Click to zoom into {{ntrack.trackTitle}} constellation">
+                  <div class="ccx-alpha-flare-rays"></div>
+                  <div class="ccx-alpha-orbit-outer"></div>
+                  <div class="ccx-alpha-orbit-inner"></div>
+                  <div class="ccx-alpha-star-core">
+                    <img src="{{ntrack.parentNode.img}}" alt="{{ntrack.parentNode.name}}" />
+                    <span class="ccx-alpha-check-badge"><i class="fas fa-star"></i></span>
+                  </div>
+                </div>
+
+                <div class="ccx-galaxy-star-caption"
+                     data-action="toggleTrackExpand"
+                     data-track-title="{{ntrack.trackKey}}">
+                  <span class="ccx-galaxy-star-name" title="{{ntrack.parentNode.name}}">{{ntrack.parentNode.name}}</span>
+                  {{#if ntrack.startedSubclasses.length}}
+                    <div class="ccx-galaxy-subclass-badges">
+                      {{#each ntrack.startedSubclasses as |subName|}}
+                        <span class="ccx-galaxy-subclass-pill"><i class="fas fa-compass"></i> {{subName}}</span>
+                      {{/each}}
+                    </div>
+                  {{/if}}
+                  <div class="ccx-galaxy-star-counts">
+                    <span class="track-pill owned"><i class="fas fa-check"></i> {{ntrack.takenCount}} Taken</span>
+                    {{#if ntrack.availableCount}}
+                      <span class="track-pill available"><i class="fas fa-sparkles"></i> {{ntrack.availableCount}} Next</span>
+                    {{/if}}
+                  </div>
+                </div>
+
+              </div>
+            {{/each}}
+          </div>
+        {{else}}
+          <div class="empty-tree-state">
+            <i class="fas fa-star"></i>
+            <h3>No Started Tracks Yet</h3>
+            <p>Your character hasn't acquired talents from any tracks yet. Click the <strong>Class Tracks</strong>, <strong>Specialization</strong>, or <strong>Magic</strong> tabs above to explore available tracks!</p>
+          </div>
+        {{/if}}
+      </div>
+    {{else if trees.length}}
+      <div class="srd-tracks-viewport">
         {{#each trees as |tree|}}
           <div class="srd-root-tree-column {{#if tree.isStarted}}root-active{{/if}} {{#if tree.isExpanded}}expanded{{else}}collapsed{{/if}}"
                data-root-id="{{tree.id}}">

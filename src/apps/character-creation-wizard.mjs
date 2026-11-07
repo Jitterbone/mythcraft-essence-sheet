@@ -37,9 +37,18 @@ import {
   applyDefaultItemIcon,
   isDefaultIcon,
 } from "../features/equipment-icons.mjs";
-import { getSetting } from "../settings.mjs";
+import { getSetting, setSetting } from "../settings.mjs";
 import { getEnduranceThreshold, ENDURANCE_THRESHOLDS, calculateApMax } from "../features/hp-automation.mjs";
 import { getMagicAttributeOptions } from "../features/homebrew-attributes.mjs";
+import {
+  CcxSound,
+  setupCcxParticles,
+  attachCcxInteractiveEffects,
+  buildAttributeRadarSvg,
+  buildAstralConstellationSvg,
+  triggerStageCalloutBanner,
+  playAwakeningFinaleSequence,
+} from "../features/ccx-experience-engine.mjs";
 
 const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
 
@@ -49,6 +58,8 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     super(options);
     this.actor = actor;
     this.currentStep = 1;
+    this.maxUnlockedStep = 1;
+    this._lastStep = 1;
 
     // State data
     this.data = {
@@ -111,20 +122,21 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
   /** @inheritdoc */
   static DEFAULT_OPTIONS = {
     id: "character-creation-wizard",
-    classes: ["mythcraft", "essence-dialog", "character-creation-wizard"],
+    classes: ["mythcraft", "essence-dialog", "character-creation-wizard", "ccx-fullscreen-window"],
     tag: "div",
     window: {
-      title: "MythCraft — Character Creation Wizard",
+      title: "MythCraft — Character Creation Experience",
       icon: "fas fa-hat-wizard",
       resizable: true,
     },
     position: {
-      width: 860,
-      height: 760,
+      width: 1520,
+      height: 920,
     },
     actions: {
       nextStep: this._onNextStep,
       prevStep: this._onPrevStep,
+      jumpToStep: this._onJumpToStep,
       selectLineage: this._onSelectLineage,
       selectSublineage: this._onSelectSublineage,
       selectLineageChoice: this._onSelectLineageChoice,
@@ -149,6 +161,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       toggleCardExpand: this._toggleCardExpand,
       setSearch: this._setSearch,
       viewTalent: this._onViewTalent,
+      toggleCcxSound: this._onToggleCcxSound,
       finalize: this._onFinalize,
     },
   };
@@ -347,15 +360,21 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     // Selected Lineage Data
     const selectedLineage = this.data.lineages.find(l => l.id === this.data.selectedLineageId);
 
-    // Resolve starting features, sublineages, choice groups, and unique features
-    const lineageParsed = selectedLineage ? resolveLineageFeatures(selectedLineage, this.data.allLineageDocs || []) : {
-      baseStartingFeatures: [],
-      startingFeatures: [],
-      sublineages: [],
-      choiceGroups: [],
-      uniqueFeatures: [],
-      uniqueCount: 0,
-    };
+    // Resolve starting features, sublineages, choice groups, and unique features (cached per selectedLineageId)
+    if (this._cachedLineageId !== (this.data.selectedLineageId || null)) {
+      this._cachedLineageId = this.data.selectedLineageId || null;
+      this._cachedLineageParsed = selectedLineage
+        ? resolveLineageFeatures(selectedLineage, this.data.allLineageDocs || [])
+        : {
+            baseStartingFeatures: [],
+            startingFeatures: [],
+            sublineages: [],
+            choiceGroups: [],
+            uniqueFeatures: [],
+            uniqueCount: 0,
+          };
+    }
+    const lineageParsed = this._cachedLineageParsed;
 
     // Sublineage resolution
     const selectedSublineage = lineageParsed.sublineages.find(s => s.name === this.data.selectedSublineageName) || null;
@@ -406,21 +425,23 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       this.data.selectedUniqueFeatureIds = this.data.selectedFeatureId ? [this.data.selectedFeatureId] : [];
     }
 
-    // Evaluate availability for unique lineage features list
-    const lineageUniqueFeatures = (lineageParsed.uniqueFeatures || []).map(feature => {
-      const avail = checkTalentAvailability(feature, [selectedLineage, ...activeStartingFeatures]);
-      const fId = feature.id || feature._id;
-      return {
-        id: fId,
-        name: feature.name,
-        img: resolveItemIcon(feature, feature.img, "feature"),
-        description: feature.system?.description?.value ?? feature.system?.description ?? "",
-        isAvailable: avail.isAvailable,
-        missingPrereqs: avail.missingPrereqs,
-        prereqTooltip: avail.prereqTooltip,
-        isSelected: this.data.selectedUniqueFeatureIds.includes(fId),
-      };
-    });
+    // Evaluate availability for unique lineage features list ONLY on Step 1
+    const lineageUniqueFeatures = this.currentStep === 1
+      ? (lineageParsed.uniqueFeatures || []).map(feature => {
+          const avail = checkTalentAvailability(feature, [selectedLineage, ...activeStartingFeatures]);
+          const fId = feature.id || feature._id;
+          return {
+            id: fId,
+            name: feature.name,
+            img: resolveItemIcon(feature, feature.img, "feature"),
+            description: feature.system?.description?.value ?? feature.system?.description ?? "",
+            isAvailable: avail.isAvailable,
+            missingPrereqs: avail.missingPrereqs,
+            prereqTooltip: avail.prereqTooltip,
+            isSelected: this.data.selectedUniqueFeatureIds.includes(fId),
+          };
+        })
+      : [];
 
     const selectedUniqueFeatures = this.data.selectedUniqueFeatureIds
       .map(id => (this.data.allLineageDocs || []).find(d => (d.id || d._id) === id))
@@ -440,7 +461,10 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
     // Selected Background Data
     const selectedBackground = this.data.backgrounds.find(b => b.id === this.data.selectedBackgroundId);
-    const parsedBackground = selectedBackground ? parseBackgroundData(selectedBackground) : null;
+    if (selectedBackground && !selectedBackground._cachedParsed) {
+      selectedBackground._cachedParsed = parseBackgroundData(selectedBackground);
+    }
+    const parsedBackground = selectedBackground ? selectedBackground._cachedParsed : null;
     const encouragedTag = (parsedBackground?.encouragedProfessions?.tag || "").trim().toLowerCase();
 
     // Backgrounds with No Professional Experience (e.g. Urchin) do not choose a profession at level 1
@@ -455,18 +479,20 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       return this._isProfessionEncouraged(profession, parsedBackground);
     };
 
-    // Professions sorted: encouraged professions with bonus in gold at the top
-    const availableProfessions = parsedBackground && this.data.backgroundConfirmed
+    // Professions sorted: only build full list on Step 4!
+    const availableProfessions = (this.currentStep === 4 && parsedBackground && this.data.backgroundConfirmed)
       ? this.data.professions.map(profession => {
           const isEncouraged = isEncouragedProfession(profession);
           const pId = profession.id || profession._id;
-          const parsed = parseProfessionData(profession);
+          if (!profession._cachedParsed) profession._cachedParsed = parseProfessionData(profession);
+          if (!profession._cachedImg) profession._cachedImg = resolveItemIcon(profession, profession.img, "profession");
+          const parsed = profession._cachedParsed;
           return {
             id: pId,
             _id: pId,
             name: profession.name,
             displayName: parsed.name || profession.name.replace(/\s*profession$/i, "").trim(),
-            img: resolveItemIcon(profession, profession.img, "profession"),
+            img: profession._cachedImg,
             system: profession.system,
             isEncouraged,
             parsed,
@@ -476,57 +502,74 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
     // Selected Profession Data
     const selectedProfession = this.data.professions.find(p => p.id === this.data.selectedProfessionId);
-    const parsedProfession = selectedProfession ? parseProfessionData(selectedProfession) : null;
+    if (selectedProfession && !selectedProfession._cachedParsed) {
+      selectedProfession._cachedParsed = parseProfessionData(selectedProfession);
+    }
+    const parsedProfession = selectedProfession ? selectedProfession._cachedParsed : null;
     if (parsedProfession?.startingGear) {
       for (const gear of parsedProfession.startingGear) {
-        gear.img = resolveEquipmentIcon(gear.name, null, "gear");
+        if (!gear.img) gear.img = resolveEquipmentIcon(gear.name, null, "gear");
       }
     }
-    const professionRankItems = selectedProfession
+    const professionRankItems = (this.currentStep === 4 && selectedProfession)
       ? (this.data.allBopsDocs || []).filter(item => String(item.name || "").toLowerCase().startsWith(`${selectedProfession.name.toLowerCase().replace(/ profession$/, "")}: rank 1`))
           .sort((a, b) => a.name.localeCompare(b.name))
       : [];
 
     // Knave dual-profession: second profession
     const isDualProfession = Boolean(parsedBackground?.dualProfession);
-    const availableProfessions2 = isDualProfession && this.data.backgroundConfirmed
+    const availableProfessions2 = (this.currentStep === 4 && isDualProfession && this.data.backgroundConfirmed)
       ? availableProfessions.filter(p => p.id !== this.data.selectedProfessionId)
       : [];
     const selectedProfession2 = isDualProfession
       ? this.data.professions.find(p => p.id === this.data.selectedProfessionId2)
       : null;
-    const parsedProfession2 = selectedProfession2 ? parseProfessionData(selectedProfession2) : null;
+    if (selectedProfession2 && !selectedProfession2._cachedParsed) {
+      selectedProfession2._cachedParsed = parseProfessionData(selectedProfession2);
+    }
+    const parsedProfession2 = selectedProfession2 ? selectedProfession2._cachedParsed : null;
     if (parsedProfession2?.startingGear) {
       for (const gear of parsedProfession2.startingGear) {
-        gear.img = resolveEquipmentIcon(gear.name, null, "gear");
+        if (!gear.img) gear.img = resolveEquipmentIcon(gear.name, null, "gear");
       }
     }
-    const professionRankItems2 = selectedProfession2
+    const professionRankItems2 = (this.currentStep === 4 && selectedProfession2)
       ? (this.data.allBopsDocs || []).filter(item => String(item.name || "").toLowerCase().startsWith(`${selectedProfession2.name.toLowerCase().replace(/ profession$/, "")}: rank 1`))
           .sort((a, b) => a.name.localeCompare(b.name))
       : [];
 
     // Search filter helper
     const matchesSearch = (document, query) => {
-      const text = `${document?.name || ""} ${document?.system?.description?.value || document?.system?.description || document?.description || ""}`
-        .replace(/<[^>]+>/g, " ").toLowerCase();
-      return !query || text.includes(query.trim().toLowerCase());
+      if (!query) return true;
+      if (!document._cachedSearchText) {
+        document._cachedSearchText = `${document?.name || ""} ${document?.system?.description?.value || document?.system?.description || document?.description || ""}`
+          .replace(/<[^>]+>/g, " ").toLowerCase();
+      }
+      return document._cachedSearchText.includes(query.trim().toLowerCase());
     };
 
-    const filteredLineages = this.data.lineages.filter(item => matchesSearch(item, this.data.searches.lineage));
-    const filteredBackgrounds = this.data.backgrounds
-      .map(bg => {
-        const bgId = bg.id || bg._id;
-        return {
-          id: bgId,
-          _id: bgId,
-          name: bg.name,
-          img: resolveItemIcon(bg, bg.img, "background"),
-          system: bg.system,
-        };
-      })
-      .filter(item => matchesSearch(item, this.data.searches.background));
-    const filteredProfessions = availableProfessions.filter(item => matchesSearch(item, this.data.searches.profession));
+    const filteredLineages = this.currentStep === 1
+      ? this.data.lineages.filter(item => matchesSearch(item, this.data.searches.lineage))
+      : [];
+    const filteredBackgrounds = this.currentStep === 4
+      ? this.data.backgrounds
+          .map(bg => {
+            const bgId = bg.id || bg._id;
+            if (!bg._cachedImg) bg._cachedImg = resolveItemIcon(bg, bg.img, "background");
+            return {
+              id: bgId,
+              _id: bgId,
+              name: bg.name,
+              img: bg._cachedImg,
+              system: bg.system,
+              _cachedSearchText: bg._cachedSearchText,
+            };
+          })
+          .filter(item => matchesSearch(item, this.data.searches.background))
+      : [];
+    const filteredProfessions = this.currentStep === 4
+      ? availableProfessions.filter(item => matchesSearch(item, this.data.searches.profession))
+      : [];
 
     // Known features/talents for prerequisite checking in Step 5
     const knownItemsForPrereq = [
@@ -539,109 +582,144 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
     // Selected Talent Data
     const selectedTalent = this.data.talents.find(t => t.id === this.data.selectedTalentId);
-    const parsedTalent = selectedTalent ? parseTalentData(selectedTalent) : null;
+    if (selectedTalent && !selectedTalent._cachedParsed) {
+      selectedTalent._cachedParsed = parseTalentData(selectedTalent);
+    }
+    const parsedTalent = selectedTalent ? selectedTalent._cachedParsed : null;
 
-    // Divide talents into Stacks (Specialization & Magic)
-    const talentStacks = groupTalentsByStack(this.data.talents).map(stack => ({
-      stackName: stack.stackName,
-      stackKey: stack.stackKey,
-      items: stack.talents.map(t => {
-        const avail = checkTalentAvailability(t, knownItemsForPrereq);
-        const parsed = parseTalentData(t);
-        const descRaw = t.system?.description?.value ?? t.system?.description ?? "";
-        const descClean = descRaw.replace(/<[^>]+>/g, " ").trim();
-        const shortDesc = descClean.length > 120 ? descClean.substring(0, 117) + "..." : descClean;
+    // Only build Step 5 talent stacks, extra talents, and spell lists when on Step 5!
+    let talentGroups = [];
+    let filteredTalentGroups = [];
+    let extraTalentOptions = [];
+    let filteredSpells = [];
 
-        return {
-          id: t.id,
-          name: t.name,
-          img: resolveItemIcon(t, t.img, "talent"),
-          description: descRaw,
-          shortDesc,
-          isAvailable: avail.isAvailable,
-          missingPrereqs: avail.missingPrereqs,
-          prereqTooltip: avail.prereqTooltip,
-          parsed,
-        };
-      }),
-    }));
-
-    // Group talent stacks into categories: Specialization and Magic
-    const talentGroups = [
-      {
-        categoryKey: "specialization",
-        categoryTitle: "Specialization Stacks",
-        categoryIcon: "fas fa-shield-halved",
-        stacks: talentStacks.filter(s => !s.stackKey.includes("magic")),
-      },
-      {
-        categoryKey: "magic",
-        categoryTitle: "Magic Stacks",
-        categoryIcon: "fas fa-wand-magic-sparkles",
-        stacks: talentStacks.filter(s => s.stackKey.includes("magic")),
-      },
-    ].filter(g => g.stacks.length > 0);
-
-    // Apply live search filtering to talent groups
-    const talentQuery = this.data.searches.talent.toLowerCase().trim();
-    const filteredTalentGroups = talentGroups.map(group => ({
-      ...group,
-      stacks: group.stacks.map(stack => ({
-        ...stack,
-        items: stack.items.filter(item => matchesSearch(item, talentQuery)),
-      })).filter(stack => stack.items.length > 0),
-    })).filter(group => group.stacks.length > 0);
-
-    // Extra talents and spells for magic entry talents
-    const stackTag = (parsedTalent?.magicStackTag || "").toLowerCase().replace(/\s*magic\s*$/i, "").trim();
-    const isDocOfStack = (doc, tag) => {
-      if (!tag) return true;
-      if (doc.type === "spell") {
-        const lib = getSpellLibraryEntry(doc);
-        if (lib) return lib.sourceKey === tag;
+    if (this.currentStep === 5) {
+      if (!this._groupedTalents) {
+        this._groupedTalents = groupTalentsByStack(this.data.talents);
       }
-      if (!tag) return true;
-      const tName = (doc.name || "").toLowerCase();
-      const tDesc = (doc.system?.description?.value ?? doc.system?.description ?? "").toLowerCase();
-      const tSrc = String(doc.system?.magicSource || "").toLowerCase().replace(/^mythcraft\.(item|item)\.spell\.source\./i, "");
-      const tCat = String(doc.system?.category || "").toLowerCase();
-      const chain = doc._folderChain || [];
-      const inChain = chain.some(f => f.toLowerCase().includes(tag));
-      const inTags = this._hasTag(doc.system?.tags, tag) || this._hasTag(doc.system?.tag, tag);
-      return inChain || inTags || tSrc.includes(tag) || tCat.includes(tag) || tName.includes(tag) || tDesc.includes(`${tag} magic`) || tDesc.includes(`tag: ${tag}`) || tDesc.includes(`[${tag}]`);
-    };
 
-    const extraTalentOptions = selectedTalent && parsedTalent?.extraStackTalents
-      ? this.data.talents
-          .filter(t => t.id !== selectedTalent.id && isDocOfStack(t, stackTag))
-          .map(t => {
-            const avail = checkTalentAvailability(t, [...knownItemsForPrereq, selectedTalent]);
-            return {
-              id: t.id,
-              name: t.name,
-              img: resolveItemIcon(t, t.img, "talent"),
-              isAvailable: avail.isAvailable,
-              missingPrereqs: avail.missingPrereqs,
-              prereqTooltip: avail.prereqTooltip,
-            };
-          })
-          .sort((a, b) => a.name.localeCompare(b.name))
-      : [];
+      const talentStacks = this._groupedTalents
+        .map(stack => ({
+          stackName: stack.stackName,
+          stackKey: stack.stackKey,
+          items: stack.talents
+            .map(t => {
+              const avail = checkTalentAvailability(t, knownItemsForPrereq, {
+                effectiveLevel: 1,
+                attributes: this.data.attributes,
+              });
+              if (!avail.isAvailable) return null;
 
-    const rawFilteredSpells = (parsedTalent?.isMagicEntry && stackTag)
-      ? this.data.availableSpells.filter(s => isDocOfStack(s, stackTag) && matchesSearch(s, this.data.searches.spell))
-      : this.data.availableSpells.filter(s => matchesSearch(s, this.data.searches.spell));
+              if (!t._cachedParsed) t._cachedParsed = parseTalentData(t);
+              if (!t._cachedImg) t._cachedImg = resolveItemIcon(t, t.img, "talent");
+              if (t._cachedShortDesc === undefined) {
+                const descRaw = t.system?.description?.value ?? t.system?.description ?? "";
+                const descClean = descRaw.replace(/<[^>]+>/g, " ").trim();
+                t._cachedDescRaw = descRaw;
+                t._cachedShortDesc = descClean.length > 135 ? descClean.substring(0, 132) + "..." : descClean;
+              }
 
-    const filteredSpells = rawFilteredSpells.map(s => {
-      const sId = s.id || s._id;
-      return {
-        id: sId,
-        _id: sId,
-        name: s.name,
-        system: s.system,
-        img: resolveItemIcon(s, s.img, "spell"),
+              return {
+                id: t.id,
+                name: t.name,
+                img: t._cachedImg,
+                description: t._cachedDescRaw,
+                shortDesc: t._cachedShortDesc,
+                isAvailable: true,
+                missingPrereqs: avail.missingPrereqs,
+                prereqTooltip: avail.prereqTooltip,
+                parsed: t._cachedParsed,
+                _cachedSearchText: t._cachedSearchText,
+              };
+            })
+            .filter(Boolean),
+        }))
+        .filter(stack => stack.items.length > 0);
+
+      talentGroups = [
+        {
+          categoryKey: "specialization",
+          categoryTitle: "Specialization Stacks",
+          label: "Specialization Stacks",
+          categoryIcon: "fas fa-shield-halved",
+          stacks: talentStacks.filter(s => !s.stackKey.includes("magic")),
+        },
+        {
+          categoryKey: "magic",
+          categoryTitle: "Magic Entry Stacks",
+          label: "Magic Entry Stacks",
+          categoryIcon: "fas fa-wand-magic-sparkles",
+          stacks: talentStacks.filter(s => s.stackKey.includes("magic")),
+        },
+      ].filter(g => g.stacks.length > 0);
+
+      const talentQuery = this.data.searches.talent.toLowerCase().trim();
+      filteredTalentGroups = talentQuery
+        ? talentGroups.map(group => ({
+            ...group,
+            stacks: group.stacks.map(stack => ({
+              ...stack,
+              items: stack.items.filter(item => matchesSearch(item, talentQuery)),
+            })).filter(stack => stack.items.length > 0),
+          })).filter(group => group.stacks.length > 0)
+        : talentGroups;
+
+      const stackTag = (parsedTalent?.magicStackTag || "").toLowerCase().replace(/\s*magic\s*$/i, "").trim();
+      const isDocOfStack = (doc, tag) => {
+        if (!tag) return true;
+        if (doc.type === "spell") {
+          const lib = getSpellLibraryEntry(doc);
+          if (lib) return lib.sourceKey === tag;
+        }
+        const tName = (doc.name || "").toLowerCase();
+        const tDesc = (doc.system?.description?.value ?? doc.system?.description ?? "").toLowerCase();
+        const tSrc = String(doc.system?.magicSource || "").toLowerCase().replace(/^mythcraft\.(item|item)\.spell\.source\./i, "");
+        const tCat = String(doc.system?.category || "").toLowerCase();
+        const chain = doc._folderChain || [];
+        const inChain = chain.some(f => f.toLowerCase().includes(tag));
+        const inTags = this._hasTag(doc.system?.tags, tag) || this._hasTag(doc.system?.tag, tag);
+        return inChain || inTags || tSrc.includes(tag) || tCat.includes(tag) || tName.includes(tag) || tDesc.includes(`${tag} magic`) || tDesc.includes(`tag: ${tag}`) || tDesc.includes(`[${tag}]`);
       };
-    });
+
+      extraTalentOptions = selectedTalent && parsedTalent?.extraStackTalents
+        ? this.data.talents
+            .filter(t => t.id !== selectedTalent.id && isDocOfStack(t, stackTag))
+            .map(t => {
+              const avail = checkTalentAvailability(t, [...knownItemsForPrereq, selectedTalent], {
+                effectiveLevel: 1,
+                attributes: this.data.attributes,
+              });
+              if (!avail.isAvailable) return null;
+              if (!t._cachedImg) t._cachedImg = resolveItemIcon(t, t.img, "talent");
+              return {
+                id: t.id,
+                name: t.name,
+                img: t._cachedImg,
+                isAvailable: true,
+                missingPrereqs: avail.missingPrereqs,
+                prereqTooltip: avail.prereqTooltip,
+              };
+            })
+            .filter(Boolean)
+            .sort((a, b) => a.name.localeCompare(b.name))
+        : [];
+
+      const rawFilteredSpells = (parsedTalent?.isMagicEntry && stackTag)
+        ? this.data.availableSpells.filter(s => isDocOfStack(s, stackTag) && matchesSearch(s, this.data.searches.spell))
+        : this.data.availableSpells.filter(s => matchesSearch(s, this.data.searches.spell));
+
+      filteredSpells = rawFilteredSpells.map(s => {
+        const sId = s.id || s._id;
+        if (!s._cachedImg) s._cachedImg = resolveItemIcon(s, s.img, "spell");
+        return {
+          id: sId,
+          _id: sId,
+          name: s.name,
+          system: s.system,
+          img: s._cachedImg,
+        };
+      });
+    }
 
     // Active lineage features for skill bonus parsing (deduplicated)
     const seenLineageFeatIds = new Set();
@@ -716,10 +794,45 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
     const hpData = getEnduranceThreshold(this.data.attributes.end || 0);
     const setHpValue = 10 + 1 + (1 * hpData.setHp);
+    const calculatedAp = calculateApMax(Number(this.data.attributes.cor) || 0);
+
+    const allocatedSkillsList = Object.entries(this.data.allocatedSkills || {})
+      .filter(([, pts]) => Number(pts) > 0)
+      .map(([name, value]) => ({ name, value: Number(value) }));
+
+    const allocatedLineageSkillsList = Object.entries(this.data.allocatedLineageSkills || {})
+      .filter(([, pts]) => Number(pts) > 0)
+      .map(([name, value]) => ({ name, value: Number(value) }));
+
+    const selectedExtraTalents = (this.data.selectedExtraTalentIds || [])
+      .map(id => {
+        const doc = (this.data.talents || []).find(t => (t.id || t._id) === id);
+        return doc ? { id: doc.id || doc._id, name: doc.name, img: resolveItemIcon(doc, doc.img, "talent") } : null;
+      })
+      .filter(Boolean);
+
+    const selectedSpells = (this.data.selectedSpellIds || [])
+      .map(id => {
+        const doc = (this.data.availableSpells || []).find(s => (s.id || s._id) === id);
+        return doc ? { id: doc.id || doc._id, name: doc.name, img: resolveItemIcon(doc, doc.img, "spell") } : null;
+      })
+      .filter(Boolean);
+
+    const maxUnlockedStep = Math.max(this.maxUnlockedStep || 1, this.currentStep);
+    this.maxUnlockedStep = maxUnlockedStep;
+    const hierarchyProgressPct = Math.round(((this.currentStep - 1) / 5) * 100);
 
     return {
       actor: this.actor,
       step: this.currentStep,
+      stepIndex: this.currentStep - 1,
+      maxUnlockedStep,
+      hierarchyProgressPct,
+      calculatedAp,
+      allocatedSkillsList,
+      allocatedLineageSkillsList,
+      selectedExtraTalents,
+      selectedSpells,
       data: this.data,
       levelCap,
       attributesList,
@@ -803,17 +916,61 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       hpData,
       setHpValue,
       isLastStep: this.currentStep === 6,
+      ccxEnabled: Boolean(getSetting("ccxEnabled", true)),
+      ccxSoundEnabled: Boolean(getSetting("ccxSoundEnabled", true)),
+      astralConstellationSvg: buildAstralConstellationSvg(
+        this.currentStep,
+        Math.max(this.maxUnlockedStep || 1, this.currentStep),
+        ["Lineage", "Attributes", "Stats & HP", "Past & Calling", "Talents & Magic", "Character Overview"]
+      ),
+      attributeRadarSvg: (this.currentStep === 2 || this.currentStep === 3 || this.currentStep === 6)
+        ? buildAttributeRadarSvg(attributesList, levelCap)
+        : "",
     };
+  }
+
+  /** @inheritdoc */
+  _onFirstRender(context, options) {
+    super._onFirstRender?.(context, options);
+    try {
+      const ccxEnabled = Boolean(getSetting("ccxEnabled", true));
+      if (ccxEnabled) {
+        const vw = Math.max(1024, (globalThis.innerWidth || 1600) - 24);
+        const vh = Math.max(700, (globalThis.innerHeight || 960) - 24);
+        this.setPosition({
+          width: vw,
+          height: vh,
+          left: 12,
+          top: 12,
+        });
+      } else {
+        this.setPosition({
+          width: 960,
+          height: 780,
+        });
+      }
+    } catch (_) {}
   }
 
   /** @inheritdoc */
   _preRender(context, options) {
     if (!this._savedScrolls) this._savedScrolls = new Map();
     if (this.element) {
-      const scrollEls = this.element.querySelectorAll(".wizard-body-content, .wizard-step-panel, .skill-categories-allocator, .bops-selection-grid, .lineage-selection-grid");
+      const scrollEls = this.element.querySelectorAll(".wizard-body-content, .wizard-step-panel, .ccx-stage-scroll, .ccx-hierarchy-scroll, .skill-categories-allocator, .bops-selection-grid, .lineage-selection-grid");
       for (const el of scrollEls) {
-        const cls = el.className;
-        this._savedScrolls.set(cls, el.scrollTop);
+        const key = el.dataset.stage ? `stage-${el.dataset.stage}` : el.className;
+        this._savedScrolls.set(key, el.scrollTop);
+      }
+
+      // If switching stages, snapshot the outgoing stage slide for a smooth horizontal pan
+      if ((this._lastStep || this.currentStep) !== this.currentStep) {
+        const curSlide = this.element.querySelector(".ccx-stage-slide.is-active");
+        if (curSlide) {
+          this._outgoingStageClone = curSlide.cloneNode(true);
+          this._outgoingStageClone.classList.remove("is-active");
+          this._outgoingStageClone.classList.add("is-outgoing-clone");
+          this._outgoingStageClone.setAttribute("aria-hidden", "true");
+        }
       }
     }
     return super._preRender?.(context, options);
@@ -823,18 +980,84 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
   _onRender(context, options) {
     super._onRender?.(context, options);
 
+    // Initialize 60fps Particle Canvas & 3D Holographic Card / Sound effects
+    if (this.element) {
+      this._particleSystem = setupCcxParticles(this.element);
+      attachCcxInteractiveEffects(this.element, this._particleSystem);
+    }
+
+    // Smooth camera pan transition ONLY when switching stages
+    const track = this.element?.querySelector(".ccx-camera-track");
+    const prevIdx = (this._lastStep || this.currentStep) - 1;
+    const nextIdx = this.currentStep - 1;
+    if (track && prevIdx !== nextIdx) {
+      const usePan = Boolean(getSetting("ccxEnabled", true)) && Boolean(getSetting("ccxConstellationPan", true));
+      CcxSound.playStagePan();
+      triggerStageCalloutBanner(this.element, this.currentStep);
+      const outgoing = this._outgoingStageClone;
+      this._outgoingStageClone = null;
+
+      if (usePan && outgoing) {
+        const goingForward = nextIdx > prevIdx;
+        if (goingForward) {
+          track.insertBefore(outgoing, track.firstChild);
+          track.style.transition = "none";
+          track.style.transform = "translate3d(0%, 0, 0)";
+          void track.offsetWidth;
+          track.style.transition = "transform 0.56s cubic-bezier(0.22, 1, 0.36, 1)";
+          track.style.transform = "translate3d(-100%, 0, 0)";
+        } else {
+          track.appendChild(outgoing);
+          track.style.transition = "none";
+          track.style.transform = "translate3d(-100%, 0, 0)";
+          void track.offsetWidth;
+          track.style.transition = "transform 0.56s cubic-bezier(0.22, 1, 0.36, 1)";
+          track.style.transform = "translate3d(0%, 0, 0)";
+        }
+        setTimeout(() => {
+          if (outgoing.isConnected) outgoing.remove();
+          if (track.isConnected) {
+            track.style.transition = "none";
+            track.style.transform = "none";
+          }
+        }, 580);
+      }
+
+      this._lastStep = this.currentStep;
+
+      // Auto-scroll active hierarchy node into view inside the left hierarchy map
+      const activeNode = this.element?.querySelector(`.ccx-h-node[data-step="${this.currentStep}"]`);
+      if (activeNode) {
+        activeNode.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    } else {
+      this._outgoingStageClone = null;
+    }
+
     // Restore scroll positions
     if (this._savedScrolls && this.element) {
-      const scrollEls = this.element.querySelectorAll(".wizard-body-content, .wizard-step-panel, .skill-categories-allocator, .bops-selection-grid, .lineage-selection-grid");
+      const scrollEls = this.element.querySelectorAll(".wizard-body-content, .wizard-step-panel, .ccx-stage-scroll, .ccx-hierarchy-scroll, .skill-categories-allocator, .bops-selection-grid, .lineage-selection-grid");
       for (const el of scrollEls) {
-        const cls = el.className;
-        if (this._savedScrolls.has(cls)) {
-          el.scrollTop = this._savedScrolls.get(cls);
+        const key = el.dataset.stage ? `stage-${el.dataset.stage}` : el.className;
+        if (this._savedScrolls.has(key)) {
+          el.scrollTop = this._savedScrolls.get(key);
         }
       }
     }
 
-    // Setup responsive live search listeners
+    // If a sub-section pan was requested (e.g. confirming background or selecting lineage/profession), smoothly pan to it
+    if (this._pendingPanSelector && this.element) {
+      const sel = this._pendingPanSelector;
+      this._pendingPanSelector = null;
+      requestAnimationFrame(() => {
+        const targetEl = this.element?.querySelector(sel);
+        if (targetEl) {
+          targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
+    }
+
+    // Setup responsive live search listeners (debounced so typing never stutters on low-end CPUs)
     const searchInputs = this.element.querySelectorAll("input.wizard-search-input");
     searchInputs.forEach(input => {
       const searchKey = input.dataset.search;
@@ -843,15 +1066,17 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       input.addEventListener("input", e => {
         this.data.searches[searchKey] = e.target.value;
         const cursorPos = e.target.selectionStart;
-        this.render();
-        // Re-focus search input after rendering
-        setTimeout(() => {
-          const freshInput = this.element.querySelector(`input.wizard-search-input[data-search="${searchKey}"]`);
-          if (freshInput) {
-            freshInput.focus();
-            try { freshInput.setSelectionRange(cursorPos, cursorPos); } catch (_) {}
-          }
-        }, 20);
+        if (this._searchDebounceTimer) clearTimeout(this._searchDebounceTimer);
+        this._searchDebounceTimer = setTimeout(() => {
+          this.render();
+          setTimeout(() => {
+            const freshInput = this.element?.querySelector(`input.wizard-search-input[data-search="${searchKey}"]`);
+            if (freshInput) {
+              freshInput.focus();
+              try { freshInput.setSelectionRange(cursorPos, cursorPos); } catch (_) {}
+            }
+          }, 16);
+        }, 140);
       });
     });
 
@@ -889,6 +1114,14 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
         this.data.magicAttribute = e.target.value;
       });
     }
+  }
+
+  /** @inheritdoc */
+  _onClose(options) {
+    if (this._searchDebounceTimer) clearTimeout(this._searchDebounceTimer);
+    this._particleSystem?.destroy?.();
+    this._particleSystem = null;
+    return super._onClose?.(options);
   }
 
   _hasTag(rawTags, target) {
@@ -1054,15 +1287,38 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     }
 
     if (this.currentStep < 6) {
+      this._lastStep = this.currentStep;
       this.currentStep++;
+      this.maxUnlockedStep = Math.max(this.maxUnlockedStep || 1, this.currentStep);
       this.render();
     }
   }
 
   static _onPrevStep(event, target) {
     if (this.currentStep > 1) {
+      this._lastStep = this.currentStep;
       this.currentStep--;
       this.render();
+    }
+  }
+
+  static _onJumpToStep(event, target) {
+    const targetStep = parseInt(target.dataset.step || target.closest("[data-step]")?.dataset.step, 10);
+    if (!targetStep || targetStep === this.currentStep) return;
+
+    // Allow jumping backwards freely, or jumping forward up to maxUnlockedStep (or 1 step ahead after validating current)
+    if (targetStep < this.currentStep || targetStep <= (this.maxUnlockedStep || 1)) {
+      this._lastStep = this.currentStep;
+      this.currentStep = targetStep;
+      this.render();
+      return;
+    }
+
+    // If clicking the immediate next step in the hierarchy, run _onNextStep validation
+    if (targetStep === this.currentStep + 1) {
+      CharacterCreationWizard._onNextStep.call(this, event, target);
+    } else {
+      ui.notifications.info("Complete and confirm the current stage to unlock later stages in your build hierarchy.");
     }
   }
 
@@ -1075,6 +1331,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.data.selectedUniqueFeatureIds = [];
     this.data.selectedFeatureId = null;
     this.data.allocatedLineageSkills = {};
+    this._pendingPanSelector = ".lineage-detail-box";
     this.render();
   }
 
@@ -1195,6 +1452,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
   static _onConfirmBackground(event, target) {
     event.preventDefault();
     this.data.backgroundConfirmed = Boolean(this.data.selectedBackgroundId);
+    this._pendingPanSelector = ".skill-allocator-stage";
     this.render();
   }
 
@@ -1277,12 +1535,14 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     if (cardId) this.data.expandedCardIds.add(cardId);
     this.data.selectedProfessionSkills = [];
     this.data.professionConfirmed = Boolean(profId);
+    this._pendingPanSelector = ".profession-detail-subpanel";
     this.render();
   }
 
   static _onConfirmProfession(event, target) {
     event.preventDefault();
     this.data.professionConfirmed = Boolean(this.data.selectedProfessionId);
+    this._pendingPanSelector = ".profession-detail-subpanel";
     this.render();
   }
 
@@ -1364,6 +1624,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     if (parsed?.magicAttribute) {
       this.data.magicAttribute = parsed.magicAttribute;
     }
+    this._pendingPanSelector = ".talent-detail-box";
     this.render();
   }
 
@@ -1411,6 +1672,14 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
     this.render();
   }
 
+  static async _onToggleCcxSound(event, target) {
+    event.preventDefault();
+    const cur = Boolean(getSetting("ccxSoundEnabled", true));
+    await setSetting("ccxSoundEnabled", !cur);
+    if (!cur) CcxSound.playConfirm();
+    this.render();
+  }
+
   static async _onFinalize(event, target) {
     const basePool = this._getBaseAttributePool();
     const pool = calculateAttributePool(this.data.attributes, this.data.bonusAttributePoints, basePool);
@@ -1419,6 +1688,11 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       return;
     }
 
+    const linName = this.data.lineages.find(l => l.id === this.data.selectedLineageId)?.name || "Adventurer";
+    const profName = this.data.professions.find(p => p.id === this.data.selectedProfessionId)?.name || "";
+    const subtitle = `Level 1 ${linName}${profName ? ` • ${profName}` : ""}`;
+
+    await playAwakeningFinaleSequence(this.element, this.actor, "HERO AWAKENED", subtitle);
     await this.applyToActor();
     this.close();
     ui.notifications.info(`Character Creation Complete for ${this.actor.name}!`);

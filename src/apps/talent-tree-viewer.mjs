@@ -17,6 +17,14 @@ import {
   CANONICAL_TALENTS,
   NORMALIZED_CANONICAL_TALENTS,
 } from "../features/talent-canonical-map.mjs";
+import { getSetting } from "../settings.mjs";
+import {
+  setupCcxParticles,
+  attachCcxInteractiveEffects,
+  decorateTreesWithConstellationLayout,
+  buildCharacterNebulaTracks,
+  playGalaxyZoomAnimation,
+} from "../features/ccx-experience-engine.mjs";
 
 const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
 
@@ -142,18 +150,13 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
 
     this.trees = buildTalentTrees(allTalents, actorTalents, { effectiveLevel: this.targetLevel });
 
-    // If opened from level-up with a targetLevel, re-evaluate availability using that level
-    if (this.targetLevel !== null) {
-      for (const tree of this.trees) {
-        for (const node of tree.nodes) {
-          if (node.item) {
-            const avail = checkTalentAvailability(node.item, actorTalents, { effectiveLevel: this.targetLevel });
-            node.isAvailable = avail.isAvailable;
-            node.missingPrereqs = avail.missingPrereqs;
-            node.prereqTooltip = avail.prereqTooltip;
-          }
-        }
-        tree.isStarted = tree.nodes.some(n => n.isOwned);
+    for (const tree of this.trees) {
+      tree.isStarted = tree.nodes.some(n => n.isOwned);
+      tree.ownedCount = tree.nodes.filter(n => n.isOwned).length;
+      tree.availableCount = tree.nodes.filter(n => n.isAvailable && !n.isOwned).length;
+      for (const track of tree.tracks) {
+        track.ownedCount = track.nodes.filter(n => n.isOwned).length;
+        track.availableCount = track.nodes.filter(n => n.isAvailable && !n.isOwned).length;
       }
     }
   }
@@ -175,32 +178,22 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
       displayTrees = this.trees.filter(tree => tree.category === this.activeCategory);
     }
 
-      // Prepare presentation root trees with expansion state and stats
+    // Prepare presentation root trees with expansion state and pre-computed stats
     const rootTrees = displayTrees.map(tree => {
-      // In Character view: expanded by default unless explicitly collapsed
-      // In Category views (Class, Spec, Magic, All): collapsed by default unless explicitly expanded
       const isExpanded = this.activeCategory === "character"
         ? !this.collapsedRootIds.has(tree.id)
         : this.expandedRootIds.has(tree.id);
 
-      const ownedCount = tree.nodes.filter(n => n.isOwned).length;
-      const availableCount = tree.nodes.filter(n => n.isAvailable && !n.isOwned).length;
-
       const tracks = tree.tracks.map(track => {
-        // In Character view: active followed tracks start expanded by default so player can pick next talents
         const isTrackExpanded = this.activeCategory === "character"
           ? (track.isStarted && !this.collapsedTrackTitles.has(track.trackTitle)) || this.expandedTrackTitles.has(track.trackTitle)
           : !this.collapsedTrackTitles.has(track.trackTitle);
 
-        const trackOwnedCount = track.nodes.filter(n => n.isOwned).length;
-        const trackAvailableCount = track.nodes.filter(n => n.isAvailable && !n.isOwned).length;
-
         return {
           ...track,
           isExpanded: isTrackExpanded,
-          ownedCount: trackOwnedCount,
-          availableCount: trackAvailableCount,
           totalNodesCount: track.nodes.length,
+          tiers: (isExpanded && isTrackExpanded) ? (track.tiers || []) : [],
         };
       });
 
@@ -210,22 +203,28 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
         ...tree,
         isExpanded,
         isDisciplineLocked,
-        ownedCount,
-        availableCount,
         totalNodesCount: tree.nodes.length,
         tracks,
       };
     });
 
+    const characterNebulaTracks = this.activeCategory === "character"
+      ? buildCharacterNebulaTracks(this.trees, this.expandedTrackTitles)
+      : [];
+    const focusedNebulaTrack = characterNebulaTracks.find(t => t.isExpanded) || null;
+
     return {
       actor: this.actor,
       isPickerMode: this.isPickerMode,
-      trees: rootTrees,
+      trees: decorateTreesWithConstellationLayout(rootTrees),
+      characterNebulaTracks,
+      focusedNebulaTrack,
       totalTreesCount: this.trees.length,
-      startedTreesCount: startedTrees.length,
-      hasStartedTrees: hasStarted,
+      startedTreesCount: characterNebulaTracks.length || startedTrees.length,
+      hasStartedTrees: characterNebulaTracks.length > 0 || hasStarted,
       activeCategory: this.activeCategory,
       searchTerm: this.searchTerm,
+      ccxEnabled: Boolean(getSetting("ccxEnabled", true)),
     };
   }
 
@@ -243,6 +242,11 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
   _onRender(context, options) {
     super._onRender?.(context, options);
 
+    if (this.element) {
+      this._particleSystem = setupCcxParticles(this.element);
+      attachCcxInteractiveEffects(this.element, this._particleSystem);
+    }
+
     // Restore scroll position after re-render
     if (this._savedScrollTop != null && this.element) {
       const canvas = this.element.querySelector(".srd-tracks-viewport, .tree-canvas-container");
@@ -256,7 +260,7 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
 
       const performFilter = (term) => {
         const cleanTerm = (term || "").toLowerCase().trim();
-        const rootSections = this.element.querySelectorAll(".srd-root-tree-column");
+        const rootSections = this.element.querySelectorAll(".srd-root-tree-column, .ccx-galaxy-star-cluster, .ccx-nebula-parent-node-pod, .ccx-nebula-track-sector");
 
         if (!cleanTerm) {
           rootSections.forEach(el => (el.style.display = ""));
@@ -276,6 +280,13 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
         performFilter(this.searchTerm);
       });
     }
+  }
+
+  /** @inheritdoc */
+  _onClose(options) {
+    this._particleSystem?.destroy?.();
+    this._particleSystem = null;
+    return super._onClose?.(options);
   }
 
   /* ─────────────────────────────────────────────────────────────────────────
@@ -305,10 +316,32 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
 
   static #onToggleTrackExpand(event, target) {
     event.preventDefault();
-    const trackTitle = target.dataset.trackTitle || target.closest(".srd-track-column")?.dataset.trackTitle;
+    event.stopPropagation();
+    const trackTitle = target.dataset.trackTitle || target.closest("[data-track-title]")?.dataset.trackTitle;
     if (!trackTitle) return;
 
-    if (this.collapsedTrackTitles.has(trackTitle)) {
+    if (this.activeCategory === "character") {
+      if (trackTitle === "__GALAXY_OVERVIEW__" || this.expandedTrackTitles.has(trackTitle)) {
+        playGalaxyZoomAnimation(this.element, target, "out", () => {
+          this.expandedTrackTitles.clear();
+          this.render();
+        });
+      } else {
+        const isSwitchingFromFocused = this.expandedTrackTitles.size > 0;
+        if (isSwitchingFromFocused) {
+          this.expandedTrackTitles.clear();
+          this.expandedTrackTitles.add(trackTitle);
+          this.render();
+        } else {
+          playGalaxyZoomAnimation(this.element, target, "in", () => {
+            this.expandedTrackTitles.clear();
+            this.expandedTrackTitles.add(trackTitle);
+            this.render();
+          });
+        }
+      }
+      return;
+    } else if (this.collapsedTrackTitles.has(trackTitle)) {
       this.collapsedTrackTitles.delete(trackTitle);
       this.expandedTrackTitles.add(trackTitle);
     } else {

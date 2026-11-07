@@ -222,6 +222,111 @@ export function registerSettings() {
     default: true,
   });
 
+  // ── CHARACTER CREATOR EXPERIENCE ──────────────────────────────────────────
+
+  const refreshCcxApps = () => {
+    try {
+      for (const app of foundry.applications?.instances?.values?.() || []) {
+        if (app.id === "character-creation-wizard" || app.element?.classList?.contains("level-up-dialog")) {
+          app.render();
+        }
+      }
+    } catch (_) {}
+  };
+
+  game.settings.register(MODULE_ID, "ccxEnabled", {
+    name: "Enable Premium Character Creator & Level-Up Experience",
+    hint: "Use the full-screen CRPG Astral Loom & Build Hierarchy interface for the Character Creation Wizard and Level-Up Dialog. Turn off to use a compact classic window.",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: true,
+    onChange: refreshCcxApps,
+  });
+
+  game.settings.register(MODULE_ID, "ccxConstellationPan", {
+    name: "Astral Constellation Map & Camera Fly-Through",
+    hint: "Display the interactive SVG Astral Constellation leyline map and smooth camera panning transitions between stages.",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: true,
+    onChange: refreshCcxApps,
+  });
+
+  game.settings.register(MODULE_ID, "ccxHoloCards", {
+    name: "3D Holographic Tarot Cards & Foil Glare",
+    hint: "Enable 3D perspective mouse-tilt, dynamic gold/cyan foil sheen, and shockwave ripples on Lineage, Background, Profession, and Talent cards.",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: true,
+    onChange: refreshCcxApps,
+  });
+
+  game.settings.register(MODULE_ID, "ccxRadarWheel", {
+    name: "Animated SVG Attribute Radar & Arcane Rune Wheel",
+    hint: "Render the live morphing SVG Attribute Radar polygon and rotating arcane rune ring on Attribute, Vitality, and Final Build screens.",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: true,
+    onChange: refreshCcxApps,
+  });
+
+  game.settings.register(MODULE_ID, "ccxParticleDensity", {
+    name: "Particle & Leyline Spark Intensity",
+    hint: "Control the 60fps HTML5 canvas particle atmosphere (drifting golden embers, rising arcane motes, and selection spark bursts).",
+    scope: "client",
+    config: true,
+    type: String,
+    choices: {
+      off: "Off (Disabled)",
+      low: "Subtle (Low — 25 Particles)",
+      medium: "Balanced (Medium — 50 Particles)",
+      high: "Astral Forge (High — 85 Particles, Default)",
+    },
+    default: "high",
+    onChange: refreshCcxApps,
+  });
+
+  game.settings.register(MODULE_ID, "ccxCinematicFinale", {
+    name: "Stage Callout Banners & Hero Awakening Finale",
+    hint: "Play ornate stage-transition callout banners and the cinematic Hero Awakening / Level-Up Ascension convergence sequence when completing your build.",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: true,
+    onChange: refreshCcxApps,
+  });
+
+  game.settings.register(MODULE_ID, "ccxSoundEnabled", {
+    name: "Procedural Arcane UI Soundscape",
+    hint: "Synthesize subtle WebAudio sound effects (crystal hover chimes, rune-lock resonance on selection/confirmation, and an ethereal chord swell on Awakening).",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: true,
+    onChange: refreshCcxApps,
+  });
+
+  game.settings.register(MODULE_ID, "ccxSoundVolume", {
+    name: "UI Soundscape Volume",
+    hint: "Adjust the volume of the procedural WebAudio UI sound effects in the Character Creator and Level-Up Experience.",
+    scope: "client",
+    config: true,
+    type: Number,
+    choices: {
+      0.15: "15% (Whisper)",
+      0.30: "30% (Subtle)",
+      0.45: "45% (Default)",
+      0.65: "65% (Rich)",
+      0.85: "85% (Cinematic)",
+      1.00: "100% (Maximum)",
+    },
+    default: 0.45,
+  });
+
   // ── WEAPON AUTOMATIONS ───────────────────────────────────────────────────
 
   game.settings.register(MODULE_ID, "weaponDamageAttrModifier", {
@@ -466,6 +571,18 @@ export function registerSettings() {
       targetQoL.parentNode.insertBefore(qolHeader, targetQoL);
     }
 
+    // 1.5. CHARACTER CREATOR EXPERIENCE Header
+    const targetCcxEl = root.querySelector('[data-setting-id="mythcraft-essence-sheet.ccxEnabled"]') ||
+                        root.querySelector('[name="mythcraft-essence-sheet.ccxEnabled"]');
+    const targetCcx = targetCcxEl?.closest('.form-group') || targetCcxEl?.closest('.setting') || targetCcxEl;
+    if (targetCcx && !root.querySelector('.essence-ccx-main-header')) {
+      const ccxHeader = document.createElement('h3');
+      ccxHeader.className = 'essence-ccx-main-header';
+      ccxHeader.innerHTML = '<i class="fas fa-wand-magic-sparkles" style="color: #38bdf8;"></i> Character Creator Experience';
+      ccxHeader.style.cssText = mainHeaderStyle;
+      targetCcx.parentNode.insertBefore(ccxHeader, targetCcx);
+    }
+
     // 2. AUTOMATIONS Header
     const targetWeaponEl = root.querySelector('[data-setting-id="mythcraft-essence-sheet.weaponDamageAttrModifier"]') ||
                            root.querySelector('[name="mythcraft-essence-sheet.weaponDamageAttrModifier"]');
@@ -548,6 +665,20 @@ export function getSetting(key, defaultValue = true) {
     return game.settings.get(MODULE_ID, key);
   } catch (err) {
     return defaultValue;
+  }
+}
+
+/**
+ * Set a setting value safely
+ * @param {string} key
+ * @param {any} value
+ * @returns {Promise<any>}
+ */
+export async function setSetting(key, value) {
+  try {
+    return await game.settings.set(MODULE_ID, key, value);
+  } catch (err) {
+    return value;
   }
 }
 

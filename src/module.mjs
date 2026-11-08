@@ -17,6 +17,7 @@ import { initDamageAutomation, applyActorDamage, patchFeatureUsesMaxFormula } fr
 import { initEquipmentAutomation, patchWeaponApcGetter, isBrassKnuckles, isUnarmedOrNaturalWeapon, getWeaponDamageData } from "./features/equipment-automation.mjs";
 import { initCompendiumIconOverrides } from "./features/equipment-icons.mjs";
 import { patchSystemHpCalculation, getEnduranceThreshold, calculateApMax } from "./features/hp-automation.mjs";
+import { patchSystemSkillsCalculation } from "./features/skills-automation.mjs";
 import { syncHomebrewAttributesToSystem, syncSoulDamageToSystem, patchAttributeSkillInput, getFullAttributeName } from "./features/homebrew-attributes.mjs";
 import { initLuckPointReroll } from "./features/luck-points.mjs";
 import { initPermissionsFix } from "./features/permissions-fix.mjs";
@@ -32,6 +33,12 @@ import { initCombatAutomation, resetTurnMovementStride } from "./features/combat
 import { initConditionAutomation, purgeInvalidStatusEffects, isMythcraftCondition, suppressConditions, applyConditionDamage } from "./features/condition-automation.mjs";
 import { executeRest, RestDialog } from "./features/rest-automation.mjs";
 import { calculateItemAPC, calculateItemSP, checkAndEnforceAp, checkAndEnforceSp, deductAp, deductSp, executeUnifiedAction, refundSP } from "./features/sp-ap-rolls.mjs";
+import { initActiveEffectEngine, getActorActiveEffectBonuses, summarizeActiveEffect } from "./features/active-effect-engine.mjs";
+import ActiveEffectManager from "./apps/active-effect-manager.mjs";
+import WhatsNewDialog from "./apps/whats-new-dialog.mjs";
+import TalentGrantDialog from "./apps/talent-grant-dialog.mjs";
+import TalentSkillAllocationDialog, { applySkillAllocationActiveEffect } from "./apps/talent-skill-dialog.mjs";
+import { getTalentSkillPointGrant, SKILLS_BY_CATEGORY, SKILLS_BY_ATTRIBUTE, SKILL_REGISTRY } from "./data/talent-skill-grants.mjs";
 
 const MODULE_ID  = "mythcraft-essence-sheet";
 
@@ -62,12 +69,14 @@ Hooks.once("init", () => {
   CONFIG.statusEffects = MythcraftConditions;
 
   // Initialize Automation Engines
+  initActiveEffectEngine();
   initDamageAutomation();
   initEquipmentAutomation();
   initCompendiumIconOverrides();
   initCombatAutomation();
   initConditionAutomation();
   patchSystemHpCalculation();
+  patchSystemSkillsCalculation();
   syncHomebrewAttributesToSystem();
   syncSoulDamageToSystem();
   syncCustomTagsToSystem();
@@ -215,6 +224,20 @@ Hooks.once("init", () => {
     postSpellDescriptionCard,
     executeRest,
     RestDialog,
+    ActiveEffectManager,
+    getActorActiveEffectBonuses,
+    summarizeActiveEffect,
+    TalentGrantDialog,
+    TalentSkillAllocationDialog,
+    promptSkillAllocation: (actor, item, grant) => TalentSkillAllocationDialog.promptAllocation(actor, item, grant),
+    applySkillAllocationActiveEffect,
+    getTalentSkillPointGrant,
+    SKILLS_BY_CATEGORY,
+    SKILLS_BY_ATTRIBUTE,
+    SKILL_REGISTRY,
+    WhatsNewDialog,
+    resetWhatsNew: (show = true) => WhatsNewDialog.reset(show),
+    showWhatsNew: () => WhatsNewDialog.show(),
   };
 
   const handleChatMessageRender = async (arg1, arg2, arg3) => {
@@ -1010,12 +1033,67 @@ Hooks.on("setup", () => {
   syncSoulDamageToSystem();
 });
 
+export async function rollItemMacro(itemNameOrUuid, options = {}) {
+  let item = null;
+  let actor = null;
+  if (typeof itemNameOrUuid === "string" && (itemNameOrUuid.startsWith("Actor.") || itemNameOrUuid.startsWith("Scene.") || itemNameOrUuid.includes("."))) {
+    try { item = await fromUuid(itemNameOrUuid); } catch (e) {}
+    actor = item?.actor || item?.parent;
+  }
+  if (!item) {
+    const speaker = ChatMessage.getSpeaker();
+    actor = (typeof ChatMessage.getSpeakerActor === "function" ? ChatMessage.getSpeakerActor(speaker) : null) ||
+            game.actors.get(speaker.actor) ||
+            canvas?.tokens?.controlled?.[0]?.actor ||
+            game.user?.character;
+    if (actor) {
+      item = actor.items?.get(itemNameOrUuid) ||
+             actor.items?.find(i => i.name === itemNameOrUuid || i.name?.toLowerCase() === itemNameOrUuid?.toLowerCase());
+    }
+  }
+  if (!actor || !item) {
+    ui.notifications?.warn(`Could not find item "${itemNameOrUuid}". Please select a token or character.`);
+    return;
+  }
+  const isDamage = options.rollType === "damage" || options.action === "damage" || (typeof event !== "undefined" && event?.shiftKey);
+  if (isDamage) {
+    return await rollItemDamage(actor, item, options);
+  }
+  if (item.type === "weapon") {
+    return await rollWeaponItem(actor, item, options);
+  }
+  if (item.type === "spell") {
+    return await rollSpellItem(actor, item, options);
+  }
+  return await item.roll?.(options);
+}
+
+export async function createEssenceItemMacro(data, slot) {
+  if (!data?.uuid) return;
+  const item = await fromUuid(data.uuid);
+  if (!item) return;
+
+  const command = `const item = await fromUuid("${data.uuid}");\nif (item) {\n  if (typeof event !== "undefined" && event?.shiftKey) await item.rollDamage?.() ?? item.roll?.({ rollType: "damage" });\n  else await item.roll?.();\n}`;
+
+  let macro = game.macros.find(m => (m.name === item.name) && (m.command === command));
+  if (!macro) {
+    macro = await Macro.create({
+      name: item.name,
+      type: "script",
+      img: item.img,
+      command: command,
+      flags: { "mythcraft-essence-sheet.itemMacro": true, "mythcraft-essence-sheet.itemUuid": data.uuid }
+    });
+  }
+  game.user.assignHotbarMacro(macro, slot);
+}
+
 function patchHotbarAndSystemRolls() {
   const resolveActorAndItem = (ctx, arg) => {
     const actor = ctx?.parent?.documentName === "Actor"
       ? ctx.parent
       : (ctx?.actor || (ctx?.documentName === "Actor" ? ctx : null));
-    if (!actor || actor.type !== "character") return { actor: null, item: null };
+    if (!actor) return { actor: null, item: null };
     if (!arg) return { actor, item: null };
     if (typeof arg === "object" && (arg.documentName === "Item" || arg.type)) {
       return { actor, item: arg };
@@ -1026,23 +1104,25 @@ function patchHotbarAndSystemRolls() {
     return { actor, item: item || null };
   };
 
-  // 1. Patch Actor & Actor DataModels (rollSpell, castSpell, rollAttack, rollWeapon)
+  // 1. Patch Actor & Actor DataModels (rollSpell, castSpell, rollAttack, rollWeapon, rollDamage)
   const actorProtos = [
     CONFIG.Actor?.documentClass?.prototype,
     CONFIG.Actor?.dataModels?.character?.prototype,
     CONFIG.Actor?.dataModels?.character?.prototype?.__proto__,
+    CONFIG.Actor?.dataModels?.npc?.prototype,
+    CONFIG.Actor?.dataModels?.siege?.prototype,
   ].filter(Boolean);
 
   for (const proto of actorProtos) {
     for (const method of ["rollSpell", "castSpell"]) {
-      if (typeof proto[method] === "function" && !proto[method]._essenceHotbarPatched) {
-        const orig = proto[method];
+      if (!proto[method] || !proto[method]._essenceHotbarPatched) {
+        const orig = typeof proto[method] === "function" ? proto[method] : null;
         const wrapped = async function (itemOrId, ...rest) {
           const { actor, item } = resolveActorAndItem(this, itemOrId);
           if (actor && item && item.type === "spell") {
-            return await rollSpellItem(actor, item);
+            return await rollSpellItem(actor, item, rest[0]);
           }
-          return orig.call(this, itemOrId, ...rest);
+          if (orig) return orig.call(this, itemOrId, ...rest);
         };
         wrapped._essenceHotbarPatched = true;
         proto[method] = wrapped;
@@ -1050,17 +1130,32 @@ function patchHotbarAndSystemRolls() {
     }
 
     for (const method of ["rollAttack", "rollWeapon"]) {
-      if (typeof proto[method] === "function" && !proto[method]._essenceHotbarPatched) {
-        const orig = proto[method];
+      if (!proto[method] || !proto[method]._essenceHotbarPatched) {
+        const orig = typeof proto[method] === "function" ? proto[method] : null;
         const wrapped = async function (itemOrId, ...rest) {
           const { actor, item } = resolveActorAndItem(this, itemOrId);
           if (actor && item && item.type === "weapon") {
-            return await rollWeaponItem(actor, item);
+            return await rollWeaponItem(actor, item, rest[0]);
           }
           if (actor && item && item.type === "spell") {
-            return await rollSpellItem(actor, item);
+            return await rollSpellItem(actor, item, rest[0]);
           }
-          return orig.call(this, itemOrId, ...rest);
+          if (orig) return orig.call(this, itemOrId, ...rest);
+        };
+        wrapped._essenceHotbarPatched = true;
+        proto[method] = wrapped;
+      }
+    }
+
+    for (const method of ["rollDamage"]) {
+      if (!proto[method] || !proto[method]._essenceHotbarPatched) {
+        const orig = typeof proto[method] === "function" ? proto[method] : null;
+        const wrapped = async function (itemOrId, ...rest) {
+          const { actor, item } = resolveActorAndItem(this, itemOrId);
+          if (actor && item) {
+            return await rollItemDamage(actor, item, rest[0]);
+          }
+          if (orig) return orig.call(this, itemOrId, ...rest);
         };
         wrapped._essenceHotbarPatched = true;
         proto[method] = wrapped;
@@ -1068,40 +1163,155 @@ function patchHotbarAndSystemRolls() {
     }
   }
 
-  // 2. Patch Item & Item DataModels (roll, use, rollSpell, rollAttack)
+  // 2. Patch Item & Item DataModels (roll, use, rollSpell, rollAttack, rollDamage, cast)
   const itemProtos = [
     CONFIG.Item?.documentClass?.prototype,
     CONFIG.Item?.dataModels?.spell?.prototype,
     CONFIG.Item?.dataModels?.weapon?.prototype,
     CONFIG.Item?.dataModels?.spell?.prototype?.__proto__,
+    CONFIG.Item?.dataModels?.weapon?.prototype?.__proto__,
   ].filter(Boolean);
 
   for (const proto of itemProtos) {
-    for (const method of ["roll", "use", "rollSpell", "rollAttack", "cast"]) {
-      if (typeof proto[method] === "function" && !proto[method]._essenceHotbarPatched) {
-        const orig = proto[method];
+    for (const method of ["roll", "use"]) {
+      if (!proto[method] || !proto[method]._essenceHotbarPatched) {
+        const orig = typeof proto[method] === "function" ? proto[method] : null;
         const wrapped = async function (...args) {
           const item = this?.parent?.documentName === "Item" ? this.parent : (this?.documentName === "Item" ? this : null);
           const actor = item?.actor || item?.parent;
-          if (actor && actor.type === "character" && item) {
+          const options = args[0] || {};
+          if (actor && item) {
+            if (options.rollType === "damage" || options.action === "damage" || (typeof event !== "undefined" && event?.shiftKey)) {
+              return await rollItemDamage(actor, item, options);
+            }
             if (item.type === "spell") {
-              return await rollSpellItem(actor, item);
+              return await rollSpellItem(actor, item, options);
             }
             if (item.type === "weapon") {
-              return await rollWeaponItem(actor, item);
+              return await rollWeaponItem(actor, item, options);
             }
           }
-          return orig.apply(this, args);
+          if (orig) return orig.apply(this, args);
+        };
+        wrapped._essenceHotbarPatched = true;
+        proto[method] = wrapped;
+      }
+    }
+
+    for (const method of ["rollAttack"]) {
+      if (!proto[method] || !proto[method]._essenceHotbarPatched) {
+        const orig = typeof proto[method] === "function" ? proto[method] : null;
+        const wrapped = async function (...args) {
+          const item = this?.parent?.documentName === "Item" ? this.parent : (this?.documentName === "Item" ? this : null);
+          const actor = item?.actor || item?.parent;
+          const options = args[0] || {};
+          if (actor && item) {
+            if (item.type === "spell") return await rollSpellItem(actor, item, options);
+            if (item.type === "weapon") return await rollWeaponItem(actor, item, options);
+          }
+          if (orig) return orig.apply(this, args);
+        };
+        wrapped._essenceHotbarPatched = true;
+        proto[method] = wrapped;
+      }
+    }
+
+    for (const method of ["rollDamage"]) {
+      if (!proto[method] || !proto[method]._essenceHotbarPatched) {
+        const orig = typeof proto[method] === "function" ? proto[method] : null;
+        const wrapped = async function (...args) {
+          const item = this?.parent?.documentName === "Item" ? this.parent : (this?.documentName === "Item" ? this : null);
+          const actor = item?.actor || item?.parent;
+          const options = args[0] || {};
+          if (actor && item) {
+            return await rollItemDamage(actor, item, options);
+          }
+          if (orig) return orig.apply(this, args);
+        };
+        wrapped._essenceHotbarPatched = true;
+        proto[method] = wrapped;
+      }
+    }
+
+    for (const method of ["rollSpell", "cast"]) {
+      if (!proto[method] || !proto[method]._essenceHotbarPatched) {
+        const orig = typeof proto[method] === "function" ? proto[method] : null;
+        const wrapped = async function (...args) {
+          const item = this?.parent?.documentName === "Item" ? this.parent : (this?.documentName === "Item" ? this : null);
+          const actor = item?.actor || item?.parent;
+          const options = args[0] || {};
+          if (actor && item && item.type === "spell") {
+            return await rollSpellItem(actor, item, options);
+          }
+          if (orig) return orig.apply(this, args);
         };
         wrapped._essenceHotbarPatched = true;
         proto[method] = wrapped;
       }
     }
   }
+
+  // 3. Expose global rollItemMacro for system macros & HUD compatibility
+  globalThis.mythcraft = globalThis.mythcraft || {};
+  globalThis.mythcraft.rollItemMacro = rollItemMacro;
+  if (globalThis.game) {
+    game.mythcraft = game.mythcraft || {};
+    game.mythcraft.rollItemMacro = rollItemMacro;
+  }
+
+  // 4. Hook hotbarDrop to create robust Essence macros that support attack and shift-click damage
+  if (!Hooks.events["hotbarDrop"]?.some(fn => fn._essenceHotbarDrop)) {
+    const hotbarDropHandler = (bar, data, slot) => {
+      if (data?.type === "Item" && data?.uuid) {
+        createEssenceItemMacro(data, slot);
+        return false;
+      }
+    };
+    hotbarDropHandler._essenceHotbarDrop = true;
+    Hooks.on("hotbarDrop", hotbarDropHandler);
+  }
+
+  // 5. Patch ActionHandler in mythcraft-hud if active
+  if (game.modules?.get("mythcraft-hud")?.active) {
+    import("/modules/mythcraft-hud/scripts/actions/ActionHandler.js").then(hudModule => {
+      const ActionHandler = hudModule?.ActionHandler;
+      if (ActionHandler && !ActionHandler._essencePatched) {
+        ActionHandler._essencePatched = true;
+
+        const origRollWeapon = ActionHandler.rollWeapon;
+        ActionHandler.rollWeapon = async function(weaponId, actor, options = {}) {
+          const item = actor?.items?.get(weaponId);
+          if (actor && item && item.type === "weapon") {
+            return await rollWeaponItem(actor, item, options);
+          }
+          if (typeof origRollWeapon === "function") {
+            return await origRollWeapon.call(this, weaponId, actor, options);
+          }
+        };
+
+        const origRollDamage = ActionHandler.rollDamage;
+        ActionHandler.rollDamage = async function(formula, type, actorUuid, options = {}) {
+          const actor = actorUuid ? await fromUuid(actorUuid) : null;
+          const itemId = options.itemId || options.item?.id;
+          const item = itemId ? actor?.items?.get(itemId) : null;
+          if (actor && item) {
+            return await rollItemDamage(actor, item, options);
+          }
+          if (typeof origRollDamage === "function") {
+            return await origRollDamage.call(this, formula, type, actorUuid, options);
+          }
+        };
+      }
+    }).catch(() => {});
+  }
 }
 
 Hooks.once("ready", async () => {
   console.log(`${MODULE_ID} | Ready.`);
+
+  // Check and prompt What's New dialog early on ready if unacknowledged
+  WhatsNewDialog.checkAndPrompt();
+
   // Re-apply monkey-patches now that system classes are fully loaded.
   // (initDamageAutomation is intentionally NOT repeated here — hooks
   //  are already registered in the init hook above; calling it twice
@@ -1109,6 +1319,7 @@ Hooks.once("ready", async () => {
   patchWeaponApcGetter();
   patchFeatureUsesMaxFormula();
   patchSystemHpCalculation();
+  patchSystemSkillsCalculation();
   syncHomebrewAttributesToSystem();
   syncSoulDamageToSystem();
   syncCustomTagsToSystem();
@@ -1187,8 +1398,47 @@ Hooks.once("ready", async () => {
       evaluateSpellScalingAndUpcharge,
       executeSpellUpchargeFromChat,
       postSpellDescriptionCard,
+      WhatsNewDialog,
+      showWhatsNew: () => WhatsNewDialog.show(),
+      TalentGrantDialog,
+      processTalentGrantsAndPicks: (actor, item, options) => TalentGrantDialog.processTalentGrantsAndPicks(actor, item, options),
     };
   }
+
+  // Check and prompt What's New dialog for GM if update is unacknowledged
+  WhatsNewDialog.checkAndPrompt();
+});
+
+Hooks.once("canvasReady", () => {
+  WhatsNewDialog.checkAndPrompt();
+});
+
+// ── TALENT BENEFIT & GRANTED PICKS HOOK ─────────────────────────────────────
+Hooks.on("createItem", (item, options, userId) => {
+  if (game.user?.id !== userId) return;
+  if (!item.parent || item.parent.documentName !== "Actor") return;
+  if (options?.skipGrantPrompt || options?.isGrantedChild) return;
+  if (item.type !== "talent" && item.type !== "feature") return;
+
+  // Let document creation settle before prompting
+  setTimeout(async () => {
+    try {
+      await TalentGrantDialog.processTalentGrantsAndPicks(item.parent, item);
+    } catch (err) {
+      console.error(`${MODULE_ID} | Error processing talent grants on createItem:`, err);
+    }
+
+    // Check for Skill Point Grants (e.g. "+3 skill points to skills with luck tag", "Lucky", "Crafter")
+    try {
+      const grant = getTalentSkillPointGrant(item);
+      const existingAlloc = item.flags?.[MODULE_ID]?.skillAllocation;
+      if (grant && (!existingAlloc || Object.keys(existingAlloc).length === 0)) {
+        await TalentSkillAllocationDialog.promptAllocation(item.parent, item, grant);
+      }
+    } catch (err) {
+      console.error(`${MODULE_ID} | Error prompting talent skill allocation on createItem:`, err);
+    }
+  }, 250);
 });
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -1262,6 +1512,27 @@ document.addEventListener("click", async (event) => {
       await executeSpellUpchargeFromChat(actor, item, optionId, stacks, { isCrit, rollMode });
     }
     return;
+  }
+
+  // 1c. Toggle Roll Breakdown & Tooltip on Attack Cards
+  const rollResultBox = event.target.closest(".attack-card .roll-result, .attack-card .roll-formula, .attack-card .roll-breakdown-details, .attack-card .card-title, .essence-embedded-roll-html .dice-roll");
+  if (rollResultBox) {
+    const card = rollResultBox.closest(".attack-card");
+    const tooltip = card?.querySelector(".dice-tooltip");
+    const details = card?.querySelector(".roll-breakdown-details");
+    if (tooltip) {
+      const isVisible = tooltip.style.display === "block" || tooltip.classList.contains("expanded");
+      if (isVisible) {
+        tooltip.style.display = "none";
+        tooltip.classList.remove("expanded");
+      } else {
+        tooltip.style.display = "block";
+        tooltip.classList.add("expanded");
+      }
+    }
+    if (details) {
+      details.classList.toggle("revealed-breakdown");
+    }
   }
 
   // 2. Open Rest Dialog from Button

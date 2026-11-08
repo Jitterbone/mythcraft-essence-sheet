@@ -429,8 +429,16 @@
                     <ellipse cx="500" cy="500" rx="390" ry="390" fill="none" stroke="rgba(56, 189, 248, 0.1)" stroke-width="1" stroke-dasharray="4 10" />
                     <ellipse cx="500" cy="500" rx="240" ry="240" fill="none" stroke="rgba(254, 235, 179, 0.08)" stroke-width="1" stroke-dasharray="2 8" />
 
+                    {{#each focusedNebulaTrack.constellation.orbitCircles as |orbit|}}
+                      <circle cx="{{orbit.cx}}" cy="{{orbit.cy}}" r="{{orbit.r}}" fill="none" class="ccx-constellation-orbit-circle" />
+                      <circle cx="{{orbit.cx}}" cy="{{orbit.cy}}" r="{{orbit.innerR}}" fill="none" class="ccx-constellation-orbit-inner" />
+                    {{/each}}
+
                     {{#each focusedNebulaTrack.constellation.edges as |edge|}}
-                      {{#if edge.isEnergized}}
+                      {{#if edge.isGrantedLink}}
+                        <line x1="{{edge.x1}}" y1="{{edge.y1}}" x2="{{edge.x2}}" y2="{{edge.y2}}"
+                              stroke="rgba(56, 189, 248, 0.4)" stroke-width="8" stroke-linecap="round" />
+                      {{else if edge.isEnergized}}
                         <line x1="{{edge.x1}}" y1="{{edge.y1}}" x2="{{edge.x2}}" y2="{{edge.y2}}"
                               stroke="rgba(254, 235, 179, 0.3)" stroke-width="8" stroke-linecap="round" />
                       {{else}}
@@ -467,7 +475,7 @@
                     {{/each}}
 
                     {{#each focusedNebulaTrack.constellation.nodes as |node|}}
-                      <div class="ccx-star-constellation-node {{#if node.isParentRoot}}is-parent-root{{/if}} {{#if node.isSelectedForLevelUp}}node-selected-levelup{{/if}} {{#if node.isOwned}}node-owned{{else if node.isAvailable}}node-available{{else}}node-locked{{/if}}"
+                      <div class="ccx-star-constellation-node {{#if node.isParentRoot}}is-parent-root{{/if}} {{#if node.isSelectedForLevelUp}}node-selected-levelup{{/if}} {{#if node.isOwned}}node-owned{{else if node.isAvailable}}node-available{{else}}node-locked{{/if}} {{#if node.isGrantedTalent}}node-granted-child{{/if}} {{#if node.grantedTalentNames.length}}node-granting-parent{{/if}}"
                            style="left: {{node.xPct}}%; top: {{node.yPct}}%;"
                            data-talent-id="{{node.id}}">
 
@@ -479,6 +487,11 @@
                              {{/if}}>
                           <div class="ccx-star-flare-cross"></div>
                           <div class="ccx-star-halo-ring"></div>
+                          {{#if node.isGrantedTalent}}
+                            <div class="ccx-star-granted-tether-ring" title="Acquired from {{node.parentTalentName}}"></div>
+                          {{else if node.grantedTalentNames.length}}
+                            <div class="ccx-star-granted-tether-ring parent-aura" title="Grants: {{#each node.grantedTalentNames}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}"></div>
+                          {{/if}}
                           <div class="ccx-star-orb-core">
                             <img src="{{node.img}}" alt="{{node.name}}" class="ccx-star-talent-icon" />
                             <span class="ccx-star-corner-badge">
@@ -497,6 +510,8 @@
                           <div class="ccx-star-title-row" data-action="viewTreeTalent" data-talent-id="{{node.id}}">
                             {{#if node.isParentRoot}}
                               <span class="ccx-star-tier-pip root-pip">START</span>
+                            {{else if node.parentTalentName}}
+                              <span class="ccx-star-tier-pip granted-pip" title="Granted by {{node.parentTalentName}}"><i class="fa-solid fa-code-fork"></i> GRANTED</span>
                             {{else if node.isOwned}}
                               <span class="ccx-star-tier-pip">TAKEN</span>
                             {{else}}
@@ -504,6 +519,11 @@
                             {{/if}}
                             <span class="ccx-star-name" title="{{node.name}}">{{node.name}}</span>
                           </div>
+                          {{#if node.parentTalentName}}
+                            <div class="ccx-star-granted-sublabel" title="Granted by {{node.parentTalentName}}">
+                              <i class="fa-solid fa-link"></i> from {{node.parentTalentName}}
+                            </div>
+                          {{/if}}
 
                           <div class="ccx-star-actions-row">
                             <button type="button" class="badge-btn view" data-action="viewTreeTalent" data-talent-id="{{node.id}}" title="Inspect Talent">
@@ -516,14 +536,14 @@
                               <button type="button" class="badge-btn select" data-action="toggleTreeTrackExpand" data-track-title="__GALAXY_OVERVIEW__" title="Zoom Out to Gallery">
                                 <i class="fas fa-compress-arrows-alt"></i> Gallery
                               </button>
-                            {{else unless node.isOwned}}
+                            {{else if (or (not node.isOwned) node.repeatable)}}
                               {{#if node.isSelectedForLevelUp}}
                                 <button type="button" class="badge-btn select active-pick" data-action="clearSelectedTalent" title="Selected for Level Up (Click to clear)">
                                   <i class="fas fa-check"></i> Selected
                                 </button>
                               {{else if node.isAvailable}}
-                                <button type="button" class="badge-btn select" data-action="chooseTreeTalent" data-talent-id="{{node.id}}" title="Select for Level Up">
-                                  <i class="fas fa-plus"></i> Select
+                                <button type="button" class="badge-btn select" data-action="chooseTreeTalent" data-talent-id="{{node.id}}" title="{{#if node.isOwned}}Repeat: Take Again{{else}}Select for Level Up{{/if}}">
+                                  <i class="fas fa-plus"></i> {{#if node.isOwned}}Repeat{{else}}Select{{/if}}
                                 </button>
                               {{/if}}
                             {{/if}}
@@ -701,21 +721,21 @@
                                 <button type="button" class="badge-btn chat" data-action="postTreeTalent" data-talent-id="{{node.id}}" title="Share to Chat">
                                   <i class="fas fa-comment-alt"></i>
                                 </button>
-                                {{#unless node.isOwned}}
+                                {{#if (or (not node.isOwned) node.repeatable)}}
                                   {{#if node.isSelectedForLevelUp}}
                                     <button type="button" class="badge-btn select active-pick" data-action="clearSelectedTalent" title="Selected for Level Up (Click to clear)">
                                       <i class="fas fa-check"></i> Selected
                                     </button>
                                   {{else if node.isAvailable}}
-                                    <button type="button" class="badge-btn select" data-action="chooseTreeTalent" data-talent-id="{{node.id}}" title="Select for Level Up">
-                                      <i class="fas fa-plus"></i> Select
+                                    <button type="button" class="badge-btn select" data-action="chooseTreeTalent" data-talent-id="{{node.id}}" title="{{#if node.isOwned}}Repeat: Take Again{{else}}Select for Level Up{{/if}}">
+                                      <i class="fas fa-plus"></i> {{#if node.isOwned}}Repeat{{else}}Select{{/if}}
                                     </button>
                                   {{else}}
                                     <button type="button" class="badge-btn select disabled" disabled title="{{node.prereqTooltip}}">
                                       <i class="fas fa-lock"></i> Locked
                                     </button>
                                   {{/if}}
-                                {{/unless}}
+                                {{/if}}
                               </div>
                             </div>
                           {{/each}}
@@ -803,21 +823,21 @@
                                             <button type="button" class="badge-btn chat" data-action="postTreeTalent" data-talent-id="{{node.id}}" title="Share to Chat">
                                               <i class="fas fa-comment-alt"></i>
                                             </button>
-                                            {{#unless node.isOwned}}
+                                            {{#if (or (not node.isOwned) node.repeatable)}}
                                               {{#if node.isSelectedForLevelUp}}
                                                 <button type="button" class="badge-btn select active-pick" data-action="clearSelectedTalent" title="Selected for Level Up (Click to clear)">
                                                   <i class="fas fa-check"></i> Selected
                                                 </button>
                                               {{else if node.isAvailable}}
-                                                <button type="button" class="badge-btn select" data-action="chooseTreeTalent" data-talent-id="{{node.id}}" title="Select for Level Up">
-                                                  <i class="fas fa-plus"></i> Select
+                                                <button type="button" class="badge-btn select" data-action="chooseTreeTalent" data-talent-id="{{node.id}}" title="{{#if node.isOwned}}Repeat: Take Again{{else}}Select for Level Up{{/if}}">
+                                                  <i class="fas fa-plus"></i> {{#if node.isOwned}}Repeat{{else}}Select{{/if}}
                                                 </button>
                                               {{else}}
                                                 <button type="button" class="badge-btn select disabled" disabled title="{{node.prereqTooltip}}">
                                                   <i class="fas fa-lock"></i> Locked
                                                 </button>
                                               {{/if}}
-                                            {{/unless}}
+                                            {{/if}}
                                           </div>
 
                                           {{#if node.prerequisites.length}}

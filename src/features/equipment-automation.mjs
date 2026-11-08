@@ -15,6 +15,11 @@
 import { getSetting } from "../settings.mjs";
 import { isDefaultIcon, resolveEquipmentIcon, resolveTalentIcon, resolveItemIcon, applyDefaultItemIcon } from "./equipment-icons.mjs";
 import SecondSkinChoiceDialog, { isSecondSkinTalent } from "../apps/second-skin-dialog.mjs";
+import {
+  getActorActiveEffectBonuses,
+  getCombinedDamageBonusFormula,
+  getWeaponFilteredApcReduction,
+} from "./active-effect-engine.mjs";
 
 /**
  * Safely parse a signed or unsigned number from string or number inputs.
@@ -379,6 +384,18 @@ export function hasSecondSkinForArmor(actor, armorItem) {
   const category = getArmorCategory(armorItem);
   const armorName = (armorItem.name || "").toLowerCase().trim();
 
+  // Check ActiveEffect Second Skin / Shield Resist unlock flags
+  const aeBonuses = getActorActiveEffectBonuses(actor);
+  if (aeBonuses.kiteHeaterShieldResist && category === "shield" && /\b(?:kite|heater)\b/i.test(armorName)) {
+    return true;
+  }
+  if (variant === "category") {
+    if (category === "light" && aeBonuses.secondSkinLight) return true;
+    if (category === "medium" && aeBonuses.secondSkinMedium) return true;
+    if (category === "heavy" && aeBonuses.secondSkinHeavy) return true;
+    if (category === "shield" && aeBonuses.secondSkinShields) return true;
+  }
+
   // Collect talent, feature, and specialization items from actor
   const talentItems = (actor.items || []).filter(i => {
     const t = i.type?.toLowerCase();
@@ -439,8 +456,17 @@ export function hasSecondSkinForArmor(actor, armorItem) {
  * @returns {{ list: Array<object>, combinedString: string, map: Record<string, number>, armorResists: Array<object>, baseResists: Array<object> }}
  */
 export function calculateEffectiveResistances(actor) {
-  const baseResistStr = actor?.system?.damage?.resist || "";
+  const aeBonuses = actor ? getActorActiveEffectBonuses(actor) : null;
+  const hasAeResists = (aeBonuses?.resistStrings?.length ?? 0) > 0;
+  const baseResistStr = hasAeResists
+    ? (actor?.system?._source?.damage?.resist ?? actor?._source?.system?.damage?.resist ?? "")
+    : (actor?.system?.damage?.resist || "");
   const baseResists = parseResistanceString(baseResistStr);
+  if (hasAeResists) {
+    for (const rStr of aeBonuses.resistStrings) {
+      baseResists.push(...parseResistanceString(rStr));
+    }
+  }
 
   // For NPCs, resistances are fixed directly on their statblock and do not use Second Skin or equipment stacking
   if (actor?.type === "npc") {
@@ -868,11 +894,13 @@ export function getActorBaseUnarmedDie(actor, excludeItem = null) {
     }
   }
 
-  // Combine trait base die + any non-Brass-Knuckles step-up talents
+  // Combine trait base die + any non-Brass-Knuckles step-up talents / Active Effects
+  const aeUnarmedStep = Number(getActorActiveEffectBonuses(actor)?.unarmedDieStep || 0);
+  const totalStepUps = Math.max(traitStepUps, aeUnarmedStep);
   let effectiveTraitDie = traitBaseDie;
-  if (traitStepUps > 0) {
+  if (totalStepUps > 0) {
     const startDie = traitBaseDie || (otherWeaponFaces === 4 ? otherWeaponDie : null);
-    effectiveTraitDie = stepUpDieFormula(startDie, traitStepUps);
+    effectiveTraitDie = stepUpDieFormula(startDie, totalStepUps);
   }
 
   const traitParsed = parseDieTerm(effectiveTraitDie);
@@ -925,11 +953,104 @@ export function getTwoHandedBaseFormula(weapon) {
 }
 
 /**
+ * Safely extracts and resolves the weapon attack modifier (from item schema, formulas, flags, or fallbacks).
+ * @param {Item} item
+ * @param {Actor} [actor=null]
+ * @returns {number}
+ */
+export function getWeaponAttackModifier(item, actor = null) {
+  if (!item) return 0;
+
+  // 1. Evaluated attackModifierValue from system data model
+  if (typeof item.system?.attackModifierValue === "number" && !isNaN(item.system.attackModifierValue) && item.system.attackModifierValue !== 0) {
+    return item.system.attackModifierValue;
+  }
+
+  // 2. Raw attackModifier field
+  const rawMod = item.system?.attackModifier ?? item.flags?.["mythcraft-essence-sheet"]?.attackModifier;
+  if (typeof rawMod === "number" && !isNaN(rawMod)) return rawMod;
+  if (typeof rawMod === "string" && rawMod.trim()) {
+    const clean = rawMod.trim().replace(/^\+/, "");
+    const parsed = Number(clean);
+    if (!isNaN(parsed)) return parsed;
+    if (globalThis.mythcraft?.utils?.evaluateFormula && actor) {
+      try {
+        const evaled = Number(mythcraft.utils.evaluateFormula(rawMod, actor.getRollData?.() || {}));
+        if (!isNaN(evaled)) return evaled;
+      } catch (e) {}
+    }
+  }
+
+  // 3. System attackBonus / toHit / attackMod fallbacks
+  const fallbacks = [
+    item.system?.attackBonus,
+    item.system?.toHit,
+    item.system?.attackMod,
+    item.flags?.["mythcraft-essence-sheet"]?.attackBonus,
+    item.flags?.["mythcraft"]?.attackBonus,
+  ];
+  for (const fb of fallbacks) {
+    if (fb !== undefined && fb !== null && fb !== "") {
+      const parsed = Number(String(fb).trim().replace(/^\+/, ""));
+      if (!isNaN(parsed) && parsed !== 0) return parsed;
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * Safely extracts and resolves the weapon damage modifier (from item schema, formulas, flags, or fallbacks).
+ * @param {Item} item
+ * @param {Actor} [actor=null]
+ * @returns {number}
+ */
+export function getWeaponDamageModifier(item, actor = null) {
+  if (!item) return 0;
+
+  // 1. Evaluated damageModifierValue
+  if (typeof item.system?.damageModifierValue === "number" && !isNaN(item.system.damageModifierValue) && item.system.damageModifierValue !== 0) {
+    return item.system.damageModifierValue;
+  }
+
+  // 2. Raw damageModifier field
+  const rawMod = item.system?.damageModifier ?? item.flags?.["mythcraft-essence-sheet"]?.damageModifier;
+  if (typeof rawMod === "number" && !isNaN(rawMod)) return rawMod;
+  if (typeof rawMod === "string" && rawMod.trim()) {
+    const clean = rawMod.trim().replace(/^\+/, "");
+    const parsed = Number(clean);
+    if (!isNaN(parsed)) return parsed;
+    if (globalThis.mythcraft?.utils?.evaluateFormula && actor) {
+      try {
+        const evaled = Number(mythcraft.utils.evaluateFormula(rawMod, actor.getRollData?.() || {}));
+        if (!isNaN(evaled)) return evaled;
+      } catch (e) {}
+    }
+  }
+
+  // 3. Fallbacks: damageBonus, damageMod
+  const fallbacks = [
+    item.system?.damageBonus,
+    item.system?.damageMod,
+    item.flags?.["mythcraft-essence-sheet"]?.damageBonus,
+    item.flags?.["mythcraft"]?.damageBonus,
+  ];
+  for (const fb of fallbacks) {
+    if (fb !== undefined && fb !== null && fb !== "") {
+      const parsed = Number(String(fb).trim().replace(/^\+/, ""));
+      if (!isNaN(parsed) && parsed !== 0) return parsed;
+    }
+  }
+
+  return 0;
+}
+
+/**
  * Calculates effective weapon damage formula including Brass Knuckles unarmed/natural weapon die progression,
  * assigned attribute modifiers, Affinity bonus, and 2H grip mode.
  * @param {Actor} actor
  * @param {Item} weapon
- * @returns {{ baseFormula: string, effectiveFormula: string, damageType: string, attrKey: string, attrMod: number, affinityBonus: number, totalMod: number, isTwoHandedGrip: boolean, isBrassKnucklesBoosted: boolean }}
+ * @returns {{ baseFormula: string, effectiveFormula: string, damageType: string, attrKey: string, attrMod: number, itemDmgMod: number, affinityBonus: number, totalMod: number, isTwoHandedGrip: boolean, isBrassKnucklesBoosted: boolean }}
  */
 export function getWeaponDamageData(actor, weapon) {
   const isBK = isBrassKnuckles(weapon);
@@ -1020,19 +1141,26 @@ export function getWeaponDamageData(actor, weapon) {
     attrMod = Number(typeof rawVal === "object" && rawVal !== null ? (rawVal.value ?? 0) : (rawVal ?? 0));
   }
 
+  // Weapon's own damage modifier (damageModifier / damageBonus)
+  const itemDmgMod = getWeaponDamageModifier(weapon, actor);
+
   // Affinity bonus (+3) is ONLY applied if the weapon/spell explicitly has Affinity enabled on it
   const hasItemAffinity = weapon?.system?.hasAffinity === true || 
                           weapon?.flags?.["mythcraft-essence-sheet"]?.hasAffinity === true ||
                           weapon?.system?.affinity === true;
   const affinityBonus = hasItemAffinity ? 3 : 0;
 
-  const totalMod = attrMod + affinityBonus;
+  const aeDmg = actor ? getCombinedDamageBonusFormula(actor, "weapon") : { flat: 0, dice: [], formulaSuffix: "" };
+  const totalMod = attrMod + itemDmgMod + affinityBonus + (aeDmg.flat || 0);
 
   let effectiveFormula = baseFormula;
   if (totalMod > 0) {
     effectiveFormula = `${baseFormula} + ${totalMod}`;
   } else if (totalMod < 0) {
     effectiveFormula = `${baseFormula} - ${Math.abs(totalMod)}`;
+  }
+  if (aeDmg.dice?.length) {
+    effectiveFormula = `${effectiveFormula} + ${aeDmg.dice.join(" + ")}`;
   }
 
   return {
@@ -1041,7 +1169,9 @@ export function getWeaponDamageData(actor, weapon) {
     damageType,
     attrKey: hasValidAttr ? rawAttr : "",
     attrMod,
+    itemDmgMod,
     affinityBonus,
+    aeDamageBonus: aeDmg,
     totalMod,
     isTwoHandedGrip,
     isBrassKnucklesBoosted,
@@ -1126,12 +1256,17 @@ export function applyEffectiveArmorAndDefenses(actor) {
 
     const baseDex = Number(actor.system.attributes?.dex ?? 0);
 
-    const bonusAr = Number(actor.system.bonuses?.ar) || 0;
-    const bonusRef = Number(actor.system.bonuses?.ref) || 0;
-    const bonusFort = Number(actor.system.bonuses?.fort) || 0;
-    const bonusAnt = Number(actor.system.bonuses?.ant) || 0;
-    const bonusLog = Number(actor.system.bonuses?.log) || 0;
-    const bonusWill = Number(actor.system.bonuses?.will) || 0;
+    const aeBonuses = getActorActiveEffectBonuses(actor);
+    const allDefDelta = Number(aeBonuses.allDefensesDelta || 0);
+    const physDefDelta = Number(aeBonuses.physicalDefensesDelta || 0);
+    const mentDefDelta = Number(aeBonuses.mentalDefensesDelta || 0);
+
+    const bonusAr = (Number(actor.system.bonuses?.ar) || 0) + (aeBonuses.directDefenses?.ar || 0) + (aeBonuses.formulaDefenseBonuses?.ar || 0) + allDefDelta + physDefDelta;
+    const bonusRef = (Number(actor.system.bonuses?.ref) || 0) + (aeBonuses.directDefenses?.ref || 0) + (aeBonuses.formulaDefenseBonuses?.ref || 0) + allDefDelta + physDefDelta;
+    const bonusFort = (Number(actor.system.bonuses?.fort) || 0) + (aeBonuses.directDefenses?.fort || 0) + (aeBonuses.formulaDefenseBonuses?.fort || 0) + allDefDelta + physDefDelta;
+    const bonusAnt = (Number(actor.system.bonuses?.ant) || 0) + (aeBonuses.directDefenses?.ant || 0) + (aeBonuses.formulaDefenseBonuses?.ant || 0) + allDefDelta + mentDefDelta;
+    const bonusLog = (Number(actor.system.bonuses?.log) || 0) + (aeBonuses.directDefenses?.log || 0) + (aeBonuses.formulaDefenseBonuses?.log || 0) + allDefDelta + mentDefDelta;
+    const bonusWill = (Number(actor.system.bonuses?.will) || 0) + (aeBonuses.directDefenses?.will || 0) + (aeBonuses.formulaDefenseBonuses?.will || 0) + allDefDelta + mentDefDelta;
 
     // Calculate equipped shields additional armor and defense modifiers
     const equippedShields = getEquippedShields(actor);
@@ -1203,11 +1338,17 @@ export function applyEffectiveArmorAndDefenses(actor) {
       defenseRollData.attributes[upper] = num;
     }
 
-    // Apply effective (clamped) DEX for Reflexes formula evaluation
-    defenseRollData.dex = effectiveDex;
-    defenseRollData.DEX = effectiveDex;
-    defenseRollData.attributes.dex = effectiveDex;
-    defenseRollData.attributes.DEX = effectiveDex;
+    // Apply effective (clamped) DEX for Reflexes formula evaluation (or LUCK if refUseLuck is active and higher)
+    let refDexVal = effectiveDex;
+    if (aeBonuses.refUseLuck) {
+      const luckVal = Number(defenseRollData.luck ?? 0);
+      const clampedLuck = (dexMaxAuto && effectiveDexMax !== null && luckVal > effectiveDexMax) ? effectiveDexMax : luckVal;
+      if (clampedLuck > refDexVal) refDexVal = clampedLuck;
+    }
+    defenseRollData.dex = refDexVal;
+    defenseRollData.DEX = refDexVal;
+    defenseRollData.attributes.dex = refDexVal;
+    defenseRollData.attributes.DEX = refDexVal;
 
     // Retrieve the base formula/value stored in actor _source
     const sourceDefs = actor.system._source?.defenses || actor._source?.system?.defenses || actor.system.defenses || {};
@@ -1246,7 +1387,15 @@ export function applyEffectiveArmorAndDefenses(actor) {
       actor.system.defenses.will = baseWill + bonusWill + willMod + shieldWillBonus + enhWillBonus;
     } else {
       // Unarmored: Recalculate baseline 10 + attributes + bonuses + shield & enhancement additional armor
-      const baseAR = evaluateDefenseFormula(arFormula, defenseRollData, "10");
+      let baseAR = evaluateDefenseFormula(arFormula, defenseRollData, "10");
+      if (Array.isArray(aeBonuses.unarmoredArSub) && aeBonuses.unarmoredArSub.length > 0 && String(arFormula).trim() === "10") {
+        let bestSub = 0;
+        for (const subAttr of aeBonuses.unarmoredArSub) {
+          const val = Number(defenseRollData[subAttr.toLowerCase()] ?? 0);
+          if (val > bestSub) bestSub = val;
+        }
+        baseAR += bestSub;
+      }
       actor.system.defenses.ar = baseAR + bonusAr + shieldArBonus + enhArBonus;
       actor.system.defenses.ref = baseRef + bonusRef + shieldRefBonus + enhRefBonus;
       actor.system.defenses.fort = baseFort + bonusFort + shieldFortBonus + enhFortBonus;
@@ -1254,28 +1403,82 @@ export function applyEffectiveArmorAndDefenses(actor) {
       actor.system.defenses.log = baseLog + bonusLog + shieldLogBonus + enhLogBonus;
       actor.system.defenses.will = baseWill + bonusWill + shieldWillBonus + enhWillBonus;
     }
+
+    // Apply any explicit Active Effect overrides on individual defenses
+    for (const defKey of ["ar", "ref", "fort", "ant", "log", "will"]) {
+      if (aeBonuses.directDefenseOverrides?.[defKey] !== null && aeBonuses.directDefenseOverrides?.[defKey] !== undefined) {
+        actor.system.defenses[defKey] = aeBonuses.directDefenseOverrides[defKey];
+      }
+    }
   }
 
-  // 4. Speed & STR Minimum (Combine donned armor and enhancement STR min)
+  // 4. Speed & STR Minimum (Combine donned armor, enhancement STR min, and Active Effect speed modifiers)
+  const aeSpeed = getActorActiveEffectBonuses(actor);
   const enhStrMin = parseSignedNumber(equippedEnhancement?.system?.strMin ?? equippedEnhancement?.system?.strMinMod, 0);
   const armorStrMin = donnedArmor ? parseSignedNumber(donnedArmor.system?.strMin, 0) : 0;
   const totalStrMin = Math.max(0, armorStrMin + enhStrMin);
 
-  if (donnedArmor || equippedEnhancement) {
-    const strMinAuto = getSetting("armorStrMinAutomation", true);
-    const rawAttrStr = actor.system?.attributes?.str;
-    const actorStr = typeof rawAttrStr === "object" && rawAttrStr !== null ? Number(rawAttrStr.value ?? 0) : Number(rawAttrStr ?? 0);
+  if (actor.system?.movement) {
+    if (typeof actor.system.movement === "object" && actor.system.movement !== null) {
+      const rawSourceWalk = actor.system._source?.movement?.walk ?? actor._source?.system?.movement?.walk;
+      let computedWalk = (rawSourceWalk !== undefined && rawSourceWalk !== null && !isNaN(Number(rawSourceWalk)))
+        ? Number(rawSourceWalk)
+        : (Number(actor.system.movement.walk) || 20);
 
-    if (strMinAuto && totalStrMin > 0 && actorStr < totalStrMin) {
-      if (actor.system.movement) actor.system.movement.walk = 0;
-    } else {
-      const speedPenaltyAuto = getSetting("armorSpeedPenaltyAutomation", true);
-      const armorSpeedPenalty = donnedArmor ? parseSignedNumber(donnedArmor.system?.speedPenalty, 0) : 0;
-      const enhSpeedPenalty = equippedEnhancement ? parseSignedNumber(equippedEnhancement.system?.speedPenalty ?? equippedEnhancement.system?.speedPenaltyMod, 0) : 0;
-      const penalty = Math.max(0, armorSpeedPenalty + enhSpeedPenalty);
-      if (speedPenaltyAuto && penalty > 0 && actor.system.movement) {
-        const baseWalk = Number(actor.system.movement.walk) || 20;
-        actor.system.movement.walk = Math.max(0, baseWalk - penalty);
+      if (aeSpeed.walkOverride !== null && aeSpeed.walkOverride !== undefined) {
+        computedWalk = aeSpeed.walkOverride;
+      } else {
+        computedWalk = (computedWalk + (aeSpeed.walkAdd || 0)) * (aeSpeed.walkMultiply ?? 1);
+      }
+      if (aeSpeed.walkUpgrade !== null && aeSpeed.walkUpgrade !== undefined) {
+        computedWalk = Math.max(computedWalk, aeSpeed.walkUpgrade);
+      }
+      if (aeSpeed.walkDowngrade !== null && aeSpeed.walkDowngrade !== undefined) {
+        computedWalk = Math.min(computedWalk, aeSpeed.walkDowngrade);
+      }
+
+      if (donnedArmor || equippedEnhancement) {
+        const strMinAuto = getSetting("armorStrMinAutomation", true);
+        const rawAttrStr = actor.system?.attributes?.str;
+        const actorStr = typeof rawAttrStr === "object" && rawAttrStr !== null ? Number(rawAttrStr.value ?? 0) : Number(rawAttrStr ?? 0);
+
+        if (strMinAuto && totalStrMin > 0 && actorStr < totalStrMin) {
+          computedWalk = 0;
+        } else {
+          const speedPenaltyAuto = getSetting("armorSpeedPenaltyAutomation", true);
+          const isHeavy = donnedArmor && getArmorCategory(donnedArmor) === "heavy";
+          const armorSpeedPenalty = (donnedArmor && !(isHeavy && aeSpeed.ignoreHeavyArmorPenalty))
+            ? parseSignedNumber(donnedArmor.system?.speedPenalty, 0)
+            : 0;
+          const enhSpeedPenalty = equippedEnhancement ? parseSignedNumber(equippedEnhancement.system?.speedPenalty ?? equippedEnhancement.system?.speedPenaltyMod, 0) : 0;
+          const penalty = Math.max(0, armorSpeedPenalty + enhSpeedPenalty);
+          if (speedPenaltyAuto && penalty > 0) {
+            computedWalk = Math.max(0, computedWalk - penalty);
+          }
+        }
+      }
+
+      actor.system.movement.walk = Math.max(0, Math.round(computedWalk));
+    } else if (typeof actor.system.movement === "string") {
+      // NPC movement string format (e.g. "Walk 20 ft.", "30 ft.")
+      const match = actor.system.movement.match(/(\d+)\s*ft/i);
+      if (match) {
+        const baseSpeed = Number(match[1]);
+        let computed = baseSpeed;
+        if (aeSpeed.walkOverride !== null && aeSpeed.walkOverride !== undefined) {
+          computed = aeSpeed.walkOverride;
+        } else {
+          computed = (computed + (aeSpeed.walkAdd || 0)) * (aeSpeed.walkMultiply ?? 1);
+        }
+        if (aeSpeed.walkUpgrade !== null && aeSpeed.walkUpgrade !== undefined) {
+          computed = Math.max(computed, aeSpeed.walkUpgrade);
+        }
+        if (aeSpeed.walkDowngrade !== null && aeSpeed.walkDowngrade !== undefined) {
+          computed = Math.min(computed, aeSpeed.walkDowngrade);
+        }
+        if (computed !== baseSpeed) {
+          actor.system.movement = actor.system.movement.replace(/\d+\s*ft/i, `${Math.max(0, Math.round(computed))} ft`);
+        }
       }
     }
   }
@@ -1642,6 +1845,16 @@ export function getSafeWeaponApc(item, actor) {
           const minVal = apcRule.minApc ?? 1;
           baseApc = Math.max(minVal, baseApc - apcRule.reduction);
         }
+      }
+    }
+
+    // Active Effect Weapon APC reduction (Global + Tag/Name Filtered)
+    const targetActor = actor || item.actor || item.parent;
+    if (targetActor && baseApc > 0) {
+      const aeBonuses = getActorActiveEffectBonuses(targetActor);
+      const { reduction, minApc } = getWeaponFilteredApcReduction(item, aeBonuses);
+      if (reduction !== 0) {
+        baseApc = Math.max(Math.min(baseApc, minApc), baseApc - reduction);
       }
     }
 

@@ -153,10 +153,10 @@ export default class TalentTreeViewer extends HandlebarsApplicationMixin(Applica
     for (const tree of this.trees) {
       tree.isStarted = tree.nodes.some(n => n.isOwned);
       tree.ownedCount = tree.nodes.filter(n => n.isOwned).length;
-      tree.availableCount = tree.nodes.filter(n => n.isAvailable && !n.isOwned).length;
+      tree.availableCount = tree.nodes.filter(n => n.isAvailable && (!n.isOwned || n.repeatable)).length;
       for (const track of tree.tracks) {
         track.ownedCount = track.nodes.filter(n => n.isOwned).length;
-        track.availableCount = track.nodes.filter(n => n.isAvailable && !n.isOwned).length;
+        track.availableCount = track.nodes.filter(n => n.isAvailable && (!n.isOwned || n.repeatable)).length;
       }
     }
   }

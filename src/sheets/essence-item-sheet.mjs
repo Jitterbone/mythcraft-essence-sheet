@@ -15,6 +15,8 @@ import { extractTalentStructuredTags } from "../features/talent-canonical-map.mj
 import { getEnrichedItemTags } from "./essence-character-sheet.mjs";
 import { getSetting } from "../settings.mjs";
 import { syncSoulDamageToSystem } from "../features/homebrew-attributes.mjs";
+import ActiveEffectManager from "../apps/active-effect-manager.mjs";
+import { summarizeActiveEffect } from "../features/active-effect-engine.mjs";
 
 export default class EssenceItemSheet extends MythCraftItemSheet {
 
@@ -446,6 +448,80 @@ export default class EssenceItemSheet extends MythCraftItemSheet {
           sel.value = "soul";
         }
       });
+    }
+
+    // 6. Inject Active Effect Manager panel into Item Sheet (Details tab & Effects tab)
+    const effectsTab = this.element.querySelector('.tab[data-tab="effects"]');
+    const targetContainers = [detailsTab, effectsTab].filter(Boolean);
+    for (const container of targetContainers) {
+      if (container.querySelector(".essence-item-aem-panel")) continue;
+      const itemEffects = Array.from(this.item.effects || []);
+      const effectRowsHtml = itemEffects.length
+        ? itemEffects.map((eff) => {
+            const sums = summarizeActiveEffect(eff, this.item);
+            const sumHtml = sums.length
+              ? sums.map((s) => `<span class="effect-mod-pill ${s.isPositive ? "mod-pos" : "mod-neg"}"><i class="${s.icon}"></i> ${s.text}</span>`).join(" ")
+              : `<span style="font-size:11px; color:#94a3b8;">No automated stat rules</span>`;
+            return `
+              <div class="item-aem-row" data-effect-id="${eff.id}" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:5px 8px; background:rgba(0,0,0,0.3); border:1px solid rgba(58,122,127,0.35); border-radius:6px;">
+                <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+                  <img src="${eff.img || 'icons/svg/aura.svg'}" style="width:22px; height:22px; border-radius:4px; border:1px solid #3a7a7f;" />
+                  <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+                    <strong style="font-size:12px; color:#FEEBB3;">${eff.name}</strong>
+                    <div style="display:flex; flex-wrap:wrap; gap:4px;">${sumHtml}</div>
+                  </div>
+                </div>
+                <button type="button" class="item-aem-edit-btn" data-effect-id="${eff.id}" style="padding:3px 8px; font-size:11px; border-radius:4px; border:1px solid #3a7a7f; background:rgba(46,139,154,0.25); color:#9bd7e5; cursor:pointer;">
+                  <i class="fas fa-wand-magic-sparkles"></i> Edit
+                </button>
+              </div>
+            `;
+          }).join("")
+        : `<p style="margin:0; font-size:11px; color:#94a3b8;">No automated Active Effects attached to this ${this.item.type} yet.</p>`;
+
+      const aemPanel = document.createElement("div");
+      aemPanel.className = "essence-item-cost-panel essence-item-aem-panel";
+      aemPanel.style.cssText = "background: linear-gradient(135deg, rgba(19, 58, 67, 0.45) 0%, rgba(12, 24, 33, 0.85) 100%); border: 1px solid rgba(58, 122, 127, 0.5); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px;";
+      aemPanel.innerHTML = `
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">
+          <div style="display:flex; align-items:center; gap:6px; font-family:'Cinzel', serif; font-size:13px; font-weight:700; color:#FEEBB3;">
+            <i class="fas fa-wand-magic-sparkles" style="color:#38bdf8;"></i>
+            <span>ACTIVE EFFECTS &amp; AUTOMATION (${itemEffects.length})</span>
+          </div>
+          <button type="button" class="open-item-aem-btn" style="padding:4px 10px; font-size:11px; font-weight:700; border-radius:5px; border:1px solid #38bdf8; background:linear-gradient(135deg, rgba(14,116,144,0.55), rgba(30,58,138,0.55)); color:#e0f2fe; cursor:pointer; display:flex; align-items:center; gap:5px;">
+            <i class="fas fa-wand-magic-sparkles"></i> Active Effect Manager
+          </button>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:5px;">
+          ${effectRowsHtml}
+        </div>
+      `;
+
+      aemPanel.querySelector(".open-item-aem-btn")?.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        new ActiveEffectManager({ document: this.item }).render(true);
+      });
+
+      aemPanel.querySelectorAll(".item-aem-edit-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const eff = this.item.effects?.get(btn.dataset.effectId) || null;
+          new ActiveEffectManager({ document: this.item, effect: eff }).render(true);
+        });
+      });
+
+      if (container === effectsTab) {
+        container.prepend(aemPanel);
+      } else {
+        const costPanel = container.querySelector(".essence-item-cost-panel");
+        if (costPanel && costPanel.nextSibling) {
+          container.insertBefore(aemPanel, costPanel.nextSibling);
+        } else {
+          container.prepend(aemPanel);
+        }
+      }
     }
   }
 }

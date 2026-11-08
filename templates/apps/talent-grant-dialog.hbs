@@ -1,0 +1,239 @@
+<div class="essence-talent-grant-shell mode-{{mode}}">
+  {{#if isGrantMode}}
+    {{!-- ── SPECIFIC TALENT GRANT MODE ────────────────────────────────── --}}
+    <header class="grant-dialog-hero">
+      <div class="grant-badge-row">
+        <span class="grant-pill-tag"><i class="fa-solid fa-sparkles"></i> Talent Benefit</span>
+        <span class="grant-parent-pill">{{parentItem.name}}</span>
+      </div>
+      <h1 class="grant-hero-title">
+        This talent gives you <span class="highlight-bracket">[[{{talentName}}]]</span>
+      </h1>
+      <p class="grant-hero-subtitle">
+        Acquiring <strong>{{parentItem.name}}</strong> includes the granted talent below. Would you like to accept it now?
+      </p>
+    </header>
+
+    <div class="grant-dialog-body">
+      {{#if hasAlternatives}}
+        <div class="grant-choice-instruction">
+          <i class="fa-solid fa-circle-question"></i>
+          <span>Choose which talent you would like to receive:</span>
+        </div>
+        <div class="grant-alternatives-grid">
+          {{#each alternatives as |alt|}}
+            <div class="grant-alt-card {{#if alt.isSelected}}selected{{/if}} {{#if alt.isOwned}}owned{{/if}} {{#if alt.isExpanded}}expanded{{/if}}" data-talent-name="{{alt.name}}">
+              <div class="alt-card-header-row">
+                <label class="alt-radio-label">
+                  <input type="radio" name="selectedAlternative" value="{{alt.name}}" {{#if alt.isSelected}}checked{{/if}} {{#if alt.isOwned}}disabled{{/if}} data-action="selectAlternative" />
+                  <div class="alt-card-content">
+                    <span class="alt-name">{{alt.name}}</span>
+                    <span class="alt-stack">{{alt.stack}}</span>
+                    {{#if alt.isOwned}}
+                      <span class="alt-owned-badge"><i class="fa-solid fa-check"></i> Already Owned</span>
+                    {{/if}}
+                  </div>
+                </label>
+                <button type="button"
+                        class="candidate-expand-btn {{#if alt.isExpanded}}active{{/if}}"
+                        data-action="toggleExpand"
+                        data-talent-name="{{alt.name}}"
+                        title="{{#if alt.isExpanded}}Collapse description{{else}}Expand description{{/if}}">
+                  <i class="fa-solid {{#if alt.isExpanded}}fa-chevron-up{{else}}fa-chevron-down{{/if}}"></i>
+                </button>
+              </div>
+              {{#if alt.isExpanded}}
+                <div class="candidate-expanded-drawer">
+                  {{#if alt.description}}
+                    <div class="candidate-desc-content">
+                      {{{alt.description}}}
+                    </div>
+                  {{else}}
+                    <div class="candidate-desc-empty">
+                      <em>No description available in active compendiums.</em>
+                    </div>
+                  {{/if}}
+                </div>
+              {{/if}}
+            </div>
+          {{/each}}
+        </div>
+      {{else}}
+        <div class="grant-card-spotlight {{#if selectedEntry.isExpanded}}expanded{{/if}}" data-talent-name="{{talentName}}">
+          <div class="spotlight-header-row">
+            <div class="spotlight-icon-col">
+              <img src="{{selectedEntry.img}}" alt="{{talentName}}" class="spotlight-img" />
+            </div>
+            <div class="spotlight-info-col">
+              <h2 class="spotlight-title">{{talentName}}</h2>
+              <div class="spotlight-tags">
+                {{#if selectedEntry.category}}<span class="tag-pill category">{{selectedEntry.category}}</span>{{/if}}
+                {{#if selectedEntry.stack}}<span class="tag-pill stack">{{selectedEntry.stack}}</span>{{/if}}
+                {{#if selectedEntry.isOwned}}<span class="tag-pill owned"><i class="fa-solid fa-check"></i> Already Owned</span>{{/if}}
+              </div>
+              {{#if selectedEntry.prereq}}
+                <div class="spotlight-prereq">
+                  <strong>Prerequisites:</strong> <span>{{selectedEntry.prereq}}</span>
+                </div>
+              {{/if}}
+              {{#if selectedEntry.activeEffects.length}}
+                <div class="spotlight-effects-preview">
+                  <i class="fa-solid fa-bolt"></i>
+                  <span>Automated Effects Included (ActiveEffects will be linked directly to {{parentItem.name}}).</span>
+                </div>
+              {{/if}}
+            </div>
+            <button type="button"
+                    class="candidate-expand-btn spotlight-expand-btn {{#if selectedEntry.isExpanded}}active{{/if}}"
+                    data-action="toggleExpand"
+                    data-talent-name="{{talentName}}"
+                    title="{{#if selectedEntry.isExpanded}}Collapse description{{else}}Expand description{{/if}}">
+              <i class="fa-solid {{#if selectedEntry.isExpanded}}fa-chevron-up{{else}}fa-chevron-down{{/if}}"></i>
+            </button>
+          </div>
+
+          {{#if selectedEntry.isExpanded}}
+            <div class="candidate-expanded-drawer spotlight-drawer">
+              {{#if selectedEntry.description}}
+                <div class="candidate-desc-content">
+                  {{{selectedEntry.description}}}
+                </div>
+              {{else}}
+                <div class="candidate-desc-empty">
+                  <em>No description available in active compendiums.</em>
+                </div>
+              {{/if}}
+            </div>
+          {{/if}}
+        </div>
+      {{/if}}
+    </div>
+
+    <footer class="grant-dialog-footer">
+      <div class="footer-btn-row">
+        <button type="button" class="btn-accept-grant" data-action="acceptGrant">
+          <i class="fa-solid fa-check"></i>
+          <span>Accept [[{{talentName}}]]</span>
+        </button>
+        <button type="button" class="btn-decline-grant" data-action="declineGrant">
+          <i class="fa-solid fa-xmark"></i>
+          <span>Decline</span>
+        </button>
+      </div>
+    </footer>
+
+  {{else}}
+    {{!-- ── STACK / TRACK PICKS MODE ─────────────────────────────────── --}}
+    <header class="grant-dialog-hero">
+      <div class="grant-badge-row">
+        <span class="grant-pill-tag"><i class="fa-solid fa-layer-group"></i> Track Picks</span>
+        <span class="grant-parent-pill">{{parentItem.name}}</span>
+        <span class="grant-counter-pill {{#if isReady}}ready{{/if}}">
+          Selected: {{selectedCount}} / {{maxCount}}
+        </span>
+      </div>
+      <h1 class="grant-hero-title">
+        Pick {{maxCount}} Talent{{#if (gt maxCount 1)}}s{{/if}} from <span class="highlight-bracket">{{trackTitle}}</span>
+      </h1>
+      <p class="grant-hero-subtitle">
+        <strong>{{parentItem.name}}</strong> grants {{maxCount}} bonus talent pick{{#if (gt maxCount 1)}}s{{/if}} from this stack. Only talents meeting prerequisites are selectable.
+      </p>
+    </header>
+
+    <div class="grant-filter-bar">
+      <div class="search-input-wrap">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" class="grant-search-input" placeholder="Search available talents..." value="{{searchQuery}}" />
+      </div>
+      <div class="filter-count-label">
+        <span>{{eligibleCount}} available to pick</span>
+      </div>
+    </div>
+
+    <div class="grant-picks-scroll-list">
+      {{#if candidates.length}}
+        <div class="candidates-grid">
+          {{#each candidates as |c|}}
+            <div class="talent-candidate-card {{#if c.isSelected}}selected{{/if}} {{#if c.isOwned}}owned{{else if c.isEligible}}eligible{{else}}locked{{/if}} {{#if c.isExpanded}}expanded{{/if}}"
+                 data-talent-name="{{c.name}}">
+              <div class="candidate-main-row" data-action="toggleCandidate" data-talent-name="{{c.name}}">
+                <div class="candidate-check-col">
+                  {{#if c.isOwned}}
+                    <i class="fa-solid fa-check owned-icon" title="Already Owned"></i>
+                  {{else if c.isEligible}}
+                    <input type="checkbox" class="candidate-checkbox" {{#if c.isSelected}}checked{{/if}} />
+                  {{else}}
+                    <i class="fa-solid fa-lock locked-icon" title="{{c.prereqTooltip}}"></i>
+                  {{/if}}
+                </div>
+                <div class="candidate-details-col">
+                  <div class="candidate-name-row">
+                    <span class="candidate-name">{{c.name}}</span>
+                    {{#if c.tier}}<span class="candidate-tier-pip">Tier {{c.tier}}</span>{{/if}}
+                    {{#if c.isOwned}}<span class="candidate-state-badge owned">Owned</span>{{/if}}
+                  </div>
+                  <div class="candidate-meta-row">
+                    <span class="candidate-stack">{{c.stack}}</span>
+                    {{#if c.prereq}}
+                      <span class="candidate-prereq {{#if c.isEligible}}met{{else}}unmet{{/if}}" title="{{c.prereqTooltip}}">
+                        <i class="fa-solid {{#if c.isEligible}}fa-circle-check{{else}}fa-triangle-exclamation{{/if}}"></i>
+                        {{c.prereq}}
+                      </span>
+                    {{/if}}
+                  </div>
+                </div>
+                <button type="button"
+                        class="candidate-expand-btn {{#if c.isExpanded}}active{{/if}}"
+                        data-action="toggleExpand"
+                        data-talent-name="{{c.name}}"
+                        title="{{#if c.isExpanded}}Collapse description{{else}}Expand description{{/if}}">
+                  <i class="fa-solid {{#if c.isExpanded}}fa-chevron-up{{else}}fa-chevron-down{{/if}}"></i>
+                </button>
+              </div>
+
+              {{#if c.isExpanded}}
+                <div class="candidate-expanded-drawer">
+                  {{#if c.description}}
+                    <div class="candidate-desc-content">
+                      {{{c.description}}}
+                    </div>
+                  {{else}}
+                    <div class="candidate-desc-empty">
+                      <em>No description available in active compendiums.</em>
+                    </div>
+                  {{/if}}
+
+                  {{#if c.activeEffectsSummary}}
+                    <div class="candidate-effects-badge-row">
+                      <i class="fa-solid fa-bolt"></i>
+                      <span><strong>Automated Effects:</strong> {{c.activeEffectsSummary}}</span>
+                    </div>
+                  {{/if}}
+                </div>
+              {{/if}}
+            </div>
+          {{/each}}
+        </div>
+      {{else}}
+        <div class="grant-empty-candidates">
+          <i class="fa-solid fa-filter"></i>
+          <span>No talents found matching your search.</span>
+        </div>
+      {{/if}}
+    </div>
+
+    <footer class="grant-dialog-footer">
+      <div class="footer-btn-row">
+        <button type="button" class="btn-accept-grant {{#unless isReady}}disabled{{/unless}}" data-action="confirmPicks" {{#unless isReady}}disabled{{/unless}}>
+          <i class="fa-solid fa-check"></i>
+          <span>Confirm Selection ({{selectedCount}}/{{maxCount}})</span>
+        </button>
+        <button type="button" class="btn-decline-grant" data-action="declineGrant">
+          <i class="fa-solid fa-xmark"></i>
+          <span>Skip / Decline</span>
+        </button>
+      </div>
+    </footer>
+  {{/if}}
+</div>
+

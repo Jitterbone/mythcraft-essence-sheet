@@ -12,6 +12,7 @@ import { getDefenseTargetConfig, renderDefenseTargetBadgeHTML } from "../data/de
 import { rollItemDamage, getActorCritHit, getActorCritFail } from "./essence-character-sheet.mjs";
 import DamageModificationDialog from "../apps/damage-modification-dialog.mjs";
 import { applyMessageRollMode } from "../features/roll-privacy.mjs";
+import ActiveEffectManager from "../apps/active-effect-manager.mjs";
 
 const MODULE_PATH = (p) => `modules/mythcraft-essence-sheet/templates/essence/${p}`;
 
@@ -53,6 +54,7 @@ export default class EssenceSiegeWeaponSheet extends SiegeWeaponSheet {
       rollFeature: this.#rollFeature,
       rollDamage: this.#rollDamage,
       createEffect: this.#createEffect,
+      openActiveEffectManager: this.#openActiveEffectManager,
       toggleEffect: this.#toggleEffect,
       toggleEffectEmbed: this.#toggleEffectEmbed,
       editEffect: this.#editEffect,
@@ -490,6 +492,14 @@ export default class EssenceSiegeWeaponSheet extends SiegeWeaponSheet {
     const effectId = target.dataset?.effectId || target.closest("[data-effect-id]")?.dataset?.effectId;
     const effect = this.actor.effects.get(effectId);
     if (effect) effect.sheet?.render(true);
+  }
+
+  static #openActiveEffectManager(event, target) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const effectId = target?.dataset?.effectId || target?.closest?.("[data-effect-id]")?.dataset?.effectId;
+    const effect = effectId ? this.actor.effects.get(effectId) : null;
+    new ActiveEffectManager({ document: this.actor, effect }).render(true);
   }
 
   static #editDamageMod(event, target) {

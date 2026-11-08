@@ -17,6 +17,10 @@ import ConditionsDialog from "../apps/conditions-dialog.mjs";
 import LevelUpDialog from "../apps/level-up-dialog.mjs";
 import CharacterCreationWizard from "../apps/character-creation-wizard.mjs";
 import TalentTreeViewer from "../apps/talent-tree-viewer.mjs";
+import TalentGrantDialog, { isTalentGrantFullySatisfied } from "../apps/talent-grant-dialog.mjs";
+import { getTalentGrantsAndPicks } from "../data/talent-library.mjs";
+import TalentSkillAllocationDialog from "../apps/talent-skill-dialog.mjs";
+import { getTalentSkillPointGrant, SKILL_REGISTRY } from "../data/talent-skill-grants.mjs";
 import SecondSkinChoiceDialog, { isSecondSkinTalent } from "../apps/second-skin-dialog.mjs";
 import {
   CANONICAL_TALENTS,
@@ -76,6 +80,8 @@ import {
   getTwoHandedApcRule,
   getSafeWeaponApc,
   checkAndEnforceAp,
+  getWeaponAttackModifier,
+  getWeaponDamageModifier,
 } from "../features/equipment-automation.mjs";
 import { getSetting } from "../settings.mjs";
 import { findTagDefinition } from "../data/tags-library.mjs";
@@ -99,6 +105,15 @@ import {
   deductAp,
   deductSp,
 } from "../features/sp-ap-rolls.mjs";
+import ActiveEffectManager from "../apps/active-effect-manager.mjs";
+import {
+  getActorActiveEffectBonuses,
+  getCombinedDamageBonusFormula,
+  getAllActorEffectsWithMeta,
+  syncActorTalentActiveEffects,
+  getSkillAeBonus,
+  normalizeSkillNameOrKey,
+} from "../features/active-effect-engine.mjs";
 
 
 const MODULE_PATH = (p) => `modules/mythcraft-essence-sheet/templates/essence/character/${p}`;
@@ -336,6 +351,9 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
     }
   }
 
+  // 2b. Weapon Damage Modifier (from weapon schema / bonus)
+  const itemDmgMod = isWeapon ? (weaponData?.itemDmgMod ?? getWeaponDamageModifier(item, actor)) : 0;
+
   // 3. Affinity bonus (+3)
   const hasItemAffinity = item.system?.hasAffinity === true || 
                           item.flags?.["mythcraft-essence-sheet"]?.hasAffinity === true ||
@@ -360,6 +378,11 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
   // 5. Luck score (added on crits for weapons & spells)
   const luckScore = Number(actor.system?.attributes?.luck ?? 0);
 
+  // 5b. Active Effect Damage Bonuses (flat + dice)
+  const aeDmgBonus = actor ? getCombinedDamageBonusFormula(actor, isSpell ? "spell" : "weapon") : { flat: 0, dice: [], formulaSuffix: "" };
+  // Note: evaluateSpellScalingAndUpcharge already appends aeSpellDmg.formulaSuffix to spell library base formulas
+  const spellAlreadyHasAeSuffix = isSpell && !customFormula && Boolean(getSpellLibraryEntry(item));
+
   // 6. Evaluate rolls per damage entry
   const RollClass = mythcraft?.rolls?.DamageRoll || Roll;
   const rolls = [];
@@ -367,11 +390,16 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
   for (let index = 0; index < damages.length; index++) {
     const d = damages[index];
     const dmgType = d.type || "sharp";
-    const baseFormula = d.formula.trim();
+    let baseFormula = d.formula.trim();
+    if (index === 0 && !d.isHeal && !spellAlreadyHasAeSuffix && aeDmgBonus.dice?.length) {
+      baseFormula = `${baseFormula} + ${aeDmgBonus.dice.join(" + ")}`;
+    }
 
     const currentAttrMod = (index === 0) ? attrMod : 0;
+    const currentItemDmgMod = (index === 0) ? itemDmgMod : 0;
     const currentAffinity = (index === 0) ? affinityBonus : 0;
     const currentClaimedSouls = (index === 0) ? claimedSouls : 0;
+    const currentAeFlat = (index === 0 && !d.isHeal && !spellAlreadyHasAeSuffix) ? (aeDmgBonus.flat || 0) : 0;
     const isAstounding = hasAstoundingCritical(actor);
 
     let finalFormula = baseFormula;
@@ -405,7 +433,7 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
         if (!extraDiceFormula) {
           extraDiceFormula = isAstounding ? makeExplodingDiceFormula(baseFormula) : baseFormula;
         }
-        const maxNormalDamage = diceMax + currentAttrMod + currentAffinity + currentClaimedSouls;
+        const maxNormalDamage = diceMax + currentAttrMod + currentItemDmgMod + currentAffinity + currentClaimedSouls + currentAeFlat;
         const luckBonus = (index === 0) ? luckScore : 0;
 
         finalFormula = `${maxNormalDamage} + ${extraDiceFormula}${luckBonus ? ` + ${luckBonus}` : ""}`;
@@ -413,18 +441,24 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
         // Spell Crit Rule: Add LUCK to damage (exploding on max face if Astounding Critical)
         const luckBonus = (index === 0) ? luckScore : 0;
         const spellDiceFormula = isAstounding ? makeExplodingDiceFormula(baseFormula) : baseFormula;
-        finalFormula = `${spellDiceFormula}${luckBonus ? ` + ${luckBonus}` : ""}`;
+        finalFormula = `${spellDiceFormula}${currentAeFlat ? ` + ${currentAeFlat}` : ""}${luckBonus ? ` + ${luckBonus}` : ""}`;
       }
     } else {
       // Normal damage
       if (currentAttrMod !== 0) {
         finalFormula = `${finalFormula} + ${currentAttrMod}`;
       }
+      if (currentItemDmgMod !== 0) {
+        finalFormula = `${finalFormula} ${currentItemDmgMod > 0 ? "+" : "-"} ${Math.abs(currentItemDmgMod)}`;
+      }
       if (currentAffinity !== 0) {
         finalFormula = `${finalFormula} + ${currentAffinity}`;
       }
       if (currentClaimedSouls !== 0) {
         finalFormula = `${finalFormula} + ${currentClaimedSouls}`;
+      }
+      if (currentAeFlat !== 0) {
+        finalFormula = `${finalFormula} ${currentAeFlat > 0 ? "+" : "-"} ${Math.abs(currentAeFlat)}`;
       }
     }
 
@@ -433,6 +467,7 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
       damageType: dmgType,
       hasAffinity: hasItemAffinity,
       attrMod: currentAttrMod,
+      itemDmgMod: currentItemDmgMod,
       claimedSouls: currentClaimedSouls,
       isCrit,
     });
@@ -453,6 +488,7 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
   if (isWeapon && weaponData?.isTwoHandedGrip) notes.push("2H Grip");
   if (isWeapon && weaponData?.isBrassKnucklesBoosted && !isBrassKnuckles(item)) notes.push("Brass Knuckles (+1 Die Size)");
   if (attrModLabel) notes.push(attrModLabel);
+  if (itemDmgMod !== 0) notes.push(`${itemDmgMod > 0 ? `+${itemDmgMod}` : itemDmgMod} ${item.name} Damage Mod`);
   if (hasItemAffinity) notes.push("+3 Affinity");
   if (claimedSouls > 0) notes.push(`+${claimedSouls} Consumed Souls`);
   if (isCrit && luckScore) notes.push(`+${luckScore} LUCK`);
@@ -889,13 +925,16 @@ export async function rollSpellItem(actor, item, { rollMode = null } = {}) {
     return await postSpellDescriptionCard(actor, item, { deductResources: true, rollMode });
   }
 
+  const aeSpellBonuses = getActorActiveEffectBonuses(actor);
   let scalingInfo = evaluateSpellScalingAndUpcharge(actor, libEntry || item, { afterBaseDeduction: false });
+  const rawSpellApc = Number(item.system?.apc ?? item.system?.ap ?? 0);
+  const rawSpellSpc = Number(item.system?.spc ?? item.system?.sp ?? 0);
   const apc = libEntry
     ? (typeof libEntry.apc === "number" ? scalingInfo.effectiveApc : 0)
-    : Number(item.system?.apc ?? item.system?.ap ?? 0);
+    : (rawSpellApc > 0 ? Math.max(1, rawSpellApc - (aeSpellBonuses.reduceApc || 0) - (aeSpellBonuses.reduceSpellApc || 0)) : 0);
   const spc = libEntry
     ? (typeof libEntry.spc === "number" ? scalingInfo.effectiveSpc : 0)
-    : Number(item.system?.spc ?? item.system?.sp ?? 0);
+    : (rawSpellSpc > 0 ? Math.max(0, rawSpellSpc - (aeSpellBonuses.reduceSpc || 0)) : 0);
 
   if (apc > 0 && game.combat?.started) {
     const allowed = await checkAndEnforceAp(actor, apc, item.name);
@@ -1084,7 +1123,7 @@ export async function rollWeaponItem(actor, item, { rollMode = null } = {}) {
   const attrValue = Number(actor.system?.attributes?.[attr]?.value ?? actor.system?.attributes?.[attr] ?? 0);
   const critHit = getActorCritHit(actor);
   const critFail = getActorCritFail(actor);
-  const modifier = Number(item.system?.attackModifierValue ?? item.system?.attackModifier ?? 0);
+  const itemAtkMod = getWeaponAttackModifier(item, actor);
   const luck = Number(actor.system?.attributes?.luck?.value ?? actor.system?.attributes?.luck ?? 0);
 
   // Consumed Souls Modifier only affects damage, not attack modifier
@@ -1102,10 +1141,27 @@ export async function rollWeaponItem(actor, item, { rollMode = null } = {}) {
     0
   ))) : 0;
 
+  // Build formula with distinct, labeled terms: 1d20 + X[ATTR] + Y[Item Attack Mod]
+  const attrLabel = attr.toUpperCase();
+  const formulaParts = ["1d20"];
+
+  if (attrValue !== 0) {
+    formulaParts.push(attrValue > 0 ? `+ ${attrValue}[${attrLabel}]` : `- ${Math.abs(attrValue)}[${attrLabel}]`);
+  }
+
+  if (itemAtkMod !== 0) {
+    const itemLabel = item.name ? `${item.name} Attack Mod` : "Weapon Attack Mod";
+    formulaParts.push(itemAtkMod > 0 ? `+ ${itemAtkMod}[${itemLabel}]` : `- ${Math.abs(itemAtkMod)}[${itemLabel}]`);
+  }
+
   // MythCraft Rule: If LUCK < 0, subtract LUCK from every d20 roll
-  let formula = `1d20 + ${attrValue + modifier}`;
   if (luck < 0) {
-    formula = `${formula} - ${Math.abs(luck)}`;
+    formulaParts.push(`- ${Math.abs(luck)}[Luck Penalty]`);
+  }
+
+  let formula = formulaParts.join(" ");
+  if (formula === "1d20") {
+    formula = `1d20 + 0[${attrLabel}]`;
   }
 
   const AttackRollClass = mythcraft?.rolls?.AttackRoll || Roll;
@@ -1116,7 +1172,7 @@ export async function rollWeaponItem(actor, item, { rollMode = null } = {}) {
     defenseTarget: item.system?.defenseTarget || "ar",
     critHit,
     critFail,
-    damage: [{ formula: weaponData.baseFormula, type: weaponData.damageType || "blunt" }],
+    damage: [{ formula: weaponData.effectiveFormula, type: weaponData.damageType || "blunt" }],
   });
 
   if (typeof roll.evaluate === "function" && !roll._evaluated) {
@@ -1146,6 +1202,8 @@ export async function rollWeaponItem(actor, item, { rollMode = null } = {}) {
   const resultClass = isCrit ? "crit-success" : (isFumble ? "crit-fail" : "");
   const resultLabel = isCrit ? "CRITICAL HIT" : (isFumble ? "CRITICAL FAILURE" : "ATTACK ROLL");
 
+  const rollHTML = (typeof roll.render === "function") ? await roll.render() : "";
+
   const content = `
     <div class="mythcraft-statblock attack-card">
       <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
@@ -1159,8 +1217,15 @@ export async function rollWeaponItem(actor, item, { rollMode = null } = {}) {
         <div class="roll-label">${resultLabel}</div>
         <div class="roll-value">${roll.total}</div>
         <div class="roll-formula">${roll.formula}</div>
+        <div class="roll-breakdown-details" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin-top: 6px; padding-top: 5px; border-top: 1px dashed rgba(255, 255, 255, 0.15); font-size: 11px;">
+          <span class="breakdown-part d20-part" style="padding: 2px 6px; background: rgba(0,0,0,0.35); border-radius: 4px; color: #cbd5e1;"><i class="fas fa-dice-d20"></i> ${d20Result} (Base d20)</span>
+          ${attrValue !== 0 ? `<span class="breakdown-part attr-part" style="padding: 2px 6px; background: rgba(0,0,0,0.35); border-radius: 4px; color: #cbd5e1;">${attrValue > 0 ? `+${attrValue}` : attrValue} (${attrLabel})</span>` : ""}
+          ${itemAtkMod !== 0 ? `<span class="breakdown-part weapon-mod-part" style="padding: 2px 6px; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.45); border-radius: 4px; color: #6ee7b7; font-weight: 600;"><i class="fas fa-crosshairs"></i> ${itemAtkMod > 0 ? `+${itemAtkMod}` : itemAtkMod} (${item.name} Attack Mod)</span>` : ""}
+          ${luck < 0 ? `<span class="breakdown-part luck-part" style="padding: 2px 6px; background: rgba(239, 68, 68, 0.2); border-radius: 4px; color: #fca5a5;">${luck} (Luck Penalty)</span>` : ""}
+        </div>
         ${(isFumble && isAstounding) ? '<div class="astounding-fumble-banner" style="margin-top: 6px; padding: 4px 8px; background: rgba(192, 57, 43, 0.35); border: 1px solid #e74c3c; border-radius: 4px; color: #ff9999; font-size: 11px; font-weight: 700; text-align: center;"><i class="fas fa-skull-crossbones"></i> Astounding Critical Failure: Turn Ended &amp; AP Lost!</div>' : ''}
       </div>
+      ${rollHTML ? `<div class="essence-embedded-roll-html" style="margin-top: 4px;">${rollHTML}</div>` : ""}
     </div>
   `;
 
@@ -1209,7 +1274,9 @@ export function getActorCritHit(actor) {
 
   const luckBonus = luck >= 12 ? 2 : (luck >= 6 ? 1 : 0);
   const baseHit = Number(actor.system?.critical?.hit ?? 20);
-  const critBonus = Number(actor.flags?.["mythcraft-essence-sheet"]?.critBonus ?? actor.flags?.["mythcraft"]?.critBonus ?? 0);
+  const flagCrit = Number(actor.flags?.["mythcraft-essence-sheet"]?.critBonus ?? actor.flags?.["mythcraft"]?.critBonus ?? 0);
+  const aeCrit = Number(getActorActiveEffectBonuses(actor)?.critBonus ?? 0);
+  const critBonus = Math.max(flagCrit, aeCrit);
   return Math.max(16, baseHit - luckBonus - critBonus);
 }
 
@@ -1346,12 +1413,16 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       toggleFavorite: this.#toggleFavorite,
       toggleEffect: this.#toggleEffect,
       createEffect: this.#createEffect,
+      openActiveEffectManager: this.#openActiveEffectManager,
+      syncTalentEffects: this.#syncTalentEffects,
       toggleJournalCard: this.#toggleJournalCard,
       addAdditionalInfo: this.#addAdditionalInfo,
       addJournalEntry: this.#addJournalEntry,
       addContact: this.#addContact,
       addResource: this.#addResource,
       configureSecondSkin: this.#configureSecondSkin,
+      allocateTalentSkills: this.#allocateTalentSkills,
+      configureTalentGrants: this.#configureTalentGrants,
       viewDoc: this.#viewDoc,
     },
   };
@@ -1366,6 +1437,34 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     const item = this.actor.items.get(itemId);
     if (!item) return;
     SecondSkinChoiceDialog.promptChoice(item);
+  }
+
+  /**
+   * Action handler to open the Skill Allocation dialog for a talent item.
+   */
+  static async #allocateTalentSkills(event, target) {
+    event.preventDefault();
+    event.stopPropagation();
+    const itemId = target.dataset.itemId || target.closest("[data-item-id]")?.dataset.itemId;
+    const item = this.actor.items.get(itemId);
+    if (!item) return;
+    const res = await TalentSkillAllocationDialog.promptAllocation(this.actor, item);
+    if (res?.confirmed) {
+      this.render(false);
+    }
+  }
+
+  /**
+   * Action handler to open the Talent Grant / Track Picks dialog for a talent item.
+   */
+  static async #configureTalentGrants(event, target) {
+    event.preventDefault();
+    event.stopPropagation();
+    const itemId = target.dataset.itemId || target.closest("[data-item-id]")?.dataset.itemId;
+    const item = this.actor.items.get(itemId);
+    if (!item) return;
+    await TalentGrantDialog.processTalentGrantsAndPicks(this.actor, item);
+    this.render(false);
   }
 
   /**
@@ -1399,10 +1498,22 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     const docClass = target.dataset.documentClass || target.closest("[data-document-class]")?.dataset.documentClass || "Item";
     const itemId = target.dataset.itemId || target.closest("[data-item-id]")?.dataset.itemId;
     const effectId = target.dataset.effectId || target.closest("[data-effect-id]")?.dataset.effectId;
+    const parentItemId = target.dataset.parentItemId || target.closest("[data-parent-item-id]")?.dataset.parentItemId;
 
     let doc = null;
     if (docClass === "ActiveEffect" || effectId) {
-      doc = this.actor.effects.get(effectId || itemId);
+      if (parentItemId) {
+        doc = this.actor.items.get(parentItemId)?.effects?.get(effectId || itemId);
+      }
+      if (!doc) {
+        doc = this.actor.effects.get(effectId || itemId);
+      }
+      if (!doc) {
+        for (const it of this.actor.items || []) {
+          doc = it.effects?.get(effectId || itemId);
+          if (doc) break;
+        }
+      }
     } else {
       doc = this.actor.items.get(itemId);
     }
@@ -1588,13 +1699,23 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       || el?.closest?.(".item")?.dataset?.itemId;
     const effectId = el?.dataset?.effectId 
       || el?.closest?.("[data-effect-id]")?.dataset?.effectId;
+    const parentItemId = el?.dataset?.parentItemId
+      || el?.closest?.("[data-parent-item-id]")?.dataset?.parentItemId;
 
-    if (itemId) {
+    if (itemId && !effectId) {
       const item = this.actor.items.get(itemId);
       if (item) return item.sheet.render(true);
     }
     if (effectId) {
-      const effect = this.actor.effects.get(effectId);
+      let effect = parentItemId
+        ? this.actor.items.get(parentItemId)?.effects?.get(effectId)
+        : this.actor.effects.get(effectId);
+      if (!effect) {
+        for (const it of this.actor.items || []) {
+          effect = it.effects?.get(effectId);
+          if (effect) break;
+        }
+      }
       if (effect) return effect.sheet.render(true);
     }
 
@@ -2313,7 +2434,11 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     const effectId = target?.dataset?.effectId || effectEl?.dataset?.effectId;
     if (!effectId) return;
 
-    let effect = this.actor.effects.get(effectId);
+    const parentItemId = target?.dataset?.parentItemId || effectEl?.dataset?.parentItemId;
+    let effect = parentItemId ? this.actor.items.get(parentItemId)?.effects?.get(effectId) : this.actor.effects.get(effectId);
+    if (!effect) {
+      effect = this.actor.effects.get(effectId);
+    }
     if (!effect) {
       for (const item of this.actor.items) {
         effect = item.effects?.get(effectId);
@@ -2356,6 +2481,36 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     if (created?.[0]) {
       created[0].sheet?.render(true);
     }
+  }
+
+  static #openActiveEffectManager(event, target) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const effectId = target?.dataset?.effectId || target?.closest?.("[data-effect-id]")?.dataset?.effectId;
+    const parentItemId = target?.dataset?.parentItemId || target?.closest?.("[data-parent-item-id]")?.dataset?.parentItemId;
+    let effect = null;
+    if (effectId) {
+      if (parentItemId) {
+        effect = this.actor.items.get(parentItemId)?.effects?.get(effectId) || null;
+      }
+      if (!effect) {
+        effect = this.actor.effects.get(effectId) || null;
+      }
+      if (!effect) {
+        for (const it of this.actor.items || []) {
+          effect = it.effects?.get(effectId);
+          if (effect) break;
+        }
+      }
+    }
+    new ActiveEffectManager({ document: this.actor, effect }).render(true);
+  }
+
+  static async #syncTalentEffects(event, target) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    await syncActorTalentActiveEffects(this.actor, { notify: true });
+    this.render(false);
   }
 
   static #toggleJournalCard(event, target) {
@@ -2526,6 +2681,11 @@ export default class EssenceCharacterSheet extends CharacterSheet {
           CharacterCreationWizard.promptStartup(this.actor, this);
         }, 150);
       }
+    } else if (this.actor.type === "character" && this.isEditable && !this._hasSyncedTalentEffects) {
+      this._hasSyncedTalentEffects = true;
+      setTimeout(() => {
+        syncActorTalentActiveEffects(this.actor, { notify: false }).catch(() => {});
+      }, 250);
     }
 
     // Magical dissolve / expand animation for Resource Meters Panel & SP Meter
@@ -2955,9 +3115,15 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       }
     }
 
-    // If user edited system.hp.max in the form, ensure flags.mythcraft-essence-sheet.maxHp matches
+    // If user edited system.hp.max in the form, ensure flags.mythcraft-essence-sheet.maxHp matches base Max HP (excluding Active Effect bonuses)
     if (submitData["system.hp.max"] !== undefined && submitData["system.hp.max"] !== null) {
-      submitData["flags.mythcraft-essence-sheet.maxHp"] = Number(submitData["system.hp.max"]);
+      const aeHp = getActorActiveEffectBonuses(this.actor);
+      if (aeHp.hpMaxOverride === null || aeHp.hpMaxOverride === undefined) {
+        const rawInputMax = Number(submitData["system.hp.max"]);
+        const baseMax = Math.max(1, rawInputMax - (aeHp.hpMaxDelta || 0));
+        submitData["flags.mythcraft-essence-sheet.maxHp"] = baseMax;
+        submitData["system.hp.max"] = baseMax;
+      }
     }
 
     return submitData;
@@ -3318,6 +3484,9 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       return n >= 0 ? `+${n}` : `${n}`;
     };
 
+    const aeSkillBonuses = getActorActiveEffectBonuses(this.actor);
+    const allSkillsAeBonus = Number(aeSkillBonuses.allSkillsBonus || 0);
+
     const getSkillsForAttr = (attrKey) => {
       const list = [];
       for (const [id, cfg] of Object.entries(skillConfig)) {
@@ -3325,11 +3494,29 @@ export default class EssenceCharacterSheet extends CharacterSheet {
           const sData = allSkills[id]
             || allSkills[id.toLowerCase()]
             || allSkills[id.replace(/[^a-zA-Z0-9]/g, "")]
-            || Object.entries(allSkills).find(([k]) => k.toLowerCase().replace(/[^a-z0-9]/g, "") === id.toLowerCase().replace(/[^a-z0-9]/g, ""))?.[1];
+            || Object.entries(allSkills).find(([k]) => normalizeSkillNameOrKey(k) === normalizeSkillNameOrKey(id))?.[1];
           
-          if (!sData) continue;
-          const bonus = typeof sData === "number" ? sData : (Number(sData?.bonus ?? sData?.value ?? 0));
-          if (bonus === 0) continue; // Only display trained skills with points allocated
+          const investedVal = typeof sData === "number" ? sData : Number(sData?.value ?? 0);
+          const specificAe = getSkillAeBonus(id, aeSkillBonuses);
+          const totalAe = allSkillsAeBonus + specificAe;
+
+          // If sData exists and has derived bonus:
+          let bonus = 0;
+          if (sData !== undefined && sData !== null) {
+            bonus = typeof sData === "number" ? sData : Number(sData?.bonus ?? (investedVal + (attrs[attrKey] ?? 0)));
+          } else {
+            // Un-invested skill
+            bonus = (Number(attrs[attrKey]) || 0) + totalAe;
+          }
+
+          // Fallback if prepareDerivedData didn't add totalAe to sData.bonus
+          const baseDerived = investedVal + (Number(attrs[attrKey]) || 0);
+          if (bonus === baseDerived && totalAe !== 0) {
+            bonus += totalAe;
+          }
+
+          // Only display trained skills (investedVal > 0) OR skills boosted by ActiveEffects (totalAe !== 0)
+          if (investedVal === 0 && totalAe === 0) continue;
 
           let rawLabel = id;
           if (cfg.specialized) {
@@ -3745,12 +3932,42 @@ export default class EssenceCharacterSheet extends CharacterSheet {
 
       for (const node of nodeMap.values()) {
         for (const prereq of node.prerequisites) {
-          const pKey = prereq.toLowerCase().trim();
+          const pKey = String(prereq ?? "").toLowerCase().trim();
           const pClean = normalizeTalentName(pKey);
           let pNode = nodeMap.get(pKey);
           if (!pNode) {
             for (const other of nodeMap.values()) {
               if (other.name.toLowerCase().trim() === pKey || normalizeTalentName(other.name) === pClean) {
+                pNode = other;
+                break;
+              }
+            }
+          }
+          if (pNode && pNode !== node && !node.parents.includes(pNode)) {
+            pNode.children.push(node);
+            node.parents.push(pNode);
+          }
+        }
+
+        // Link parent if granted by another talent
+        const parentName = node.item?.flags?.["mythcraft-essence-sheet"]?.parentTalentName;
+        const parentId = node.item?.flags?.["mythcraft-essence-sheet"]?.parentTalentId;
+        if (parentId || parentName) {
+          node.isGrantedByParent = true;
+          node.parentTalentName = parentName;
+          let pNode = parentName ? nodeMap.get(parentName.toLowerCase().trim()) : null;
+          if (!pNode && parentId) {
+            for (const other of nodeMap.values()) {
+              if (other.item?.id === parentId || other.id === parentId) {
+                pNode = other;
+                break;
+              }
+            }
+          }
+          if (!pNode && parentName) {
+            const pClean = normalizeTalentName(parentName);
+            for (const other of nodeMap.values()) {
+              if (normalizeTalentName(other.name) === pClean) {
                 pNode = other;
                 break;
               }
@@ -4303,7 +4520,8 @@ export default class EssenceCharacterSheet extends CharacterSheet {
 
     if (partId === "equipment") {
       // 1. Calculate Essence Data (Full by default, decreases as attuned essence is spent on items)
-      const maxEssence = 100;
+      const aeEquipBonuses = getActorActiveEffectBonuses(this.actor);
+      const maxEssence = Math.max(0, 100 + (aeEquipBonuses.essenceMaxBonus || 0));
       let usedEssence = 0;
       for (const item of this.actor.items) {
         const cost = Number(item.flags?.["mythcraft-essence-sheet"]?.essenceCost ?? item.system?.essenceCost ?? 0);
@@ -4389,7 +4607,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         const hasAttackAttr = validAttrs.has(rawAttr);
         const rawDefense = (item.system?.defense || item.system?.defenseTarget || item.system?.targetDefense || "").trim();
         const hasDefenseTarget = Boolean(rawDefense);
-        const itemAtkMod = Number(item.system?.attackModifierValue ?? item.system?.attackModifier ?? 0);
+        const itemAtkMod = getWeaponAttackModifier(item, this.actor);
 
         const hasAttackRoll = hasAttackAttr || hasDefenseTarget || itemAtkMod !== 0 || isBK || isUnarmedOrNat;
 
@@ -4406,11 +4624,14 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         const damageParts = damages.map((d, idx) => {
           const dmgType = String(d.type || weaponData.damageType || "sharp").trim();
           let formulaDisplay = (idx === 0) ? weaponData.baseFormula : d.formula;
-          if (idx === 0 && weaponData.attrMod !== 0) {
-            formulaDisplay = `${formulaDisplay} ${weaponData.attrMod > 0 ? "+" : "-"} ${Math.abs(weaponData.attrMod)}`;
+          const totalFlatMod = (idx === 0) ? weaponData.totalMod : 0;
+          if (totalFlatMod > 0) {
+            formulaDisplay = `${formulaDisplay} + ${totalFlatMod}`;
+          } else if (totalFlatMod < 0) {
+            formulaDisplay = `${formulaDisplay} - ${Math.abs(totalFlatMod)}`;
           }
-          if (weaponData.affinityBonus !== 0) {
-            formulaDisplay = `${formulaDisplay} + 3`;
+          if (idx === 0 && weaponData.aeDamageBonus?.dice?.length) {
+            formulaDisplay = `${formulaDisplay} + ${weaponData.aeDamageBonus.dice.join(" + ")}`;
           }
           const typeLabel = dmgType.charAt(0).toUpperCase() + dmgType.slice(1);
           return `${formulaDisplay} ${typeLabel}`;
@@ -4636,6 +4857,17 @@ export default class EssenceCharacterSheet extends CharacterSheet {
 
       const isRawSecondSkin = getSetting("secondSkinRuleVariant", "raw") === "raw";
 
+      // Track repetition counts across all owned talents and features
+      const talentCountMap = new Map();
+      for (const item of (this.actor.itemTypes.talent || [])) {
+        const norm = normalizeTalentName(item.name);
+        talentCountMap.set(norm, (talentCountMap.get(norm) || 0) + 1);
+      }
+      for (const item of (this.actor.itemTypes.feature || [])) {
+        const norm = normalizeTalentName(item.name);
+        talentCountMap.set(norm, (talentCountMap.get(norm) || 0) + 1);
+      }
+
       context.talents = await Promise.all((this.actor.itemTypes.talent || []).map(async (item) => {
         const isFavorite = isItemFavorite(item);
         const expanded = this.collapsedItems.has(item.id)
@@ -4646,6 +4878,30 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         const isAttuned = item.flags?.["mythcraft-essence-sheet"]?.isAttuned ?? true;
         const isSecondSkin = isRawSecondSkin && isSecondSkinTalent(item);
         const secondSkinArmor = item.flags?.["mythcraft-essence-sheet"]?.secondSkinArmor || "";
+        const parentTalentName = item.flags?.["mythcraft-essence-sheet"]?.parentTalentName || null;
+        const parentTalentId = item.flags?.["mythcraft-essence-sheet"]?.parentTalentId || null;
+        const isGrantedTalent = Boolean(item.flags?.["mythcraft-essence-sheet"]?.isGrantedTalent || parentTalentName);
+        const grantedTalentNames = Array.from(item.flags?.["mythcraft-essence-sheet"]?.grantedTalentNames || []);
+        const talentGrants = getTalentGrantsAndPicks(item);
+        const hasTalentGrants = Array.isArray(talentGrants) && talentGrants.length > 0 && !isTalentGrantFullySatisfied(this.actor, item);
+        const skillGrant = getTalentSkillPointGrant(item);
+        const hasSkillGrant = Boolean(skillGrant);
+        const allocatedMap = item.flags?.["mythcraft-essence-sheet"]?.skillAllocation || {};
+        const allocatedEntries = Object.entries(allocatedMap).filter(([_, pts]) => Number(pts) > 0);
+        let skillAllocationSummary = "";
+        if (hasSkillGrant) {
+          if (allocatedEntries.length > 0) {
+            skillAllocationSummary = allocatedEntries.map(([k, pts]) => {
+              const reg = SKILL_REGISTRY.get(k);
+              return `+${pts} ${reg?.name || k}`;
+            }).join(", ");
+          } else {
+            skillAllocationSummary = `${skillGrant.points} unallocated`;
+          }
+        }
+        const norm = normalizeTalentName(item.name);
+        const repeatCount = talentCountMap.get(norm) || 1;
+        const showRepeatBadge = repeatCount > 1;
         return {
           item,
           isFavorite,
@@ -4654,6 +4910,16 @@ export default class EssenceCharacterSheet extends CharacterSheet {
           isAttuned,
           isSecondSkin,
           secondSkinArmor,
+          parentTalentName,
+          parentTalentId,
+          isGrantedTalent,
+          grantedTalentNames,
+          hasTalentGrants,
+          hasSkillGrant,
+          skillGrant,
+          skillAllocationSummary,
+          repeatCount,
+          showRepeatBadge,
           descriptionHTML: expanded ? await enrichText(descVal, { rollData: this.actor.getRollData() }) : "",
         };
       }));
@@ -4668,6 +4934,30 @@ export default class EssenceCharacterSheet extends CharacterSheet {
         const isAttuned = item.flags?.["mythcraft-essence-sheet"]?.isAttuned ?? true;
         const isSecondSkin = isRawSecondSkin && isSecondSkinTalent(item);
         const secondSkinArmor = item.flags?.["mythcraft-essence-sheet"]?.secondSkinArmor || "";
+        const parentTalentName = item.flags?.["mythcraft-essence-sheet"]?.parentTalentName || null;
+        const parentTalentId = item.flags?.["mythcraft-essence-sheet"]?.parentTalentId || null;
+        const isGrantedTalent = Boolean(item.flags?.["mythcraft-essence-sheet"]?.isGrantedTalent || parentTalentName);
+        const grantedTalentNames = Array.from(item.flags?.["mythcraft-essence-sheet"]?.grantedTalentNames || []);
+        const talentGrants = getTalentGrantsAndPicks(item);
+        const hasTalentGrants = Array.isArray(talentGrants) && talentGrants.length > 0 && !isTalentGrantFullySatisfied(this.actor, item);
+        const skillGrant = getTalentSkillPointGrant(item);
+        const hasSkillGrant = Boolean(skillGrant);
+        const allocatedMap = item.flags?.["mythcraft-essence-sheet"]?.skillAllocation || {};
+        const allocatedEntries = Object.entries(allocatedMap).filter(([_, pts]) => Number(pts) > 0);
+        let skillAllocationSummary = "";
+        if (hasSkillGrant) {
+          if (allocatedEntries.length > 0) {
+            skillAllocationSummary = allocatedEntries.map(([k, pts]) => {
+              const reg = SKILL_REGISTRY.get(k);
+              return `+${pts} ${reg?.name || k}`;
+            }).join(", ");
+          } else {
+            skillAllocationSummary = `${skillGrant.points} unallocated`;
+          }
+        }
+        const norm = normalizeTalentName(item.name);
+        const repeatCount = talentCountMap.get(norm) || 1;
+        const showRepeatBadge = repeatCount > 1;
         return {
           item,
           isFavorite,
@@ -4676,6 +4966,16 @@ export default class EssenceCharacterSheet extends CharacterSheet {
           isAttuned,
           isSecondSkin,
           secondSkinArmor,
+          parentTalentName,
+          parentTalentId,
+          isGrantedTalent,
+          grantedTalentNames,
+          hasTalentGrants,
+          hasSkillGrant,
+          skillGrant,
+          skillAllocationSummary,
+          repeatCount,
+          showRepeatBadge,
           descriptionHTML: expanded ? await enrichText(descVal, { rollData: this.actor.getRollData() }) : "",
         };
       }));
@@ -4736,11 +5036,13 @@ export default class EssenceCharacterSheet extends CharacterSheet {
     }
 
     if (partId === "effects") {
-      const allEffects = Array.from(this.actor.effects || []);
-      const enrichEffect = async (effect) => {
+      const allEffectsMeta = getAllActorEffectsWithMeta(this.actor);
+      const enrichEffect = async (metaEntry) => {
+        const effect = metaEntry.effect;
         const expanded = this.expandedEffects.has(effect.id);
-        const desc = effect.description || effect.flags?.mythcraft?.description || "";
+        const desc = effect.description || effect.flags?.["mythcraft-essence-sheet"]?.description || effect.flags?.mythcraft?.description || "";
         return {
+          ...metaEntry,
           effect,
           expanded,
           descriptionHTML: expanded ? await enrichText(desc, { rollData: this.actor.getRollData() }) : "",
@@ -4751,16 +5053,16 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       const passive = [];
       const inactive = [];
 
-      for (const effect of allEffects) {
-        const enriched = await enrichEffect(effect);
-        if (effect.disabled) inactive.push(enriched);
-        else if (effect.isTemporary) temporary.push(enriched);
+      for (const metaEntry of allEffectsMeta) {
+        const enriched = await enrichEffect(metaEntry);
+        if (metaEntry.disabled) inactive.push(enriched);
+        else if (metaEntry.isTemporary) temporary.push(enriched);
         else passive.push(enriched);
       }
 
       context.effects = {
         temporary: { label: "Temporary Effects", effects: temporary },
-        passive: { label: "Passive Effects", effects: passive },
+        passive: { label: "Passive & Item Effects", effects: passive },
         inactive: { label: "Inactive Effects", effects: inactive },
       };
     }
@@ -4890,6 +5192,17 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       this.expandedItems.add(`container-${targetContainerId}`);
       this.render(false);
     }
+
+    if (Array.isArray(createdItems)) {
+      for (const ci of createdItems) {
+        if (ci && (ci.type === "talent" || ci.type === "feature")) {
+          TalentGrantDialog.processTalentGrantsAndPicks(this.actor, ci).catch(err => {
+            console.error("mythcraft-essence-sheet | Error processing talent grants on drop:", err);
+          });
+        }
+      }
+    }
+
     return createdItems;
   }
 }

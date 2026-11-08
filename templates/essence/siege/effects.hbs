@@ -10,13 +10,22 @@
         <i class="fas fa-bolt"></i>
         <span>Active Engine Conditions &amp; Effects</span>
       </h3>
-      <button type="button"
-              class="create-item-btn"
-              data-action="createEffect"
-              title="Add Effect">
-        <i class="fas fa-plus"></i>
-        <span>Add Effect</span>
-      </button>
+      <div style="display:flex; gap:6px;">
+        <button type="button"
+                class="create-item-btn aem-launch-btn"
+                data-action="openActiveEffectManager"
+                title="Open Guided Active Effect Manager">
+          <i class="fas fa-wand-magic-sparkles"></i>
+          <span>Active Effect Manager</span>
+        </button>
+        <button type="button"
+                class="create-item-btn"
+                data-action="createEffect"
+                title="Add Effect">
+          <i class="fas fa-plus"></i>
+          <span>Quick Add</span>
+        </button>
+      </div>
     </div>
 
     {{#each effects as |category|}}

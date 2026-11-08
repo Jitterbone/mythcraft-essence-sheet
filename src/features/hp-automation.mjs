@@ -8,6 +8,8 @@
  * Total HP = 10 + (Level * Set_HP) + Level (when taking flat average)
  */
 
+import { getActorActiveEffectBonuses } from "./active-effect-engine.mjs";
+
 export const ENDURANCE_THRESHOLDS = [
   {
     threshold: 1,
@@ -180,11 +182,23 @@ export function patchSystemHpCalculation() {
     const flagMaxHp = this.parent?.flags?.["mythcraft-essence-sheet"]?.maxHp;
     const sourceMaxHp = this._source?.hp?.max;
 
+    let baseMax = this.hp.max;
     if (flagMaxHp !== undefined && flagMaxHp !== null) {
-      this.hp.max = Math.max(0, Number(flagMaxHp));
+      baseMax = Math.max(0, Number(flagMaxHp));
     } else if (sourceMaxHp !== undefined && sourceMaxHp !== null) {
-      this.hp.max = Math.max(0, Number(sourceMaxHp));
+      baseMax = Math.max(0, Number(sourceMaxHp));
     }
+
+    // Apply any ActiveEffect Max HP bonuses/overrides on top of baseMax without clobbering
+    const aeBonuses = this.parent ? getActorActiveEffectBonuses(this.parent) : null;
+    if (aeBonuses) {
+      if (aeBonuses.hpMaxOverride !== null && aeBonuses.hpMaxOverride !== undefined) {
+        baseMax = Math.max(0, Number(aeBonuses.hpMaxOverride));
+      }
+      baseMax = Math.max(0, baseMax + (Number(aeBonuses.hpMaxDelta) || 0));
+    }
+
+    this.hp.max = baseMax;
     this.hp.bloodied = Math.floor(this.hp.max / 2);
   };
 

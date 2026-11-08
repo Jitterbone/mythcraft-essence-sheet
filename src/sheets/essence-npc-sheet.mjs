@@ -17,10 +17,12 @@ import ActorTagsAssignmentDialog from "../apps/actor-tags-dialog.mjs";
 import { enrichText, getEnrichedItemTags, rollItemDamage, rollSpellItem, getActorCritHit, getActorCritFail, hasAstoundingCritical } from "./essence-character-sheet.mjs";
 import { getDefenseTargetConfig, renderDefenseTargetBadgeHTML } from "../data/defense-config.mjs";
 import { findTagDefinition, formatTagTitle } from "../data/tags-library.mjs";
-import { applyEffectiveArmorAndDefenses } from "../features/equipment-automation.mjs";
+import { applyEffectiveArmorAndDefenses, getWeaponAttackModifier } from "../features/equipment-automation.mjs";
 import { applyMessageRollMode } from "../features/roll-privacy.mjs";
 import { getSetting } from "../settings.mjs";
 import { getFullAttributeName } from "../features/homebrew-attributes.mjs";
+import ActiveEffectManager from "../apps/active-effect-manager.mjs";
+import { getAllActorEffectsWithMeta } from "../features/active-effect-engine.mjs";
 
 
 
@@ -125,6 +127,7 @@ export default class EssenceNPCSheet extends NPCSheet {
       createSpell: this.#createSpell,
       createDoc: this.#createDoc,
       createEffect: this.#createEffect,
+      openActiveEffectManager: this.#openActiveEffectManager,
       toggleEffect: this.#toggleEffect,
       editEffect: this.#editEffect,
       viewDoc: this.#viewDoc,
@@ -322,7 +325,7 @@ export default class EssenceNPCSheet extends NPCSheet {
     if (!item) return;
 
     // Direct MythCraft NPC Attack Check Evaluation
-    const attackBonus = Number(item.system?.attackBonus ?? item.system?.toHit ?? item.system?.attackModifier ?? 0);
+    const attackBonus = getWeaponAttackModifier(item, this.actor);
     const defenseTarget = (item.system?.defense || item.system?.defenseTarget || "ar").toLowerCase();
 
     // Consumed Souls Modifier only affects damage, not attack modifier
@@ -340,8 +343,12 @@ export default class EssenceNPCSheet extends NPCSheet {
       0
     ))) : 0;
 
-    const totalBonus = attackBonus;
-    const formula = totalBonus !== 0 ? (totalBonus > 0 ? `1d20 + ${totalBonus}` : `1d20 - ${Math.abs(totalBonus)}`) : "1d20";
+    const formulaParts = ["1d20"];
+    if (attackBonus !== 0) {
+      const itemLabel = item.name ? `${item.name} Attack Mod` : "Attack Mod";
+      formulaParts.push(attackBonus > 0 ? `+ ${attackBonus}[${itemLabel}]` : `- ${Math.abs(attackBonus)}[${itemLabel}]`);
+    }
+    const formula = formulaParts.join(" ");
 
     const critHit = getActorCritHit(this.actor);
     const critFail = getActorCritFail(this.actor);
@@ -381,6 +388,8 @@ export default class EssenceNPCSheet extends NPCSheet {
     const resultClass = isCrit ? "crit-success" : (isFumble ? "crit-fail" : "");
     const resultLabel = isCrit ? "CRITICAL HIT" : (isFumble ? "CRITICAL FAILURE" : "ATTACK ROLL");
 
+    const rollHTML = (typeof roll.render === "function") ? await roll.render() : "";
+
     // Standardized MythCraft Statblock Attack Card Layout (Matches MythCraft HUD & Character Sheet Design)
     const content = `
       <div class="mythcraft-statblock attack-card">
@@ -395,8 +404,13 @@ export default class EssenceNPCSheet extends NPCSheet {
           <div class="roll-label">${resultLabel}</div>
           <div class="roll-value">${roll.total}</div>
           <div class="roll-formula">${roll.formula}</div>
+          <div class="roll-breakdown-details" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin-top: 6px; padding-top: 5px; border-top: 1px dashed rgba(255, 255, 255, 0.15); font-size: 11px;">
+            <span class="breakdown-part d20-part" style="padding: 2px 6px; background: rgba(0,0,0,0.35); border-radius: 4px; color: #cbd5e1;"><i class="fas fa-dice-d20"></i> ${d20Result} (Base d20)</span>
+            ${attackBonus !== 0 ? `<span class="breakdown-part weapon-mod-part" style="padding: 2px 6px; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.45); border-radius: 4px; color: #6ee7b7; font-weight: 600;"><i class="fas fa-crosshairs"></i> ${attackBonus > 0 ? `+${attackBonus}` : attackBonus} (${item.name} Attack Mod)</span>` : ""}
+          </div>
           ${(isFumble && isAstounding) ? '<div class="astounding-fumble-banner" style="margin-top: 6px; padding: 4px 8px; background: rgba(192, 57, 43, 0.35); border: 1px solid #e74c3c; border-radius: 4px; color: #ff9999; font-size: 11px; font-weight: 700; text-align: center;"><i class="fas fa-skull-crossbones"></i> Astounding Critical Failure: Turn Ended &amp; AP Lost!</div>' : ''}
         </div>
+        ${rollHTML ? `<div class="essence-embedded-roll-html" style="margin-top: 4px;">${rollHTML}</div>` : ""}
       </div>
     `;
 
@@ -620,7 +634,11 @@ export default class EssenceNPCSheet extends NPCSheet {
     const effectId = target?.dataset?.effectId || effectEl?.dataset?.effectId;
     if (!effectId) return;
 
-    let effect = this.actor.effects.get(effectId);
+    const parentItemId = target?.dataset?.parentItemId || effectEl?.dataset?.parentItemId;
+    let effect = parentItemId ? this.actor.items.get(parentItemId)?.effects?.get(effectId) : this.actor.effects.get(effectId);
+    if (!effect) {
+      effect = this.actor.effects.get(effectId);
+    }
     if (!effect) {
       for (const item of this.actor.items) {
         effect = item.effects?.get(effectId);
@@ -641,8 +659,38 @@ export default class EssenceNPCSheet extends NPCSheet {
 
   static #editEffect(event, target) {
     const effectId = target.dataset?.effectId || target.closest("[data-effect-id]")?.dataset?.effectId;
-    const effect = effectId ? this.actor.effects.get(effectId) : null;
+    const parentItemId = target.dataset?.parentItemId || target.closest("[data-parent-item-id]")?.dataset?.parentItemId;
+    let effect = parentItemId ? this.actor.items.get(parentItemId)?.effects?.get(effectId) : this.actor.effects.get(effectId);
+    if (!effect && effectId) {
+      for (const it of this.actor.items || []) {
+        effect = it.effects?.get(effectId);
+        if (effect) break;
+      }
+    }
     effect?.sheet?.render(true);
+  }
+
+  static #openActiveEffectManager(event, target) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const effectId = target?.dataset?.effectId || target?.closest?.("[data-effect-id]")?.dataset?.effectId;
+    const parentItemId = target?.dataset?.parentItemId || target?.closest?.("[data-parent-item-id]")?.dataset?.parentItemId;
+    let effect = null;
+    if (effectId) {
+      if (parentItemId) {
+        effect = this.actor.items.get(parentItemId)?.effects?.get(effectId) || null;
+      }
+      if (!effect) {
+        effect = this.actor.effects.get(effectId) || null;
+      }
+      if (!effect) {
+        for (const it of this.actor.items || []) {
+          effect = it.effects?.get(effectId);
+          if (effect) break;
+        }
+      }
+    }
+    new ActiveEffectManager({ document: this.actor, effect }).render(true);
   }
 
   static #viewDoc(event, target) {
@@ -674,7 +722,14 @@ export default class EssenceNPCSheet extends NPCSheet {
       );
       if (confirmed) await item.delete();
     } else if (effectId) {
-      const effect = this.actor.effects.get(effectId);
+      const parentItemId = target.dataset?.parentItemId || docRow.dataset?.parentItemId;
+      let effect = parentItemId ? this.actor.items.get(parentItemId)?.effects?.get(effectId) : this.actor.effects.get(effectId);
+      if (!effect) {
+        for (const it of this.actor.items || []) {
+          effect = it.effects?.get(effectId);
+          if (effect) break;
+        }
+      }
       if (!effect) return;
       const confirmed = await EssenceNPCSheet.#confirmDeletion(
         "Delete Active Effect",
@@ -1280,11 +1335,13 @@ export default class EssenceNPCSheet extends NPCSheet {
 
     // ── Effects Tab ──
     if (partId === "effects") {
-      const allEffects = Array.from(this.actor.effects || []);
-      const enrichEffect = async (effect) => {
+      const allEffectsMeta = getAllActorEffectsWithMeta(this.actor);
+      const enrichEffect = async (metaEntry) => {
+        const effect = metaEntry.effect;
         const expanded = this.expandedEffects.has(effect.id);
-        const desc = effect.description || effect.flags?.mythcraft?.description || "";
+        const desc = effect.description || effect.flags?.["mythcraft-essence-sheet"]?.description || effect.flags?.mythcraft?.description || "";
         return {
+          ...metaEntry,
           effect,
           expanded,
           descriptionHTML: expanded ? await enrichText(desc, { rollData: this.actor.getRollData() }) : "",
@@ -1295,16 +1352,16 @@ export default class EssenceNPCSheet extends NPCSheet {
       const passive = [];
       const inactive = [];
 
-      for (const effect of allEffects) {
-        const enriched = await enrichEffect(effect);
-        if (effect.disabled) inactive.push(enriched);
-        else if (effect.isTemporary) temporary.push(enriched);
+      for (const metaEntry of allEffectsMeta) {
+        const enriched = await enrichEffect(metaEntry);
+        if (metaEntry.disabled) inactive.push(enriched);
+        else if (metaEntry.isTemporary) temporary.push(enriched);
         else passive.push(enriched);
       }
 
       context.effects = {
         temporary: { label: "Temporary Effects", effects: temporary },
-        passive: { label: "Passive Effects", effects: passive },
+        passive: { label: "Passive & Item Effects", effects: passive },
         inactive: { label: "Inactive Effects", effects: inactive },
       };
     }

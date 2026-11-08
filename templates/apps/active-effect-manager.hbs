@@ -1,0 +1,458 @@
+<div class="aem-app-shell">
+  {{!-- ═══ LEFT SIDEBAR: Active Effects List & Preset Library ═══ --}}
+  <aside class="aem-sidebar">
+    <div class="aem-sidebar-header">
+      <div class="aem-sidebar-brand">
+        <i class="fas fa-wand-magic-sparkles"></i>
+        <div>
+          <h3>Active Effects</h3>
+          <span>Guided Sheet &amp; Item Automation</span>
+        </div>
+      </div>
+      <div class="aem-sidebar-top-btns">
+        <button type="button" class="aem-new-btn" data-action="newGuidedEffect" title="Start a fresh guided effect">
+          <i class="fas fa-plus"></i> New Effect
+        </button>
+        {{#if hasActor}}
+          <button type="button" class="aem-sync-talents-btn" data-action="syncTalentEffects" title="Automatically attach canonical ActiveEffects to all automatable Talents on this character">
+            <i class="fas fa-rotate"></i> Sync Talents
+          </button>
+        {{/if}}
+      </div>
+
+      {{!-- Sidebar Tab Switcher --}}
+      <div class="aem-sidebar-tabs">
+        <button type="button"
+                class="aem-sidebar-tab {{#if (eq sidebarTab 'effects')}}active{{/if}}"
+                data-action="selectSidebarTab"
+                data-tab="effects">
+          <i class="fas fa-sparkles"></i>
+          <span>Current ({{sidebarEffects.length}})</span>
+        </button>
+        <button type="button"
+                class="aem-sidebar-tab {{#if (eq sidebarTab 'presets')}}active{{/if}}"
+                data-action="selectSidebarTab"
+                data-tab="presets">
+          <i class="fas fa-bolt"></i>
+          <span>Presets ({{totalPresetsCount}})</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="aem-sidebar-list">
+      {{#if (eq sidebarTab "presets")}}
+        {{!-- One-Click Preset Library --}}
+        <div class="aem-preset-filter-row">
+          <button type="button" class="aem-preset-chip {{#if (eq presetCategoryFilter 'all')}}active{{/if}}" data-action="selectPresetFilter" data-category="all">All</button>
+          {{#each categories as |cat|}}
+            <button type="button" class="aem-preset-chip {{#if (eq ../presetCategoryFilter cat.id)}}active{{/if}}" data-action="selectPresetFilter" data-category="{{cat.id}}" title="{{cat.label}}">
+              <i class="{{cat.icon}}"></i> {{cat.shortLabel}}
+            </button>
+          {{/each}}
+        </div>
+        <div class="aem-preset-list">
+          {{#each presets as |preset|}}
+            <button type="button" class="aem-preset-card" data-action="applyPreset" data-preset-id="{{preset.id}}">
+              <img src="{{preset.img}}" alt="{{preset.name}}" class="aem-preset-img">
+              <div class="aem-preset-info">
+                <strong>{{preset.name}}</strong>
+                <span>{{preset.description}}</span>
+              </div>
+              <i class="fas fa-arrow-right aem-preset-arrow"></i>
+            </button>
+          {{/each}}
+        </div>
+      {{else}}
+        {{!-- Existing Effects Section --}}
+        {{#if sidebarEffects.length}}
+          <div class="aem-effect-cards">
+            {{#each sidebarEffects as |eff|}}
+              <div class="aem-sidebar-card {{#if eff.isSelected}}selected{{/if}} {{#if eff.disabled}}is-disabled{{/if}}"
+                   data-action="selectEffect"
+                   data-effect-id="{{eff.id}}"
+                   data-parent-item-id="{{eff.parentItemId}}">
+                <img class="aem-sidebar-card-img" src="{{eff.img}}" alt="{{eff.name}}">
+                <div class="aem-sidebar-card-body">
+                  <div class="aem-sidebar-card-top">
+                    <span class="aem-sidebar-card-name" title="{{eff.name}}">{{eff.name}}</span>
+                  </div>
+                  <div class="aem-sidebar-card-meta">
+                    <span class="aem-sidebar-source-tag {{#if eff.isItemEffect}}item-tag{{/if}}">
+                      {{#if eff.isItemEffect}}
+                        <i class="fas fa-cube"></i> {{eff.sourceLabel}}
+                      {{else}}
+                        <i class="fas fa-user"></i> Sheet
+                      {{/if}}
+                    </span>
+                  </div>
+                  <div class="aem-sidebar-card-summary" title="{{eff.summaryText}}">{{eff.summaryText}}</div>
+                </div>
+                <div class="aem-sidebar-card-actions">
+                  <button type="button"
+                          class="aem-sidebar-toggle {{#unless eff.disabled}}active{{/unless}}"
+                          data-action="toggleSidebarEffect"
+                          data-effect-id="{{eff.id}}"
+                          data-parent-item-id="{{eff.parentItemId}}"
+                          title="{{#if eff.disabled}}Enable Effect{{else}}Disable Effect{{/if}}">
+                    <i class="fas {{#if eff.disabled}}fa-toggle-off{{else}}fa-toggle-on{{/if}}"></i>
+                  </button>
+                  <button type="button"
+                          class="aem-sidebar-del"
+                          data-action="deleteEffect"
+                          data-effect-id="{{eff.id}}"
+                          data-parent-item-id="{{eff.parentItemId}}"
+                          title="Delete Effect">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+            {{/each}}
+          </div>
+        {{else}}
+          <div class="aem-sidebar-empty">
+            <i class="fas fa-sparkles"></i>
+            <p>No active effects on this sheet yet.</p>
+            <button type="button" class="aem-empty-preset-btn" data-action="selectSidebarTab" data-tab="presets">
+              <i class="fas fa-bolt"></i> Browse 1-Click Presets
+            </button>
+          </div>
+        {{/if}}
+      {{/if}}
+    </div>
+  </aside>
+
+  {{!-- ═══ MAIN GUIDED BUILDER PANEL ═══ --}}
+  <main class="aem-builder">
+    <div class="aem-builder-scroll">
+      {{!-- Compact Banner --}}
+      <header class="aem-builder-banner">
+        <div class="aem-banner-left">
+          <div class="aem-banner-title-row">
+            <span class="aem-mode-badge {{#if isEditingExisting}}editing{{else}}creating{{/if}}">
+              {{#if isEditingExisting}}
+                <i class="fas fa-pen-to-square"></i> Editing Effect
+              {{else}}
+                <i class="fas fa-wand-magic-sparkles"></i> New Guided Effect
+              {{/if}}
+            </span>
+            <h2>{{draft.name}}</h2>
+          </div>
+          <p>Configure identity &amp; trigger below, click any stat card in Step 2 to add it, and set values in Step 3.</p>
+        </div>
+        {{#if isEditingExisting}}
+          <div class="aem-banner-actions">
+            <button type="button" class="aem-raw-btn" data-action="openRawFoundryConfig" title="Open native Foundry ActiveEffect sheet">
+              <i class="fas fa-sliders"></i> Raw Foundry Sheet
+            </button>
+          </div>
+        {{/if}}
+      </header>
+
+      {{!-- ─── STEP 1: IDENTITY, ATTACHMENT HOST & ACTIVATION ─── --}}
+      <section class="aem-step-card">
+        <div class="aem-step-header">
+          <span class="aem-step-num">STEP 1</span>
+          <div>
+            <h3>Effect Name, Attachment Host &amp; Trigger</h3>
+          </div>
+        </div>
+
+        <div class="aem-step1-grid">
+          {{!-- Icon Picker --}}
+          <div class="aem-icon-column">
+            <div class="aem-icon-preview-wrap" data-action="pickIcon" title="Click to browse Foundry icons">
+              <img src="{{draft.img}}" alt="Effect Icon" class="aem-icon-preview">
+              <span class="aem-icon-edit-badge"><i class="fas fa-folder-open"></i></span>
+            </div>
+          </div>
+
+          {{!-- Identity & Host Fields --}}
+          <div class="aem-identity-fields">
+            <div class="aem-field-row">
+              <div class="aem-field aem-field-grow">
+                <label>Effect Name</label>
+                <input type="text" name="draft.name" value="{{draft.name}}" placeholder="e.g. Arcane Focus (-1 SPC), Iron Skin (+2 AR)">
+              </div>
+              <div class="aem-field aem-field-grow">
+                <label>Attach Effect To</label>
+                <select name="draft.hostId" {{#if isItemSheetMode}}disabled{{/if}}>
+                  {{#each hostOptions as |opt|}}
+                    <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+                  {{/each}}
+                </select>
+              </div>
+            </div>
+
+            <div class="aem-field-row">
+              {{#if isDraftAttachedToItem}}
+                <div class="aem-field aem-field-grow">
+                  <label><i class="fas fa-bolt"></i> Item / Talent Activation Rule</label>
+                  <select name="draft.itemRequirement">
+                    <option value="always" {{#if (eq draft.itemRequirement "always")}}selected{{/if}}>Always Active While Owned (Passive Talent / Feature / Boon)</option>
+                    <option value="equipped" {{#if (eq draft.itemRequirement "equipped")}}selected{{/if}}>Only While Equipped / Donned / Worn (Weapons, Armor, Shields, Gear)</option>
+                    <option value="attuned" {{#if (eq draft.itemRequirement "attuned")}}selected{{/if}}>Only While Essence-Attuned (Magic Items &amp; Relics)</option>
+                    <option value="conditional" {{#if (eq draft.itemRequirement "conditional")}}selected{{/if}}>Manual Toggle Only (Situational / Conditional Talent or Stance)</option>
+                  </select>
+                </div>
+              {{else}}
+                <div class="aem-field aem-field-grow">
+                  <label><i class="fas fa-clock"></i> Effect Activation &amp; Duration</label>
+                  <select name="draft.activationMode">
+                    <option value="passive" {{#if (eq draft.activationMode "passive")}}selected{{/if}}>Always Active (Passive Buff / Permanent Feature)</option>
+                    <option value="temporary" {{#if (eq draft.activationMode "temporary")}}selected{{/if}}>Temporary Combat Duration (Expires after X Rounds)</option>
+                    <option value="inactive" {{#if (eq draft.activationMode "inactive")}}selected{{/if}}>Toggled Off (Saved as Inactive until needed)</option>
+                  </select>
+                </div>
+                {{#if (eq draft.activationMode "temporary")}}
+                  <div class="aem-field aem-field-narrow">
+                    <label>Combat Rounds</label>
+                    <input type="number" name="draft.durationRounds" value="{{draft.durationRounds}}" min="1" max="999">
+                  </div>
+                {{/if}}
+              {{/if}}
+
+              <div class="aem-field aem-field-grow">
+                <label>Notes / Description (Optional)</label>
+                <input type="text" name="draft.description" value="{{draft.description}}" placeholder="Brief reminder of what grants this effect...">
+              </div>
+            </div>
+
+            {{!-- Compact Quick-Icon Strip --}}
+            <div class="aem-curated-strip">
+              <span class="aem-curated-strip-label">Quick Icon:</span>
+              <div class="aem-curated-icons">
+                {{#each curatedIcons as |ic|}}
+                  <button type="button"
+                          class="aem-curated-icon-btn {{#if ic.selected}}selected{{/if}}"
+                          data-action="selectCuratedIcon"
+                          data-src="{{ic.src}}"
+                          title="{{ic.label}}">
+                    <img src="{{ic.src}}" alt="{{ic.label}}">
+                  </button>
+                {{/each}}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {{!-- ─── STEP 2: VISUAL SHEET REGION & STAT PICKER ─── --}}
+      <section class="aem-step-card {{#if step2Collapsed}}is-collapsed{{/if}}">
+        <div class="aem-step-header">
+          <span class="aem-step-num">STEP 2</span>
+          <div class="aem-step-header-flex">
+            <div>
+              <h3>Pick Sheet Region &amp; Stats to Automate</h3>
+            </div>
+            <div class="aem-step2-controls">
+              <div class="aem-target-search">
+                <i class="fas fa-search"></i>
+                <input type="text" class="aem-target-search-input" value="{{searchQuery}}" placeholder="Search stats (SPC, APC, HP, AR, Stealth)...">
+              </div>
+              <button type="button" class="aem-collapse-btn" data-action="toggleStep2" title="{{#if step2Collapsed}}Expand Stat Picker{{else}}Collapse Stat Picker{{/if}}">
+                <i class="fas fa-chevron-{{#if step2Collapsed}}down{{else}}up{{/if}}"></i>
+                <span>{{#if step2Collapsed}}Show Catalog{{else}}Hide{{/if}}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {{#unless step2Collapsed}}
+          {{!-- Compact Category Pill Tabs --}}
+          <div class="aem-category-tabs">
+            {{#each categories as |cat|}}
+              <button type="button"
+                      class="aem-cat-tab {{#if cat.active}}active{{/if}}"
+                      data-action="selectCategory"
+                      data-category="{{cat.id}}"
+                      title="{{cat.description}}">
+                <i class="{{cat.icon}}"></i>
+                <span class="aem-cat-tab-label">{{cat.label}}</span>
+                <span class="aem-cat-tab-count">{{cat.targets.length}}</span>
+              </button>
+            {{/each}}
+          </div>
+
+          <div class="aem-active-cat-subtitle">
+            <span><i class="{{activeCategory.icon}}"></i> <strong>{{activeCategory.label}}:</strong> {{activeCategory.description}}</span>
+            <span class="aem-click-hint">Click any stat card below to add it to Step 3</span>
+          </div>
+
+          {{!-- Clickable Target Stat Grid (2 Spacious Columns) --}}
+          <div class="aem-target-grid">
+            {{#each activeCategory.targets as |t|}}
+              <button type="button"
+                      class="aem-target-card"
+                      data-action="addTargetRule"
+                      data-key="{{t.key}}"
+                      title="{{t.hint}}">
+                <div class="aem-target-card-icon">
+                  <i class="{{t.icon}}"></i>
+                </div>
+                <div class="aem-target-card-info">
+                  <strong>{{t.label}}</strong>
+                  <span>{{t.hint}}</span>
+                </div>
+                <div class="aem-target-card-add">
+                  <i class="fas fa-plus"></i> Add
+                </div>
+              </button>
+            {{/each}}
+          </div>
+        {{/unless}}
+      </section>
+
+      {{!-- ─── STEP 3: AUTOMATED STAT RULES & LIVE PREVIEW ─── --}}
+      <section class="aem-step-card">
+        <div class="aem-step-header">
+          <span class="aem-step-num">STEP 3</span>
+          <div class="aem-step-header-flex">
+            <div>
+              <h3>Configure Values &amp; Live Summary ({{enrichedChanges.length}})</h3>
+              <p>Supports flat numbers (<code>2</code>, <code>-1</code>), dice (<code>1d6</code>), or character variables (<code>@level</code>, <code>@end</code>, <code>@str</code>, <code>@int</code>).</p>
+            </div>
+            <button type="button" class="aem-add-blank-btn" data-action="addBlankRule">
+              <i class="fas fa-plus"></i> Add Rule Row
+            </button>
+          </div>
+        </div>
+
+        {{#if enrichedChanges.length}}
+          <div class="aem-rules-list">
+            {{#each enrichedChanges as |rule|}}
+              <div class="aem-rule-row" data-index="{{rule.index}}">
+                <div class="aem-rule-main">
+                  {{!-- 1. Target Stat Selector --}}
+                  <div class="aem-rule-col aem-rule-col-target">
+                    <label>Sheet Stat / Region</label>
+                    <select class="aem-rule-key-select">
+                      {{#each ../categories as |cat|}}
+                        <optgroup label="{{cat.label}}">
+                          {{#each cat.targets as |t|}}
+                            <option value="{{t.key}}" {{#if (eq t.key rule.key)}}selected{{/if}}>{{t.label}}</option>
+                          {{/each}}
+                        </optgroup>
+                      {{/each}}
+                      <optgroup label="Advanced / Filtered">
+                        {{#if rule.catEntry}}
+                          <option value="{{rule.key}}" selected>{{rule.catEntry.label}}</option>
+                        {{/if}}
+                        <option value="__custom__" {{#if rule.isCustomKey}}selected{{/if}}>Custom Foundry Data Path...</option>
+                      </optgroup>
+                    </select>
+                    {{#if rule.isCustomKey}}
+                      <input type="text"
+                             class="aem-rule-custom-key-input"
+                             value="{{rule.key}}"
+                             placeholder="e.g. system.bonuses.ar">
+                    {{/if}}
+                  </div>
+
+                  {{!-- 2. Operation Mode --}}
+                  <div class="aem-rule-col aem-rule-col-mode">
+                    <label>How to Apply</label>
+                    <select class="aem-rule-mode-select">
+                      {{#each rule.modeOptions as |mOpt|}}
+                        <option value="{{mOpt.value}}" {{#if mOpt.selected}}selected{{/if}}>{{mOpt.label}}</option>
+                      {{/each}}
+                    </select>
+                  </div>
+
+                  {{!-- 3. Smart Value Input --}}
+                  <div class="aem-rule-col aem-rule-col-value">
+                    <label>Value / Amount</label>
+                    {{#if rule.isResistBuilder}}
+                      <div class="aem-smart-resist-row">
+                        <select class="aem-resist-type-select" title="Damage Type">
+                          {{#each ../damageTypes as |dt|}}
+                            <option value="{{dt}}" {{#if (eq dt rule.resistDamageType)}}selected{{/if}}>{{dt}}</option>
+                          {{/each}}
+                        </select>
+                        <input type="number"
+                               class="aem-resist-amount-input"
+                               value="{{rule.resistAmount}}"
+                               min="1"
+                               max="99"
+                               title="Resistance / Vulnerability Amount">
+                      </div>
+                    {{else if rule.isDamageTypePicker}}
+                      <select class="aem-dmgtype-select">
+                        {{#each ../damageTypes as |dt|}}
+                          <option value="{{dt}}" {{#if (eq dt rule.value)}}selected{{/if}}>{{dt}}</option>
+                        {{/each}}
+                      </select>
+                    {{else}}
+                      <input type="text"
+                             class="aem-rule-value-input"
+                             value="{{rule.value}}"
+                             placeholder="{{rule.placeholder}}">
+                      {{#if rule.quickChips.length}}
+                        <div class="aem-quick-chips">
+                          {{#each rule.quickChips as |chip|}}
+                            <button type="button"
+                                    class="aem-val-chip"
+                                    data-action="quickValueChip"
+                                    data-index="{{rule.index}}"
+                                    data-value="{{chip}}">
+                              {{chip}}
+                            </button>
+                          {{/each}}
+                        </div>
+                      {{/if}}
+                    {{/if}}
+                  </div>
+
+                  {{!-- 4. Live Plain-English Summary & Remove --}}
+                  <div class="aem-rule-col aem-rule-col-preview">
+                    <label>Live Effect Summary</label>
+                    <div class="aem-rule-preview-box {{#if rule.summary.isPositive}}pos{{else}}neg{{/if}}">
+                      <i class="{{rule.summary.icon}}"></i>
+                      <span class="aem-rule-live-summary">{{rule.summary.text}}</span>
+                    </div>
+                  </div>
+
+                  <div class="aem-rule-col aem-rule-col-del">
+                    <button type="button"
+                            class="aem-rule-del-btn"
+                            data-action="removeRule"
+                            data-index="{{rule.index}}"
+                            title="Remove this rule">
+                      <i class="fas fa-times"></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="aem-rule-hint">
+                  <span><i class="fas fa-circle-info"></i> {{rule.hint}}</span>
+                  <span class="aem-rule-path-tag">Path: <code>{{rule.key}}</code></span>
+                </div>
+              </div>
+            {{/each}}
+          </div>
+        {{else}}
+          <div class="aem-rules-empty">
+            <p>No automation rules in this effect yet. Click any stat card in <strong>Step 2</strong> above to add one!</p>
+          </div>
+        {{/if}}
+      </section>
+    </div>
+
+    {{!-- Sticky Action Footer --}}
+    <footer class="aem-builder-footer">
+      <div class="aem-footer-left">
+        <i class="fas fa-shield-check"></i>
+        <span>Creates a 100% native Foundry VTT <code>ActiveEffect</code> synced with MythCraft sheet automation.</span>
+      </div>
+      <div class="aem-footer-actions">
+        {{#if isEditingExisting}}
+          <button type="button" class="aem-footer-del-btn" data-action="deleteEffect">
+            <i class="fas fa-trash"></i> Delete Effect
+          </button>
+        {{/if}}
+        <button type="button" class="aem-footer-save-btn" data-action="saveEffect">
+          <i class="fas fa-check-circle"></i>
+          {{#if isEditingExisting}}Save &amp; Update Effect{{else}}Create &amp; Apply Effect{{/if}}
+        </button>
+      </div>
+    </footer>
+  </main>
+</div>

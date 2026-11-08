@@ -1,0 +1,207 @@
+<div class="essence-whats-new-shell">
+  <!-- Hero Banner -->
+  <header class="whats-new-hero">
+    <div class="whats-new-header-meta">
+      <span class="meta-module-name"><i class="fa-solid fa-sparkles"></i> MythCraft Essence Sheet</span>
+      <span class="meta-tag">Update Spotlight</span>
+    </div>
+    <h1 class="hero-title">Native Active Effect Engine &amp; Canonical Talent Automation</h1>
+    <p class="hero-subtitle">
+      A major automation upgrade introducing native Foundry VTT ActiveEffects without manual data paths, plus instant canonical talent automation.
+    </p>
+  </header>
+
+  <!-- Scrollable Body Content -->
+  <div class="whats-new-scroll-body">
+
+    <!-- Card 1: Active Effect Engine & Guided Manager -->
+    <section class="whats-new-card feature-card">
+      <div class="card-header">
+        <div class="card-icon-bubble active-effects-bubble">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+        </div>
+        <div class="card-title-group">
+          <h2>Guided Active Effect Manager &amp; Engine</h2>
+          <span class="card-subtitle">Automate character stats, pools, and combat economics natively</span>
+        </div>
+      </div>
+      <div class="card-content">
+        <p>
+          Instead of dissecting game data paths or writing macro formulas, the new <strong>Active Effect Engine</strong> natively ties into MythCraft's sheets, damage pipeline, and combat resource systems.
+        </p>
+
+        <div class="feature-highlights-grid">
+          <div class="feature-mini-pill">
+            <i class="fa-solid fa-location-dot"></i>
+            <div class="pill-body">
+              <span class="pill-title">Where to Find It</span>
+              <span class="pill-text">Character Sheet &rarr; <strong>Effects</strong> Tab &rarr; <strong>Active Effects Manager</strong> or <strong>+ Guided Effect</strong>.</span>
+            </div>
+          </div>
+          <div class="feature-mini-pill">
+            <i class="fa-solid fa-layer-group"></i>
+            <div class="pill-body">
+              <span class="pill-title">Full Sheet Coverage</span>
+              <span class="pill-text">Automate Max HP, Temp HP (Shields), Death Points, Soul Damage, Fear, APC, SPC, Defenses, Damage Reduction (DR), Resistances, Speeds, and Skills.</span>
+            </div>
+          </div>
+          <div class="feature-mini-pill">
+            <i class="fa-solid fa-bolt"></i>
+            <div class="pill-body">
+              <span class="pill-title">1-Click Presets</span>
+              <span class="pill-text">Instantly apply Temp HP barriers, Swift Strikes (-1 APC), Channeler's Focus (-1 SPC), Ironskin (+3 DR), Guardian Wards, and Stances.</span>
+            </div>
+          </div>
+          <div class="feature-mini-pill">
+            <i class="fa-solid fa-calculator"></i>
+            <div class="pill-body">
+              <span class="pill-title">Smart Formulas</span>
+              <span class="pill-text">Supports flat numbers (<code>+2</code>), dice formulas (<code>1d6</code>), and dynamic character variables (<code>@level</code>, <code>@str</code>, <code>@end</code>).</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="guided-steps-overview">
+          <div class="step-badge-item">
+            <span class="step-num">STEP 1</span>
+            <span class="step-desc">Pick Name, Duration/Condition &amp; attach to Sheet or Item</span>
+          </div>
+          <i class="fa-solid fa-arrow-right step-arrow"></i>
+          <div class="step-badge-item">
+            <span class="step-num">STEP 2</span>
+            <span class="step-desc">Click visual sheet region cards to select target stats</span>
+          </div>
+          <i class="fa-solid fa-arrow-right step-arrow"></i>
+          <div class="step-badge-item">
+            <span class="step-num">STEP 3</span>
+            <span class="step-desc">Enter values &amp; review plain-English automation preview</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Card 2: Talent Automation via Canonical Library -->
+    <section class="whats-new-card feature-card">
+      <div class="card-header">
+        <div class="card-icon-bubble talent-bubble">
+          <i class="fa-solid fa-dna"></i>
+        </div>
+        <div class="card-title-group">
+          <h2>Canonical Talent Library &amp; Automation</h2>
+          <span class="card-subtitle">Zero runtime parsing &bull; Instant dictionary lookups &bull; Automated ActiveEffects</span>
+        </div>
+      </div>
+      <div class="card-content">
+        <p>
+          Previous versions relied on runtime regex and compendium text-parsing to guess talent tracks, tiers, tags, and prerequisites. We have replaced this with a canonical <strong>Talent Library</strong> containing all 2,401 MythCraft talents and 633 automatable mechanical effects.
+        </p>
+        <ul class="clean-bullet-list">
+          <li>
+            <strong>O(1) Instant Lookups:</strong> Eliminates compendium folder parsing slowdowns and fragile regex checks when opening sheets, leveling up, or viewing the constellation gallery.
+          </li>
+          <li>
+            <strong>Native ActiveEffects on Talents:</strong> When enabled, acquired talents (via the Character Creation Wizard, Level-Up Dialog, or compendium drag-and-drop) automatically receive transferred ActiveEffects that apply bonuses directly to your character.
+          </li>
+          <li>
+            <strong>No Copyrighted Rule Text:</strong> The library provides pure mechanical formulas, prerequisite logic, and system flags, allowing users to rely cleanly on their official/premium MythCraft compendiums for book descriptions.
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Card 3: Warning on Manual Modifiers -->
+    <section class="whats-new-card warning-card">
+      <div class="card-header">
+        <div class="card-icon-bubble warning-bubble">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div class="card-title-group">
+          <h2>Important: Check Existing Character Sheets</h2>
+          <span class="card-subtitle">Preventing double-counted stats if bonuses were previously applied manually</span>
+        </div>
+      </div>
+      <div class="card-content">
+        <div class="warning-callout-box">
+          <p class="warning-lead">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <span>Enabling Talent Automation may cause character sheets to be inaccurate if talent effects were previously entered manually!</span>
+          </p>
+          <p>
+            If a player or GM previously adjusted base attributes, defenses, Maximum HP, or weapon attack values directly on a character sheet to account for a talent's bonus, enabling Talent Automation will stack the automated ActiveEffect on top of those existing manual increases.
+          </p>
+          <div class="recommendation-badge">
+            <i class="fa-solid fa-shield-halved"></i>
+            <div class="recommendation-body">
+              <span class="recommendation-title">Recommended Action:</span>
+              <span class="recommendation-text">If you enable Talent Automation, open each character's <strong>Effects</strong> tab. You can inspect all active talent modifiers, toggle individual effects, or adjust base stats on the sheet so numbers are accurate without double-counting.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Card 4: Early Preview & Community Feedback -->
+    <section class="whats-new-card preview-card">
+      <div class="card-header">
+        <div class="card-icon-bubble preview-bubble">
+          <i class="fa-solid fa-flask"></i>
+        </div>
+        <div class="card-title-group">
+          <h2>Early Feature Preview &amp; Feedback</h2>
+          <span class="card-subtitle">Help us refine and expand MythCraft sheet automation</span>
+        </div>
+      </div>
+      <div class="card-content">
+        <p>
+          This automation is in an early stage and handles hundreds of diverse mechanical rules across the MythCraft system. While tested extensively, you may encounter edge cases or unforeseen interactions across complex builds.
+        </p>
+        <p>
+          If you discover an issue, have a question about how an effect works, or want to suggest an improvement, please reach out to me on the <strong>MythCraft Discord</strong> (in the <em>MythCrafting forums &rarr; MythCraft Essence Sheet</em> group) or raise an issue on <strong>GitHub</strong>!
+        </p>
+        <div class="feedback-links-row">
+          <a class="feedback-btn github-btn" href="https://github.com/Jitterbone/mythcraft-essence-sheet/issues" target="_blank" rel="noopener noreferrer" data-action="openGithub">
+            <i class="fa-brands fa-github"></i>
+            <span><strong>GitHub Issues:</strong> Report bugs, mechanical questions, or request features</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Footer Actions -->
+  <footer class="whats-new-footer">
+    <div class="footer-hint-text">
+      <i class="fa-solid fa-gear"></i>
+      <span>You can enable or disable Talent Automation at any time in <strong>Game Settings &rarr; Module Settings &rarr; Automations</strong>.</span>
+    </div>
+
+    <div class="footer-buttons-group">
+      {{#if isGM}}
+        <button type="button" class="whats-new-btn btn-enable-automation" data-action="enableAutomation">
+          <i class="fa-solid fa-bolt"></i>
+          <span>Enable Talent Automation</span>
+        </button>
+
+        <button type="button" class="whats-new-btn btn-ack-disabled" data-action="acknowledgeDisabled">
+          <i class="fa-solid fa-check"></i>
+          <span>Acknowledge (Keep Disabled)</span>
+        </button>
+
+        <button type="button" class="whats-new-btn btn-remind-later" data-action="remindLater">
+          <i class="fa-solid fa-clock"></i>
+          <span>Remind Me Later</span>
+        </button>
+      {{else}}
+        <button type="button" class="whats-new-btn btn-ack-disabled" data-action="acknowledgeDisabled">
+          <i class="fa-solid fa-check"></i>
+          <span>Got it, thanks!</span>
+        </button>
+        <button type="button" class="whats-new-btn btn-remind-later" data-action="remindLater">
+          <i class="fa-solid fa-clock"></i>
+          <span>Remind Me Later</span>
+        </button>
+      {{/if}}
+    </div>
+  </footer>
+</div>

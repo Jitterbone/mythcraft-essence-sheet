@@ -66,6 +66,49 @@
                           title="Click to Toggle Details">
                       {{t.item.name}}
                     </span>
+                    {{#if t.showRepeatBadge}}
+                      <span class="talent-repeat-badge" title="Repeated {{t.repeatCount}} Times">
+                        <i class="fa-solid fa-arrows-rotate"></i> Repeated {{t.repeatCount}} Times
+                      </span>
+                    {{/if}}
+                    {{#if t.parentTalentName}}
+                      <span class="talent-granted-link-badge" title="Granted by {{t.parentTalentName}}">
+                        <i class="fa-solid fa-code-fork"></i> Granted by {{t.parentTalentName}}
+                      </span>
+                    {{/if}}
+                    {{#if t.grantedTalentNames.length}}
+                      <span class="talent-parent-link-badge"
+                            data-action="configureTalentGrants"
+                            data-item-id="{{t.item.id}}"
+                            title="Grants: {{#each t.grantedTalentNames}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} (Click to view/reconfigure)"
+                            style="cursor: pointer;">
+                        <i class="fa-solid fa-arrow-turn-down"></i> Grants: {{#each t.grantedTalentNames}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}
+                      </span>
+                    {{/if}}
+                    {{#if (and t.hasTalentGrants (not t.grantedTalentNames.length))}}
+                      <div class="item-inline-tags">
+                        <button type="button"
+                                class="item-essence-tag talent-grant-pick-btn unconfigured"
+                                data-action="configureTalentGrants"
+                                data-item-id="{{t.item.id}}"
+                                title="Click to Assign Granted Talents &amp; Track Picks">
+                          <i class="fa-solid fa-diagram-project"></i>
+                          <span>Assign Grants</span>
+                        </button>
+                      </div>
+                    {{/if}}
+                    {{#if t.hasSkillGrant}}
+                      <div class="item-inline-tags">
+                        <button type="button"
+                                class="item-essence-tag talent-skill-alloc-btn"
+                                data-action="allocateTalentSkills"
+                                data-item-id="{{t.item.id}}"
+                                title="Allocate Skill Points ({{t.skillAllocationSummary}})">
+                          <i class="fa-solid fa-graduation-cap"></i>
+                          <span>Skills: {{t.skillAllocationSummary}}</span>
+                        </button>
+                      </div>
+                    {{/if}}
                     {{#if t.isSecondSkin}}
                       <div class="item-inline-tags">
                         <button type="button"
@@ -207,6 +250,44 @@
                     title="Click to Toggle Details">
                 {{f.item.name}}
               </span>
+              {{#if f.showRepeatBadge}}
+                <span class="talent-repeat-badge" title="Repeated {{f.repeatCount}} Times">
+                  <i class="fa-solid fa-arrows-rotate"></i> Repeated {{f.repeatCount}} Times
+                </span>
+              {{/if}}
+              {{#if f.grantedTalentNames.length}}
+                <span class="talent-parent-link-badge"
+                      data-action="configureTalentGrants"
+                      data-item-id="{{f.item.id}}"
+                      title="Grants: {{#each f.grantedTalentNames}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} (Click to view/reconfigure)"
+                      style="cursor: pointer;">
+                  <i class="fa-solid fa-arrow-turn-down"></i> Grants: {{#each f.grantedTalentNames}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}
+                </span>
+              {{/if}}
+              {{#if (and f.hasTalentGrants (not f.grantedTalentNames.length))}}
+                <div class="item-inline-tags">
+                  <button type="button"
+                          class="item-essence-tag talent-grant-pick-btn unconfigured"
+                          data-action="configureTalentGrants"
+                          data-item-id="{{f.item.id}}"
+                          title="Click to Assign Granted Talents &amp; Track Picks">
+                    <i class="fa-solid fa-diagram-project"></i>
+                    <span>Assign Grants</span>
+                  </button>
+                </div>
+              {{/if}}
+              {{#if f.hasSkillGrant}}
+                <div class="item-inline-tags">
+                  <button type="button"
+                          class="item-essence-tag talent-skill-alloc-btn"
+                          data-action="allocateTalentSkills"
+                          data-item-id="{{f.item.id}}"
+                          title="Allocate Skill Points ({{f.skillAllocationSummary}})">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                    <span>Skills: {{f.skillAllocationSummary}}</span>
+                  </button>
+                </div>
+              {{/if}}
               {{#if f.isSecondSkin}}
                 <div class="item-inline-tags">
                   <button type="button"

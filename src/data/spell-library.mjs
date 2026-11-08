@@ -23,6 +23,12 @@
  * - P: materials (Materials / Sacrament)
  */
 
+import {
+  getActorActiveEffectBonuses,
+  getCombinedDamageBonusFormula,
+  getSpellFilteredCostModifiers,
+} from "../features/active-effect-engine.mjs";
+
 export const SPELL_REQUIREMENT_LEGEND = {
   G: "Gesture",
   V: "Verbal",
@@ -8592,6 +8598,30 @@ export function evaluateSpellScalingAndUpcharge(actor, itemOrEntry, { afterBaseD
       if (hasAptitude) {
         manifestationZeroSp = true;
         effectiveSpc = 0;
+      }
+    }
+  }
+
+  // 2b. Apply Active Effect Spell APC / SPC Reductions & Damage Bonuses
+  if (actor) {
+    const aeBonuses = getActorActiveEffectBonuses(actor);
+    const { apcReduction, spcReduction, isFreeSpell } = getSpellFilteredCostModifiers(entry, aeBonuses);
+    if (effectiveApc > 0 && apcReduction !== 0) {
+      effectiveApc = Math.max(1, effectiveApc - apcReduction);
+      activeScalingNotes.push(`Active Effect: APC ${apcReduction > 0 ? `−${apcReduction}` : `+${Math.abs(apcReduction)}`}`);
+    }
+    if (isFreeSpell) {
+      manifestationZeroSp = true;
+      effectiveSpc = 0;
+      activeScalingNotes.push("Active Effect: 0 SP Cost");
+    } else if (!manifestationZeroSp && effectiveSpc > 0 && spcReduction !== 0) {
+      effectiveSpc = Math.max(0, effectiveSpc - spcReduction);
+      activeScalingNotes.push(`Active Effect: SPC ${spcReduction > 0 ? `−${spcReduction}` : `+${Math.abs(spcReduction)}`}`);
+    }
+    if (effectiveDamage.length > 0 && !effectiveDamage[0].isHeal) {
+      const aeSpellDmg = getCombinedDamageBonusFormula(actor, "spell");
+      if (aeSpellDmg.formulaSuffix && effectiveDamage[0].formula) {
+        effectiveDamage[0].formula = `${effectiveDamage[0].formula}${aeSpellDmg.formulaSuffix}`;
       }
     }
   }

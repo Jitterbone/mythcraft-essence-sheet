@@ -33,6 +33,7 @@ import {
   NORMALIZED_CANONICAL_TALENTS,
 } from "../features/talent-canonical-map.mjs";
 import { resolveItemIcon, isDefaultIcon } from "../features/equipment-icons.mjs";
+import { syncActorTalentActiveEffects } from "../features/active-effect-engine.mjs";
 import { getSetting, setSetting } from "../settings.mjs";
 import TalentTreeViewer from "./talent-tree-viewer.mjs";
 import {
@@ -493,10 +494,10 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       for (const tree of builtTrees) {
         tree.isStarted = tree.nodes.some(n => n.isOwned);
         tree.ownedCount = tree.nodes.filter(n => n.isOwned).length;
-        tree.availableCount = tree.nodes.filter(n => n.isAvailable && !n.isOwned).length;
+        tree.availableCount = tree.nodes.filter(n => n.isAvailable && (!n.isOwned || n.repeatable)).length;
         for (const track of tree.tracks) {
           track.ownedCount = track.nodes.filter(n => n.isOwned).length;
-          track.availableCount = track.nodes.filter(n => n.isAvailable && !n.isOwned).length;
+          track.availableCount = track.nodes.filter(n => n.isAvailable && (!n.isOwned || n.repeatable)).length;
         }
       }
       this._builtTrees = builtTrees;
@@ -1117,6 +1118,13 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
       }
 
       const itemsToCreate = [this._selectedTalent.toObject()];
+      for (const grant of parsed?.grantedTalents || []) {
+        if (grant.type === "grant_talent" && grant.talentName) {
+          const gClean = String(grant.talentName).toLowerCase().trim();
+          const grantedDoc = (this._cachedAllTalents || this._cachedMagicTalents || []).find(t => String(t.name || "").toLowerCase().trim() === gClean);
+          if (grantedDoc?.toObject) itemsToCreate.push(grantedDoc.toObject());
+        }
+      }
       for (const extraId of this._selectedExtraTalentIds) {
         const extraItem = (this._cachedMagicTalents || []).find(t => (t.id || t._id) === extraId);
         if (extraItem?.toObject) itemsToCreate.push(extraItem.toObject());
@@ -1127,6 +1135,7 @@ export default class LevelUpDialog extends HandlebarsApplicationMixin(Applicatio
         }
       }
       await this.actor.createEmbeddedDocuments("Item", itemsToCreate);
+      await syncActorTalentActiveEffects(this.actor, { notify: false });
 
       // Apply Magic Entry benefits if applicable
       if (parsed?.isMagicEntry) {

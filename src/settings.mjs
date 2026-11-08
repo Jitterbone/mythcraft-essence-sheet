@@ -9,6 +9,8 @@ import CurrencyConfigDialog from "./apps/currency-config-dialog.mjs";
 import TagsManagementDialog from "./apps/tags-dialog.mjs";
 import HomebrewConfigDialog from "./apps/homebrew-config-dialog.mjs";
 import TalentCompendiumsConfigDialog from "./apps/talent-compendiums-config-dialog.mjs";
+import WhatsNewDialog from "./apps/whats-new-dialog.mjs";
+import { syncActorTalentActiveEffects } from "./features/active-effect-engine.mjs";
 import { DEFAULT_TAGS_LIBRARY } from "./data/tags-library.mjs";
 
 export const MODULE_ID = "mythcraft-essence-sheet";
@@ -114,6 +116,15 @@ export function registerSettings() {
   });
 
   // ── QUALITY OF LIFE SETTINGS ──────────────────────────────────────────────
+
+  game.settings.registerMenu(MODULE_ID, "whatsNewMenu", {
+    name: "What's New in MythCraft Essence",
+    label: "View Update Spotlight",
+    hint: "Read the overview of the Native Active Effect Engine, Guided Effect Manager, and Talent Automation.",
+    icon: "fa-solid fa-sparkles",
+    type: WhatsNewDialog,
+    restricted: false,
+  });
 
   game.settings.registerMenu(MODULE_ID, "tagsManagementMenu", {
     name: "MythCraft Tag & Keyword Library",
@@ -385,6 +396,39 @@ export function registerSettings() {
     default: true,
   });
 
+  // ── ACTIVE EFFECT & TALENT AUTOMATIONS ────────────────────────────────────
+
+  game.settings.register(MODULE_ID, "talentAutomation", {
+    name: "Automate Talent Active Effects",
+    hint: "Automatically generate and attach native Foundry ActiveEffects when talents are acquired, using the canonical Talent Library. (Warning: May double-count stats if character sheets already have manual modifiers entered).",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+    onChange: async (enabled) => {
+      if (game.user?.isGM) {
+        for (const actor of (game.actors || [])) {
+          if (actor.type === "character") {
+            try {
+              await syncActorTalentActiveEffects(actor, { notify: false });
+            } catch (_) {}
+          }
+        }
+      }
+      for (const app of Object.values(ui.windows || {})) {
+        if (app.actor) app.render(false);
+      }
+    },
+  });
+
+  game.settings.register(MODULE_ID, "whatsNewAcknowledgedVersion", {
+    name: "What's New Acknowledged Version",
+    scope: "client",
+    config: false,
+    type: String,
+    default: "",
+  });
+
   // ── AP & SP RESOURCE AUTOMATIONS ───────────────────────────────────────
 
   game.settings.register(MODULE_ID, "turnAPMode", {
@@ -614,6 +658,18 @@ export function registerSettings() {
       subHeader.innerHTML = '<i class="fas fa-shield-halved"></i> Armor Automations';
       subHeader.style.cssText = subHeaderStyle;
       targetArmor.parentNode.insertBefore(subHeader, targetArmor);
+    }
+
+    // Active Effect & Talent Subheading
+    const targetAeEl = root.querySelector('[data-setting-id="mythcraft-essence-sheet.talentAutomation"]') ||
+                       root.querySelector('[name="mythcraft-essence-sheet.talentAutomation"]');
+    const targetAe = targetAeEl?.closest('.form-group') || targetAeEl?.closest('.setting') || targetAeEl;
+    if (targetAe && !root.querySelector('.essence-ae-sub-header')) {
+      const subHeader = document.createElement('h4');
+      subHeader.className = 'essence-ae-sub-header';
+      subHeader.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Active Effect &amp; Talent Automations';
+      subHeader.style.cssText = subHeaderStyle;
+      targetAe.parentNode.insertBefore(subHeader, targetAe);
     }
 
     // Resource Subheading

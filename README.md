@@ -10,7 +10,7 @@
 A complete suite of elegant, high-readability alternate actor and item sheets for the **Mythcraft** system in Foundry VTT. Designed to seamlessly match the **Mythcraft HUD** aesthetic with a dark teal-and-gold palette, streamlined workflows, rich embedded editors, and comprehensive **built-in automation**.
 
 > **Note on Automation:**  
-> **All character automation features described below are built directly into this module**—including the Character Creation Wizard, Level-Up Progression, Visual Flowchart Talent Trees, HP/SP/AP automation, Rest Automation, Defense Formula Calculations, and Damage Pipeline. No extra third-party automation modules are required!
+> **All character automation features described below are built directly into this module**—including the Character Creation Wizard, Level-Up Progression, Visual Flowchart Talent Trees, Guided Active Effects Manager, HP/SP/AP automation, Rest Automation, Defense Formula Calculations, and Damage Pipeline. No extra third-party automation modules are required!
 
 ---
 
@@ -165,6 +165,33 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
   - Normalizes compendium formulas containing `, min X` notation (e.g. `8-STR, min 4`, `5-STR, min 2`) without throwing parsing errors.
 - **Native Avatar & Tokenizer Compatibility**:
   - Native Foundry image editing support with full compatibility for **Tokenizer** and third-party portrait modules.
+
+---
+
+### ✨ 9. Guided Active Effects Manager & Canonical `TALENT_LIBRARY` Automation
+- **Canonical `TALENT_LIBRARY` (2,401 MythCraft Talents)**:
+  - Built-in O(1) dictionary (`src/data/talent-library.mjs`, `T-0001`…`T-2401`) replacing runtime compendium description/folder heuristics with pre-parsed canonical categories, classes, tracks/stacks, structured prerequisite rules (required talents, choice groups, min/max levels, attribute minimums, incompatibilities), repeatability, granted talents/track picks (`grant_talent` & `pick_from_track`), and pre-built `ActiveEffect` definitions for **633 automatable talents**.
+  - **Automatic Talent ActiveEffect Attachment**: Acquiring any automatable talent (via Character Creation Wizard, Level-Up Dialog, dragging onto a sheet, or clicking **Sync Talent Effects** on the Effects tab) automatically attaches its canonical transferred Foundry VTT `ActiveEffect` documents (`always` active for passive talents, or `conditional` manual-toggle for situational talents/stances), while leaving narrative/manual-only talents clean without empty effects.
+- **No Foundry Data-Path Hunting Required**:
+  - Accessible directly from the **Effects tab** of Character Sheets, NPC Sheets, and Siege Weapon Sheets, as well as inside **Item, Weapon, Armor, Talent, Feature, and Spell Sheets**.
+  - Walks players and GMs through a **3-Step Visual Builder** with a clean tabbed sidebar (**Current Effects** vs **1-Click Presets**), compact category pill tabs, and a spacious 2-column stat catalog that creates and manages 100% native Foundry VTT `ActiveEffect` documents behind the scenes.
+- **Automate Any Region of the Character Sheet**:
+  - **Vitality & Pools**: Max HP (`system.hp.max` — seamlessly layered on top of Endurance HP automation without overwriting base HP), Temporary HP / Shield Pool (`system.hp.shield`), Max & Current Death Points, Soul Damage, Fear Threshold (`flags.mythcraft-essence-sheet.bonuses.fearThreshold`), and Bloodied HP Ratio (`0.75`).
+  - **Action & Spell Economy (Global & Filtered)**:
+    - **Reduce SPC (Spell Point Cost)** globally, by Magic Source (`reduceSpcBySource.<arcane|divine|occult|primal|psionic>`), by Spell Tag/Function (`reduceSpcByTag.<tag>`), by specific Spell (`reduceSpcBySpell.<spellKey>`), or **0 SPC Signature / Instinctive Spells** (`freeSpell.<spellKey>`).
+    - **Reduce APC (Action Point Cost)** globally, for all weapons, for all spells, or **filtered by Weapon Tag/Type** (`reduceWeaponApcByTag.<twoHanded|ranged|thrown|light|oneHanded|unarmed|improvised|finesse>`), **by Specific Weapon** (`reduceWeaponApcByName.<weaponKey>`), and **Minimum Weapon APC Floor** (`minWeaponApc`), plus **filtered Spell APC** (`reduceSpellApcByTag`, `reduceSpellApcBySpell`, `reduceSpellApcBySource`).
+    - Max AP, Special AP (SAP), Max SP, Magic Power Levels, Essence Binding Cap, and Luck Points.
+  - **Defenses & Mitigation**: Armor Rating (AR), Reflexes (REF), Fortitude (FORT), Anticipation (ANT), Logic (LOG), Willpower (WILL), **All Defenses**, **All Physical Defenses**, **All Mental Defenses**, Unarmored AR Attribute Substitution (`unarmoredArSub`), Reflexes Uses Luck (`refUseLuck`), **Second Skin Unlocks** (Light/Medium/Heavy Armor & Shields + Kite/Heater Shield Resist), Damage Reduction (DR) & Bypasses, Damage Threshold (DT), Ignore Enemy Resist (`ignoreResist`), and smart **Damage Type + Amount** builders for **Resistances**, **Damage Absorption**, **Immunities**, **Affinities**, and **Vulnerabilities**.
+  - **Combat, Attacks & Damage**: Weapon Attack Roll Bonus, Spell Attack Roll Bonus, All Attack Rolls Bonus, All d20 Rolls Bonus, **Weapon Damage Bonus** (flat or dice), **Spell Damage Bonus** (flat or dice), All Damage Bonus, Sneak Attack Bonus Dice (`sneakAttackDice`), Unarmed Damage Die Size Step (`unarmedDieStep`), Critical Hit Range expansion (`+1` to `+4`), Tactical Advantage (TA), and Tactical Disadvantage (TD).
+  - **Attributes, Skills & Mobility**: All core and metaphysical attributes, Attribute Score Cap Increases (`attrCap.<attr>`), Walk / Fly / Swim / Climb / Burrow Speeds, Ignore Heavy Armor / Tower Shield Speed Penalties, Senses (`darkvision`, `lowLightVision`, `blindsight`, `tremorsense`, `truesight`), Initiative Bonus, Skill Points Pool, All Skills Bonus, and individual MythCraft Skill bonuses.
+- **Direct Item & Talent Attachment with Conditional Activation**:
+  - Attach effects directly to the Character Sheet or to any owned **Weapon, Armor, Shield, Gear, Talent, Feature, or Spell**.
+  - Configure item/talent effects to be **Always Active While Owned** (passive talents/boons), **Only While Equipped / Donned / Worn**, **Only While Essence-Attuned**, or **Manual Toggle Only (Situational / Conditional Talent or Stance)**.
+- **Configurable World Setting & "What's New" Onboarding Spotlight**:
+  - **Automate Talent Active Effects Setting**: Can be toggled on or off at any time under **Game Settings &rarr; Configure Settings &rarr; Module Settings &rarr; Automations**.
+  - **"What's New" Update Dialog**: Appears automatically for GMs upon updating the module, walking through the Active Effect Engine and Talent Automation. Users can choose to enable automation immediately, acknowledge while keeping it disabled, or choose "Remind Me Later" (which reprompts on the next game launch until acknowledged). Can also be revisited anytime via **Module Settings &rarr; View Update Spotlight**.
+  - ⚠️ **Manual Sheet Warning**: If a character sheet previously had talent modifiers applied manually (e.g. manually adjusting base HP, defenses, or attacks), turning on Talent Automation will stack the automated ActiveEffect on top of the manual values. Simply open the character's **Effects** tab to inspect, toggle, or adjust base numbers to avoid double-counting.
+  - 🧪 **Feedback & Bug Reporting**: Active effect automation is an early preview feature. Please report any feedback or issues on the **MythCraft Discord** (*MythCrafting Forums &rarr; MythCraft Essence Sheet* group) or on **[GitHub Issues](https://github.com/Jitterbone/mythcraft-essence-sheet/issues)**.
 
 ---
 

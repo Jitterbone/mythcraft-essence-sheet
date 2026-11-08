@@ -19,8 +19,20 @@ import {
   parseExplicitItemTags,
 } from "./talent-canonical-map.mjs";
 import { resolveItemIcon } from "./equipment-icons.mjs";
+import {
+  getTalentLibraryEntry,
+  getTalentPrerequisiteRules,
+  getTalentGrantsAndPicks,
+  getTalentActiveEffectsData,
+} from "../data/talent-library.mjs";
 
-export { parseExplicitItemTags };
+export {
+  parseExplicitItemTags,
+  getTalentLibraryEntry,
+  getTalentPrerequisiteRules,
+  getTalentGrantsAndPicks,
+  getTalentActiveEffectsData,
+};
 
 /**
  * Recognized compendium titles and package IDs for official MythCraft content.
@@ -2213,22 +2225,67 @@ export function parseTalentData(item) {
   const desc = descriptionText(item);
   const itemName = String(item?.name || "").trim();
   const itemNorm = normalizeTalentName(itemName);
-  const isCanonicalEntry = Boolean(MAGIC_ENTRY_BY_NAME[itemName.toLowerCase()] || MAGIC_ENTRY_BY_NAME[itemNorm]);
+  const libEntry = getTalentLibraryEntry(item);
+  const isCanonicalEntry = Boolean(
+    libEntry?.isEntry && libEntry?.category === "magic"
+    || MAGIC_ENTRY_BY_NAME[itemName.toLowerCase()]
+    || MAGIC_ENTRY_BY_NAME[itemNorm]
+  );
 
   // 1. Prerequisites
   const prerequisites = [];
-  const prereqMatch = desc.match(/prerequisites?[:\s]+([^\n\r\.\<]+)/i);
-  if (prereqMatch) {
-    const raw = prereqMatch[1].replace(/@UUID\[[^\]]+\]\{([^}]+)\}/gi, "$1");
-    prerequisites.push(...raw.split(/,|and/).map(s => s.trim()).filter(Boolean));
+  const prereqChoiceGroups = [];
+  if (libEntry?.prerequisiteRules?.requiredTalents?.length) {
+    // Canonical groups: { type: "talent", mode: "all"|"any", talents: [...] }
+    for (const grp of libEntry.prerequisiteRules.requiredTalents) {
+      if (typeof grp === "string") {
+        const cleanOr = grp.replace(/\bor(?=[A-Z])/gi, "or ");
+        if (/\s+or\s+/i.test(cleanOr)) {
+          prereqChoiceGroups.push(cleanOr.split(/\s+or\s+/i).map(s => s.trim()).filter(Boolean));
+        } else {
+          prerequisites.push(grp);
+        }
+        continue;
+      }
+      const rawNames = (Array.isArray(grp?.talents) ? grp.talents : []).map(n => String(n).trim()).filter(Boolean);
+      if (!rawNames.length) continue;
+      const names = [];
+      for (const rn of rawNames) {
+        const cleanOr = rn.replace(/\bor(?=[A-Z])/gi, "or ");
+        if (/\s+or\s+/i.test(cleanOr)) {
+          prereqChoiceGroups.push(cleanOr.split(/\s+or\s+/i).map(s => s.trim()).filter(Boolean));
+        } else {
+          names.push(cleanOr);
+        }
+      }
+      if (grp.mode === "any" && names.length > 1) {
+        prereqChoiceGroups.push(names);
+      } else {
+        prerequisites.push(...names);
+      }
+    }
+  } else {
+    const prereqMatch = desc.match(/prerequisites?[:\s]+([^\n\r\.\<]+)/i);
+    if (prereqMatch) {
+      const raw = prereqMatch[1].replace(/@UUID\[[^\]]+\]\{([^}]+)\}/gi, "$1");
+      prerequisites.push(...raw.split(/,|and/).map(s => s.trim()).filter(Boolean));
+    }
   }
 
   // 2. Incompatible
   const incompatibilities = [];
-  const incompMatch = desc.match(/incompatible[:\s]+([^\n\r\.\<]+)/i);
-  if (incompMatch) {
-    const raw = incompMatch[1].replace(/@UUID\[[^\]]+\]\{([^}]+)\}/gi, "$1");
-    incompatibilities.push(...raw.split(/,|and/).map(s => s.trim()).filter(Boolean));
+  if (libEntry?.prerequisiteRules?.incompatibleTalents?.length) {
+    for (const inc of libEntry.prerequisiteRules.incompatibleTalents) {
+      if (typeof inc === "string") incompatibilities.push(inc);
+      else if (Array.isArray(inc?.talents)) incompatibilities.push(...inc.talents.map(String));
+      else if (inc?.name || inc?.talentName) incompatibilities.push(String(inc.name || inc.talentName));
+    }
+  } else {
+    const incompMatch = desc.match(/incompatible[:\s]+([^\n\r\.\<]+)/i);
+    if (incompMatch) {
+      const raw = incompMatch[1].replace(/@UUID\[[^\]]+\]\{([^}]+)\}/gi, "$1");
+      incompatibilities.push(...raw.split(/,|and/).map(s => s.trim()).filter(Boolean));
+    }
   }
 
   // 3. Magic Entry & Benefits
@@ -2253,22 +2310,45 @@ export function parseTalentData(item) {
   const attrMatch = desc.match(/magic\s*attribute\s*is\s*([a-zA-Z]+)/i);
   if (attrMatch) magicAttribute = attrMatch[1].toLowerCase();
 
-  const extraTalentsMatch = desc.match(/gain\s*(two|three|four|\d+)\s*talents?\s*from\s*the\s*([a-zA-Z\s]+)\s*stack/i);
-  if (extraTalentsMatch) {
-    const wordMap = { two: 2, three: 3, four: 4 };
-    extraStackTalents = wordMap[extraTalentsMatch[1].toLowerCase()] || parseInt(extraTalentsMatch[1], 10) || 2;
-    magicStackTag = extraTalentsMatch[2].replace(/\s*magic\s*$/i, "").trim().toLowerCase();
+  // Check canonical grantedTalents first for pick_from_track
+  if (Array.isArray(libEntry?.grantedTalents)) {
+    for (const grant of libEntry.grantedTalents) {
+      if (grant.type === "pick_from_track" && grant.track) {
+        const trackClean = String(grant.track).replace(/\s*(?:magic\s*)?(?:track|stack)\s*$/i, "").trim().toLowerCase();
+        if (["arcane", "divine", "occult", "primal", "psionic"].includes(trackClean)) {
+          extraStackTalents = Math.max(extraStackTalents, Number(grant.count) || 2);
+          magicStackTag = trackClean;
+        }
+      }
+    }
+  }
+
+  if (!extraStackTalents) {
+    const extraTalentsMatch = desc.match(/gain\s*(two|three|four|\d+)\s*talents?\s*from\s*the\s*([a-zA-Z\s]+)\s*stack/i);
+    if (extraTalentsMatch) {
+      const wordMap = { two: 2, three: 3, four: 4 };
+      extraStackTalents = wordMap[extraTalentsMatch[1].toLowerCase()] || parseInt(extraTalentsMatch[1], 10) || 2;
+      magicStackTag = extraTalentsMatch[2].replace(/\s*magic\s*$/i, "").trim().toLowerCase();
+    }
   }
   if (isMagicEntry && !extraStackTalents) {
     extraStackTalents = 2;
   }
   if (isCanonicalEntry && !magicStackTag) {
-    magicStackTag = MAGIC_ENTRY_BY_NAME[itemName.toLowerCase()] || MAGIC_ENTRY_BY_NAME[itemNorm] || "";
+    magicStackTag = MAGIC_ENTRY_BY_NAME[itemName.toLowerCase()] || MAGIC_ENTRY_BY_NAME[itemNorm] || (libEntry?.class ? libEntry.class.toLowerCase() : "");
   }
 
   return {
+    canonicalId: libEntry?.id || null,
     prerequisites,
+    prerequisiteRules: libEntry?.prerequisiteRules || null,
+    prereqChoiceGroups,
     incompatibilities,
+    repeatable: Boolean(libEntry?.repeatable || /repeatable/i.test(desc)),
+    tags: Array.isArray(libEntry?.tags) ? libEntry.tags : [],
+    grantedTalents: Array.isArray(libEntry?.grantedTalents) ? libEntry.grantedTalents : [],
+    automatable: Boolean(libEntry?.automatable),
+    activeEffects: Array.isArray(libEntry?.activeEffects) ? libEntry.activeEffects : [],
     isMagicEntry,
     spBonus,
     magicPowerBonus,
@@ -2327,6 +2407,12 @@ export function checkTalentAvailability(talent, actorTalents = [], { effectiveLe
   };
 
   const missingPrereqs = [];
+  const rules = data.prerequisiteRules;
+  const actorLevel = effectiveLevel ?? (
+    typeof actorTalents[0] === "object" && actorTalents[0]?.parent?.system?.level
+      ? Number(actorTalents[0].parent.system.level)
+      : null
+  );
 
   // Magic Entry Prerequisite Check:
   // Any talent in a magic discipline requires that discipline's Magic Entry talent unless it is the entry talent itself.
@@ -2342,13 +2428,71 @@ export function checkTalentAvailability(talent, actorTalents = [], { effectiveLe
     }
   }
 
-  for (const p of data.prerequisites) {
+  // Canonical structured prerequisite rules check (if present)
+  if (rules) {
+    if (rules.minLevel !== null && rules.minLevel !== undefined && actorLevel !== null && actorLevel < Number(rules.minLevel)) {
+      missingPrereqs.push(`Character Level ${rules.minLevel}`);
+    }
+    if (rules.maxLevel !== null && rules.maxLevel !== undefined && actorLevel !== null && actorLevel > Number(rules.maxLevel)) {
+      missingPrereqs.push(`Character Level ${rules.maxLevel} or lower`);
+    }
+    if (rules.minAttributes && resolvedAttrs) {
+      const attrReqs = Array.isArray(rules.minAttributes)
+        ? rules.minAttributes.map(a => [a?.attr, a?.value])
+        : Object.entries(rules.minAttributes);
+      for (const [rawKey, reqVal] of attrReqs) {
+        if (!rawKey) continue;
+        const attrKey = attrAliasMap[String(rawKey).toLowerCase()] || String(rawKey).toLowerCase();
+        const curVal = getAttrScore(attrKey);
+        const label = `${attrKey.toUpperCase()} ${reqVal}`;
+        if (curVal !== null && curVal < Number(reqVal) && !missingPrereqs.includes(label)) {
+          missingPrereqs.push(label);
+        }
+      }
+    }
+    const choiceGroups = [
+      ...(Array.isArray(rules.choiceGroups) ? rules.choiceGroups : []),
+      ...(data.prereqChoiceGroups || []),
+    ];
+    if (choiceGroups.length) {
+      for (const group of choiceGroups) {
+        if (!Array.isArray(group) || group.length === 0) continue;
+        const satisfied = group.some((opt) => {
+          const clean = String(opt).toLowerCase().trim();
+          const norm = normalizeTalentName(opt);
+          const arabic = norm.replace(/\b(i|ii|iii|iv|v|vi|vii|viii|ix|x)\b/g, (m) => {
+            const rMap = { i: "1", ii: "2", iii: "3", iv: "4", v: "5", vi: "6", vii: "7", viii: "8", ix: "9", x: "10" };
+            return rMap[m] || m;
+          });
+          return ownedNames.has(clean) || ownedNames.has(norm) || ownedNames.has(arabic);
+        });
+        if (!satisfied) {
+          missingPrereqs.push(group.join(" or "));
+        }
+      }
+    }
+  }
+
+  for (const rawP of data.prerequisites) {
+    const p = String(rawP ?? "");
     const clean = p.toLowerCase().trim();
     const norm = normalizeTalentName(p);
     const arabic = norm.replace(/\b(i|ii|iii|iv|v|vi|vii|viii|ix|x)\b/g, (m) => {
       const rMap = { i: "1", ii: "2", iii: "3", iv: "4", v: "5", vi: "6", vii: "7", viii: "8", ix: "9", x: "10" };
       return rMap[m] || m;
     });
+
+    // Check if prerequisite is an "OR" choice (e.g. "Cleric Entry or Vessel Entry")
+    const cleanedPrereq = p.replace(/([a-z])or([A-Z])/g, "$1 or $2");
+    if (/\s+or\s+/i.test(cleanedPrereq)) {
+      const orParts = cleanedPrereq.split(/\s+or\s+/i).map(s => s.trim()).filter(Boolean);
+      const anySatisfied = orParts.some(part => {
+        const pClean = part.toLowerCase().trim();
+        const pNorm = normalizeTalentName(part);
+        return ownedNames.has(pClean) || ownedNames.has(pNorm);
+      });
+      if (anySatisfied) continue;
+    }
 
     // Ignore descriptive/negative clause prerequisites like "no other class entry talents"
     if (/^(no\s+other|cannot\s+have|must\s+not|without)\b/i.test(clean)) {
@@ -2364,7 +2508,7 @@ export function checkTalentAvailability(talent, actorTalents = [], { effectiveLe
       if (curVal !== null && curVal >= reqVal) {
         continue;
       } else {
-        missingPrereqs.push(p);
+        if (!missingPrereqs.includes(p)) missingPrereqs.push(p);
         continue;
       }
     }
@@ -2373,21 +2517,16 @@ export function checkTalentAvailability(talent, actorTalents = [], { effectiveLe
     const levelPrereqMatch = clean.match(/(?:character\s*)?level\s*(\d+)|(\d+)(?:st|nd|rd|th)\s*level/i);
     if (levelPrereqMatch) {
       const requiredLevel = parseInt(levelPrereqMatch[1] || levelPrereqMatch[2], 10);
-      const actorLevel = effectiveLevel ?? (
-        typeof actorTalents[0] === "object" && actorTalents[0]?.parent?.system?.level
-          ? Number(actorTalents[0].parent.system.level)
-          : null
-      );
       if (actorLevel !== null && actorLevel >= requiredLevel) {
         continue; // Level requirement met
       } else if (actorLevel !== null) {
-        missingPrereqs.push(p);
+        if (!missingPrereqs.includes(p)) missingPrereqs.push(p);
         continue;
       }
     }
 
     if (!ownedNames.has(clean) && !ownedNames.has(norm) && !ownedNames.has(arabic)) {
-      missingPrereqs.push(p);
+      if (!missingPrereqs.includes(p)) missingPrereqs.push(p);
     }
   }
 
@@ -2704,9 +2843,14 @@ export function groupTalentsByStack(talentsList = []) {
   const stackMap = new Map();
 
   for (const talent of talentsList) {
+    const libEntry = getTalentLibraryEntry(talent);
     const chain = talent._folderChain || getDocumentFolderChain(talent);
     let stackName = "General Talents";
-    if (chain.length > 0) {
+    if (libEntry?.stack) {
+      stackName = libEntry.stack;
+    } else if (libEntry?.class) {
+      stackName = libEntry.class;
+    } else if (chain.length > 0) {
       stackName = chain[chain.length - 1];
     } else if (talent.system?.category) {
       stackName = String(talent.system.category);
@@ -2846,7 +2990,14 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
     const rootObj = rootTreeMap.get(rootKey);
     const isMagicEntryDoc = category === "magic" && (parseTalentData(t).isMagicEntry || Boolean(MAGIC_ENTRY_BY_NAME[docName]) || Boolean(MAGIC_ENTRY_BY_NAME[docNameClean]));
     if (isEntry || isMagicEntryDoc || /entry\b/i.test(t.name) || (/class\b/i.test(t.name) && category === "class" && trackName.includes("Entry"))) {
-      rootObj.entryTalents.push(t);
+      const entryKey = trackInfo.canonicalId || normalizeTalentName(t.name).replace(/\s*entry$/i, "");
+      const exists = rootObj.entryTalents.some(et => {
+        const etKey = resolveTalentTrackInfo(et).canonicalId || normalizeTalentName(et.name).replace(/\s*entry$/i, "");
+        return etKey === entryKey;
+      });
+      if (!exists) {
+        rootObj.entryTalents.push(t);
+      }
     } else {
       const trackKey = trackName.toLowerCase();
       if (!rootObj.trackGroups.has(trackKey)) {
@@ -2871,18 +3022,58 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
     const isOwned = ownedNames.has(name.toLowerCase().trim()) || ownedNames.has(norm) || ownedNames.has(arabic);
     const availability = checkTalentAvailability(t, actorTalents, { effectiveLevel });
 
+    const actorItem = (actorTalents || []).find(at => {
+      const atNorm = normalizeTalentName(at.name);
+      return atNorm === norm || at.name.toLowerCase().trim() === name.toLowerCase();
+    });
+    const flags = actorItem?.flags?.["mythcraft-essence-sheet"] || t.flags?.["mythcraft-essence-sheet"] || {};
+    let parentTalentId = flags.parentTalentId || null;
+    let parentTalentName = flags.parentTalentName || null;
+    let isGrantedTalent = Boolean(flags.isGrantedTalent || parentTalentName || parentTalentId);
+    const grantedTalentNames = Array.from(flags.grantedTalentNames || []);
+
+    if (!parentTalentName && actorTalents) {
+      const grantingParent = actorTalents.find(at => {
+        const gn = at.flags?.["mythcraft-essence-sheet"]?.grantedTalentNames;
+        return Array.isArray(gn) && gn.some(n => normalizeTalentName(n) === norm);
+      });
+      if (grantingParent) {
+        isGrantedTalent = true;
+        parentTalentName = grantingParent.name;
+        parentTalentId = grantingParent.id;
+      }
+    }
+
+    if (actorItem && grantedTalentNames.length === 0) {
+      for (const at of actorTalents) {
+        if (at.flags?.["mythcraft-essence-sheet"]?.parentTalentId === actorItem.id ||
+            normalizeTalentName(at.flags?.["mythcraft-essence-sheet"]?.parentTalentName) === norm) {
+          if (!grantedTalentNames.includes(at.name)) grantedTalentNames.push(at.name);
+        }
+      }
+    }
+
     return {
       id,
+      canonicalId: parsed.canonicalId || null,
       item: t,
       name,
       img: resolveItemIcon(t, t.img, "talent"),
       description: t.system?.description?.value ?? t.system?.description ?? "",
       prerequisites: parsed.prerequisites,
       incompatibilities: parsed.incompatibilities,
+      repeatable: Boolean(parsed.repeatable),
+      grantedTalents: parsed.grantedTalents || [],
+      automatable: Boolean(parsed.automatable),
+      tags: parsed.tags || [],
       isOwned,
       isAvailable: availability.isAvailable,
       missingPrereqs: availability.missingPrereqs,
       prereqTooltip: availability.prereqTooltip,
+      isGrantedTalent,
+      parentTalentId,
+      parentTalentName,
+      grantedTalentNames,
       children: [],
       parents: [],
       tier: 1,
@@ -2903,7 +3094,7 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
 
       for (const node of nodeMap.values()) {
         for (const prereq of node.prerequisites) {
-          const pNode = nodeMap.get(prereq.toLowerCase().trim());
+          const pNode = nodeMap.get(String(prereq ?? "").toLowerCase().trim());
           if (pNode && pNode !== node) {
             pNode.children.push(node);
             node.parents.push(pNode);
@@ -2983,6 +3174,57 @@ export function buildTalentTrees(talentsList = [], actorTalents = [], { effectiv
       nodes: allRootNodes,
       isStarted: isRootStarted,
     });
+  }
+
+  // ── AUTO-DISCOVER / HEAL PARENT-CHILD TALENT GRANTS ──
+  // Ensure that all owned talents granted by another owned talent (directly or via track picks)
+  // have their bidirectional parent-child linking flags established.
+  const allNodesList = rootTrees.flatMap(t => t.nodes || []);
+  const ownedNodes = allNodesList.filter(n => n.isOwned);
+
+  for (const parentNode of ownedNodes) {
+    const grants = Array.isArray(parentNode.grantedTalents) ? parentNode.grantedTalents : [];
+    if (grants.length === 0) continue;
+
+    for (const grant of grants) {
+      if (grant.type === "grant_talent") {
+        const gNorm = normalizeTalentName(grant.talentName);
+        const altNorms = (grant.alternatives || []).map(normalizeTalentName);
+        const childNode = ownedNodes.find(n => {
+          if (n === parentNode) return false;
+          const nNorm = normalizeTalentName(n.name);
+          return nNorm === gNorm || altNorms.includes(nNorm);
+        });
+        if (childNode) {
+          childNode.isGrantedTalent = true;
+          childNode.parentTalentName = parentNode.name;
+          childNode.parentTalentId = parentNode.id;
+          if (!parentNode.grantedTalentNames.includes(childNode.name)) {
+            parentNode.grantedTalentNames.push(childNode.name);
+          }
+        }
+      } else if (grant.type === "pick_from_track") {
+        const count = Number(grant.count) || 1;
+        const cleanTrack = String(grant.track || "").toLowerCase().replace(/\s+(track|stack|talents?)$/i, "").trim();
+        const matchingTrackNodes = ownedNodes.filter(n => {
+          if (n === parentNode || n.isGrantedTalent) return false;
+          const trk = resolveTalentTrackInfo(n.item || n);
+          const rName = String(trk.rootName || "").toLowerCase();
+          const tName = String(trk.trackName || "").toLowerCase();
+          return cleanTrack.includes(rName) || cleanTrack.includes(tName) || rName.includes(cleanTrack) || tName.includes(cleanTrack);
+        }).sort((a, b) => (a.tier || 1) - (b.tier || 1));
+
+        for (let i = 0; i < Math.min(count, matchingTrackNodes.length); i++) {
+          const childNode = matchingTrackNodes[i];
+          childNode.isGrantedTalent = true;
+          childNode.parentTalentName = parentNode.name;
+          childNode.parentTalentId = parentNode.id;
+          if (!parentNode.grantedTalentNames.includes(childNode.name)) {
+            parentNode.grantedTalentNames.push(childNode.name);
+          }
+        }
+      }
+    }
   }
 
   return rootTrees.sort((a, b) => a.title.localeCompare(b.title));

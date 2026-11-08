@@ -29,6 +29,7 @@ import {
   parseExplicitItemTags,
 } from "../features/compendium-parser.mjs";
 import { getSpellLibraryEntry } from "../data/spell-library.mjs";
+import { syncActorTalentActiveEffects } from "../features/active-effect-engine.mjs";
 import {
   resolveEquipmentIcon,
   resolveTalentIcon,
@@ -1935,11 +1936,26 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
       if (rankOne2) itemsToCreate.push(rankOne2.toObject());
     }
 
-    if (startingTalent) itemsToCreate.push(startingTalent.toObject());
+    const addTalentAndGrants = (talentDoc) => {
+      if (!talentDoc || typeof talentDoc.toObject !== "function") return;
+      itemsToCreate.push(talentDoc.toObject());
+      const parsed = parseTalentData(talentDoc);
+      for (const grant of parsed.grantedTalents || []) {
+        if (grant.type === "grant_talent" && grant.talentName) {
+          const gClean = String(grant.talentName).toLowerCase().trim();
+          const grantedDoc = (this.data.talents || []).find(t => String(t.name || "").toLowerCase().trim() === gClean);
+          if (grantedDoc && typeof grantedDoc.toObject === "function") {
+            itemsToCreate.push(grantedDoc.toObject());
+          }
+        }
+      }
+    };
+
+    if (startingTalent) addTalentAndGrants(startingTalent);
 
     for (const extraId of this.data.selectedExtraTalentIds) {
       const extra = this.data.talents.find(t => t.id === extraId);
-      if (extra) itemsToCreate.push(extra.toObject());
+      if (extra) addTalentAndGrants(extra);
     }
 
     for (const spellId of this.data.selectedSpellIds) {
@@ -2123,6 +2139,7 @@ export default class CharacterCreationWizard extends HandlebarsApplicationMixin(
 
     if (uniqueItemsToCreate.length > 0) {
       await this.actor.createEmbeddedDocuments("Item", uniqueItemsToCreate);
+      await syncActorTalentActiveEffects(this.actor, { notify: false });
     }
   }
 

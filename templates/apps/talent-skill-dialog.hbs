@@ -1,0 +1,108 @@
+<div class="essence-talent-skill-shell">
+  <!-- Header Banner -->
+  <header class="skill-alloc-header">
+    <div class="skill-alloc-title-row">
+      <img class="skill-alloc-icon" src="{{talentImg}}" alt="{{talentName}}" />
+      <div class="skill-alloc-title-group">
+        <div class="skill-alloc-badge-row">
+          <span class="skill-alloc-tag"><i class="fa-solid fa-graduation-cap"></i> Skill Points Granted</span>
+          <span class="skill-alloc-category-tag">{{grantLabel}}</span>
+        </div>
+        <h2 class="skill-alloc-talent-name">{{talentName}}</h2>
+      </div>
+    </div>
+
+    <!-- Pool Counter -->
+    <div class="skill-alloc-pool-box {{#if isComplete}}pool-complete{{/if}}">
+      <div class="pool-stat">
+        <span class="pool-label">Total Points</span>
+        <span class="pool-val">{{totalPoints}}</span>
+      </div>
+      <div class="pool-divider"><i class="fa-solid fa-arrow-right"></i></div>
+      <div class="pool-stat">
+        <span class="pool-label">Spent</span>
+        <span class="pool-val spent-val">{{spentPoints}}</span>
+      </div>
+      <div class="pool-divider"><i class="fa-solid fa-equals"></i></div>
+      <div class="pool-stat remaining-stat">
+        <span class="pool-label">Remaining</span>
+        <span class="pool-val remaining-val">{{remainingPoints}}</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Instructions Bar -->
+  <div class="skill-alloc-instructions">
+    <i class="fa-solid fa-circle-info"></i>
+    <span>Use the steppers below to distribute your <strong>{{totalPoints}} skill point(s)</strong> among eligible skills. Bonuses are automated directly into native ActiveEffects.</span>
+  </div>
+
+  <!-- Scrollable Skill List -->
+  <div class="skill-alloc-scroll-body">
+    <table class="skill-alloc-table">
+      <thead>
+        <tr>
+          <th class="th-skill">Skill Name</th>
+          <th class="th-attr">Attribute</th>
+          <th class="th-current">Current</th>
+          <th class="th-stepper">Allocation</th>
+          <th class="th-new">New Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each skills}}
+          <tr class="skill-row {{#if allocated}}has-allocated{{/if}}">
+            <td class="td-skill">
+              <span class="skill-name">{{name}}</span>
+              <span class="skill-cat-sub">{{category}}</span>
+            </td>
+            <td class="td-attr">
+              <span class="attr-pill attr-{{attribute}}">{{attribute}}</span>
+            </td>
+            <td class="td-current">
+              <span class="score-current">{{currentDisplay}}</span>
+            </td>
+            <td class="td-stepper">
+              <div class="stepper-controls" data-skill-key="{{key}}">
+                <button type="button" class="stepper-btn btn-dec" data-action="decreaseSkill" {{#unless canDecrease}}disabled{{/unless}}>
+                  <i class="fa-solid fa-minus"></i>
+                </button>
+                <span class="stepper-count {{#if allocated}}count-positive{{/if}}">{{allocated}}</span>
+                <button type="button" class="stepper-btn btn-inc" data-action="increaseSkill" {{#unless canIncrease}}disabled{{/unless}}>
+                  <i class="fa-solid fa-plus"></i>
+                </button>
+              </div>
+            </td>
+            <td class="td-new">
+              <span class="score-new {{#if allocated}}score-boosted{{/if}}">
+                {{newDisplay}}
+                {{#if allocated}}
+                  <small class="score-delta">(+{{allocated}})</small>
+                {{/if}}
+              </span>
+            </td>
+          </tr>
+        {{/each}}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Footer Actions -->
+  <footer class="skill-alloc-footer">
+    <div class="footer-left-actions">
+      <button type="button" class="btn-reset-points" data-action="resetPoints" {{#unless hasSpent}}disabled{{/unless}}>
+        <i class="fa-solid fa-rotate-left"></i> Reset
+      </button>
+    </div>
+    <div class="footer-right-actions">
+      <button type="button" class="btn-cancel-alloc" data-action="cancelAllocation">
+        <i class="fa-solid fa-xmark"></i> Cancel
+      </button>
+      <button type="button" class="btn-confirm-alloc {{#if isComplete}}btn-complete-ready{{/if}}" data-action="confirmAllocation" {{#unless hasSpent}}disabled{{/unless}}>
+        <i class="fa-solid fa-check"></i>
+        <span>Save &amp; Apply Active Effects</span>
+      </button>
+    </div>
+  </footer>
+</div>
+

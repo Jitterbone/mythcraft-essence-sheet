@@ -8,16 +8,30 @@
     <div class="effects-main-header">
       <h3 class="section-header">
         <i class="fas fa-magic"></i>
-        <span>Active Effects</span>
+        <span>Active Effects &amp; Automation</span>
       </h3>
-      <div class="header-actions">
+      <div class="header-actions effects-header-actions">
+        <button type="button"
+                class="create-item-btn aem-sync-sheet-btn"
+                data-action="syncTalentEffects"
+                title="Automatically attach canonical ActiveEffects to all automatable Talents on this character">
+          <i class="fas fa-rotate"></i>
+          <span>Sync Talent Effects</span>
+        </button>
+        <button type="button"
+                class="create-item-btn aem-launch-btn"
+                data-action="openActiveEffectManager"
+                title="Open the Guided Active Effect Manager to automate sheet stats, HP, Defenses, APC/SPC, items, and talents">
+          <i class="fas fa-wand-magic-sparkles"></i>
+          <span>Active Effect Manager</span>
+        </button>
         <button type="button"
                 class="create-item-btn add-effect-btn"
                 data-action="createEffect"
                 data-effect-type="passive"
-                title="Add Effect">
+                title="Quick-Add Raw Effect">
           <i class="fas fa-plus"></i>
-          <span>Add Effect</span>
+          <span>Quick Add</span>
         </button>
       </div>
     </div>
@@ -37,13 +51,21 @@
               <span>{{category.label}}</span>
               <span class="category-count-badge">{{category.effects.length}}</span>
             </h4>
-            <button type="button"
-                    class="category-add-btn"
-                    data-action="createEffect"
-                    data-effect-type="{{categoryKey}}"
-                    title="Add {{category.label}}">
-              <i class="fas fa-plus"></i>
-            </button>
+            <div class="category-header-btns">
+              <button type="button"
+                      class="category-add-btn"
+                      data-action="openActiveEffectManager"
+                      title="Open Guided Active Effect Manager">
+                <i class="fas fa-wand-magic-sparkles"></i>
+              </button>
+              <button type="button"
+                      class="category-add-btn"
+                      data-action="createEffect"
+                      data-effect-type="{{categoryKey}}"
+                      title="Add {{category.label}}">
+                <i class="fas fa-plus"></i>
+              </button>
+            </div>
           </div>
 
           {{#if category.effects.length}}
@@ -51,23 +73,41 @@
               {{#each category.effects as |e|}}
                 <li class="item effect item-row effect-row {{#if e.effect.disabled}}effect-disabled is-disabled{{/if}} {{#if e.expanded}}expanded{{/if}}"
                     data-document-class="ActiveEffect"
-                    data-effect-id="{{e.effect.id}}">
+                    data-effect-id="{{e.effect.id}}"
+                    data-parent-item-id="{{e.parentItemId}}">
                   
                   {{!-- Effect Icon --}}
                   <img class="item-img effect-icon"
                        src="{{e.effect.img}}"
                        alt="{{e.effect.name}}"
-                       data-action="viewDoc"
-                       data-document-class="ActiveEffect"
-                       data-effect-id="{{e.effect.id}}" />
+                       data-action="openActiveEffectManager"
+                       data-effect-id="{{e.effect.id}}"
+                       data-parent-item-id="{{e.parentItemId}}" />
 
-                  {{!-- Effect Name --}}
-                  <span class="item-name effect-name"
-                        data-action="toggleEffectEmbed"
-                        data-document-class="ActiveEffect"
-                        data-effect-id="{{e.effect.id}}">
-                    {{e.effect.name}}
-                  </span>
+                  {{!-- Effect Name & Source / Summary Pills --}}
+                  <div class="effect-main-info"
+                       data-action="toggleEffectEmbed"
+                       data-document-class="ActiveEffect"
+                       data-effect-id="{{e.effect.id}}"
+                       data-parent-item-id="{{e.parentItemId}}">
+                    <div class="effect-title-line">
+                      <span class="item-name effect-name">{{e.effect.name}}</span>
+                      {{#if e.isItemEffect}}
+                        <span class="effect-source-pill item-source" title="Effect from {{e.sourceTypeLabel}}: {{e.sourceLabel}}">
+                          <i class="fas fa-cube"></i> {{e.sourceLabel}}
+                        </span>
+                      {{/if}}
+                    </div>
+                    {{#if e.summaries.length}}
+                      <div class="effect-summary-pills">
+                        {{#each e.summaries as |sum|}}
+                          <span class="effect-mod-pill {{#if sum.isPositive}}mod-pos{{else}}mod-neg{{/if}}">
+                            <i class="{{sum.icon}}"></i> {{sum.text}}
+                          </span>
+                        {{/each}}
+                      </div>
+                    {{/if}}
+                  </div>
 
                   {{!-- Duration or Status Details if available --}}
                   {{#if e.durationLabel}}
@@ -79,6 +119,7 @@
                         data-action="toggleEffect"
                         data-document-class="ActiveEffect"
                         data-effect-id="{{e.effect.id}}"
+                        data-parent-item-id="{{e.parentItemId}}"
                         title="Click to toggle status">
                     {{#if e.effect.disabled}}INACTIVE{{else}}ACTIVE{{/if}}
                   </span>
@@ -90,22 +131,33 @@
                             data-action="toggleEffect"
                             data-document-class="ActiveEffect"
                             data-effect-id="{{e.effect.id}}"
+                            data-parent-item-id="{{e.parentItemId}}"
                             title="{{#if e.effect.disabled}}Enable Effect{{else}}Disable Effect{{/if}}">
                       <i class="fas fa-{{#if e.effect.disabled}}toggle-off{{else}}toggle-on{{/if}}"></i>
+                    </button>
+                    <button type="button"
+                            class="item-action-btn aem-row-btn"
+                            data-action="openActiveEffectManager"
+                            data-effect-id="{{e.effect.id}}"
+                            data-parent-item-id="{{e.parentItemId}}"
+                            title="Edit in Guided Active Effect Manager">
+                      <i class="fas fa-wand-magic-sparkles"></i>
                     </button>
                     <button type="button"
                             class="item-action-btn edit-btn"
                             data-action="viewDoc"
                             data-document-class="ActiveEffect"
                             data-effect-id="{{e.effect.id}}"
-                            title="Edit Effect">
-                      <i class="fas fa-edit"></i>
+                            data-parent-item-id="{{e.parentItemId}}"
+                            title="Open Raw Foundry Effect Sheet">
+                      <i class="fas fa-sliders"></i>
                     </button>
                     <button type="button"
                             class="item-action-btn expand-btn"
                             data-action="toggleEffectEmbed"
                             data-document-class="ActiveEffect"
                             data-effect-id="{{e.effect.id}}"
+                            data-parent-item-id="{{e.parentItemId}}"
                             title="Expand / Collapse Details">
                       <i class="fas fa-chevron-{{#if e.expanded}}up{{else}}down{{/if}}"></i>
                     </button>
@@ -114,6 +166,7 @@
                             data-action="deleteDoc"
                             data-document-class="ActiveEffect"
                             data-effect-id="{{e.effect.id}}"
+                            data-parent-item-id="{{e.parentItemId}}"
                             title="Delete Effect">
                       <i class="fas fa-trash"></i>
                     </button>
@@ -126,6 +179,8 @@
                         {{{e.descriptionHTML}}}
                       {{else if e.effect.description}}
                         {{{e.effect.description}}}
+                      {{else if e.summaries.length}}
+                        <p><strong>Automated Modifiers:</strong> {{e.summaryText}}</p>
                       {{else}}
                         <p class="empty-desc-hint">No effect details available.</p>
                       {{/if}}
@@ -143,15 +198,22 @@
     {{else}}
       <div class="empty-list-card">
         <p class="empty-list-msg">
-          <i class="fas fa-wind"></i>
-          No active effects on this character.
+          <i class="fas fa-wand-magic-sparkles"></i>
+          No active effects on this character yet. Use the <strong>Active Effect Manager</strong> to easily automate HP, Defenses, APC/SPC reductions, Damage, Attributes, Skills, Items, or Talents!
         </p>
-        <button type="button"
-                class="create-first-btn"
-                data-action="createEffect"
-                data-effect-type="passive">
-          <i class="fas fa-plus"></i> Add First Effect
-        </button>
+        <div class="empty-list-actions" style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+          <button type="button"
+                  class="create-first-btn aem-launch-btn"
+                  data-action="openActiveEffectManager">
+            <i class="fas fa-wand-magic-sparkles"></i> Open Active Effect Manager
+          </button>
+          <button type="button"
+                  class="create-first-btn"
+                  data-action="createEffect"
+                  data-effect-type="passive">
+            <i class="fas fa-plus"></i> Quick Add Raw Effect
+          </button>
+        </div>
       </div>
     {{/if}}
 

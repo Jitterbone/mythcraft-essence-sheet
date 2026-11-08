@@ -1,4 +1,5 @@
 import { getDocumentFolderChain } from "./compendium-parser.mjs";
+import { TALENT_LIBRARY, getTalentLibraryEntry } from "../data/talent-library.mjs";
 
 // Complete canonical tracks for all 13 MythCraft classes
 export const CANONICAL_CLASS_SUBCLASSES = {
@@ -2539,6 +2540,38 @@ for (const [k, v] of Object.entries(CANONICAL_TALENTS)) {
   NORMALIZED_CANONICAL_TALENTS[arabicK] = v;
 }
 
+// Populate all 2,401 canonical talents from TALENT_LIBRARY
+for (const [normK, libEntry] of Object.entries(TALENT_LIBRARY || {})) {
+  if (!libEntry) continue;
+  const cleanTrack = (libEntry.stack || libEntry.section || "General")
+    .replace(/\s+(?:Track|Stack)$/i, "")
+    .replace(/\*\*.*$/, "")
+    .trim();
+  const isEntryFlag =
+    Boolean(libEntry.isEntry) ||
+    /\bentry\b/i.test(libEntry.name || "") ||
+    /\bentry\b/i.test(libEntry.stack || "") ||
+    (libEntry.tags || []).some(t => /\bentry\b/i.test(t));
+  const mappedObj = {
+    id: libEntry.id,
+    name: libEntry.name,
+    parent: libEntry.class || "General Specialization",
+    track: cleanTrack,
+    isEntry: isEntryFlag,
+    category: libEntry.category || "specialization",
+  };
+  if (!NORMALIZED_CANONICAL_TALENTS[normK]) {
+    NORMALIZED_CANONICAL_TALENTS[normK] = mappedObj;
+  }
+  const arabicK = normK.replace(/\b(i|ii|iii|iv|v|vi|vii|viii|ix|x)\b/g, (m) => {
+    const rMap = { i: "1", ii: "2", iii: "3", iv: "4", v: "5", vi: "6", vii: "7", viii: "8", ix: "9", x: "10" };
+    return rMap[m] || m;
+  });
+  if (!NORMALIZED_CANONICAL_TALENTS[arabicK]) {
+    NORMALIZED_CANONICAL_TALENTS[arabicK] = mappedObj;
+  }
+}
+
 // Add common aliases / punctuation variants
 NORMALIZED_CANONICAL_TALENTS["cowards"] = {
   name: "\"Cowards!\"",
@@ -2849,7 +2882,28 @@ export function resolveTalentTrackInfo(item, { customTalentMap = new Map(), cust
     return { category, rootName, trackName, isEntry };
   }
 
-  // 3. Direct Canonical talent lookup (Exact matching for all official talents)
+  // 3. Direct Canonical TALENT_LIBRARY O(1) lookup (with homonymous track/class disambiguation)
+  const folderHint = filteredChain.length > 0 ? filteredChain.join(" ") : null;
+  const libMatch = getTalentLibraryEntry(item, folderHint);
+  if (libMatch) {
+    const cleanTrack = (libMatch.stack || libMatch.section || "General")
+      .replace(/\s+(?:Track|Stack)$/i, "")
+      .replace(/\*\*.*$/, "")
+      .trim();
+    const libIsEntry =
+      Boolean(libMatch.isEntry) ||
+      isEntry ||
+      /\bentry\b/i.test(libMatch.stack || "") ||
+      (libMatch.tags || []).some(t => /\bentry\b/i.test(t));
+    return {
+      category: libMatch.category || "specialization",
+      rootName: libMatch.class || "General Specialization",
+      trackName: cleanTrack || "General",
+      isEntry: libIsEntry,
+      canonicalId: libMatch.id,
+    };
+  }
+
   const canonicalMatch = NORMALIZED_CANONICAL_TALENTS[docNameClean] || CANONICAL_TALENTS[rawName.toLowerCase()];
   if (canonicalMatch) {
     return {
@@ -2857,6 +2911,7 @@ export function resolveTalentTrackInfo(item, { customTalentMap = new Map(), cust
       rootName: canonicalMatch.parent,
       trackName: canonicalMatch.track,
       isEntry: Boolean(canonicalMatch.isEntry) || isEntry,
+      canonicalId: canonicalMatch.id || null,
     };
   }
 

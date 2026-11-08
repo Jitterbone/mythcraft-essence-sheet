@@ -10,6 +10,11 @@ import { getActorCritHit, getActorCritFail, hasAstoundingCritical } from "./luck
 import { applyMessageRollMode } from "./roll-privacy.mjs";
 import { getSpellLibraryEntry, evaluateSpellScalingAndUpcharge } from "../data/spell-library.mjs";
 import { isBrassKnuckles, isUnarmedOrNaturalWeapon } from "./equipment-automation.mjs";
+import {
+  getActorActiveEffectBonuses,
+  getWeaponFilteredApcReduction,
+  getSpellFilteredCostModifiers,
+} from "./active-effect-engine.mjs";
 
 /**
  * Evaluates an APC formula string (e.g. "8-STR, min 4", "5-DEX", "3")
@@ -67,22 +72,44 @@ export function calculateItemAPC(item, actor, options = {}) {
   }
   if (!item) return 0;
 
+  let baseApc = 0;
   const rawApc = item._source?.system?.apc ?? item.system?._source?.apc;
   if (typeof rawApc === "number" && !isNaN(rawApc) && rawApc > 0) {
-    return Number(rawApc);
+    baseApc = Number(rawApc);
+  } else {
+    const rawFormula = item.system?.apcFormula || item._source?.system?.apcFormula || item.system?.apc_formula || "";
+    if (rawFormula && typeof rawFormula === "string" && rawFormula.trim()) {
+      baseApc = evaluateApcFormula(rawFormula, actor);
+    } else {
+      const direct = item.system?.apc;
+      if (typeof direct === "number" && !isNaN(direct) && direct >= 0) {
+        baseApc = Number(direct);
+      }
+    }
   }
 
-  const rawFormula = item.system?.apcFormula || item._source?.system?.apcFormula || item.system?.apc_formula || "";
-  if (rawFormula && typeof rawFormula === "string" && rawFormula.trim()) {
-    return evaluateApcFormula(rawFormula, actor);
+  const targetActor = actor || item.actor || item.parent;
+  if (targetActor && baseApc > 0) {
+    const aeBonuses = getActorActiveEffectBonuses(targetActor);
+    if (item.type === "weapon") {
+      const { reduction, minApc } = getWeaponFilteredApcReduction(item, aeBonuses);
+      if (reduction !== 0) {
+        baseApc = Math.max(Math.min(baseApc, minApc), baseApc - reduction);
+      }
+    } else if (item.type === "spell") {
+      const { apcReduction } = getSpellFilteredCostModifiers(item, aeBonuses);
+      if (apcReduction !== 0) {
+        baseApc = Math.max(1, baseApc - apcReduction);
+      }
+    } else {
+      const apcRed = aeBonuses.reduceApc || 0;
+      if (apcRed !== 0) {
+        baseApc = Math.max(1, baseApc - apcRed);
+      }
+    }
   }
 
-  const direct = item.system?.apc;
-  if (typeof direct === "number" && !isNaN(direct) && direct >= 0) {
-    return Number(direct);
-  }
-
-  return 0;
+  return baseApc;
 }
 
 /**
@@ -92,20 +119,36 @@ export function calculateItemAPC(item, actor, options = {}) {
  */
 export function calculateItemSP(item, actor = null) {
   if (!item) return 0;
+  const targetActor = actor || item.actor || item.parent;
   if (item.type === "spell") {
     const libEntry = getSpellLibraryEntry(item);
     if (libEntry && typeof libEntry.spc === "number") {
-      return evaluateSpellScalingAndUpcharge(actor || item.actor, libEntry).effectiveSpc;
+      return evaluateSpellScalingAndUpcharge(targetActor, libEntry).effectiveSpc;
     }
   }
-  if (!item) return 0;
-  return Number(
+  let baseSpc = Number(
     item.system?.spc ??
     item.system?.spCost ??
     item.system?.sp ??
     item.system?.cost ??
     0
   );
+  if (targetActor && baseSpc > 0) {
+    const aeBonuses = getActorActiveEffectBonuses(targetActor);
+    if (item.type === "spell") {
+      const { spcReduction, isFreeSpell } = getSpellFilteredCostModifiers(item, aeBonuses);
+      if (isFreeSpell) return 0;
+      if (spcReduction !== 0) {
+        baseSpc = Math.max(0, baseSpc - spcReduction);
+      }
+    } else {
+      const spcRed = aeBonuses.reduceSpc || 0;
+      if (spcRed !== 0) {
+        baseSpc = Math.max(0, baseSpc - spcRed);
+      }
+    }
+  }
+  return baseSpc;
 }
 
 /**

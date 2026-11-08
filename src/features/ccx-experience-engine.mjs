@@ -794,9 +794,19 @@ function cleanPrerequisiteName(raw = "") {
   return String(raw || "")
     .toLowerCase()
     .replace(/\(.*?\)/g, "")
+    .replace(/\[.*?\]/g, "")
+    .replace(/\s*(track\s*)?talents?$/i, "")
+    .replace(/\b(entry|talent|talents|track|stack)\b/gi, "")
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function cleanEntryKey(star) {
+  if (!star) return "";
+  const cId = star.canonicalId || star.item?.flags?.["mythcraft-essence-sheet"]?.canonicalId;
+  if (cId) return cId;
+  return cleanPrerequisiteName(star.name);
 }
 
 function chunkNodes(list = [], maxPerRow = 3) {
@@ -805,6 +815,88 @@ function chunkNodes(list = [], maxPerRow = 3) {
     chunks.push(list.slice(i, i + maxPerRow));
   }
   return chunks;
+}
+
+/**
+ * Places granted children on a celestial orbital circle around their parent node,
+ * generating orbit circle metadata and tether beam edges.
+ * @param {object} parentNode - The granting parent star node (with svgX, svgY, xPct, yPct)
+ * @param {Array<object>} children - Array of granted child nodes
+ * @param {number} [orbitRadius=85] - Orbit radius in 1:1 SVG coordinate space (0..1000)
+ * @returns {{ placedChildren: Array<object>, orbitCircle: object, edges: Array<object> }}
+ */
+function placeGrantedChildrenOnOrbit(parentNode, children = [], orbitRadius = 85) {
+  if (!parentNode || !Array.isArray(children) || children.length === 0) {
+    return { placedChildren: [], orbitCircle: null, edges: [] };
+  }
+
+  const N = children.length;
+  let angles = [];
+  if (N === 1) {
+    angles = [parentNode.xPct > 55 ? 140 : 40];
+  } else if (N === 2) {
+    angles = [145, 35];
+  } else if (N === 3) {
+    angles = [160, 90, 20];
+  } else {
+    const step = 200 / Math.max(1, N - 1);
+    angles = Array.from({ length: N }, (_, i) => 190 - i * step);
+  }
+
+  const placedChildren = [];
+  const edges = [];
+
+  children.forEach((child, idx) => {
+    const deg = angles[idx] ?? (40 + idx * 30);
+    const rad = (deg * Math.PI) / 180;
+    const svgX = +(parentNode.svgX + orbitRadius * Math.cos(rad)).toFixed(1);
+    const svgY = +(parentNode.svgY + orbitRadius * Math.sin(rad)).toFixed(1);
+    const xPct = +Math.max(10, Math.min(90, svgX / 10)).toFixed(2);
+    const yPct = +Math.max(8, Math.min(92, svgY / 10)).toFixed(2);
+
+    const placedChild = {
+      ...child,
+      xPct,
+      yPct,
+      svgX: +(xPct * 10).toFixed(1),
+      svgY: +(yPct * 10).toFixed(1),
+      isGrantedTalent: true,
+      parentTalentName: parentNode.name,
+      parentTalentId: parentNode.id,
+      _isGrantedBy: parentNode,
+    };
+    placedChildren.push(placedChild);
+
+    edges.push({
+      x1: parentNode.svgX,
+      y1: parentNode.svgY,
+      x2: placedChild.svgX,
+      y2: placedChild.svgY,
+      midX: +((parentNode.svgX + placedChild.svgX) / 2).toFixed(1),
+      midY: +((parentNode.svgY + placedChild.svgY) / 2).toFixed(1),
+      isEnergized: true,
+      isGrantedLink: true,
+      stroke: "#38bdf8",
+      strokeWidth: "3.6",
+      dashArray: "6 3",
+      stateClass: "is-granted-beam",
+    });
+  });
+
+  const orbitCircle = {
+    cx: parentNode.svgX,
+    cy: parentNode.svgY,
+    r: orbitRadius,
+    innerR: +(orbitRadius * 0.72).toFixed(1),
+    parentId: parentNode.id,
+    parentName: parentNode.name,
+  };
+
+  const existingNames = Array.from(parentNode.grantedTalentNames || []);
+  const newNames = placedChildren.map(c => c.name);
+  parentNode.grantedTalentNames = [...new Set([...existingNames, ...newNames])];
+
+  return { placedChildren, orbitCircle, edges };
 }
 
 /**
@@ -820,9 +912,30 @@ function buildFocusedConstellationGraph(parentNode, remainingTaken = [], availab
     rows.push([{ ...parentNode, isParentRoot: true }]);
   }
 
+  // Separate direct granted children so they sit in orbit around their granting parent
+  const parentNameNorm = parentNode ? cleanPrerequisiteName(parentNode.name) : "";
+  const directGrantedByParent = [];
+  const otherRemainingTaken = [];
+  const grantedByOtherTaken = new Map();
+
+  for (const n of remainingTaken) {
+    const pName = cleanPrerequisiteName(n.parentTalentName || n.item?.flags?.["mythcraft-essence-sheet"]?.parentTalentName);
+    const pId = n.parentTalentId || n.item?.flags?.["mythcraft-essence-sheet"]?.parentTalentId;
+    const isDirectParent = parentNode && ((pId && (pId === parentNode.id || pId === parentNode.item?.id)) || (pName && pName === parentNameNorm));
+    if (isDirectParent) {
+      directGrantedByParent.push(n);
+    } else if (pName || pId) {
+      const pKey = pId || pName;
+      if (!grantedByOtherTaken.has(pKey)) grantedByOtherTaken.set(pKey, []);
+      grantedByOtherTaken.get(pKey).push(n);
+    } else {
+      otherRemainingTaken.push(n);
+    }
+  }
+
   // Group remaining taken nodes by tier, max 3 per row
   const takenByTier = new Map();
-  for (const n of remainingTaken) {
+  for (const n of otherRemainingTaken) {
     const tNum = n.tier || 2;
     if (!takenByTier.has(tNum)) takenByTier.set(tNum, []);
     takenByTier.get(tNum).push(n);
@@ -834,9 +947,10 @@ function buildFocusedConstellationGraph(parentNode, remainingTaken = [], availab
 
   const lastTakenRowIndex = Math.max(0, rows.length - 1);
 
-  // Add next available nodes, max 3 per row
-  if (availableNodes.length > 0) {
-    rows.push(...chunkNodes(availableNodes, 3));
+  // Add next available nodes, max 3 per row (including repeatable nodes)
+  const availableEligible = (availableNodes || []).filter(n => !n.isGrantedTalent || n.repeatable);
+  if (availableEligible.length > 0) {
+    rows.push(...chunkNodes(availableEligible, 3));
   }
 
   const numRows = rows.length;
@@ -904,6 +1018,7 @@ function buildFocusedConstellationGraph(parentNode, remainingTaken = [], availab
     const toActive = Boolean(toNode.isOwned || toNode.isSelectedForLevelUp);
     const isEnergized = fromActive && toActive;
     const isUnlockable = fromActive && Boolean(toNode.isAvailable) && !toActive;
+    const isGrantedLink = Boolean(toNode._isGrantedBy && toNode._isGrantedBy === fromNode);
 
     edges.push({
       x1: fromNode.svgX,
@@ -912,17 +1027,39 @@ function buildFocusedConstellationGraph(parentNode, remainingTaken = [], availab
       y2: toNode.svgY,
       midX: +((fromNode.svgX + toNode.svgX) / 2).toFixed(1),
       midY: +((fromNode.svgY + toNode.svgY) / 2).toFixed(1),
-      isEnergized,
-      isUnlockable,
-      stroke: isEnergized ? "#FEEBB3" : "#38bdf8",
-      strokeWidth: isEnergized ? "3.2" : "2.4",
-      dashArray: isEnergized ? "" : "9 6",
-      stateClass: isEnergized ? "edge-energized" : "edge-unlockable",
+      isEnergized: isEnergized || isGrantedLink,
+      isUnlockable: isUnlockable && !isGrantedLink,
+      isGrantedLink,
+      stroke: isGrantedLink ? "#38bdf8" : (isEnergized ? "#FEEBB3" : "#38bdf8"),
+      strokeWidth: isGrantedLink ? "3.6" : (isEnergized ? "3.2" : "2.4"),
+      dashArray: isGrantedLink ? "6 3" : (isEnergized ? "" : "9 6"),
+      stateClass: isGrantedLink ? "is-granted-beam" : (isEnergized ? "edge-energized" : "edge-unlockable"),
     });
   };
 
   const allTakenPlaced = rowPlacedGroups.slice(0, lastTakenRowIndex + 1).flat();
   const deepestTakenGroup = rowPlacedGroups[lastTakenRowIndex] || rowPlacedGroups[0] || [];
+  const orbitCircles = [];
+
+  // Place granted children on celestial orbit around their granting parents
+  const rootStarNode = rowPlacedGroups[0]?.[0];
+  if (rootStarNode && directGrantedByParent.length > 0) {
+    const orbitRes = placeGrantedChildrenOnOrbit(rootStarNode, directGrantedByParent, 85);
+    placedNodes.push(...orbitRes.placedChildren);
+    if (orbitRes.orbitCircle) orbitCircles.push(orbitRes.orbitCircle);
+    edges.push(...orbitRes.edges);
+  }
+
+  for (const tNode of allTakenPlaced) {
+    const normName = cleanPrerequisiteName(tNode.name);
+    const children = grantedByOtherTaken.get(tNode.id) || grantedByOtherTaken.get(normName) || [];
+    if (children.length > 0) {
+      const orbitRes = placeGrantedChildrenOnOrbit(tNode, children, 85);
+      placedNodes.push(...orbitRes.placedChildren);
+      if (orbitRes.orbitCircle) orbitCircles.push(orbitRes.orbitCircle);
+      edges.push(...orbitRes.edges);
+    }
+  }
 
   for (let rIdx = 1; rIdx < rowPlacedGroups.length; rIdx++) {
     const currentGroup = rowPlacedGroups[rIdx];
@@ -930,6 +1067,23 @@ function buildFocusedConstellationGraph(parentNode, remainingTaken = [], availab
 
     for (const node of currentGroup) {
       const matchedParents = [];
+
+      // Check if explicitly granted by parent talent
+      const parentName = node.item?.flags?.["mythcraft-essence-sheet"]?.parentTalentName || node.parentTalentName;
+      const parentId = node.item?.flags?.["mythcraft-essence-sheet"]?.parentTalentId || node.parentTalentId;
+      if (parentName || parentId) {
+        node.isGrantedTalent = true;
+        node.parentTalentName = parentName;
+        const grantedParent = allTakenPlaced.find(en =>
+          (parentId && (en.id === parentId || en.item?.id === parentId)) ||
+          (parentName && (cleanPrerequisiteName(en.name) === cleanPrerequisiteName(parentName) || String(en.name || "").toLowerCase().trim() === String(parentName).toLowerCase().trim()))
+        );
+        if (grantedParent && !matchedParents.includes(grantedParent)) {
+          matchedParents.push(grantedParent);
+          node._isGrantedBy = grantedParent;
+        }
+      }
+
       const candidateNames = [
         ...(Array.isArray(node.prerequisites) ? node.prerequisites : []),
         ...(Array.isArray(node.parentNames) ? node.parentNames : []),
@@ -995,6 +1149,7 @@ function buildFocusedConstellationGraph(parentNode, remainingTaken = [], availab
     nodes: placedNodes,
     edges,
     bgStars,
+    orbitCircles,
   };
 }
 
@@ -1043,14 +1198,25 @@ function buildBranchingSubclassConstellationGraph(parentNode, extraEntryNodes = 
   const rawNodes = [];
   const rawHeaders = [];
   const edgesRaw = [];
+  const orbitCircles = [];
 
-  // 1. Place Class Root Star(s) at the top center (yPx = 92)
-  const rootY = 92;
-  const allRootEntries = [
-    ...(parentNode ? [{ ...parentNode, isParentRoot: true }] : []),
-    ...extraEntryNodes.map(n => ({ ...n, isParentRoot: false })),
-  ];
+  // Deduplicate root entries by clean normalized name
+  const seenRootClean = new Set();
+  const allRootEntries = [];
+  if (parentNode) {
+    seenRootClean.add(cleanPrerequisiteName(parentNode.name));
+    allRootEntries.push({ ...parentNode, isParentRoot: true });
+  }
+  for (const n of extraEntryNodes) {
+    const cName = cleanPrerequisiteName(n.name);
+    if (!seenRootClean.has(cName)) {
+      seenRootClean.add(cName);
+      allRootEntries.push({ ...n, isParentRoot: false });
+    }
+  }
 
+  // 1. Place Class Root Star(s) at top center (yPx = 105)
+  const rootY = 105;
   const placedRootStars = allRootEntries.map((rNode, idx) => {
     const count = allRootEntries.length;
     const xPct = count === 1 ? 50 : +(34 + (idx / Math.max(1, count - 1)) * 32).toFixed(2);
@@ -1073,17 +1239,76 @@ function buildBranchingSubclassConstellationGraph(parentNode, extraEntryNodes = 
     });
   }
 
-  // 2. Partition Subclass Arms into balanced horizontal bands so arms never collide
-  //    - Arms with <= 3 visible stars take 1 slot (up to 3 arms side-by-side per band)
-  //    - Arms with 4..6 visible stars take 2 slots (up to 2 arms side-by-side)
-  //    - Arms with >= 7 visible stars take 3 slots (full width band, 3 stars per row)
+  // 2. Discover parent-child granted relationships
+  const getDocGrantedNames = (star) => {
+    if (!star) return [];
+    return [
+      ...(Array.isArray(star.grantedTalentNames) ? star.grantedTalentNames : []),
+      ...(Array.isArray(star.item?.flags?.["mythcraft-essence-sheet"]?.grantedTalentNames)
+        ? star.item.flags["mythcraft-essence-sheet"].grantedTalentNames
+        : []),
+    ].map(cleanPrerequisiteName);
+  };
+
+  const allTakenInArms = subclassBranches.flatMap(b => b.takenNodes || []);
+  const allPotentialParents = [...placedRootStars, ...allTakenInArms];
+
+  const findParentStar = (node) => {
+    if (!node) return null;
+    const pId = node.parentTalentId || node.item?.flags?.["mythcraft-essence-sheet"]?.parentTalentId;
+    const pName = node.parentTalentName || node.item?.flags?.["mythcraft-essence-sheet"]?.parentTalentName;
+    const cleanPName = pName ? cleanPrerequisiteName(pName) : "";
+    const cleanNodeName = cleanPrerequisiteName(node.name);
+
+    for (const parent of allPotentialParents) {
+      if (parent === node) continue;
+      if (pId && (parent.id === pId || parent.item?.id === pId)) return parent;
+      if (cleanPName && cleanPrerequisiteName(parent.name) === cleanPName) return parent;
+      const gNames = getDocGrantedNames(parent);
+      if (gNames.includes(cleanNodeName)) return parent;
+    }
+
+    if (node.isGrantedTalent || pName || pId) {
+      return primaryRootStar;
+    }
+    return null;
+  };
+
+  // Separate granted taken nodes from regular arm progression nodes
+  const grantedByParent = new Map();
+  const preparedBranches = subclassBranches.map(branch => {
+    const normalTaken = [];
+    const rawTaken = branch.takenNodes || [];
+    for (const n of rawTaken) {
+      const parent = findParentStar(n);
+      if (parent && parent !== n) {
+        if (!grantedByParent.has(parent)) grantedByParent.set(parent, []);
+        grantedByParent.get(parent).push({
+          ...n,
+          subclassLabel: branch.branchTitle,
+          isGrantedTalent: true,
+          parentTalentName: parent.name,
+          parentTalentId: parent.id,
+        });
+      } else {
+        normalTaken.push(n);
+      }
+    }
+    return {
+      ...branch,
+      takenNodes: normalTaken,
+      totalTakenCount: rawTaken.length,
+    };
+  });
+
+  // 3. Partition Subclass Arms into balanced horizontal bands so arms never collide
   const bands = [];
   let currentBand = [];
   let currentSlots = 0;
 
-  for (const branch of subclassBranches) {
+  for (const branch of preparedBranches) {
     const totalStars = branch.takenNodes.length + branch.availableNodes.length;
-    if (totalStars === 0) continue;
+    if (totalStars === 0 && branch.totalTakenCount === 0) continue;
     const slotsNeeded = totalStars >= 7 ? 3 : totalStars >= 4 ? 2 : 1;
     if (currentBand.length > 0 && currentSlots + slotsNeeded > 3) {
       bands.push(currentBand);
@@ -1095,7 +1320,7 @@ function buildBranchingSubclassConstellationGraph(parentNode, extraEntryNodes = 
   }
   if (currentBand.length > 0) bands.push(currentBand);
 
-  let cursorY = 235;
+  let cursorY = 265;
   const ROW_STEP_Y = 166;
   const HEADER_TO_FIRST_STAR_Y = 92;
   const BAND_GAP_Y = 64;
@@ -1129,8 +1354,8 @@ function buildBranchingSubclassConstellationGraph(parentNode, extraEntryNodes = 
       const headerHub = {
         id: `hub:${arm.branchKey}`,
         title: arm.branchTitle,
-        isStarted: arm.takenNodes.length > 0,
-        takenCount: arm.takenNodes.length,
+        isStarted: arm.totalTakenCount > 0,
+        takenCount: arm.totalTakenCount,
         availableCount: arm.availableNodes.length,
         xPct: +centerX.toFixed(2),
         yPx: cursorY,
@@ -1145,7 +1370,7 @@ function buildBranchingSubclassConstellationGraph(parentNode, extraEntryNodes = 
         });
       }
 
-      // Build sub-rows inside this Subclass Arm (Taken rows first, then Available rows)
+      // Build sub-rows inside this Subclass Arm (Normal taken rows first, then Available rows)
       const armRows = [];
       if (arm.takenNodes.length > 0) {
         const takenByTier = new Map();
@@ -1242,7 +1467,7 @@ function buildBranchingSubclassConstellationGraph(parentNode, extraEntryNodes = 
     cursorY = maxBandBottomY + ROW_STEP_Y + BAND_GAP_Y;
   }
 
-  const canvasHeight = Math.max(420, cursorY - BAND_GAP_Y + 45);
+  const canvasHeight = Math.max(460, cursorY - BAND_GAP_Y + 50);
 
   // Convert all yPx into yPct (0..100) and svgX/svgY (0..1000)
   for (const node of rawNodes) {
@@ -1257,21 +1482,63 @@ function buildBranchingSubclassConstellationGraph(parentNode, extraEntryNodes = 
     hub.svgY = +(hub.yPct * 10).toFixed(1);
   }
 
+  // 4. Place Granted Children on Orbital Celestial Circles around their Granting Parents
+  for (const [parentStar, children] of grantedByParent.entries()) {
+    if (!parentStar || !Array.isArray(children) || children.length === 0) continue;
+    const orbitRadius = 90;
+    const orbitRes = placeGrantedChildrenOnOrbit(parentStar, children, orbitRadius);
+    rawNodes.push(...orbitRes.placedChildren);
+    if (orbitRes.orbitCircle) {
+      orbitCircles.push(orbitRes.orbitCircle);
+    }
+    for (const e of orbitRes.edges) {
+      edgesRaw.push(e);
+    }
+
+    // Connect each granted child star to any available nodes down in the subclass arms that require it
+    for (const childStar of orbitRes.placedChildren) {
+      const childClean = cleanPrerequisiteName(childStar.name);
+      for (const otherNode of rawNodes) {
+        if (otherNode === childStar || otherNode.isOwned) continue;
+        const reqs = [
+          ...(Array.isArray(otherNode.prerequisites) ? otherNode.prerequisites : []),
+          ...(Array.isArray(otherNode.parentNames) ? otherNode.parentNames : []),
+        ].map(cleanPrerequisiteName);
+        if (reqs.includes(childClean) || (otherNode.subclassLabel && otherNode.subclassLabel === childStar.subclassLabel && cleanPrerequisiteName(otherNode.name).startsWith(childClean))) {
+          edgesRaw.push({
+            from: childStar,
+            to: otherNode,
+            isEnergized: Boolean(childStar.isOwned || childStar.isSelectedForLevelUp),
+            isUnlockable: Boolean(otherNode.isAvailable),
+            isGrantedLink: false,
+          });
+        }
+      }
+    }
+  }
+
+  // Convert edgesRaw to final SVG edge geometry
   const edges = edgesRaw.map(e => {
+    const x1 = e.x1 ?? e.from?.svgX;
+    const y1 = e.y1 ?? e.from?.svgY;
+    const x2 = e.x2 ?? e.to?.svgX;
+    const y2 = e.y2 ?? e.to?.svgY;
     const isEnergized = Boolean(e.isEnergized);
+    const isGrantedLink = Boolean(e.isGrantedLink);
     return {
-      x1: e.from.svgX,
-      y1: e.from.svgY,
-      x2: e.to.svgX,
-      y2: e.to.svgY,
-      midX: +((e.from.svgX + e.to.svgX) / 2).toFixed(1),
-      midY: +((e.from.svgY + e.to.svgY) / 2).toFixed(1),
-      isEnergized,
-      isUnlockable: !isEnergized,
-      stroke: isEnergized ? "#FEEBB3" : "#38bdf8",
-      strokeWidth: isEnergized ? "3.2" : "2.2",
-      dashArray: isEnergized ? "" : "8 6",
-      stateClass: isEnergized ? "edge-energized" : "edge-unlockable",
+      x1,
+      y1,
+      x2,
+      y2,
+      midX: +((x1 + x2) / 2).toFixed(1),
+      midY: +((y1 + y2) / 2).toFixed(1),
+      isEnergized: isEnergized || isGrantedLink,
+      isUnlockable: !isEnergized && !isGrantedLink,
+      isGrantedLink,
+      stroke: isGrantedLink ? "#38bdf8" : (isEnergized ? "#FEEBB3" : "#38bdf8"),
+      strokeWidth: isGrantedLink ? "3.6" : (isEnergized ? "3.2" : "2.2"),
+      dashArray: isGrantedLink ? "6 3" : (isEnergized ? "" : "8 6"),
+      stateClass: isGrantedLink ? "is-granted-beam" : (isEnergized ? "edge-energized" : "edge-unlockable"),
     };
   });
 
@@ -1296,6 +1563,7 @@ function buildBranchingSubclassConstellationGraph(parentNode, extraEntryNodes = 
     branchHeaders: rawHeaders,
     edges,
     bgStars,
+    orbitCircles,
   };
 }
 
@@ -1351,8 +1619,18 @@ export function buildCharacterNebulaTracks(rootTrees = [], expandedTrackSet = ne
 
   for (const tree of rootTrees) {
     const entryTalents = Array.isArray(tree.entryTalents) ? tree.entryTalents : [];
-    const ownedEntries = entryTalents.filter(n => n.isOwned || n.isSelectedForLevelUp);
-    const availableEntries = entryTalents.filter(n => n.isAvailable && !n.isOwned && !n.isSelectedForLevelUp);
+    const ownedEntries = [];
+    const ownedCleanNames = new Set();
+    for (const n of entryTalents) {
+      if (n.isOwned || n.isSelectedForLevelUp) {
+        const cName = cleanPrerequisiteName(n.name);
+        if (!ownedCleanNames.has(cName)) {
+          ownedCleanNames.add(cName);
+          ownedEntries.push(n);
+        }
+      }
+    }
+    const availableEntries = entryTalents.filter(n => n.isAvailable && (!n.isOwned || n.repeatable) && !n.isSelectedForLevelUp && (!ownedCleanNames.has(cleanPrerequisiteName(n.name)) || n.repeatable));
     const tracks = Array.isArray(tree.tracks) ? tree.tracks : [];
 
     // ── CLASS & MAGIC TREES: Group Subclasses under the main Class/Discipline Node ──
@@ -1365,7 +1643,7 @@ export function buildCharacterNebulaTracks(rootTrees = [], expandedTrackSet = ne
           return tDiff !== 0 ? tDiff : String(a.name || "").localeCompare(String(b.name || ""));
         });
         const takenNodes = sortedNodes.filter(n => n.isOwned || n.isSelectedForLevelUp);
-        const availableNodes = sortedNodes.filter(n => n.isAvailable && !n.isOwned && !n.isSelectedForLevelUp);
+        const availableNodes = sortedNodes.filter(n => n.isAvailable && (!n.isOwned || n.repeatable) && !n.isSelectedForLevelUp);
 
         if (takenNodes.length === 0 && availableNodes.length === 0) continue;
 
@@ -1424,9 +1702,13 @@ export function buildCharacterNebulaTracks(rootTrees = [], expandedTrackSet = ne
 
       // Determine the Class Root Star (Entry Talent if owned, otherwise first taken talent)
       let parentNode = ownedEntries[0] || allTakenInTree[0];
+      const parentClean = parentNode ? cleanPrerequisiteName(parentNode.name) : "";
       let extraEntryNodes = [];
       if (ownedEntries.length > 0) {
-        extraEntryNodes = [...ownedEntries.slice(1), ...availableEntries];
+        extraEntryNodes = [
+          ...ownedEntries.slice(1).filter(n => cleanPrerequisiteName(n.name) !== parentClean),
+          ...availableEntries.filter(n => cleanPrerequisiteName(n.name) !== parentClean),
+        ];
       } else if (allBranches.length > 0 && allBranches[0].takenNodes.length > 0) {
         // First taken talent becomes root; remove it from its branch so it isn't duplicated
         parentNode = allBranches[0].takenNodes[0];
@@ -1462,7 +1744,7 @@ export function buildCharacterNebulaTracks(rootTrees = [], expandedTrackSet = ne
         });
         const takenNodes = sortedNodes.filter(n => n.isOwned || n.isSelectedForLevelUp);
         if (takenNodes.length === 0) continue;
-        const availableNodes = sortedNodes.filter(n => n.isAvailable && !n.isOwned && !n.isSelectedForLevelUp);
+        const availableNodes = sortedNodes.filter(n => n.isAvailable && (!n.isOwned || n.repeatable) && !n.isSelectedForLevelUp);
         const trackKey = normalizeNebulaTrackTitle(track.trackTitle);
 
         const existing = specMerged.get(trackKey);

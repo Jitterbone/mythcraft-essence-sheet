@@ -21707,12 +21707,6 @@ tag-input .tag-chip-remove:hover {
   border: 1px solid rgba(45, 212, 191, 0.35);
 }
 
-.grant-parent-pill {
-  background: rgba(42, 122, 127, 0.25);
-  borde
-  line-height: 1.4;
-}
-
 .grant-dialog-body {
   padding: 16px 22px;
   display: flex;
@@ -22215,6 +22209,7 @@ tag-input .tag-chip-remove:hover {
   border: 1px solid rgba(56, 189, 248, 0.3);
   color: #38bdf8;
   font-size: 0.78rem;
+  line-height: 1.4;
   padding: 2px 8px;
   border-radius: 4px;
   font-weight: 600;

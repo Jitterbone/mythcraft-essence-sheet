@@ -1,4 +1,4 @@
-# MythCraft Essence Sheet (v0.8.1-beta) 📜✨
+# MythCraft Essence Sheet (v0.9.0-beta) 📜✨
 
 [![Latest Release](https://img.shields.io/github/v/release/Jitterbone/mythcraft-essence-sheet?style=flat&logo=github&logoColor=white&color=22c55e&label=Latest%20Release)](https://github.com/Jitterbone/mythcraft-essence-sheet/releases/latest)
 [![Foundry VTT](https://img.shields.io/badge/Foundry%20VTT-v14%20Verified-ff6400?style=flat)](https://foundryvtt.com)
@@ -227,6 +227,32 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 ---
 
 ## 📝 Changelog
+
+### v0.9.0-beta
+- **Active Effects Manager (AEM) & Automated Effects Suite**:
+  - Implemented the Guided Active Effects Manager (`ActiveEffectManager`) offering visual creation, editing, and automation of active effects across Characters, NPCs, and Siege Weapons.
+  - Added categorized effect organization (Combat, Defenses, Attributes, Skills, Movement, Senses, System) with real-time effect evaluation and conflict resolution.
+  - Transferred and conditional item effects dynamically check equipment status (equipped, attuned, condition hints) and update actor attributes instantly.
+- **Canonical Talent Library & Automation Engine**:
+  - Built-in exhaustive talent library (`talent-library.mjs` and `talent-skill-grants.mjs`) mapping canonical MythCraft talents to automated active effect definitions and skill grants.
+  - Added opt-in world setting for automated talent effects (`talentAutomation`) alongside a guided "What's New" spotlight dialog (`WhatsNewDialog`) on update.
+  - Implemented interactive **Talent Benefit Grant Dialog** (`TalentGrantDialog`) and **Talent Skill Allocation Dialog** (`TalentSkillAllocationDialog`) for automated multi-stack choices, track picks, and granted sub-talents.
+- **Repeatable Talents & Constellation Tree Viewer Enhancements**:
+  - Full support for multi-stack / repeatable talents with tier pip indicators (`x2`, `x3`, etc.) on sheets and the talent constellation viewer.
+  - Constellation viewer now features animated orbital celestial rings, granted connection tethers, and distinct visual hierarchy for parent and granted talents.
+- **Character Creation Wizard & Level-Up Progression Overhaul**:
+  - Integrated the CCX Experience Engine (`ccx-experience-engine.mjs`) for end-to-end level-up progression management.
+  - Modernized level-up dialog with interactive talent tree browsing, attribute increase validation, HP die/set HP choices, and skill allocation.
+  - Enhanced creation wizard flow with real-time profession detail previews, lineage trait isolation, and background skill point caps.
+- **Weapon Attack Roll Breakdown & Source Attribution**:
+  - Complete roll breakdown for weapon attacks displaying base d20, attribute modifiers, item attack mods, and active effect bonuses.
+  - Active effect bonuses now attribute the exact name of the granting talent or feature (e.g. `Blade Master: +2`) in the roll breakdown and chat cards instead of generic labels.
+  - Cleaned up attack roll formulas to display clean numeric terms (e.g. `1d20 + 3 + 2`) matching MythCraft HUD and core roll aesthetics.
+- **Macro & Hotbar Synchronization**:
+  - Synchronized weapon attack modifiers and damage formulas during `prepareDerivedData` so external macros, hotbar buttons, and HUDs receive accurate numbers.
+- **Bug Fixes & Maintenance**:
+  - Resolved a CSS syntax error in `essence-sheet-theme.css`.
+  - Fixed permission errors when updating unlinked tokens/actors as non-GM users.
 
 ### v0.8.1-beta
 - **Character Creation Wizard — Lineages & Sublineages**:

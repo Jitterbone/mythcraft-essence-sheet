@@ -17,7 +17,7 @@ export default class WhatsNewDialog extends HandlebarsApplicationMixin(Applicati
    * Version tracking constant for the Active Effect Engine & Talent Automation update.
    * Updating this constant will prompt users on subsequent major updates.
    */
-  static WHATS_NEW_VERSION = "0.9.8-talent-automation";
+  static WHATS_NEW_VERSION = "0.9.0-beta";
 
   static DEFAULT_OPTIONS = {
     id: "mythcraft-whats-new-dialog",

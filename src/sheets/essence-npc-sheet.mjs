@@ -351,7 +351,7 @@ export default class EssenceNPCSheet extends NPCSheet {
 
     if (itemAtkMod !== 0) {
       const itemLabel = details.itemLabel || (item.name ? `${item.name} Attack Mod` : "Attack Mod");
-      formulaParts.push(itemAtkMod > 0 ? `+ ${itemAtkMod}[${itemLabel}]` : `- ${Math.abs(itemAtkMod)}[${itemLabel}]`);
+      formulaParts.push(itemAtkMod > 0 ? `+ ${itemAtkMod}` : `- ${Math.abs(itemAtkMod)}`);
       modifiers.push({
         label: itemLabel,
         value: itemAtkMod,
@@ -362,7 +362,7 @@ export default class EssenceNPCSheet extends NPCSheet {
 
     if (aeAtkBonus !== 0) {
       const aeLabel = details.aeLabel || "Attack Bonus";
-      formulaParts.push(aeAtkBonus > 0 ? `+ ${aeAtkBonus}[${aeLabel}]` : `- ${Math.abs(aeAtkBonus)}[${aeLabel}]`);
+      formulaParts.push(aeAtkBonus > 0 ? `+ ${aeAtkBonus}` : `- ${Math.abs(aeAtkBonus)}`);
       modifiers.push({
         label: aeLabel,
         value: aeAtkBonus,
@@ -373,7 +373,7 @@ export default class EssenceNPCSheet extends NPCSheet {
 
     let formula = formulaParts.join(" ");
     if (formula === "1d20") {
-      formula = "1d20 + 0[Attack Mod]";
+      formula = "1d20 + 0";
     }
 
     const critHit = getActorCritHit(this.actor);

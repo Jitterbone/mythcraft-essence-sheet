@@ -1217,7 +1217,7 @@ export async function rollWeaponItem(actor, item, { rollMode = null, ta = 0, td 
 
   // 1. Attribute modifier
   if (attrValue !== 0) {
-    formulaParts.push(attrValue > 0 ? `+ ${attrValue}[${attrLabel}]` : `- ${Math.abs(attrValue)}[${attrLabel}]`);
+    formulaParts.push(attrValue > 0 ? `+ ${attrValue}` : `- ${Math.abs(attrValue)}`);
     modifiers.push({
       label: `${attrLabel} Modifier`,
       value: attrValue,
@@ -1229,7 +1229,7 @@ export async function rollWeaponItem(actor, item, { rollMode = null, ta = 0, td 
   // 2. Weapon item-level attack modifier
   if (itemAtkMod !== 0) {
     const itemLabel = details.itemLabel || (item.name ? `${item.name} Attack Mod` : "Weapon Attack Mod");
-    formulaParts.push(itemAtkMod > 0 ? `+ ${itemAtkMod}[${itemLabel}]` : `- ${Math.abs(itemAtkMod)}[${itemLabel}]`);
+    formulaParts.push(itemAtkMod > 0 ? `+ ${itemAtkMod}` : `- ${Math.abs(itemAtkMod)}`);
     modifiers.push({
       label: itemLabel,
       value: itemAtkMod,
@@ -1241,7 +1241,7 @@ export async function rollWeaponItem(actor, item, { rollMode = null, ta = 0, td 
   // 3. Active Effect / Actor-level attack bonus
   if (aeAtkBonus !== 0) {
     const aeLabel = details.aeLabel || "Attack Bonus";
-    formulaParts.push(aeAtkBonus > 0 ? `+ ${aeAtkBonus}[${aeLabel}]` : `- ${Math.abs(aeAtkBonus)}[${aeLabel}]`);
+    formulaParts.push(aeAtkBonus > 0 ? `+ ${aeAtkBonus}` : `- ${Math.abs(aeAtkBonus)}`);
     modifiers.push({
       label: aeLabel,
       value: aeAtkBonus,
@@ -1253,7 +1253,7 @@ export async function rollWeaponItem(actor, item, { rollMode = null, ta = 0, td 
   // 4. Situational Bonus (e.g. from dialog or roll data)
   const situationalBonus = Number(bonus) || 0;
   if (situationalBonus !== 0) {
-    formulaParts.push(situationalBonus > 0 ? `+ ${situationalBonus}[Situational Bonus]` : `- ${Math.abs(situationalBonus)}[Situational Bonus]`);
+    formulaParts.push(situationalBonus > 0 ? `+ ${situationalBonus}` : `- ${Math.abs(situationalBonus)}`);
     modifiers.push({
       label: "Situational Bonus",
       value: situationalBonus,
@@ -1264,7 +1264,7 @@ export async function rollWeaponItem(actor, item, { rollMode = null, ta = 0, td 
 
   // 5. MythCraft Rule: If LUCK < 0, subtract LUCK from every d20 roll
   if (luck < 0) {
-    formulaParts.push(`- ${Math.abs(luck)}[Luck Penalty]`);
+    formulaParts.push(`- ${Math.abs(luck)}`);
     modifiers.push({
       label: "Luck Penalty",
       value: luck,
@@ -1295,7 +1295,7 @@ export async function rollWeaponItem(actor, item, { rollMode = null, ta = 0, td 
 
   let formula = formulaParts.join(" ");
   if (formula === "1d20") {
-    formula = `1d20 + 0[${attrLabel}]`;
+    formula = "1d20 + 0";
   }
 
   const rollData = actor.getRollData ? actor.getRollData() : {};

@@ -1238,8 +1238,19 @@ export async function rollWeaponItem(actor, item, { rollMode = null, ta = 0, td 
     });
   }
 
-  // 3. Active Effect / Actor-level attack bonus
-  if (aeAtkBonus !== 0) {
+  // 3. Active Effect / Actor-level attack bonus (by talent/feature source)
+  if (Array.isArray(details.aeSources) && details.aeSources.length > 0) {
+    for (const src of details.aeSources) {
+      if (!src || src.value === 0) continue;
+      formulaParts.push(src.value > 0 ? `+ ${src.value}` : `- ${Math.abs(src.value)}`);
+      modifiers.push({
+        label: src.label || "Attack Bonus",
+        value: src.value,
+        text: src.value > 0 ? `+${src.value}` : `${src.value}`,
+        cssClass: src.value >= 0 ? "positive" : "negative",
+      });
+    }
+  } else if (aeAtkBonus !== 0) {
     const aeLabel = details.aeLabel || "Attack Bonus";
     formulaParts.push(aeAtkBonus > 0 ? `+ ${aeAtkBonus}` : `- ${Math.abs(aeAtkBonus)}`);
     modifiers.push({
@@ -1360,6 +1371,14 @@ export async function rollWeaponItem(actor, item, { rollMode = null, ta = 0, td 
   const resultClass = isCrit ? "crit-success" : (isFumble ? "crit-fail" : "");
   const resultLabel = isCrit ? "CRITICAL HIT" : (isFumble ? "CRITICAL FAILURE" : "ATTACK ROLL");
 
+  const aePillsHTML = (Array.isArray(details.aeSources) && details.aeSources.length > 0)
+    ? details.aeSources.filter(s => s && s.value !== 0).map(s => `
+        <span class="breakdown-part ae-mod-part" style="padding: 2px 6px; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.45); border-radius: 4px; color: #93c5fd; font-weight: 600;"><i class="fas fa-sparkles"></i> ${s.value > 0 ? `+${s.value}` : s.value} (${s.label})</span>
+      `).join("")
+    : (aeAtkBonus !== 0
+      ? `<span class="breakdown-part ae-mod-part" style="padding: 2px 6px; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.45); border-radius: 4px; color: #93c5fd; font-weight: 600;"><i class="fas fa-sparkles"></i> ${aeAtkBonus > 0 ? `+${aeAtkBonus}` : aeAtkBonus} (${details.aeLabel})</span>`
+      : "");
+
   const rollHTML = (typeof roll.render === "function") ? await roll.render() : "";
 
   const content = `
@@ -1379,7 +1398,7 @@ export async function rollWeaponItem(actor, item, { rollMode = null, ta = 0, td 
           <span class="breakdown-part d20-part" style="padding: 2px 6px; background: rgba(0,0,0,0.35); border-radius: 4px; color: #cbd5e1;"><i class="fas fa-dice-d20"></i> ${d20Result} (Base d20)</span>
           ${attrValue !== 0 ? `<span class="breakdown-part attr-part" style="padding: 2px 6px; background: rgba(0,0,0,0.35); border-radius: 4px; color: #cbd5e1;">${attrValue > 0 ? `+${attrValue}` : attrValue} (${attrLabel})</span>` : ""}
           ${itemAtkMod !== 0 ? `<span class="breakdown-part weapon-mod-part" style="padding: 2px 6px; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.45); border-radius: 4px; color: #6ee7b7; font-weight: 600;"><i class="fas fa-crosshairs"></i> ${itemAtkMod > 0 ? `+${itemAtkMod}` : itemAtkMod} (${details.itemLabel})</span>` : ""}
-          ${aeAtkBonus !== 0 ? `<span class="breakdown-part ae-mod-part" style="padding: 2px 6px; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.45); border-radius: 4px; color: #93c5fd; font-weight: 600;"><i class="fas fa-sparkles"></i> ${aeAtkBonus > 0 ? `+${aeAtkBonus}` : aeAtkBonus} (${details.aeLabel})</span>` : ""}
+          ${aePillsHTML}
           ${situationalBonus !== 0 ? `<span class="breakdown-part sit-mod-part" style="padding: 2px 6px; background: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.45); border-radius: 4px; color: #fcd34d; font-weight: 600;">${situationalBonus > 0 ? `+${situationalBonus}` : situationalBonus} (Situational Bonus)</span>` : ""}
           ${taVal > 0 ? `<span class="breakdown-part ta-part" style="padding: 2px 6px; background: rgba(16, 185, 129, 0.2); border-radius: 4px; color: #6ee7b7;">+${taVal} (TA)</span>` : ""}
           ${tdVal > 0 ? `<span class="breakdown-part td-part" style="padding: 2px 6px; background: rgba(239, 68, 68, 0.2); border-radius: 4px; color: #fca5a5;">-${tdVal} (TD)</span>` : ""}

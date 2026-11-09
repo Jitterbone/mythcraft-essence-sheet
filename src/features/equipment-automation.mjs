@@ -962,11 +962,11 @@ export function getTwoHandedBaseFormula(weapon) {
  * Safely extracts and resolves the weapon attack modifier breakdown (item-level and active-effect/actor-level).
  * @param {Item} item
  * @param {Actor} [actor=null]
- * @returns {{ itemMod: number, aeMod: number, total: number, itemLabel: string, aeLabel: string }}
+ * @returns {{ itemMod: number, aeMod: number, total: number, itemLabel: string, aeLabel: string, aeSources: Array<{ name: string, label: string, value: number }> }}
  */
 export function getWeaponAttackModifierDetails(item, actor = null) {
   if (!item) {
-    return { itemMod: 0, aeMod: 0, total: 0, itemLabel: "Weapon Attack Mod", aeLabel: "Attack Bonus" };
+    return { itemMod: 0, aeMod: 0, total: 0, itemLabel: "Weapon Attack Mod", aeLabel: "Attack Bonus", aeSources: [] };
   }
 
   const effectiveActor = actor || item.actor || item.parent || null;
@@ -1036,11 +1036,24 @@ export function getWeaponAttackModifierDetails(item, actor = null) {
 
   // 5. Active Effects & Actor-level weapon attack bonuses
   let aeMod = 0;
+  const aeSources = [];
   if (effectiveActor) {
     const aeBonuses = getActorActiveEffectBonuses(effectiveActor);
     const weaponAe = Number(aeBonuses?.weaponAttackBonus || 0);
     const allAe = Number(aeBonuses?.allAttackBonus || 0);
     aeMod = weaponAe + allAe;
+
+    if (Array.isArray(aeBonuses?.weaponAttackSources) && aeBonuses.weaponAttackSources.length > 0) {
+      for (const src of aeBonuses.weaponAttackSources) {
+        if (src && src.value !== 0) {
+          aeSources.push({
+            name: src.name,
+            label: src.label || src.name,
+            value: src.value,
+          });
+        }
+      }
+    }
 
     // Direct actor system attack bonuses (if not already handled in aeBonuses)
     if (!weaponAe && !allAe) {
@@ -1056,6 +1069,11 @@ export function getWeaponAttackModifierDetails(item, actor = null) {
           const num = parseSignedNumber(sb, 0);
           if (num !== 0) {
             aeMod += num;
+            aeSources.push({
+              name: "Attack Bonus",
+              label: "Attack Bonus",
+              value: num,
+            });
             break;
           }
         }
@@ -1064,7 +1082,12 @@ export function getWeaponAttackModifierDetails(item, actor = null) {
   }
 
   const itemLabel = item.name ? `${item.name} Attack Mod` : "Weapon Attack Mod";
-  const aeLabel = "Attack Bonus";
+  let aeLabel = "Attack Bonus";
+  if (aeSources.length === 1) {
+    aeLabel = aeSources[0].label;
+  } else if (aeSources.length > 1) {
+    aeLabel = aeSources.map(s => s.label).join(" + ");
+  }
 
   return {
     itemMod,
@@ -1072,6 +1095,7 @@ export function getWeaponAttackModifierDetails(item, actor = null) {
     total: itemMod + aeMod,
     itemLabel,
     aeLabel,
+    aeSources,
   };
 }
 

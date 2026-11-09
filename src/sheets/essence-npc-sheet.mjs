@@ -360,7 +360,18 @@ export default class EssenceNPCSheet extends NPCSheet {
       });
     }
 
-    if (aeAtkBonus !== 0) {
+    if (Array.isArray(details.aeSources) && details.aeSources.length > 0) {
+      for (const src of details.aeSources) {
+        if (!src || src.value === 0) continue;
+        formulaParts.push(src.value > 0 ? `+ ${src.value}` : `- ${Math.abs(src.value)}`);
+        modifiers.push({
+          label: src.label || "Attack Bonus",
+          value: src.value,
+          text: src.value > 0 ? `+${src.value}` : `${src.value}`,
+          cssClass: src.value >= 0 ? "positive" : "negative",
+        });
+      }
+    } else if (aeAtkBonus !== 0) {
       const aeLabel = details.aeLabel || "Attack Bonus";
       formulaParts.push(aeAtkBonus > 0 ? `+ ${aeAtkBonus}` : `- ${Math.abs(aeAtkBonus)}`);
       modifiers.push({
@@ -423,6 +434,14 @@ export default class EssenceNPCSheet extends NPCSheet {
     const resultClass = isCrit ? "crit-success" : (isFumble ? "crit-fail" : "");
     const resultLabel = isCrit ? "CRITICAL HIT" : (isFumble ? "CRITICAL FAILURE" : "ATTACK ROLL");
 
+    const aePillsHTML = (Array.isArray(details.aeSources) && details.aeSources.length > 0)
+      ? details.aeSources.filter(s => s && s.value !== 0).map(s => `
+          <span class="breakdown-part ae-mod-part" style="padding: 2px 6px; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.45); border-radius: 4px; color: #93c5fd; font-weight: 600;"><i class="fas fa-sparkles"></i> ${s.value > 0 ? `+${s.value}` : s.value} (${s.label})</span>
+        `).join("")
+      : (aeAtkBonus !== 0
+        ? `<span class="breakdown-part ae-mod-part" style="padding: 2px 6px; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.45); border-radius: 4px; color: #93c5fd; font-weight: 600;"><i class="fas fa-sparkles"></i> ${aeAtkBonus > 0 ? `+${aeAtkBonus}` : aeAtkBonus} (${details.aeLabel})</span>`
+        : "");
+
     const rollHTML = (typeof roll.render === "function") ? await roll.render() : "";
 
     // Standardized MythCraft Statblock Attack Card Layout (Matches MythCraft HUD & Character Sheet Design)
@@ -441,7 +460,8 @@ export default class EssenceNPCSheet extends NPCSheet {
           <div class="roll-formula">${roll.formula}</div>
           <div class="roll-breakdown-details" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin-top: 6px; padding-top: 5px; border-top: 1px dashed rgba(255, 255, 255, 0.15); font-size: 11px;">
             <span class="breakdown-part d20-part" style="padding: 2px 6px; background: rgba(0,0,0,0.35); border-radius: 4px; color: #cbd5e1;"><i class="fas fa-dice-d20"></i> ${d20Result} (Base d20)</span>
-            ${attackBonus !== 0 ? `<span class="breakdown-part weapon-mod-part" style="padding: 2px 6px; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.45); border-radius: 4px; color: #6ee7b7; font-weight: 600;"><i class="fas fa-crosshairs"></i> ${attackBonus > 0 ? `+${attackBonus}` : attackBonus} (${item.name} Attack Mod)</span>` : ""}
+            ${itemAtkMod !== 0 ? `<span class="breakdown-part weapon-mod-part" style="padding: 2px 6px; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.45); border-radius: 4px; color: #6ee7b7; font-weight: 600;"><i class="fas fa-crosshairs"></i> ${itemAtkMod > 0 ? `+${itemAtkMod}` : itemAtkMod} (${details.itemLabel})</span>` : ""}
+            ${aePillsHTML}
           </div>
           ${(isFumble && isAstounding) ? '<div class="astounding-fumble-banner" style="margin-top: 6px; padding: 4px 8px; background: rgba(192, 57, 43, 0.35); border: 1px solid #e74c3c; border-radius: 4px; color: #ff9999; font-size: 11px; font-weight: 700; text-align: center;"><i class="fas fa-skull-crossbones"></i> Astounding Critical Failure: Turn Ended &amp; AP Lost!</div>' : ''}
         </div>

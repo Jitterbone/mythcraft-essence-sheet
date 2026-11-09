@@ -2101,20 +2101,43 @@ export function getAllActorEffectsWithMeta(actor) {
       Number(effect.duration?.turns) > 0 ||
       Number(effect.duration?.seconds) > 0
     );
+
+    let parentItem = null;
+    if (effect.origin && typeof effect.origin === "string") {
+      const match = effect.origin.match(/Item\.([a-zA-Z0-9]+)/);
+      if (match && actor.items?.get) {
+        parentItem = actor.items.get(match[1]);
+      }
+      if (!parentItem && typeof globalThis.fromUuidSync === "function") {
+        try {
+          const doc = globalThis.fromUuidSync(effect.origin);
+          if (doc?.documentName === "Item") parentItem = doc;
+          else if (doc?.parent?.documentName === "Item") parentItem = doc.parent;
+        } catch (_) {}
+      }
+    }
+
+    const isFromItem = Boolean(parentItem);
+    const effName = effect.name || effect.label || "";
+    let sourceLabel = parentItem?.name || effName;
+    if (!sourceLabel || ["Effect", "New Effect", "Active Effect"].includes(sourceLabel)) {
+      sourceLabel = "Character Sheet";
+    }
+
     results.push({
       effect,
       id: effect.id,
       uuid: effect.uuid,
-      name: effect.name || "Effect",
-      img: effect.img || "icons/svg/aura.svg",
+      name: effName || (parentItem ? parentItem.name : "Effect"),
+      img: effect.img || (parentItem ? parentItem.img : "icons/svg/aura.svg"),
       disabled: Boolean(effect.disabled),
       isTemporary,
-      parentItem: null,
-      parentItemId: null,
-      isFromItem: false,
-      isItemEffect: false,
-      sourceLabel: "Character Sheet",
-      sourceTypeLabel: "Sheet",
+      parentItem,
+      parentItemId: parentItem?.id || null,
+      isFromItem,
+      isItemEffect: isFromItem,
+      sourceLabel,
+      sourceTypeLabel: parentItem ? String(parentItem.type || "item").toUpperCase() : "Sheet",
       activationRequirement: "always",
       itemRequirement: "always",
       isConditionalTalent: false,
@@ -2351,6 +2374,7 @@ export function getActorActiveEffectBonuses(actor) {
     attackAllDelta: 0,
     rollsAllDelta: 0,
     weaponAttackBonus: 0,
+    weaponAttackSources: [],
     spellAttackBonus: 0,
     allAttackBonus: 0,
     allRollsBonus: 0,
@@ -2408,6 +2432,27 @@ export function getActorActiveEffectBonuses(actor) {
       else if (targetType === "spell") bonuses.damageSpellDice.push(str);
       else bonuses.damageAllDice.push(str);
     }
+  };
+
+  const resolveEffectSourceName = (meta, effect) => {
+    let src = meta.parentItem?.name || meta.sourceLabel;
+    if (src === "Character Sheet") src = "";
+    if (!src && effect.origin && typeof globalThis.fromUuidSync === "function") {
+      try {
+        const originDoc = globalThis.fromUuidSync(effect.origin);
+        if (originDoc?.name) src = originDoc.name;
+        else if (originDoc?.parent?.name) src = originDoc.parent.name;
+      } catch (_) {}
+    }
+    if (!src && effect.name) {
+      const effName = String(effect.name || effect.label || "").trim();
+      if (effName && !["Effect", "New Effect", "Active Effect", "Weapon Attack Roll Bonus", "Attack Bonus"].includes(effName)) {
+        src = effName;
+      }
+    }
+    if (!src) src = effect.name || effect.label || "Attack Bonus";
+    src = src.replace(/\s*\((?:Active|Passive|Triggered|Active\s*\/\s*Triggered)\)$/i, "").trim();
+    return src || "Attack Bonus";
   };
 
   for (const meta of allMeta) {
@@ -2604,6 +2649,14 @@ export function getActorActiveEffectBonuses(actor) {
         key === "system.bonuses.attack"
       ) {
         bonuses.attackWeaponDelta += numVal;
+        if (numVal !== 0) {
+          const sourceName = resolveEffectSourceName(meta, effect);
+          bonuses.weaponAttackSources.push({
+            name: sourceName,
+            label: sourceName,
+            value: numVal,
+          });
+        }
       }
       else if (
         key === `${flagPrefix}bonuses.attack.spell` ||
@@ -2621,6 +2674,14 @@ export function getActorActiveEffectBonuses(actor) {
         key === "flags.mythcraft.bonuses.attack"
       ) {
         bonuses.attackAllDelta += numVal;
+        if (numVal !== 0) {
+          const sourceName = resolveEffectSourceName(meta, effect);
+          bonuses.weaponAttackSources.push({
+            name: sourceName,
+            label: sourceName,
+            value: numVal,
+          });
+        }
       }
       else if (
         key === "system.bonuses.rolls.all" ||
@@ -2734,6 +2795,21 @@ export function getActorActiveEffectBonuses(actor) {
   bonuses.allRollsBonus = bonuses.rollsAllDelta;
   bonuses.critBonus = bonuses.critBonusDelta;
   bonuses.allSkillsBonus = bonuses.allSkillsDelta;
+
+  // Group and aggregate weaponAttackSources by source name
+  const groupedSources = [];
+  const sourceMap = new Map();
+  for (const src of bonuses.weaponAttackSources) {
+    if (!src || !src.value) continue;
+    if (!sourceMap.has(src.name)) {
+      const entry = { name: src.name, label: src.label || src.name, value: src.value };
+      sourceMap.set(src.name, entry);
+      groupedSources.push(entry);
+    } else {
+      sourceMap.get(src.name).value += src.value;
+    }
+  }
+  bonuses.weaponAttackSources = groupedSources.filter(s => s.value !== 0);
 
   return bonuses;
 }

@@ -55,7 +55,7 @@ jobs:
 
       - name: Create ZIP package
         run: |
-          zip -r ./mythcraft-essence-sheet.zip . -x ".git/*" ".github/*" "dist/*" ".gitignore"
+          zip -r ./mythcraft-essence-sheet.zip . -x ".git/*" ".github/*" "dist/*" ".gitignore" ".vscode/*" ".gemini/*" "GEMINI.md"
           cp ./mythcraft-essence-sheet.zip ./module.zip
 
       - name: Upload Release Assets

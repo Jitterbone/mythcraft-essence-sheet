@@ -2,3 +2,9 @@ scratch/
 .DS_Store
 Thumbs.db
 node_modules/
+
+# Local IDE and editor configurations
+.vscode/
+.gemini/
+GEMINI.md
+

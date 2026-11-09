@@ -1271,38 +1271,137 @@ function patchHotbarAndSystemRolls() {
     Hooks.on("hotbarDrop", hotbarDropHandler);
   }
 
-  // 5. Patch ActionHandler in mythcraft-hud if active
-  if (game.modules?.get("mythcraft-hud")?.active) {
-    import("/modules/mythcraft-hud/scripts/actions/ActionHandler.js").then(hudModule => {
-      const ActionHandler = hudModule?.ActionHandler;
-      if (ActionHandler && !ActionHandler._essencePatched) {
-        ActionHandler._essencePatched = true;
+  // 5. Patch ActionHandler and MythcraftHUD in mythcraft-hud if active
+  async function patchMythcraftHUDIntegration() {
+    if (!game.modules?.get("mythcraft-hud")?.active) return;
 
-        const origRollWeapon = ActionHandler.rollWeapon;
-        ActionHandler.rollWeapon = async function(weaponId, actor, options = {}) {
-          const item = actor?.items?.get(weaponId);
-          if (actor && item && item.type === "weapon") {
-            return await rollWeaponItem(actor, item, options);
-          }
-          if (typeof origRollWeapon === "function") {
-            return await origRollWeapon.call(this, weaponId, actor, options);
-          }
-        };
+    // A. Patch ActionHandler
+    const actionUrls = [
+      globalThis.foundry?.utils?.getRoute ? foundry.utils.getRoute("modules/mythcraft-hud/scripts/actions/ActionHandler.js") : "/modules/mythcraft-hud/scripts/actions/ActionHandler.js",
+      "/modules/mythcraft-hud/scripts/actions/ActionHandler.js",
+    ];
 
-        const origRollDamage = ActionHandler.rollDamage;
-        ActionHandler.rollDamage = async function(formula, type, actorUuid, options = {}) {
-          const actor = actorUuid ? await fromUuid(actorUuid) : null;
-          const itemId = options.itemId || options.item?.id;
-          const item = itemId ? actor?.items?.get(itemId) : null;
-          if (actor && item) {
-            return await rollItemDamage(actor, item, options);
-          }
-          if (typeof origRollDamage === "function") {
-            return await origRollDamage.call(this, formula, type, actorUuid, options);
-          }
-        };
-      }
-    }).catch(() => {});
+    for (const url of actionUrls) {
+      try {
+        const hudModule = await import(url);
+        const ActionHandler = hudModule?.ActionHandler;
+        if (ActionHandler && !ActionHandler._essencePatched) {
+          ActionHandler._essencePatched = true;
+
+          const origRollWeapon = ActionHandler.rollWeapon;
+          ActionHandler.rollWeapon = async function(weaponId, actor, options = {}) {
+            const item = actor?.items?.get(weaponId);
+            if (actor && item && item.type === "weapon") {
+              return await rollWeaponItem(actor, item, options);
+            }
+            if (typeof origRollWeapon === "function") {
+              return await origRollWeapon.call(this, weaponId, actor, options);
+            }
+          };
+
+          const origConfigureAttack = ActionHandler.configureAttack;
+          ActionHandler.configureAttack = async function(weaponId, actor, options = {}) {
+            const item = actor?.items?.get(weaponId);
+            if (actor && item && item.type === "weapon") {
+              return await rollWeaponItem(actor, item, options);
+            }
+            if (typeof origConfigureAttack === "function") {
+              return await origConfigureAttack.call(this, weaponId, actor, options);
+            }
+          };
+
+          const origExecuteUnifiedAction = ActionHandler.executeUnifiedAction;
+          ActionHandler.executeUnifiedAction = async function(itemId, actor, options = {}) {
+            const item = actor?.items?.get(itemId);
+            if (actor && item && item.type === "weapon") {
+              return await rollWeaponItem(actor, item, options);
+            }
+            if (typeof origExecuteUnifiedAction === "function") {
+              return await origExecuteUnifiedAction.call(this, itemId, actor, options);
+            }
+          };
+
+          const origRollDamage = ActionHandler.rollDamage;
+          ActionHandler.rollDamage = async function(formula, type, actorUuid, options = {}) {
+            const actor = actorUuid ? await fromUuid(actorUuid) : null;
+            const itemId = options.itemId || options.item?.id;
+            const item = itemId ? actor?.items?.get(itemId) : null;
+            if (actor && item) {
+              return await rollItemDamage(actor, item, options);
+            }
+            if (typeof origRollDamage === "function") {
+              return await origRollDamage.call(this, formula, type, actorUuid, options);
+            }
+          };
+
+          break;
+        }
+      } catch (e) {}
+    }
+
+    // B. Patch MythcraftHUD Application Prototype
+    const appUrls = [
+      globalThis.foundry?.utils?.getRoute ? foundry.utils.getRoute("modules/mythcraft-hud/scripts/app/MythcraftHUD.js") : "/modules/mythcraft-hud/scripts/app/MythcraftHUD.js",
+      "/modules/mythcraft-hud/scripts/app/MythcraftHUD.js",
+    ];
+
+    for (const url of appUrls) {
+      try {
+        const hudAppModule = await import(url);
+        const MythcraftHUD = hudAppModule?.MythcraftHUD;
+        if (MythcraftHUD?.prototype && !MythcraftHUD.prototype._essencePatched) {
+          MythcraftHUD.prototype._essencePatched = true;
+
+          const origOnWeaponClick = MythcraftHUD.prototype._onWeaponClick;
+          MythcraftHUD.prototype._onWeaponClick = async function(event) {
+            event?.preventDefault?.();
+            event?.stopPropagation?.();
+            const actor = this.targetActor;
+            if (!actor) return;
+            const itemId = event.currentTarget?.dataset?.itemId;
+            const item = actor.items?.get(itemId);
+            if (item && item.type === "weapon") {
+              await rollWeaponItem(actor, item);
+              if (actor.type !== "npc") this.closeExpansion?.();
+              return;
+            }
+            if (typeof origOnWeaponClick === "function") {
+              return await origOnWeaponClick.call(this, event);
+            }
+          };
+          break;
+        }
+      } catch (e) {}
+    }
+
+    // C. Patch live game.mythHUD instance if already active
+    if (game.mythHUD && !game.mythHUD._essenceWeaponPatched) {
+      game.mythHUD._essenceWeaponPatched = true;
+      const origInstanceWeaponClick = game.mythHUD._onWeaponClick;
+      game.mythHUD._onWeaponClick = async function(event) {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+        const actor = this.targetActor;
+        if (!actor) return;
+        const itemId = event.currentTarget?.dataset?.itemId;
+        const item = actor.items?.get(itemId);
+        if (item && item.type === "weapon") {
+          await rollWeaponItem(actor, item);
+          if (actor.type !== "npc") this.closeExpansion?.();
+          return;
+        }
+        if (typeof origInstanceWeaponClick === "function") {
+          return await origInstanceWeaponClick.call(this, event);
+        }
+      };
+    }
+  }
+
+  patchMythcraftHUDIntegration();
+  if (!Hooks.events["renderMythcraftHUD"]?.some(fn => fn._essenceHudPatched)) {
+    const hudRenderHook = () => patchMythcraftHUDIntegration();
+    hudRenderHook._essenceHudPatched = true;
+    Hooks.on("renderMythcraftHUD", hudRenderHook);
   }
 }
 

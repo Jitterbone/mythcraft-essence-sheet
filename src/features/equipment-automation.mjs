@@ -958,45 +958,131 @@ export function getTwoHandedBaseFormula(weapon) {
  * @param {Actor} [actor=null]
  * @returns {number}
  */
-export function getWeaponAttackModifier(item, actor = null) {
-  if (!item) return 0;
+/**
+ * Safely extracts and resolves the weapon attack modifier breakdown (item-level and active-effect/actor-level).
+ * @param {Item} item
+ * @param {Actor} [actor=null]
+ * @returns {{ itemMod: number, aeMod: number, total: number, itemLabel: string, aeLabel: string }}
+ */
+export function getWeaponAttackModifierDetails(item, actor = null) {
+  if (!item) {
+    return { itemMod: 0, aeMod: 0, total: 0, itemLabel: "Weapon Attack Mod", aeLabel: "Attack Bonus" };
+  }
+
+  const effectiveActor = actor || item.actor || item.parent || null;
+  let itemMod = 0;
 
   // 1. Evaluated attackModifierValue from system data model
   if (typeof item.system?.attackModifierValue === "number" && !isNaN(item.system.attackModifierValue) && item.system.attackModifierValue !== 0) {
-    return item.system.attackModifierValue;
+    itemMod = item.system.attackModifierValue;
   }
 
   // 2. Raw attackModifier field
-  const rawMod = item.system?.attackModifier ?? item.flags?.["mythcraft-essence-sheet"]?.attackModifier;
-  if (typeof rawMod === "number" && !isNaN(rawMod)) return rawMod;
-  if (typeof rawMod === "string" && rawMod.trim()) {
-    const clean = rawMod.trim().replace(/^\+/, "");
-    const parsed = Number(clean);
-    if (!isNaN(parsed)) return parsed;
-    if (globalThis.mythcraft?.utils?.evaluateFormula && actor) {
-      try {
-        const evaled = Number(mythcraft.utils.evaluateFormula(rawMod, actor.getRollData?.() || {}));
-        if (!isNaN(evaled)) return evaled;
-      } catch (e) {}
+  if (itemMod === 0) {
+    const rawMod = item.system?.attackModifier ?? item.flags?.["mythcraft-essence-sheet"]?.attackModifier;
+    if (typeof rawMod === "number" && !isNaN(rawMod)) {
+      itemMod = rawMod;
+    } else if (typeof rawMod === "string" && rawMod.trim()) {
+      const clean = rawMod.trim();
+      const num = parseSignedNumber(clean, NaN);
+      if (!isNaN(num) && num !== 0) {
+        itemMod = num;
+      } else if (globalThis.mythcraft?.utils?.evaluateFormula && effectiveActor) {
+        try {
+          const evaled = Number(mythcraft.utils.evaluateFormula(clean, effectiveActor.getRollData?.() || {}));
+          if (!isNaN(evaled) && evaled !== 0) itemMod = evaled;
+        } catch (e) {}
+      }
     }
   }
 
-  // 3. System attackBonus / toHit / attackMod fallbacks
-  const fallbacks = [
-    item.system?.attackBonus,
-    item.system?.toHit,
-    item.system?.attackMod,
-    item.flags?.["mythcraft-essence-sheet"]?.attackBonus,
-    item.flags?.["mythcraft"]?.attackBonus,
-  ];
-  for (const fb of fallbacks) {
-    if (fb !== undefined && fb !== null && fb !== "") {
-      const parsed = Number(String(fb).trim().replace(/^\+/, ""));
-      if (!isNaN(parsed) && parsed !== 0) return parsed;
+  // 3. System attackBonus / toHit / attackMod / modifier / bonus fallbacks
+  if (itemMod === 0) {
+    const fallbacks = [
+      item.system?.attackBonus,
+      item.system?.toHit,
+      item.system?.attackMod,
+      item.system?.modifier,
+      item.system?.bonus,
+      item.flags?.["mythcraft-essence-sheet"]?.attackBonus,
+      item.flags?.["mythcraft-essence-sheet"]?.attackModifier,
+      item.flags?.["mythcraft"]?.attackBonus,
+      item.flags?.["mythcraft"]?.attackModifier,
+    ];
+    for (const fb of fallbacks) {
+      if (fb !== undefined && fb !== null && fb !== "") {
+        const parsed = parseSignedNumber(fb, NaN);
+        if (!isNaN(parsed) && parsed !== 0) {
+          itemMod = parsed;
+          break;
+        }
+      }
     }
   }
 
-  return 0;
+  // 4. Embedded Active Effects on the item itself (if any modify attack)
+  if (item.effects?.size || (Array.isArray(item.effects) && item.effects.length)) {
+    for (const eff of item.effects) {
+      if (eff.disabled) continue;
+      for (const change of eff.changes || []) {
+        const k = String(change.key || "").toLowerCase();
+        if (k.includes("attack") && !k.includes("damage") && !k.includes("spell")) {
+          const val = parseSignedNumber(change.value, 0);
+          if (val !== 0) itemMod += val;
+        }
+      }
+    }
+  }
+
+  // 5. Active Effects & Actor-level weapon attack bonuses
+  let aeMod = 0;
+  if (effectiveActor) {
+    const aeBonuses = getActorActiveEffectBonuses(effectiveActor);
+    const weaponAe = Number(aeBonuses?.weaponAttackBonus || 0);
+    const allAe = Number(aeBonuses?.allAttackBonus || 0);
+    aeMod = weaponAe + allAe;
+
+    // Direct actor system attack bonuses (if not already handled in aeBonuses)
+    if (!weaponAe && !allAe) {
+      const sysBonuses = [
+        effectiveActor.system?.bonuses?.attack?.weapon,
+        effectiveActor.system?.bonuses?.weapon?.attack,
+        effectiveActor.system?.bonuses?.attack?.all,
+        effectiveActor.system?.bonuses?.attack,
+        effectiveActor.system?.attackBonus,
+      ];
+      for (const sb of sysBonuses) {
+        if (sb !== undefined && sb !== null && sb !== "") {
+          const num = parseSignedNumber(sb, 0);
+          if (num !== 0) {
+            aeMod += num;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  const itemLabel = item.name ? `${item.name} Attack Mod` : "Weapon Attack Mod";
+  const aeLabel = "Attack Bonus";
+
+  return {
+    itemMod,
+    aeMod,
+    total: itemMod + aeMod,
+    itemLabel,
+    aeLabel,
+  };
+}
+
+/**
+ * Safely extracts and resolves the weapon attack modifier (from item schema, formulas, flags, active effects, or fallbacks).
+ * @param {Item} item
+ * @param {Actor} [actor=null]
+ * @returns {number}
+ */
+export function getWeaponAttackModifier(item, actor = null) {
+  return getWeaponAttackModifierDetails(item, actor).total;
 }
 
 /**
@@ -1013,31 +1099,34 @@ export function getWeaponDamageModifier(item, actor = null) {
     return item.system.damageModifierValue;
   }
 
+  const effectiveActor = actor || item.actor || item.parent || null;
+
   // 2. Raw damageModifier field
   const rawMod = item.system?.damageModifier ?? item.flags?.["mythcraft-essence-sheet"]?.damageModifier;
   if (typeof rawMod === "number" && !isNaN(rawMod)) return rawMod;
   if (typeof rawMod === "string" && rawMod.trim()) {
-    const clean = rawMod.trim().replace(/^\+/, "");
-    const parsed = Number(clean);
-    if (!isNaN(parsed)) return parsed;
-    if (globalThis.mythcraft?.utils?.evaluateFormula && actor) {
+    const parsed = parseSignedNumber(rawMod.trim(), NaN);
+    if (!isNaN(parsed) && parsed !== 0) return parsed;
+    if (globalThis.mythcraft?.utils?.evaluateFormula && effectiveActor) {
       try {
-        const evaled = Number(mythcraft.utils.evaluateFormula(rawMod, actor.getRollData?.() || {}));
+        const evaled = Number(mythcraft.utils.evaluateFormula(rawMod, effectiveActor.getRollData?.() || {}));
         if (!isNaN(evaled)) return evaled;
       } catch (e) {}
     }
   }
 
-  // 3. Fallbacks: damageBonus, damageMod
+  // 3. Fallbacks: damageBonus, damageMod, modifier, bonus
   const fallbacks = [
     item.system?.damageBonus,
     item.system?.damageMod,
+    item.system?.modifier,
+    item.system?.bonus,
     item.flags?.["mythcraft-essence-sheet"]?.damageBonus,
     item.flags?.["mythcraft"]?.damageBonus,
   ];
   for (const fb of fallbacks) {
     if (fb !== undefined && fb !== null && fb !== "") {
-      const parsed = Number(String(fb).trim().replace(/^\+/, ""));
+      const parsed = parseSignedNumber(fb, NaN);
       if (!isNaN(parsed) && parsed !== 0) return parsed;
     }
   }

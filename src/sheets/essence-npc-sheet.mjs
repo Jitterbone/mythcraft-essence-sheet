@@ -17,7 +17,7 @@ import ActorTagsAssignmentDialog from "../apps/actor-tags-dialog.mjs";
 import { enrichText, getEnrichedItemTags, rollItemDamage, rollSpellItem, getActorCritHit, getActorCritFail, hasAstoundingCritical } from "./essence-character-sheet.mjs";
 import { getDefenseTargetConfig, renderDefenseTargetBadgeHTML } from "../data/defense-config.mjs";
 import { findTagDefinition, formatTagTitle } from "../data/tags-library.mjs";
-import { applyEffectiveArmorAndDefenses, getWeaponAttackModifier } from "../features/equipment-automation.mjs";
+import { applyEffectiveArmorAndDefenses, getWeaponAttackModifier, getWeaponAttackModifierDetails } from "../features/equipment-automation.mjs";
 import { applyMessageRollMode } from "../features/roll-privacy.mjs";
 import { getSetting } from "../settings.mjs";
 import { getFullAttributeName } from "../features/homebrew-attributes.mjs";
@@ -325,7 +325,10 @@ export default class EssenceNPCSheet extends NPCSheet {
     if (!item) return;
 
     // Direct MythCraft NPC Attack Check Evaluation
-    const attackBonus = getWeaponAttackModifier(item, this.actor);
+    const details = getWeaponAttackModifierDetails(item, this.actor);
+    const itemAtkMod = details.itemMod;
+    const aeAtkBonus = details.aeMod;
+    const totalBonus = details.total;
     const defenseTarget = (item.system?.defense || item.system?.defenseTarget || "ar").toLowerCase();
 
     // Consumed Souls Modifier only affects damage, not attack modifier
@@ -344,14 +347,39 @@ export default class EssenceNPCSheet extends NPCSheet {
     ))) : 0;
 
     const formulaParts = ["1d20"];
-    if (attackBonus !== 0) {
-      const itemLabel = item.name ? `${item.name} Attack Mod` : "Attack Mod";
-      formulaParts.push(attackBonus > 0 ? `+ ${attackBonus}[${itemLabel}]` : `- ${Math.abs(attackBonus)}[${itemLabel}]`);
+    const modifiers = [];
+
+    if (itemAtkMod !== 0) {
+      const itemLabel = details.itemLabel || (item.name ? `${item.name} Attack Mod` : "Attack Mod");
+      formulaParts.push(itemAtkMod > 0 ? `+ ${itemAtkMod}[${itemLabel}]` : `- ${Math.abs(itemAtkMod)}[${itemLabel}]`);
+      modifiers.push({
+        label: itemLabel,
+        value: itemAtkMod,
+        text: itemAtkMod > 0 ? `+${itemAtkMod}` : `${itemAtkMod}`,
+        cssClass: itemAtkMod >= 0 ? "positive" : "negative",
+      });
     }
-    const formula = formulaParts.join(" ");
+
+    if (aeAtkBonus !== 0) {
+      const aeLabel = details.aeLabel || "Attack Bonus";
+      formulaParts.push(aeAtkBonus > 0 ? `+ ${aeAtkBonus}[${aeLabel}]` : `- ${Math.abs(aeAtkBonus)}[${aeLabel}]`);
+      modifiers.push({
+        label: aeLabel,
+        value: aeAtkBonus,
+        text: aeAtkBonus > 0 ? `+${aeAtkBonus}` : `${aeAtkBonus}`,
+        cssClass: aeAtkBonus >= 0 ? "positive" : "negative",
+      });
+    }
+
+    let formula = formulaParts.join(" ");
+    if (formula === "1d20") {
+      formula = "1d20 + 0[Attack Mod]";
+    }
 
     const critHit = getActorCritHit(this.actor);
     const critFail = getActorCritFail(this.actor);
+
+    const totalModText = totalBonus >= 0 ? `+${totalBonus}` : `${totalBonus}`;
 
     const AttackRollClass = globalThis.mythcraft?.rolls?.AttackRoll || Roll;
     const roll = new AttackRollClass(formula, this.actor.getRollData(), {
@@ -360,7 +388,14 @@ export default class EssenceNPCSheet extends NPCSheet {
       defenseTarget,
       critHit,
       critFail,
+      modifiers,
+      mythcraftBonusValue: totalBonus,
+      mythcraftBonusText: totalModText,
     });
+
+    roll.options.modifiers = modifiers;
+    roll.options.mythcraftBonusValue = totalBonus;
+    roll.options.mythcraftBonusText = totalModText;
 
     if (typeof roll.evaluate === "function" && !roll._evaluated) {
       await roll.evaluate();

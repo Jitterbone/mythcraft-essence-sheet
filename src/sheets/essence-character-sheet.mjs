@@ -81,6 +81,7 @@ import {
   getSafeWeaponApc,
   checkAndEnforceAp,
   getWeaponAttackModifier,
+  getWeaponAttackModifierDetails,
   getWeaponDamageModifier,
 } from "../features/equipment-automation.mjs";
 import { getSetting } from "../settings.mjs";
@@ -462,6 +463,59 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
       }
     }
 
+    const damageModifiers = [];
+    if (currentAttrMod !== 0) {
+      damageModifiers.push({
+        label: `${rawAttr.toUpperCase()} Modifier`,
+        value: currentAttrMod,
+        text: currentAttrMod > 0 ? `+${currentAttrMod}` : `${currentAttrMod}`,
+        cssClass: currentAttrMod >= 0 ? "positive" : "negative",
+      });
+    }
+    if (currentItemDmgMod !== 0) {
+      damageModifiers.push({
+        label: `${item.name} Damage Mod`,
+        value: currentItemDmgMod,
+        text: currentItemDmgMod > 0 ? `+${currentItemDmgMod}` : `${currentItemDmgMod}`,
+        cssClass: currentItemDmgMod >= 0 ? "positive" : "negative",
+      });
+    }
+    if (currentAffinity !== 0) {
+      damageModifiers.push({
+        label: "Affinity Bonus",
+        value: currentAffinity,
+        text: `+${currentAffinity}`,
+        cssClass: "positive",
+      });
+    }
+    if (currentClaimedSouls !== 0) {
+      damageModifiers.push({
+        label: "Consumed Souls",
+        value: currentClaimedSouls,
+        text: `+${currentClaimedSouls}`,
+        cssClass: "positive",
+      });
+    }
+    if (currentAeFlat !== 0) {
+      damageModifiers.push({
+        label: "Damage Bonus",
+        value: currentAeFlat,
+        text: currentAeFlat > 0 ? `+${currentAeFlat}` : `${currentAeFlat}`,
+        cssClass: currentAeFlat >= 0 ? "positive" : "negative",
+      });
+    }
+    if (isCrit && luckScore) {
+      damageModifiers.push({
+        label: "Luck Bonus",
+        value: luckScore,
+        text: luckScore > 0 ? `+${luckScore}` : `${luckScore}`,
+        cssClass: luckScore >= 0 ? "positive" : "negative",
+      });
+    }
+
+    const totalDmgMod = currentAttrMod + currentItemDmgMod + currentAffinity + currentClaimedSouls + currentAeFlat + ((isCrit && luckScore) ? luckScore : 0);
+    const totalDmgText = totalDmgMod >= 0 ? `+${totalDmgMod}` : `${totalDmgMod}`;
+
     const r = new RollClass(finalFormula, rollData, {
       type: dmgType,
       damageType: dmgType,
@@ -470,10 +524,16 @@ export async function rollItemDamage(actor, item, { isCrit = false, rollMode = n
       itemDmgMod: currentItemDmgMod,
       claimedSouls: currentClaimedSouls,
       isCrit,
+      modifiers: damageModifiers,
+      mythcraftBonusValue: totalDmgMod,
+      mythcraftBonusText: totalDmgText,
     });
     if (r.options) {
       r.options.type = dmgType;
       r.options.damageType = dmgType;
+      r.options.modifiers = damageModifiers;
+      r.options.mythcraftBonusValue = totalDmgMod;
+      r.options.mythcraftBonusText = totalDmgText;
     }
     await r.evaluate();
     rolls.push(r);
@@ -1104,11 +1164,18 @@ export async function rollSpellItem(actor, item, { rollMode = null } = {}) {
  * @param {Item} item
  * @param {object} [options={}]
  * @param {string|null} [options.rollMode=null]
+ * @param {number} [options.ta=0]
+ * @param {number} [options.td=0]
+ * @param {number} [options.bonus=0]
+ * @param {number} [options.apReduce=0]
+ * @param {string|null} [options.extraDice=null]
+ * @param {string|null} [options.extraType=null]
  */
-export async function rollWeaponItem(actor, item, { rollMode = null } = {}) {
+export async function rollWeaponItem(actor, item, { rollMode = null, ta = 0, td = 0, bonus = 0, apReduce = 0, extraDice = null, extraType = null } = {}) {
   if (!actor || !item || item.type !== "weapon") return;
 
-  const apc = getSafeWeaponApc(item, actor);
+  const baseApc = getSafeWeaponApc(item, actor);
+  const apc = Math.max(0, baseApc - (Number(apReduce) || 0));
   if (apc > 0 && game.combat?.started) {
     const allowed = await checkAndEnforceAp(actor, apc, item.name);
     if (!allowed) return;
@@ -1123,7 +1190,9 @@ export async function rollWeaponItem(actor, item, { rollMode = null } = {}) {
   const attrValue = Number(actor.system?.attributes?.[attr]?.value ?? actor.system?.attributes?.[attr] ?? 0);
   const critHit = getActorCritHit(actor);
   const critFail = getActorCritFail(actor);
-  const itemAtkMod = getWeaponAttackModifier(item, actor);
+  const details = getWeaponAttackModifierDetails(item, actor);
+  const itemAtkMod = details.itemMod;
+  const aeAtkBonus = details.aeMod;
   const luck = Number(actor.system?.attributes?.luck?.value ?? actor.system?.attributes?.luck ?? 0);
 
   // Consumed Souls Modifier only affects damage, not attack modifier
@@ -1141,22 +1210,87 @@ export async function rollWeaponItem(actor, item, { rollMode = null } = {}) {
     0
   ))) : 0;
 
-  // Build formula with distinct, labeled terms: 1d20 + X[ATTR] + Y[Item Attack Mod]
+  // Build formula and structured modifiers for both Essence cards and MythCraft HUD
   const attrLabel = attr.toUpperCase();
   const formulaParts = ["1d20"];
+  const modifiers = [];
 
+  // 1. Attribute modifier
   if (attrValue !== 0) {
     formulaParts.push(attrValue > 0 ? `+ ${attrValue}[${attrLabel}]` : `- ${Math.abs(attrValue)}[${attrLabel}]`);
+    modifiers.push({
+      label: `${attrLabel} Modifier`,
+      value: attrValue,
+      text: attrValue > 0 ? `+${attrValue}` : `${attrValue}`,
+      cssClass: attrValue >= 0 ? "positive" : "negative",
+    });
   }
 
+  // 2. Weapon item-level attack modifier
   if (itemAtkMod !== 0) {
-    const itemLabel = item.name ? `${item.name} Attack Mod` : "Weapon Attack Mod";
+    const itemLabel = details.itemLabel || (item.name ? `${item.name} Attack Mod` : "Weapon Attack Mod");
     formulaParts.push(itemAtkMod > 0 ? `+ ${itemAtkMod}[${itemLabel}]` : `- ${Math.abs(itemAtkMod)}[${itemLabel}]`);
+    modifiers.push({
+      label: itemLabel,
+      value: itemAtkMod,
+      text: itemAtkMod > 0 ? `+${itemAtkMod}` : `${itemAtkMod}`,
+      cssClass: itemAtkMod >= 0 ? "positive" : "negative",
+    });
   }
 
-  // MythCraft Rule: If LUCK < 0, subtract LUCK from every d20 roll
+  // 3. Active Effect / Actor-level attack bonus
+  if (aeAtkBonus !== 0) {
+    const aeLabel = details.aeLabel || "Attack Bonus";
+    formulaParts.push(aeAtkBonus > 0 ? `+ ${aeAtkBonus}[${aeLabel}]` : `- ${Math.abs(aeAtkBonus)}[${aeLabel}]`);
+    modifiers.push({
+      label: aeLabel,
+      value: aeAtkBonus,
+      text: aeAtkBonus > 0 ? `+${aeAtkBonus}` : `${aeAtkBonus}`,
+      cssClass: aeAtkBonus >= 0 ? "positive" : "negative",
+    });
+  }
+
+  // 4. Situational Bonus (e.g. from dialog or roll data)
+  const situationalBonus = Number(bonus) || 0;
+  if (situationalBonus !== 0) {
+    formulaParts.push(situationalBonus > 0 ? `+ ${situationalBonus}[Situational Bonus]` : `- ${Math.abs(situationalBonus)}[Situational Bonus]`);
+    modifiers.push({
+      label: "Situational Bonus",
+      value: situationalBonus,
+      text: situationalBonus > 0 ? `+${situationalBonus}` : `${situationalBonus}`,
+      cssClass: situationalBonus >= 0 ? "positive" : "negative",
+    });
+  }
+
+  // 5. MythCraft Rule: If LUCK < 0, subtract LUCK from every d20 roll
   if (luck < 0) {
     formulaParts.push(`- ${Math.abs(luck)}[Luck Penalty]`);
+    modifiers.push({
+      label: "Luck Penalty",
+      value: luck,
+      text: `${luck}`,
+      cssClass: "negative",
+    });
+  }
+
+  // 6. Tactical Advantage / Disadvantage
+  const taVal = Number(ta) || 0;
+  const tdVal = Number(td) || 0;
+  if (taVal > 0) {
+    modifiers.push({
+      label: "Tactical Advantage",
+      value: taVal,
+      text: `+${taVal}`,
+      cssClass: "positive",
+    });
+  }
+  if (tdVal > 0) {
+    modifiers.push({
+      label: "Tactical Disadvantage",
+      value: -tdVal,
+      text: `-${tdVal}`,
+      cssClass: "negative",
+    });
   }
 
   let formula = formulaParts.join(" ");
@@ -1164,16 +1298,40 @@ export async function rollWeaponItem(actor, item, { rollMode = null } = {}) {
     formula = `1d20 + 0[${attrLabel}]`;
   }
 
+  const rollData = actor.getRollData ? actor.getRollData() : {};
+  rollData.rollModes = {
+    ...(rollData.rollModes || {}),
+    ta: (rollData.rollModes?.ta || 0) + taVal,
+    td: (rollData.rollModes?.td || 0) + tdVal,
+    bonus: (rollData.rollModes?.bonus || 0) + situationalBonus,
+  };
+
+  const totalModBonus = attrValue + itemAtkMod + aeAtkBonus + situationalBonus + (luck < 0 ? luck : 0);
+  const totalModText = totalModBonus >= 0 ? `+${totalModBonus}` : `${totalModBonus}`;
+
+  // Damage array (plus extra dice if rolled from Tactical Dialog)
+  const damages = [{ formula: weaponData.effectiveFormula, type: weaponData.damageType || "blunt" }];
+  if (extraDice && String(extraDice).trim()) {
+    damages.push({ formula: String(extraDice).trim(), type: extraType || weaponData.damageType || "blunt" });
+  }
+
   const AttackRollClass = mythcraft?.rolls?.AttackRoll || Roll;
-  const roll = new AttackRollClass(formula, actor.getRollData(), {
+  const roll = new AttackRollClass(formula, rollData, {
     weaponName: item.name,
     weaponAttr: attr,
     flavor: `${item.name} - Attack Roll`,
     defenseTarget: item.system?.defenseTarget || "ar",
     critHit,
     critFail,
-    damage: [{ formula: weaponData.effectiveFormula, type: weaponData.damageType || "blunt" }],
+    damage: damages,
+    modifiers,
+    mythcraftBonusValue: totalModBonus,
+    mythcraftBonusText: totalModText,
   });
+
+  roll.options.modifiers = modifiers;
+  roll.options.mythcraftBonusValue = totalModBonus;
+  roll.options.mythcraftBonusText = totalModText;
 
   if (typeof roll.evaluate === "function" && !roll._evaluated) {
     await roll.evaluate();
@@ -1220,7 +1378,11 @@ export async function rollWeaponItem(actor, item, { rollMode = null } = {}) {
         <div class="roll-breakdown-details" style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin-top: 6px; padding-top: 5px; border-top: 1px dashed rgba(255, 255, 255, 0.15); font-size: 11px;">
           <span class="breakdown-part d20-part" style="padding: 2px 6px; background: rgba(0,0,0,0.35); border-radius: 4px; color: #cbd5e1;"><i class="fas fa-dice-d20"></i> ${d20Result} (Base d20)</span>
           ${attrValue !== 0 ? `<span class="breakdown-part attr-part" style="padding: 2px 6px; background: rgba(0,0,0,0.35); border-radius: 4px; color: #cbd5e1;">${attrValue > 0 ? `+${attrValue}` : attrValue} (${attrLabel})</span>` : ""}
-          ${itemAtkMod !== 0 ? `<span class="breakdown-part weapon-mod-part" style="padding: 2px 6px; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.45); border-radius: 4px; color: #6ee7b7; font-weight: 600;"><i class="fas fa-crosshairs"></i> ${itemAtkMod > 0 ? `+${itemAtkMod}` : itemAtkMod} (${item.name} Attack Mod)</span>` : ""}
+          ${itemAtkMod !== 0 ? `<span class="breakdown-part weapon-mod-part" style="padding: 2px 6px; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.45); border-radius: 4px; color: #6ee7b7; font-weight: 600;"><i class="fas fa-crosshairs"></i> ${itemAtkMod > 0 ? `+${itemAtkMod}` : itemAtkMod} (${details.itemLabel})</span>` : ""}
+          ${aeAtkBonus !== 0 ? `<span class="breakdown-part ae-mod-part" style="padding: 2px 6px; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.45); border-radius: 4px; color: #93c5fd; font-weight: 600;"><i class="fas fa-sparkles"></i> ${aeAtkBonus > 0 ? `+${aeAtkBonus}` : aeAtkBonus} (${details.aeLabel})</span>` : ""}
+          ${situationalBonus !== 0 ? `<span class="breakdown-part sit-mod-part" style="padding: 2px 6px; background: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.45); border-radius: 4px; color: #fcd34d; font-weight: 600;">${situationalBonus > 0 ? `+${situationalBonus}` : situationalBonus} (Situational Bonus)</span>` : ""}
+          ${taVal > 0 ? `<span class="breakdown-part ta-part" style="padding: 2px 6px; background: rgba(16, 185, 129, 0.2); border-radius: 4px; color: #6ee7b7;">+${taVal} (TA)</span>` : ""}
+          ${tdVal > 0 ? `<span class="breakdown-part td-part" style="padding: 2px 6px; background: rgba(239, 68, 68, 0.2); border-radius: 4px; color: #fca5a5;">-${tdVal} (TD)</span>` : ""}
           ${luck < 0 ? `<span class="breakdown-part luck-part" style="padding: 2px 6px; background: rgba(239, 68, 68, 0.2); border-radius: 4px; color: #fca5a5;">${luck} (Luck Penalty)</span>` : ""}
         </div>
         ${(isFumble && isAstounding) ? '<div class="astounding-fumble-banner" style="margin-top: 6px; padding: 4px 8px; background: rgba(192, 57, 43, 0.35); border: 1px solid #e74c3c; border-radius: 4px; color: #ff9999; font-size: 11px; font-weight: 700; text-align: center;"><i class="fas fa-skull-crossbones"></i> Astounding Critical Failure: Turn Ended &amp; AP Lost!</div>' : ''}

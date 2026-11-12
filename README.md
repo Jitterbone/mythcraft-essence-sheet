@@ -1,4 +1,4 @@
-# MythCraft Essence Sheet (v0.9.0-beta) 📜✨
+# MythCraft Essence Sheet (v0.9.1-beta) 📜✨
 
 [![Latest Release](https://img.shields.io/github/v/release/Jitterbone/mythcraft-essence-sheet?style=flat&logo=github&logoColor=white&color=22c55e&label=Latest%20Release)](https://github.com/Jitterbone/mythcraft-essence-sheet/releases/latest)
 [![Foundry VTT](https://img.shields.io/badge/Foundry%20VTT-v14%20Verified-ff6400?style=flat)](https://foundryvtt.com)
@@ -227,6 +227,17 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 ---
 
 ## 📝 Changelog
+
+### v0.9.1-beta
+- **Active Effect Form Submission Fix**:
+  - Fixed a bug where editing any field on a character or NPC sheet with Active Effects enabled caused HP (`system.hp.max`), SP (`system.sp.max`), Magic Power Levels (`system.powerLevel.*`), AP, Attributes, and Defenses to revert or double-count Active Effect bonuses on subsequent edits.
+  - Added `adjustDerivedSubmitData` so untouched derived fields are not written back into `_source` and manual edits save the true base value (`userInput - activeEffectDelta`).
+  - Removed redundant `change` listeners on Max HP and `.attr-num-input` that raced with `submitOnChange`.
+- **Legacy Sheet Active Effect Adjustment Tool (GM Settings)**:
+  - Added **Adjust Legacy Sheets** under *Module Settings → MythCraft Essence Sheet* with an irreversible-action warning, character selection & live preview, an *"Are you sure?"* confirmation step, and a detailed post-run log explaining what changed and why.
+  - Automatically subtracts enabled Canonical Talent & Feature Library Active Effect bonuses from selected legacy character sheets' saved base values so Active Effects handle them cleanly without double-counting.
+- **What's New Dialog Update**:
+  - Updated the *Important: Check Existing Character Sheets* section with step-by-step GM instructions for migrating legacy character sheets.
 
 ### v0.9.0-beta
 - **Active Effects Manager (AEM) & Automated Effects Suite**:

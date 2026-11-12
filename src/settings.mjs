@@ -10,6 +10,7 @@ import TagsManagementDialog from "./apps/tags-dialog.mjs";
 import HomebrewConfigDialog from "./apps/homebrew-config-dialog.mjs";
 import TalentCompendiumsConfigDialog from "./apps/talent-compendiums-config-dialog.mjs";
 import WhatsNewDialog from "./apps/whats-new-dialog.mjs";
+import LegacyAeAdjustmentDialog from "./apps/legacy-ae-adjustment-dialog.mjs";
 import { syncActorTalentActiveEffects } from "./features/active-effect-engine.mjs";
 import { DEFAULT_TAGS_LIBRARY } from "./data/tags-library.mjs";
 
@@ -419,6 +420,15 @@ export function registerSettings() {
         if (app.actor) app.render(false);
       }
     },
+  });
+
+  game.settings.registerMenu(MODULE_ID, "legacyAeAdjustmentMenu", {
+    name: "Adjust Legacy Sheets for Active Effects",
+    label: "Adjust Legacy Sheets",
+    hint: "WARNING (Irreversible): Automatically subtracts enabled Canonical Talent & Feature Library Active Effect bonuses (such as Max HP, Max SP, Power Levels, AP, and Attributes) from selected character sheets' saved base values so Active Effects handle them without double-counting. Always back up your world before running.",
+    icon: "fas fa-sliders",
+    type: LegacyAeAdjustmentDialog,
+    restricted: true,
   });
 
   game.settings.register(MODULE_ID, "whatsNewAcknowledgedVersion", {

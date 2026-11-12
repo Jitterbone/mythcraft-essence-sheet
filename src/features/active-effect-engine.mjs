@@ -3373,3 +3373,215 @@ export function adjustDerivedSubmitData(actor, submitData, { syncMaxHpFlag = fal
   return submitData;
 }
 
+function mapCanonicalEffectKeyToBaseField(key) {
+  const flagPrefix = `flags.${MODULE_ID}.bonuses.`;
+  if (key === "system.hp.max" || key === `${flagPrefix}hpMax` || key === "system.bonuses.hp.max") {
+    return { path: "system.hp.max", label: "Max HP", minVal: 0 };
+  }
+  if (key === "system.sp.max" || key === `${flagPrefix}spMax` || key === "system.bonuses.sp.max") {
+    return { path: "system.sp.max", label: "Max SP", minVal: 0 };
+  }
+  if (key === "system.ap.max" || key === `${flagPrefix}apMax` || key === "system.bonuses.ap.max") {
+    return { path: "system.ap.max", label: "Max AP", minVal: 0 };
+  }
+  if (key === "system.ap.special") {
+    return { path: "system.ap.special", label: "Special AP", minVal: 0 };
+  }
+  if (key === "system.defenses.ar") {
+    return { path: "system.defenses.ar", label: "AR (Armor Rating)", minVal: 0 };
+  }
+  if (key === "system.initiative.bonus") {
+    return { path: "system.initiative.bonus", label: "Initiative Bonus", minVal: -Infinity };
+  }
+  if (key.startsWith("system.powerLevel.")) {
+    const sub = key.slice("system.powerLevel.".length);
+    if (sub && !sub.includes(".")) {
+      const cap = sub.charAt(0).toUpperCase() + sub.slice(1);
+      return { path: key, label: `${cap} Power Level`, minVal: 0 };
+    }
+  }
+  if (key.startsWith("system.attributes.")) {
+    const sub = key.slice("system.attributes.".length);
+    if (sub && !sub.includes(".")) {
+      return { path: key, label: `Attribute (${sub.toUpperCase()})`, minVal: -Infinity };
+    }
+  }
+  if (key.startsWith("system.movement.")) {
+    const sub = key.slice("system.movement.".length);
+    if (sub && !sub.includes(".")) {
+      const cap = sub.charAt(0).toUpperCase() + sub.slice(1);
+      return { path: key, label: `Movement (${cap})`, minVal: 0 };
+    }
+  }
+  if (key.startsWith("system.skills.") && key.endsWith(".bonus")) {
+    const sub = key.slice("system.skills.".length, -".bonus".length);
+    if (sub && !sub.includes(".")) {
+      const cap = sub.charAt(0).toUpperCase() + sub.slice(1);
+      return { path: key, label: `Skill Bonus (${cap})`, minVal: 0 };
+    }
+  }
+  return null;
+}
+
+/**
+ * Preview the base-stat adjustments needed for a legacy character sheet so that
+ * enabled Canonical Talent/Feature Library Active Effects are not double-counted.
+ *
+ * @param {Actor} actor
+ * @returns {object}
+ */
+export function previewLegacyActorAeAdjustment(actor) {
+  const result = {
+    actorId: actor?.id || "",
+    actorName: actor?.name || "Unknown Actor",
+    actorImg: actor?.img || "icons/svg/mystery-man.svg",
+    libraryEffectCount: 0,
+    adjustments: [],
+    skippedAdjustments: [],
+    hasChanges: false,
+  };
+  if (!actor) return result;
+
+  const toDocArray = (col) => {
+    if (!col) return [];
+    if (Array.isArray(col)) return col;
+    if (typeof col.values === "function") return Array.from(col.values());
+    return Array.from(col);
+  };
+
+  const grouped = new Map();
+  for (const item of toDocArray(actor.items)) {
+    if (!item || (item.type !== "talent" && item.type !== "feature")) continue;
+    const isLibraryItem = Boolean(getTalentLibraryEntry(item) || item.flags?.[MODULE_ID]?.canonicalId);
+    if (!isLibraryItem) continue;
+
+    for (const effect of toDocArray(item.effects)) {
+      if (!effect) continue;
+      const effFlags = effect.flags?.[MODULE_ID] || {};
+      const isLibraryEffect = Boolean(effFlags.isCanonicalTalentEffect || effFlags.canonicalTalentId);
+      if (!isLibraryEffect) continue;
+      if (effect.disabled || !isItemEffectRequirementMet(item, effect)) continue;
+
+      result.libraryEffectCount += 1;
+      const changes = Array.isArray(effect.changes) ? effect.changes : [];
+      for (const ch of changes) {
+        const mode = Number(ch.mode ?? AE_MODES.ADD);
+        if (mode !== AE_MODES.ADD) continue;
+        const mapped = mapCanonicalEffectKeyToBaseField(String(ch.key || "").trim());
+        if (!mapped) continue;
+
+        const delta = evaluateEffectFormulaValue(ch.value, actor);
+        if (!Number.isFinite(delta) || delta === 0) continue;
+
+        if (!grouped.has(mapped.path)) {
+          grouped.set(mapped.path, {
+            path: mapped.path,
+            label: mapped.label,
+            minVal: mapped.minVal,
+            totalDelta: 0,
+            sources: [],
+          });
+        }
+        const entry = grouped.get(mapped.path);
+        entry.totalDelta += delta;
+        entry.sources.push({
+          itemName: item.name,
+          effectName: effect.name || item.name,
+          delta,
+        });
+      }
+    }
+  }
+
+  for (const entry of grouped.values()) {
+    if (entry.totalDelta === 0) continue;
+
+    let currentBase;
+    if (entry.path === "system.hp.max") {
+      const flagBase = actor.flags?.[MODULE_ID]?.maxHp;
+      currentBase = (flagBase !== undefined && flagBase !== null && flagBase !== "" && Number.isFinite(Number(flagBase)))
+        ? Number(flagBase)
+        : Number(getNestedProp(actor._source, "system.hp.max") ?? 0);
+    } else {
+      const rawSource = getNestedProp(actor._source, entry.path);
+      if (rawSource !== undefined && rawSource !== null && typeof rawSource === "object") continue;
+      currentBase = Number(rawSource ?? 0);
+    }
+
+    const rawNewBase = currentBase - entry.totalDelta;
+    const newBase = Number.isFinite(entry.minVal) ? Math.max(entry.minVal, rawNewBase) : rawNewBase;
+    const reasonText = entry.sources
+      .map(s => `${s.itemName} (${s.delta >= 0 ? "+" : ""}${s.delta})`)
+      .join(", ");
+
+    if (newBase === currentBase) {
+      result.skippedAdjustments.push({
+        path: entry.path,
+        label: entry.label,
+        currentBase,
+        newBase,
+        totalEffectDelta: entry.totalDelta,
+        sources: entry.sources,
+        reasonText,
+        skipReason: `Base ${entry.label} is already ${currentBase}; skipped to avoid negative base value.`,
+      });
+    } else {
+      result.adjustments.push({
+        path: entry.path,
+        label: entry.label,
+        currentBase,
+        newBase,
+        changeAmount: newBase - currentBase,
+        totalEffectDelta: entry.totalDelta,
+        sources: entry.sources,
+        reasonText,
+      });
+    }
+  }
+
+  result.hasChanges = result.adjustments.length > 0;
+  return result;
+}
+
+/**
+ * Applies the legacy Active Effect base-stat adjustments to a single actor and returns
+ * a detailed log entry explaining what changed and why.
+ *
+ * @param {Actor} actor
+ * @returns {Promise<object>}
+ */
+export async function applyLegacyActorAeAdjustment(actor) {
+  const preview = previewLegacyActorAeAdjustment(actor);
+  const logEntry = {
+    actorId: preview.actorId,
+    actorName: preview.actorName,
+    libraryEffectCount: preview.libraryEffectCount,
+    changed: preview.adjustments,
+    skipped: preview.skippedAdjustments,
+    updated: false,
+    error: null,
+  };
+
+  if (!actor || !preview.hasChanges) {
+    return logEntry;
+  }
+
+  const updates = {};
+  for (const adj of preview.adjustments) {
+    updates[adj.path] = adj.newBase;
+    if (adj.path === "system.hp.max") {
+      updates[`flags.${MODULE_ID}.maxHp`] = adj.newBase;
+    }
+  }
+
+  try {
+    await actor.update(updates);
+    logEntry.updated = true;
+  } catch (err) {
+    logEntry.error = err?.message || String(err);
+    console.error(`${MODULE_ID} | Failed to adjust legacy sheet "${actor.name}":`, err);
+  }
+
+  return logEntry;
+}
+

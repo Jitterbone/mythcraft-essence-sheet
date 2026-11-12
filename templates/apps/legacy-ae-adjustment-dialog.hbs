@@ -1,0 +1,208 @@
+<div class="legacy-ae-dialog-content" style="padding: 14px; display: flex; flex-direction: column; gap: 12px; color: #e2e8f0; max-height: 620px; overflow-y: auto;">
+
+  {{!-- Header --}}
+  <div class="dialog-header-card" style="display:flex; align-items:center; gap:12px; padding:12px 14px; background:rgba(15, 23, 42, 0.85); border:1px solid rgba(20, 184, 166, 0.35); border-radius:8px;">
+    <div style="width:40px; height:40px; border-radius:8px; background:rgba(20, 184, 166, 0.15); border:1px solid rgba(20, 184, 166, 0.4); display:flex; align-items:center; justify-content:center; color:#2dd4bf; font-size:18px; flex-shrink:0;">
+      <i class="fas fa-sliders"></i>
+    </div>
+    <div>
+      <h2 style="margin:0; font-size:15px; color:#f8fafc;">Legacy Sheet Active Effect Adjustment</h2>
+      <p style="margin:3px 0 0 0; font-size:11.5px; color:#94a3b8; line-height:1.4;">
+        Subtracts enabled Canonical Talent &amp; Feature Library Active Effect bonuses from saved base values so Active Effects handle them cleanly without double-counting.
+      </p>
+    </div>
+  </div>
+
+  {{#if isSelectStep}}
+    {{!-- Warning Banner --}}
+    <div style="background:rgba(127, 29, 29, 0.35); border:1px solid rgba(248, 113, 113, 0.55); border-radius:8px; padding:10px 14px;">
+      <div style="display:flex; align-items:center; gap:8px; color:#fca5a5; font-weight:700; font-size:12.5px; margin-bottom:4px;">
+        <i class="fas fa-triangle-exclamation"></i> Warning: Irreversible Sheet Base-Value Adjustment
+      </div>
+      <p style="margin:0; font-size:11.5px; color:#fecaca; line-height:1.45;">
+        Use this tool only for character sheets created before the Active Effects Engine was enabled (where talent/feature bonuses were entered manually into HP, SP, AP, Power Levels, Attributes, etc.).
+        For each selected character, this tool inspects <strong>enabled Active Effects from our Canonical Talent &amp; Feature Library</strong> and permanently subtracts their bonuses from the character's saved base stats.
+        <strong>This action is irreversible</strong> — back up your world before proceeding.
+      </p>
+    </div>
+
+    {{#unless talentAutomationEnabled}}
+      <div style="background:rgba(120, 53, 15, 0.35); border:1px solid rgba(251, 191, 36, 0.45); border-radius:8px; padding:8px 12px; font-size:11.5px; color:#fde68a;">
+        <i class="fas fa-circle-info"></i> <strong>Note:</strong> <em>Automate Talent Active Effects</em> is currently disabled in Module Settings. Enabled canonical library effects already attached to character items will still be detected below.
+      </div>
+    {{/unless}}
+
+    {{!-- Character Selection Toolbar --}}
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+      <div style="font-size:12px; font-weight:700; color:#cbd5e1;">
+        Select Character Sheets ({{characterRows.length}})
+      </div>
+      <div style="display:flex; gap:6px;">
+        <button type="button" data-action="selectWithChanges" style="padding:4px 10px; font-size:11px; border-radius:4px; background:rgba(20,184,166,0.18); border:1px solid rgba(20,184,166,0.45); color:#5eead4; cursor:pointer;">
+          Select With Effects
+        </button>
+        <button type="button" data-action="selectAll" style="padding:4px 10px; font-size:11px; border-radius:4px; background:rgba(51,65,85,0.7); border:1px solid #475569; color:#e2e8f0; cursor:pointer;">
+          Select All
+        </button>
+        <button type="button" data-action="deselectAll" style="padding:4px 10px; font-size:11px; border-radius:4px; background:rgba(51,65,85,0.7); border:1px solid #475569; color:#e2e8f0; cursor:pointer;">
+          Deselect All
+        </button>
+      </div>
+    </div>
+
+    {{!-- Character List --}}
+    {{#if hasCharacters}}
+      <div style="display:flex; flex-direction:column; gap:6px; max-height:300px; overflow-y:auto; padding-right:4px;">
+        {{#each characterRows}}
+          <label style="display:flex; align-items:flex-start; gap:10px; padding:8px 10px; border-radius:6px; background:rgba(15, 23, 42, 0.75); border:1px solid {{#if hasChanges}}rgba(20,184,166,0.35){{else}}rgba(71,85,105,0.45){{/if}}; cursor:pointer;">
+            <input type="checkbox" name="selectedActorId" value="{{actorId}}" {{#if checked}}checked{{/if}} style="margin-top:4px; accent-color:#14b8a6;" />
+            <img src="{{actorImg}}" alt="{{actorName}}" style="width:32px; height:32px; border-radius:4px; object-fit:cover; border:1px solid #334155; flex-shrink:0;" />
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                <span style="font-weight:700; font-size:12.5px; color:#f8fafc;">{{actorName}}</span>
+                <span style="font-size:10.5px; padding:1px 6px; border-radius:999px; background:rgba(30,41,59,0.9); border:1px solid #475569; color:#94a3b8;">
+                  {{libraryEffectCount}} library effect(s)
+                </span>
+              </div>
+              {{#if hasChanges}}
+                <div style="display:flex; flex-wrap:wrap; gap:5px; margin-top:5px;">
+                  {{#each adjustmentsFormatted}}
+                    <span style="font-size:10.5px; padding:2px 7px; border-radius:4px; background:rgba(20,184,166,0.14); border:1px solid rgba(20,184,166,0.35); color:#5eead4;" title="{{reasonText}}">
+                      {{label}}: {{currentBase}} &rarr; {{newBase}} ({{deltaLabel}})
+                    </span>
+                  {{/each}}
+                </div>
+              {{else}}
+                <div style="font-size:11px; color:#64748b; margin-top:3px;">
+                  No base-stat adjustments detected from enabled canonical library effects.
+                </div>
+              {{/if}}
+            </div>
+          </label>
+        {{/each}}
+      </div>
+    {{else}}
+      <div style="padding:16px; text-align:center; color:#94a3b8; background:rgba(15,23,42,0.6); border-radius:6px; border:1px dashed #475569;">
+        No character actors found in this world.
+      </div>
+    {{/if}}
+
+    {{!-- Footer --}}
+    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:4px; border-top:1px solid #334155; padding-top:10px;">
+      <button type="button" data-action="closeDialog" style="padding:6px 14px; border-radius:6px; background:rgba(51,65,85,0.8); border:1px solid #475569; color:#e2e8f0; cursor:pointer;">
+        Cancel
+      </button>
+      <button type="button" data-action="proceedToConfirm" style="padding:6px 16px; border-radius:6px; background:linear-gradient(135deg, #0d9488, #0f766e); border:1px solid #2dd4bf; color:#ffffff; font-weight:700; cursor:pointer;">
+        <i class="fas fa-arrow-right"></i> Review &amp; Apply...
+      </button>
+    </div>
+  {{/if}}
+
+  {{#if isConfirmStep}}
+    {{!-- "Are You Sure?" Confirmation Step --}}
+    <div style="background:rgba(127, 29, 29, 0.45); border:2px solid #ef4444; border-radius:8px; padding:14px;">
+      <h3 style="margin:0 0 6px 0; color:#fecaca; font-size:15px; display:flex; align-items:center; gap:8px;">
+        <i class="fas fa-triangle-exclamation"></i> Are you sure you want to apply these adjustments?
+      </h3>
+      <p style="margin:0; font-size:12px; color:#fee2e2; line-height:1.45;">
+        You are about to permanently subtract enabled Canonical Library Active Effect bonuses from <strong>{{selectedCount}}</strong> selected character sheet(s) ({{selectedWithChangesCount}} with pending changes).
+        <strong>This operation is irreversible</strong> and will overwrite the saved base values on those characters.
+      </p>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:8px; max-height:310px; overflow-y:auto; padding-right:4px;">
+      {{#each selectedRows}}
+        <div style="padding:8px 10px; border-radius:6px; background:rgba(15,23,42,0.8); border:1px solid #334155;">
+          <div style="font-weight:700; font-size:12.5px; color:#f8fafc; margin-bottom:4px;">{{actorName}}</div>
+          {{#if hasChanges}}
+            <ul style="margin:0; padding-left:18px; font-size:11.5px; color:#cbd5e1;">
+              {{#each adjustmentsFormatted}}
+                <li>
+                  <strong>{{label}}</strong>: {{currentBase}} &rarr; <strong>{{newBase}}</strong> ({{deltaLabel}})
+                  <span style="color:#94a3b8;">&mdash; from {{reasonText}}</span>
+                </li>
+              {{/each}}
+            </ul>
+          {{else}}
+            <div style="font-size:11px; color:#64748b;">No changes will be made to this character.</div>
+          {{/if}}
+        </div>
+      {{/each}}
+    </div>
+
+    <div style="display:flex; justify-content:space-between; gap:8px; margin-top:4px; border-top:1px solid #334155; padding-top:10px;">
+      <button type="button" data-action="backToSelect" style="padding:6px 14px; border-radius:6px; background:rgba(51,65,85,0.8); border:1px solid #475569; color:#e2e8f0; cursor:pointer;">
+        <i class="fas fa-arrow-left"></i> Go Back
+      </button>
+      <button type="button" data-action="executeAdjustment" style="padding:7px 16px; border-radius:6px; background:linear-gradient(135deg, #dc2626, #991b1b); border:1px solid #f87171; color:#ffffff; font-weight:700; cursor:pointer;">
+        <i class="fas fa-check"></i> Yes, Adjust Selected Sheets (Irreversible)
+      </button>
+    </div>
+  {{/if}}
+
+  {{#if isResultsStep}}
+    {{!-- Execution Log Step --}}
+    <div style="background:rgba(6, 78, 59, 0.35); border:1px solid rgba(52, 211, 153, 0.45); border-radius:8px; padding:10px 14px;">
+      <div style="font-weight:700; font-size:13px; color:#6ee7b7; display:flex; align-items:center; gap:8px;">
+        <i class="fas fa-circle-check"></i> Adjustment Complete
+      </div>
+      <p style="margin:4px 0 0 0; font-size:11.5px; color:#d1fae5;">
+        Updated <strong>{{updatedActorsCount}}</strong> character sheet(s) across <strong>{{totalFieldsAdjusted}}</strong> field(s). Review the detailed log below explaining what was changed and why.
+      </p>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:8px; max-height:330px; overflow-y:auto; padding-right:4px;">
+      {{#each logs}}
+        <div style="padding:10px 12px; border-radius:6px; background:rgba(15, 23, 42, 0.85); border:1px solid {{#if error}}#ef4444{{else if updated}}rgba(52,211,153,0.4){{else}}#334155{{/if}};">
+          <div style="font-weight:700; font-size:12.5px; color:#f8fafc; margin-bottom:4px;">
+            {{actorName}}
+            {{#if error}}
+              <span style="color:#f87171; font-size:11px; margin-left:6px;">(Error)</span>
+            {{else if updated}}
+              <span style="color:#34d399; font-size:11px; margin-left:6px;">(Updated)</span>
+            {{else}}
+              <span style="color:#94a3b8; font-size:11px; margin-left:6px;">(No Changes)</span>
+            {{/if}}
+          </div>
+
+          {{#if error}}
+            <div style="font-size:11.5px; color:#fca5a5;">{{error}}</div>
+          {{else}}
+            {{#if changed.length}}
+              <ul style="margin:4px 0 0 0; padding-left:18px; font-size:11.5px; color:#e2e8f0; line-height:1.45;">
+                {{#each changed}}
+                  <li>
+                    <strong>{{label}}</strong> changed from <code>{{currentBase}}</code> to <code>{{newBase}}</code> (<strong>{{deltaLabel}}</strong>)
+                    <div style="font-size:11px; color:#94a3b8;">
+                      Why: Subtracted bonus handled by Canonical Library Active Effect(s): {{reasonText}}
+                    </div>
+                  </li>
+                {{/each}}
+              </ul>
+            {{else}}
+              <div style="font-size:11.5px; color:#94a3b8;">No base-stat adjustments were applied.</div>
+            {{/if}}
+
+            {{#if skipped.length}}
+              <ul style="margin:6px 0 0 0; padding-left:18px; font-size:11px; color:#fbbf24;">
+                {{#each skipped}}
+                  <li>Skipped {{label}}: {{skipReason}} ({{reasonText}})</li>
+                {{/each}}
+              </ul>
+            {{/if}}
+          {{/if}}
+        </div>
+      {{/each}}
+    </div>
+
+    <div style="display:flex; justify-content:space-between; gap:8px; margin-top:4px; border-top:1px solid #334155; padding-top:10px;">
+      <button type="button" data-action="copyLog" style="padding:6px 14px; border-radius:6px; background:rgba(51,65,85,0.8); border:1px solid #475569; color:#e2e8f0; cursor:pointer;">
+        <i class="fas fa-copy"></i> Copy Log
+      </button>
+      <button type="button" data-action="closeDialog" style="padding:6px 16px; border-radius:6px; background:linear-gradient(135deg, #0d9488, #0f766e); border:1px solid #2dd4bf; color:#ffffff; font-weight:700; cursor:pointer;">
+        Done
+      </button>
+    </div>
+  {{/if}}
+
+</div>

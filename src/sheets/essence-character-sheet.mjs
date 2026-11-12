@@ -109,6 +109,7 @@ import {
 import ActiveEffectManager from "../apps/active-effect-manager.mjs";
 import {
   getActorActiveEffectBonuses,
+  adjustDerivedSubmitData,
   getCombinedDamageBonusFormula,
   getAllActorEffectsWithMeta,
   syncActorTalentActiveEffects,
@@ -3015,29 +3016,8 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       });
     });
 
-    // Max HP manual input listener (ensures true manual Max HP persists)
-    const maxHpInput = this.element.querySelector("input[name='system.hp.max']");
-    if (maxHpInput) {
-      maxHpInput.addEventListener("change", async (event) => {
-        const val = Math.max(0, parseInt(event.target.value, 10) || 0);
-        await this.actor.update({
-          "system.hp.max": val,
-          "flags.mythcraft-essence-sheet.maxHp": val,
-        });
-      });
-    }
-
-    // Direct attribute score change listener for standard, Sanity, and custom attributes
-    const attrInputs = this.element.querySelectorAll(".attr-num-input");
-    attrInputs.forEach(input => {
-      input.addEventListener("change", async (event) => {
-        const name = event.target.name;
-        const val = parseInt(event.target.value, 10);
-        if (!isNaN(val) && name) {
-          await this.actor.update({ [name]: val });
-        }
-      });
-    });
+    // Max HP and .attr-num-input are handled by submitOnChange -> _prepareSubmitData -> adjustDerivedSubmitData
+    // so Active Effect deltas are subtracted cleanly without concurrent update races.
 
     // Right-click to Delete Origin Items (Lineage, Background, Profession)
     const originFilledChips = this.element.querySelectorAll(".origin-chip.origin-filled");
@@ -3296,16 +3276,7 @@ export default class EssenceCharacterSheet extends CharacterSheet {
       }
     }
 
-    // If user edited system.hp.max in the form, ensure flags.mythcraft-essence-sheet.maxHp matches base Max HP (excluding Active Effect bonuses)
-    if (submitData["system.hp.max"] !== undefined && submitData["system.hp.max"] !== null) {
-      const aeHp = getActorActiveEffectBonuses(this.actor);
-      if (aeHp.hpMaxOverride === null || aeHp.hpMaxOverride === undefined) {
-        const rawInputMax = Number(submitData["system.hp.max"]);
-        const baseMax = Math.max(1, rawInputMax - (aeHp.hpMaxDelta || 0));
-        submitData["flags.mythcraft-essence-sheet.maxHp"] = baseMax;
-        submitData["system.hp.max"] = baseMax;
-      }
-    }
+    adjustDerivedSubmitData(this.actor, submitData, { syncMaxHpFlag: true });
 
     return submitData;
   }

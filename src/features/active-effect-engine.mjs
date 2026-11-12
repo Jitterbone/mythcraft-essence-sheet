@@ -3213,3 +3213,163 @@ async function syncShieldGrantFromEffect(actor, effect, isEnabling) {
   }
 }
 
+function hasFlatProp(obj, path) {
+  return !!obj && Object.prototype.hasOwnProperty.call(obj, path);
+}
+
+function getNestedProp(obj, path) {
+  if (!obj || !path) return undefined;
+  let cur = obj;
+  for (const part of path.split(".")) {
+    if (cur === null || cur === undefined || typeof cur !== "object") return undefined;
+    cur = cur[part];
+  }
+  return cur;
+}
+
+function hasNestedProp(obj, path) {
+  if (!obj || !path) return false;
+  let cur = obj;
+  for (const part of path.split(".")) {
+    if (cur === null || cur === undefined || typeof cur !== "object") return false;
+    if (!Object.prototype.hasOwnProperty.call(cur, part)) return false;
+    cur = cur[part];
+  }
+  return true;
+}
+
+function getSubmitProp(obj, path) {
+  if (hasFlatProp(obj, path)) return obj[path];
+  if (hasNestedProp(obj, path)) return getNestedProp(obj, path);
+  return undefined;
+}
+
+function setSubmitProp(obj, path, value) {
+  if (hasFlatProp(obj, path) || !obj.system || typeof obj.system !== "object") {
+    obj[path] = value;
+    return;
+  }
+  const parts = path.split(".");
+  let cur = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const p = parts[i];
+    if (!cur[p] || typeof cur[p] !== "object") cur[p] = {};
+    cur = cur[p];
+  }
+  cur[parts[parts.length - 1]] = value;
+}
+
+function deleteSubmitProp(obj, path) {
+  if (hasFlatProp(obj, path)) delete obj[path];
+  if (!hasNestedProp(obj, path)) return;
+  const parts = path.split(".");
+  let cur = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    cur = cur[parts[i]];
+  }
+  delete cur[parts[parts.length - 1]];
+}
+
+/**
+ * Adjusts form submission data for derived numeric actor fields modified by Active Effects
+ * so that untouched fields are not written back to `_source` and edited fields save their
+ * true base value (`userInput - aeDelta`).
+ *
+ * @param {Actor} actor
+ * @param {Record<string, any>} submitData
+ * @param {{ syncMaxHpFlag?: boolean }} [options]
+ * @returns {Record<string, any>}
+ */
+export function adjustDerivedSubmitData(actor, submitData, { syncMaxHpFlag = false } = {}) {
+  if (!actor || !submitData || typeof submitData !== "object") return submitData;
+
+  if (syncMaxHpFlag) {
+    const rawHpMax = getSubmitProp(submitData, "system.hp.max");
+    if (rawHpMax !== undefined && rawHpMax !== null && rawHpMax !== "") {
+      const numRaw = Number(rawHpMax);
+      if (Number.isFinite(numRaw)) {
+        const derivedVal = Number(getNestedProp(actor, "system.hp.max") ?? 0);
+        const flagBase = actor.flags?.[MODULE_ID]?.maxHp;
+        const sourceBase = (flagBase !== undefined && flagBase !== null && flagBase !== "" && Number.isFinite(Number(flagBase)))
+          ? Number(flagBase)
+          : Number(getNestedProp(actor._source, "system.hp.max") ?? 0);
+        const aeHp = getActorActiveEffectBonuses(actor);
+
+        if (aeHp.hpMaxOverride !== null && aeHp.hpMaxOverride !== undefined) {
+          if (numRaw === derivedVal) {
+            deleteSubmitProp(submitData, "system.hp.max");
+            deleteSubmitProp(submitData, `flags.${MODULE_ID}.maxHp`);
+          }
+        } else {
+          const delta = aeHp.hpMaxDelta ? Number(aeHp.hpMaxDelta) : (derivedVal - sourceBase);
+          if (numRaw === derivedVal) {
+            if (derivedVal !== sourceBase || hasNestedProp(actor.overrides || {}, "system.hp.max")) {
+              deleteSubmitProp(submitData, "system.hp.max");
+              deleteSubmitProp(submitData, `flags.${MODULE_ID}.maxHp`);
+            }
+          } else {
+            const baseMax = Math.max(0, numRaw - delta);
+            setSubmitProp(submitData, `flags.${MODULE_ID}.maxHp`, baseMax);
+            setSubmitProp(submitData, "system.hp.max", baseMax);
+          }
+        }
+      }
+    }
+  }
+
+  const derivedNumericPaths = [
+    "system.sp.max",
+    "system.ap.max",
+    "system.ap.special",
+    "system.hp.shield",
+    "system.death.max",
+    "system.lp.value",
+    "system.defenses.ar",
+  ];
+  if (!syncMaxHpFlag) {
+    derivedNumericPaths.push("system.hp.max");
+  }
+
+  const powerKeys = new Set([
+    "arcane", "divine", "occult", "primal", "psionic",
+    ...Object.keys(actor.system?.powerLevel || {}),
+  ]);
+  for (const k of powerKeys) {
+    derivedNumericPaths.push(`system.powerLevel.${k}`);
+  }
+
+  const attrKeys = new Set([
+    "str", "dex", "end", "awr", "int", "cha", "luck", "cor", "san",
+    ...Object.keys(actor.system?.attributes || {}),
+  ]);
+  for (const k of attrKeys) {
+    derivedNumericPaths.push(`system.attributes.${k}`);
+  }
+
+  for (const path of derivedNumericPaths) {
+    const rawVal = getSubmitProp(submitData, path);
+    if (rawVal === undefined || rawVal === null || rawVal === "") continue;
+    const numRaw = Number(rawVal);
+    if (!Number.isFinite(numRaw)) continue;
+
+    const derivedRaw = getNestedProp(actor, path);
+    if (derivedRaw !== undefined && derivedRaw !== null && typeof derivedRaw === "object") continue;
+    const derivedVal = Number(derivedRaw ?? 0);
+    const sourceVal = Number(getNestedProp(actor._source, path) ?? 0);
+    const isOverridden = hasNestedProp(actor.overrides || {}, path);
+
+    if (numRaw === derivedVal) {
+      if (derivedVal !== sourceVal || isOverridden) {
+        deleteSubmitProp(submitData, path);
+      }
+    } else {
+      const delta = derivedVal - sourceVal;
+      if (delta !== 0) {
+        setSubmitProp(submitData, path, numRaw - delta);
+      }
+    }
+  }
+
+  return submitData;
+}
+

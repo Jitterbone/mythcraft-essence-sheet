@@ -22,7 +22,7 @@ import { applyMessageRollMode } from "../features/roll-privacy.mjs";
 import { getSetting } from "../settings.mjs";
 import { getFullAttributeName } from "../features/homebrew-attributes.mjs";
 import ActiveEffectManager from "../apps/active-effect-manager.mjs";
-import { getAllActorEffectsWithMeta } from "../features/active-effect-engine.mjs";
+import { getAllActorEffectsWithMeta, adjustDerivedSubmitData } from "../features/active-effect-engine.mjs";
 
 
 
@@ -1791,6 +1791,8 @@ export default class EssenceNPCSheet extends NPCSheet {
         delete submitData["img"];
       }
     }
+
+    adjustDerivedSubmitData(this.actor, submitData, { syncMaxHpFlag: false });
 
     return submitData;
   }

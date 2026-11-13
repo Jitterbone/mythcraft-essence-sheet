@@ -8406,7 +8406,10 @@ export function normalizeSpellName(name) {
   const clean = name
     .trim()
     .toLowerCase()
-    .replace(/\s*\([^)]*\)\s*$/, "") // strip trailing parenthetical notes if any
+    .replace(/[’‘]/g, "'")
+    .replace(/[–—]/g, "-")
+    .replace(/\s*\([^)]*\)\s*$/g, "") // strip trailing parenthetical notes if any
+    .replace(/\s*\[[^\]]*\]\s*$/g, "") // strip trailing bracketed tags if any
     .replace(/\s+/g, " ")
     .trim();
   return SPELL_ALIASES[clean] || clean;
@@ -8430,8 +8433,15 @@ export function getSpellLibraryEntry(itemOrName) {
   const normKey = normalizeSpellName(rawName);
   if (SPELL_LIBRARY[normKey]) return SPELL_LIBRARY[normKey];
 
+  // Try stripping source prefix (e.g. "Arcane: Beam of Fire") or trailing dash note (e.g. "Beam of Fire - Cantrip")
+  const stripped = normKey
+    .replace(/^(arcane|divine|occult|primal|psionic)\s*:\s*/i, "")
+    .replace(/\s+-\s+(cantrip|prayer|ritual|chant|invocation|spell|arcane|divine|occult|primal|psionic)$/i, "")
+    .trim();
+  if (stripped && SPELL_LIBRARY[stripped]) return SPELL_LIBRARY[stripped];
+
   // Try matching without punctuation
-  const alphaKey = normKey.replace(/[^a-z0-9]/g, "");
+  const alphaKey = (stripped || normKey).replace(/[^a-z0-9]/g, "");
   for (const [k, entry] of Object.entries(SPELL_LIBRARY)) {
     if (k.replace(/[^a-z0-9]/g, "") === alphaKey) return entry;
   }

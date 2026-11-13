@@ -23,6 +23,7 @@ import { getSetting } from "../settings.mjs";
 import { getFullAttributeName } from "../features/homebrew-attributes.mjs";
 import ActiveEffectManager from "../apps/active-effect-manager.mjs";
 import { getAllActorEffectsWithMeta, adjustDerivedSubmitData } from "../features/active-effect-engine.mjs";
+import { getSpellLibraryEntry, evaluateSpellScalingAndUpcharge } from "../data/spell-library.mjs";
 
 
 
@@ -1374,12 +1375,24 @@ export default class EssenceNPCSheet extends NPCSheet {
         }
 
         const tags = getEnrichedItemTags(item);
+        const libEntry = getSpellLibraryEntry(item);
+        const scalingInfo = evaluateSpellScalingAndUpcharge(this.actor, libEntry || item);
+        const isAttack = libEntry
+          ? Boolean(libEntry.isAttack)
+          : Boolean(item.system?.isAttack ?? (item.system?.defenseTarget || item.system?.defense));
+        const targetDefense = libEntry?.target || item.system?.defenseTarget || item.system?.defense || null;
 
         return {
           item,
+          libEntry,
           expanded,
           magicSourceKey: sourceKey,
-          magicSourceLabel: cleanSourceLabel(rawSource),
+          magicSourceLabel: libEntry?.magicSource || cleanSourceLabel(rawSource),
+          spellTypeLabel: libEntry?.spellType || "Spell",
+          displayApc: libEntry ? (typeof libEntry.apc === "number" ? scalingInfo.effectiveApc : libEntry.apc) : (item.system?.apc ?? null),
+          displaySpc: libEntry ? (typeof libEntry.spc === "number" ? scalingInfo.effectiveSpc : libEntry.spc) : (item.system?.spc ?? null),
+          isAttack,
+          targetDefense,
           inlineTags,
           allTags,
           tags,

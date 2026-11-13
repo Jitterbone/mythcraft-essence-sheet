@@ -406,6 +406,11 @@ export async function executeUnifiedAction(actor, item, options = {}) {
   }
 
   // 5. Build chat message
+  const spellLibEntry = item.type === "spell" ? getSpellLibraryEntry(item) : null;
+  const spellHasLibDamage = spellLibEntry
+    ? evaluateSpellScalingAndUpcharge(actor, spellLibEntry).effectiveDamage?.length > 0
+    : false;
+
   const cardData = {
     actor,
     item,
@@ -416,7 +421,7 @@ export async function executeUnifiedAction(actor, item, options = {}) {
     isAstoundingFumble: isFumble && isAstounding,
     apCost,
     spCost,
-    hasDamage: !!(isBrassKnuckles(item) || isUnarmedOrNaturalWeapon(item) || item.system?.damage?.formula || item.system?.damageFormula || (Array.isArray(item.system?.damage) && item.system.damage.length > 0)),
+    hasDamage: !!(spellHasLibDamage || isBrassKnuckles(item) || isUnarmedOrNaturalWeapon(item) || item.system?.damage?.formula || item.system?.damageFormula || (Array.isArray(item.system?.damage) && item.system.damage.length > 0)),
   };
 
   const template = "modules/mythcraft-essence-sheet/templates/essence/chat/attack-card.hbs";

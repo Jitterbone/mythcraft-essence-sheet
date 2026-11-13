@@ -651,7 +651,22 @@ export function buildSpellLibraryChatControlsHTML(actor, item, libEntry, scaling
     : "";
 
   let baseDamageBtnHTML = "";
-  const effectiveDmg = scalingInfo?.effectiveDamage || [];
+  let effectiveDmg = scalingInfo?.effectiveDamage || [];
+  if (effectiveDmg.length === 0 && item?.system) {
+    const sysDmg = item.system.damage;
+    if (Array.isArray(sysDmg) && sysDmg.length > 0) {
+      effectiveDmg = sysDmg
+        .filter(d => d && (d.formula || typeof d === "string"))
+        .map(d => ({
+          formula: typeof d === "string" ? d : d.formula,
+          type: (typeof d === "object" ? (d.type || d.types?.[0]) : null) || item.system.damageType || "",
+        }));
+    } else if (sysDmg?.formula) {
+      effectiveDmg = [{ formula: sysDmg.formula, type: sysDmg.type || item.system.damageType || "" }];
+    } else if (item.system.damageFormula) {
+      effectiveDmg = [{ formula: item.system.damageFormula, type: item.system.damageType || "" }];
+    }
+  }
   if (includeBaseDamageBtn && effectiveDmg.length > 0) {
     const primary = effectiveDmg[0];
     const isHeal = Boolean(primary.isHeal || primary.type === "heal");
@@ -857,6 +872,9 @@ export async function postSpellDescriptionCard(actor, item, { deductResources = 
     ? (typeof libEntry.spc === "number" ? scalingInfo.effectiveSpc : libEntry.spc)
     : (sys.spc ?? sys.sp ?? null);
 
+  const apMode = getSetting("attackAPMode", "auto");
+  const spMode = getSetting("spellSPMode", "auto");
+
   if (deductResources) {
     const numAp = typeof apcVal === "number" ? apcVal : Number(apcVal) || 0;
     const numSp = typeof spcVal === "number" ? spcVal : Number(spcVal) || 0;
@@ -870,10 +888,10 @@ export async function postSpellDescriptionCard(actor, item, { deductResources = 
       if (!allowedSp) return;
     }
 
-    if (numAp > 0 && game.combat?.started && getSetting("attackAPMode", "auto") !== "disabled") {
+    if (numAp > 0 && game.combat?.started && apMode === "auto") {
       await deductAp(actor, numAp);
     }
-    if (numSp > 0 && getSetting("spellSPMode", "auto") !== "disabled") {
+    if (numSp > 0 && spMode === "auto") {
       await deductSp(actor, numSp);
     }
 
@@ -966,6 +984,9 @@ export async function postSpellDescriptionCard(actor, item, { deductResources = 
         itemName: item.name,
         defenseTarget: targetDefense || null,
         isNonAttackSpell: true,
+        isDescriptionPost: !deductResources,
+        spDeducted: deductResources && spMode !== "prompt",
+        apDeducted: deductResources && apMode !== "prompt",
       },
     },
   };
@@ -1006,10 +1027,13 @@ export async function rollSpellItem(actor, item, { rollMode = null } = {}) {
     if (!allowedSp) return;
   }
 
-  if (apc > 0 && game.combat?.started && getSetting("attackAPMode", "auto") !== "disabled") {
+  const apMode = getSetting("attackAPMode", "auto");
+  const spMode = getSetting("spellSPMode", "auto");
+
+  if (apc > 0 && game.combat?.started && apMode === "auto") {
     await deductAp(actor, apc);
   }
-  if (spc > 0 && getSetting("spellSPMode", "auto") !== "disabled") {
+  if (spc > 0 && spMode === "auto") {
     await deductSp(actor, spc);
   }
 
@@ -1146,6 +1170,8 @@ export async function rollSpellItem(actor, item, { rollMode = null } = {}) {
         critHit,
         isCrit,
         isFumble,
+        spDeducted: spMode !== "prompt",
+        apDeducted: apMode !== "prompt",
       },
     },
   };

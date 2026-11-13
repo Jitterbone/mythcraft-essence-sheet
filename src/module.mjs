@@ -868,8 +868,39 @@ Hooks.once("init", () => {
     }
   }
 
+  if (isEssenceSpellCard && item?.type === "spell" && actor && !isDamageMessage && !root.querySelector(".essence-chat-damage-btn")) {
+    const fallbackScaling = evaluateSpellScalingAndUpcharge(actor, spellLibEntry || item, { afterBaseDeduction: true });
+    const fallbackDmg = fallbackScaling?.effectiveDamage || [];
+    if (fallbackDmg.length > 0) {
+      const primary = fallbackDmg[0];
+      const isHeal = Boolean(primary.isHeal || primary.type === "heal");
+      const dmgLabel = fallbackDmg.map(d => `${d.formula} ${d.type || ""}`.trim()).join(" + ");
+      const btnWrap = document.createElement("div");
+      btnWrap.className = "chat-damage-action-wrap revealed";
+      btnWrap.style.marginTop = "6px";
+      btnWrap.innerHTML = `
+        <button type="button" class="essence-chat-damage-btn ${isCrit ? "crit-damage-btn" : ""}"
+                data-action="rollEssenceDamage"
+                data-is-crit="${isCrit ? "true" : "false"}"
+                data-item-id="${item.id}"
+                data-actor-id="${actor.id}">
+          <i class="fas fa-${isHeal ? "heart-pulse" : (isCrit ? "burst" : "dice-d20")}"></i>
+          <span>${isHeal ? `Roll Healing (${dmgLabel})` : `${isCrit ? "Roll Critical Damage" : "Roll Damage"} (${dmgLabel})`}</span>
+        </button>
+      `;
+      const cardBox = root.querySelector(".essence-spell-chat-card") || root;
+      const anchor = cardBox.querySelector(".spell-chat-upcharge-panel, .card-description, .description");
+      if (anchor && anchor.parentNode) {
+        anchor.parentNode.insertBefore(btnWrap, anchor);
+      } else {
+        cardBox.appendChild(btnWrap);
+      }
+    }
+  }
+
   if (isEssenceSpellCard || root.querySelector(".spell-card") || (item?.type === "weapon" && !isDamageMessage)) {
     const cleanDuplicateSpellButtons = () => {
+      if (!root.querySelector(".essence-chat-damage-btn")) return;
       root.querySelectorAll(".hud-action-button, .roll-spell-damage-btn").forEach(el => el.remove());
       root.querySelectorAll("button, a.button, [role='button']").forEach(btn => {
         if (

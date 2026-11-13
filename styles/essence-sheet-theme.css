@@ -17208,15 +17208,9 @@ tag-input .tag-chip-remove:hover {
   color: #fef08a;
 }
 
-/* Prevent external HUD / system duplicate damage buttons on Spell Library chat cards */
-.chat-message .essence-spell-chat-card .hud-action-button,
-.chat-message .essence-spell-chat-card .roll-spell-damage-btn,
-.chat-message .spell-card .hud-action-button,
-.chat-message .spell-card .roll-spell-damage-btn,
-.chat-message:has(.essence-spell-chat-card) .hud-action-button,
-.chat-message:has(.essence-spell-chat-card) .roll-spell-damage-btn,
-.chat-message:has(.spell-chat-upcharge-panel) .hud-action-button,
-.chat-message:has(.spell-chat-upcharge-panel) .roll-spell-damage-btn {
+/* Prevent external HUD / system duplicate damage buttons on Spell Library chat cards once Essence button is present */
+.chat-message:has(.essence-chat-damage-btn) .hud-action-button,
+.chat-message:has(.essence-chat-damage-btn) .roll-spell-damage-btn {
   display: none !important;
 }
 

@@ -1,4 +1,4 @@
-# MythCraft Essence Sheet (v0.9.1-beta) 📜✨
+﻿# MythCraft Essence Sheet (v0.9.1-hotfix) 📜✨
 
 [![Latest Release](https://img.shields.io/github/v/release/Jitterbone/mythcraft-essence-sheet?style=flat&logo=github&logoColor=white&color=22c55e&label=Latest%20Release)](https://github.com/Jitterbone/mythcraft-essence-sheet/releases/latest)
 [![Foundry VTT](https://img.shields.io/badge/Foundry%20VTT-v14%20Verified-ff6400?style=flat)](https://foundryvtt.com)
@@ -227,6 +227,14 @@ A complete suite of elegant, high-readability alternate actor and item sheets fo
 ---
 
 ## 📝 Changelog
+
+### v0.9.1-hotfix
+- **Spell SP & AP Deduction Fix**:
+  - Fixed a bug where casting spells deducted SP (and AP in combat) twice due to missing `spDeducted` / `apDeducted` flags on chat messages created by `rollSpellItem` and `postSpellDescriptionCard`, and ensured description-only posts set `isDescriptionPost: true`.
+  - Fixed `"prompt"` mode auto-deducting SP/AP before showing the confirmation prompt.
+- **Spell Attack & Damage Button Reliability**:
+  - Fixed spell damage roll buttons (such as *Beam of Fire* `1d10` fire) not appearing on chat cards and guarded CSS/JS duplicate-button cleanup so fallback buttons are never hidden unless `.essence-chat-damage-btn` is present.
+  - Hardened `normalizeSpellName` / `getSpellLibraryEntry` for variant compendium spell names, enriched NPC sheet spells with `SPELL_LIBRARY` attack/cost data, and updated `executeUnifiedAction` to read spell damage from `SPELL_LIBRARY`.
 
 ### v0.9.1-beta
 - **Active Effect Form Submission Fix**:
